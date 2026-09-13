@@ -1,0 +1,116 @@
+<header><h1>إعداد البريد الإلكتروني (Email)</h1></header>
+<p>يستطيع Hermes استقبال رسائل البريد الإلكتروني والرد عليها باستخدام بروتوكولَي IMAP و SMTP القياسيين. أرسل رسالة إلى عنوان الوكيل وسيردّ عليك ضمن سلسلة الرسائل نفسها، دون الحاجة إلى عميل خاص أو API لبوت. يعمل مع Gmail و Outlook و Yahoo و Fastmail، أو أي مزوّد يدعم IMAP/SMTP.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>محوّل Gateway فقط: بلا اعتماديات خارجية</div><div class="admonitionContent_BuS1"><p>تتناول هذه الصفحة محوّل (adapter) البريد الإلكتروني في gateway، والذي يستخدم وحدات Python المدمجة <code>imaplib</code> و <code>smtplib</code> و <code>email</code>. لا حاجة إلى أي حِزم إضافية أو خدمات خارجية لمسار gateway هذا.</p></div></div>
+<p>هذا المحوّل منفصل عن <a href="/docs/user-guide/skills/bundled/email/email-himalaya">مهارة البريد الإلكتروني Himalaya</a> المضمّنة، التي تتيح للوكيل إدارة البريد عبر أوامر الطرفية، وتتطلب أداة CLI الخارجية <code>himalaya</code> إضافةً إلى ملف إعدادات Himalaya.</p>
+<table><thead><tr><th>حالة الاستخدام</th><th>ما الذي تضبطه</th><th>الاعتمادية الخارجية</th></tr></thead><tbody><tr><td>السماح للآخرين بمراسلة وكيل Hermes عبر البريد الإلكتروني وتلقّي الردود</td><td>محوّل البريد الإلكتروني في gateway الموضّح في هذه الصفحة</td><td>لا شيء سوى حساب بريد إلكتروني يدعم IMAP/SMTP</td></tr><tr><td>السماح للوكيل بفحص رسائل صندوق البريد وكتابتها ونقلها وإدارتها من أدوات الطرفية</td><td>مهارة البريد الإلكتروني Himalaya</td><td>أداة CLI <code>himalaya</code> والملف <code>~/.config/himalaya/config.toml</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>حساب بريد إلكتروني مخصّص</strong> لوكيل Hermes (لا تستخدم بريدك الشخصي)</li>
+<li><strong>تفعيل IMAP</strong> على حساب البريد الإلكتروني</li>
+<li><strong>كلمة مرور تطبيق (App Password)</strong> إذا كنت تستخدم Gmail أو مزوّدًا آخر يفعّل المصادقة الثنائية (2FA)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gmail-setup">إعداد Gmail</h3>
+<ol>
+<li>فعّل المصادقة الثنائية (2-Factor Authentication) على حساب Google الخاص بك</li>
+<li>انتقل إلى <a href="https://myaccount.google.com/apppasswords" data-ext>App Passwords</a></li>
+<li>أنشئ App Password جديدة (اختر &quot;Mail&quot; أو &quot;Other&quot;)</li>
+<li>انسخ كلمة المرور المكوّنة من 16 حرفًا — ستستخدمها بدلًا من كلمة مرورك المعتادة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outlook--microsoft-365">Outlook / Microsoft 365</h3>
+<ol>
+<li>انتقل إلى <a href="https://account.microsoft.com/security" data-ext>Security Settings</a></li>
+<li>فعّل 2FA إن لم تكن مفعّلة بالفعل</li>
+<li>أنشئ App Password من قسم &quot;Additional security options&quot;</li>
+<li>مضيف IMAP: <code>outlook.office365.com</code>، ومضيف SMTP: <code>smtp.office365.com</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="other-providers">مزوّدون آخرون</h3>
+<p>يدعم معظم مزوّدي البريد الإلكتروني IMAP/SMTP. راجع توثيق مزوّدك لمعرفة:</p>
+<ul>
+<li>مضيف IMAP ومنفذه (عادةً المنفذ 993 مع SSL)</li>
+<li>مضيف SMTP ومنفذه (عادةً المنفذ 587 مع STARTTLS)</li>
+<li>ما إذا كانت كلمات مرور التطبيقات مطلوبة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="proton-mail-bridge--local-relays">Proton Mail Bridge / المرحّلات المحلية</h3>
+<p>يستمع Proton Mail Bridge (والمرحّلات المحلية المشابهة مثل MTA مستضاف ذاتيًا) على
+واجهة loopback باستخدام <strong>STARTTLS</strong> وشهادة موقّعة ذاتيًا، لذا لن تنجح الإعدادات الافتراضية
+(TLS الضمني على IMAP 993 والشهادات المُتحقَّق منها) في الاتصال. تجاوز إعدادات
+النقل في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>واضبط <code>EMAIL_IMAP_PORT=1143</code> / <code>EMAIL_SMTP_PORT=1025</code> إلى جانب بيانات اعتماد Bridge
+في <code>~/.hermes/.env</code>. تؤدي القيم غير المعروفة لـ <code>*_security</code> إلى تسجيل تحذير
+والرجوع إلى القيمة الافتراضية الآمنة. لا تعطّل <code>*_tls_verify</code> إلا لمضيفات loopback —
+إذ يسجّل Hermes تحذيرًا عند إيقاف التحقق لأي مضيف آخر.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-configure-hermes">الخطوة 1: اضبط Hermes</h2>
+<p>الطريقة الأسهل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اختر <strong>Email</strong> من قائمة المنصات. سيطلب منك المعالج عنوان بريدك الإلكتروني وكلمة المرور ومضيفَي IMAP/SMTP والمرسلين المسموح لهم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-configuration">الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-start-the-gateway">الخطوة 2: شغّل Gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>عند بدء التشغيل، يقوم المحوّل بما يلي:</p>
+<ol>
+<li>يختبر اتصالَي IMAP و SMTP</li>
+<li>يعلّم جميع الرسائل الموجودة في صندوق الوارد على أنها &quot;seen&quot; (فلا يعالج إلا الرسائل الجديدة)</li>
+<li>يبدأ الاستطلاع الدوري (polling) بحثًا عن رسائل جديدة</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="receiving-messages">استقبال الرسائل</h3>
+<p>يستطلع المحوّل صندوق وارد IMAP بحثًا عن الرسائل غير المقروءة (UNSEEN) على فترات قابلة للضبط (الافتراضي: 15 ثانية). لكل رسالة جديدة:</p>
+<ul>
+<li><strong>سطر الموضوع</strong> يُضمَّن كسياق (مثل <code>[Subject: Deploy to production]</code>)</li>
+<li><strong>رسائل الرد</strong> (التي يبدأ موضوعها بـ <code>Re:</code>) تتخطى بادئة الموضوع — لأن سياق السلسلة قائم بالفعل</li>
+<li><strong>المرفقات</strong> تُخزَّن مؤقتًا محليًا:
+<ul>
+<li>الصور (JPEG و PNG و GIF و WebP) → متاحة لأداة الرؤية (vision)</li>
+<li>المستندات (PDF و ZIP وغيرها) → متاحة للوصول إلى الملفات</li>
+</ul>
+</li>
+<li><strong>الرسائل المكتوبة بـ HTML فقط</strong> تُزال وسومها لاستخراج نص عادي</li>
+<li><strong>الرسائل الذاتية</strong> تُستبعد لمنع حلقات الرد المتكررة</li>
+<li><strong>المرسلون الآليون وعناوين noreply</strong> يُتجاهلون بصمت — <code>noreply@</code> و <code>mailer-daemon@</code> و <code>bounce@</code> و <code>no-reply@</code>، إضافةً إلى الرسائل التي تحمل الترويسات <code>Auto-Submitted</code> أو <code>Precedence: bulk</code> أو <code>List-Unsubscribe</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-replies">إرسال الردود</h3>
+<p>تُرسَل الردود عبر SMTP مع ربط صحيح لسلسلة الرسائل (threading):</p>
+<ul>
+<li>ترويستا <strong>In-Reply-To</strong> و <strong>References</strong> تحافظان على السلسلة</li>
+<li><strong>سطر الموضوع</strong> يُحفَظ مع البادئة <code>Re:</code> (دون تكرارها بالشكل <code>Re: Re:</code>)</li>
+<li><strong>Message-ID</strong> يُولَّد باستخدام نطاق الوكيل</li>
+<li>تُرسَل الردود كنص عادي (UTF-8)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-attachments">مرفقات الملفات</h3>
+<p>يستطيع الوكيل إرسال مرفقات ملفات ضمن الردود. ضمّن <code>MEDIA:/path/to/file</code> في الرد، وسيُرفَق الملف بالرسالة الصادرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skipping-attachments">تخطّي المرفقات</h3>
+<p>لتجاهل جميع المرفقات الواردة (للحماية من البرمجيات الخبيثة أو لتوفير عرض النطاق الترددي)، أضف ما يلي إلى <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عند تفعيل هذا الخيار، تُتخطّى أجزاء المرفقات والأجزاء المضمّنة (inline) قبل فك ترميز الحمولة. أما نص الرسالة فيُعالَج كالمعتاد.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h2>
+<p>التحكم في الوصول عبر البريد الإلكتروني أكثر صرامة افتراضيًا منه في منصات المحادثة:</p>
+<ol>
+<li><strong>عند ضبط <code>EMAIL_ALLOWED_USERS</code></strong> → تُعالَج الرسائل الواردة من تلك العناوين فقط</li>
+<li><strong>عند عدم ضبط قائمة سماح</strong> → يُتجاهَل المرسلون غير المعروفين بصمت</li>
+<li><strong><code>EMAIL_ALLOW_ALL_USERS=true</code></strong> → يُقبَل أي مرسل (استخدمه بحذر)</li>
+<li><strong><code>platforms.email.unauthorized_dm_behavior: pair</code></strong> → يتلقى المرسلون غير المعروفين رمز اقتران (pairing code)</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>استخدم صندوق وارد مخصّصًا واضبط <code>EMAIL_ALLOWED_USERS</code> للتشغيل الاعتيادي.</strong> الاقتران عبر البريد الإلكتروني اختياري ويتطلب تفعيلًا صريحًا، لأن صناديق الوارد المشتركة تحتوي غالبًا على رسائل غير مقروءة لا علاقة لها بالوكيل، ولا ينبغي أن يردّ Hermes على أصحابها افتراضيًا.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td><strong>&quot;IMAP connection failed&quot;</strong> عند بدء التشغيل</td><td>تحقّق من <code>EMAIL_IMAP_HOST</code> و <code>EMAIL_IMAP_PORT</code>. تأكد من تفعيل IMAP على الحساب. في Gmail، فعّله من Settings → Forwarding and POP/IMAP.</td></tr><tr><td><strong>&quot;SMTP connection failed&quot;</strong> عند بدء التشغيل</td><td>تحقّق من <code>EMAIL_SMTP_HOST</code> و <code>EMAIL_SMTP_PORT</code>. تأكد من صحة كلمة المرور (استخدم App Password مع Gmail).</td></tr><tr><td><strong>عدم استلام الرسائل</strong></td><td>تحقّق من أن <code>EMAIL_ALLOWED_USERS</code> يتضمن عنوان المرسل. راجع مجلد الرسائل غير المرغوب فيها (spam) — إذ يصنّف بعض المزوّدين الردود الآلية على أنها كذلك.</td></tr><tr><td><strong>&quot;Authentication failed&quot;</strong></td><td>في Gmail، يجب استخدام App Password لا كلمة مرورك المعتادة. تأكد أولًا من تفعيل 2FA.</td></tr><tr><td><strong>ردود مكرّرة</strong></td><td>تأكد من تشغيل نسخة واحدة فقط من gateway. راجع <code>hermes gateway status</code>.</td></tr><tr><td><strong>بطء الاستجابة</strong></td><td>فترة الاستطلاع الافتراضية 15 ثانية. قلّلها باستخدام <code>EMAIL_POLL_INTERVAL=5</code> لاستجابة أسرع (مقابل اتصالات IMAP أكثر).</td></tr><tr><td><strong>الردود لا تُربَط بالسلسلة</strong></td><td>يستخدم المحوّل ترويسات In-Reply-To. قد لا تربط بعض عملاء البريد (خاصة عملاء الويب) الرسائل الآلية بالسلسلة بشكل صحيح.</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>استخدم حساب بريد إلكتروني مخصّصًا.</strong> لا تستخدم بريدك الشخصي — فالوكيل يخزّن كلمة المرور في <code>.env</code> ويملك وصولًا كاملًا إلى صندوق الوارد عبر IMAP.</p></div></div>
+<ul>
+<li>استخدم <strong>App Passwords</strong> بدلًا من كلمة مرورك الرئيسية (إلزامية في Gmail مع 2FA)</li>
+<li>اضبط <code>EMAIL_ALLOWED_USERS</code> لتقييد من يمكنه التفاعل مع الوكيل</li>
+<li>تُخزَّن كلمة المرور في <code>~/.hermes/.env</code> — احمِ هذا الملف (<code>chmod 600</code>)</li>
+<li>يستخدم IMAP بروتوكول SSL (المنفذ 993) ويستخدم SMTP بروتوكول STARTTLS (المنفذ 587) افتراضيًا — أي أن الاتصالات مشفّرة</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables-reference">مرجع متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>EMAIL_ADDRESS</code></td><td>نعم</td><td>—</td><td>عنوان البريد الإلكتروني للوكيل</td></tr><tr><td><code>EMAIL_PASSWORD</code></td><td>نعم</td><td>—</td><td>كلمة مرور البريد الإلكتروني أو App Password</td></tr><tr><td><code>EMAIL_IMAP_HOST</code></td><td>نعم</td><td>—</td><td>مضيف خادم IMAP (مثل <code>imap.gmail.com</code>)</td></tr><tr><td><code>EMAIL_SMTP_HOST</code></td><td>نعم</td><td>—</td><td>مضيف خادم SMTP (مثل <code>smtp.gmail.com</code>)</td></tr><tr><td><code>EMAIL_IMAP_PORT</code></td><td>لا</td><td><code>993</code></td><td>منفذ خادم IMAP</td></tr><tr><td><code>EMAIL_SMTP_PORT</code></td><td>لا</td><td><code>587</code></td><td>منفذ خادم SMTP</td></tr><tr><td><code>EMAIL_POLL_INTERVAL</code></td><td>لا</td><td><code>15</code></td><td>عدد الثواني بين كل فحص لصندوق الوارد</td></tr><tr><td><code>EMAIL_ALLOWED_USERS</code></td><td>لا</td><td>—</td><td>عناوين المرسلين المسموح لهم، مفصولة بفواصل</td></tr><tr><td><code>EMAIL_HOME_ADDRESS</code></td><td>لا</td><td>—</td><td>وجهة التسليم الافتراضية لمهام cron</td></tr><tr><td><code>EMAIL_ALLOW_ALL_USERS</code></td><td>لا</td><td><code>false</code></td><td>السماح لجميع المرسلين (غير مستحسن)</td></tr></tbody></table>

@@ -1,0 +1,144 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugins">الإضافات (Plugins)</h2>
+<p>إضافة لوحة التحكم هي مجلد يحتوي على <code>manifest.json</code> وحزمة JS مبنيّة مسبقًا، ويمكن أن يحتوي اختياريًا على ملف CSS وملف Python يتضمن مسارات FastAPI. توجد الإضافات بجانب إضافات Hermes الأخرى في <code>~/.hermes/plugins/&lt;name&gt;/</code> — فامتداد لوحة التحكم هو مجلد فرعي باسم <code>dashboard/</code> داخل مجلد الإضافة، لذا يمكن لإضافة واحدة أن توسّع كلًّا من CLI/gateway ولوحة التحكم بتثبيت واحد.</p>
+<p>لا تتضمن الإضافات React أو مكوّنات الواجهة داخل حزمها، بل تستخدم <strong>Plugin SDK</strong> المتاح عبر <code>window.__HERMES_PLUGIN_SDK__</code>. وهذا يُبقي حزم الإضافات صغيرة جدًا (عادةً بضعة KB) ويتجنب تعارض الإصدارات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--your-first-plugin">البدء السريع — إضافتك الأولى</h3>
+<p>أنشئ بنية المجلدات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>اكتب ملف manifest:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>اكتب حزمة JS (دالة IIFE عادية — لا حاجة لخطوة بناء):</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أعد تحميل لوحة التحكم — سيظهر تبويبك في شريط التنقل بعد تبويب <strong>Skills</strong>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>استغنِ عن React.createElement</div><div class="admonitionContent_BuS1"><p>إذا كنت تفضّل JSX، فاستخدم أي أداة تجميع (bundler) مثل esbuild أو Vite أو rollup، مع جعل React تبعية خارجية (external) وضبط المُخرَج بصيغة IIFE. الشرط الإلزامي الوحيد هو أن يكون الملف النهائي ملف JS واحدًا يمكن تحميله عبر <code>&lt;script&gt;</code>. لا تُضمَّن React في الحزمة أبدًا؛ بل تأتي من <code>SDK.React</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-layout">بنية المجلد</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يمكن لمجلد إضافة واحد أن يحمل ثلاثة امتدادات مستقلة عن بعضها:</p>
+<ul>
+<li><code>plugin.yaml</code> + <code>__init__.py</code> — إضافة CLI/gateway (<a href="/docs/user-guide/features/plugins">راجع صفحة الإضافات</a>).</li>
+<li><code>dashboard/manifest.json</code> + <code>dashboard/dist/index.js</code> — إضافة لواجهة لوحة التحكم.</li>
+<li><code>dashboard/plugin_api.py</code> — مسارات الـ backend الخاصة بلوحة التحكم.</li>
+</ul>
+<p>لا يُشترط وجود أيٍّ منها؛ ضمّن الطبقات التي تحتاج إليها فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manifest-reference">مرجع ملف Manifest</h3>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<table><thead><tr><th>الحقل</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>name</code></td><td>نعم</td><td>معرّف فريد للإضافة. بأحرف صغيرة، والشرطات مسموحة. يُستخدم في عناوين URL وفي التسجيل.</td></tr><tr><td><code>label</code></td><td>نعم</td><td>الاسم المعروض في تبويب التنقل.</td></tr><tr><td><code>description</code></td><td>لا</td><td>وصف قصير (يظهر في واجهات الإدارة بلوحة التحكم).</td></tr><tr><td><code>icon</code></td><td>لا</td><td>اسم أيقونة من Lucide. القيمة الافتراضية <code>Puzzle</code>. والأسماء غير المعروفة تعود إلى <code>Puzzle</code>.</td></tr><tr><td><code>version</code></td><td>لا</td><td>سلسلة إصدار بصيغة Semver. القيمة الافتراضية <code>0.0.0</code>.</td></tr><tr><td><code>tab.path</code></td><td>نعم</td><td>مسار URL للتبويب (مثلًا <code>/my-plugin</code>).</td></tr><tr><td><code>tab.position</code></td><td>لا</td><td>موضع إدراج التبويب: <code>&quot;end&quot;</code> (الافتراضي)، أو <code>&quot;after:&lt;path&gt;&quot;</code>، أو <code>&quot;before:&lt;path&gt;&quot;</code> — والقيمة بعد النقطتين هي <strong>مقطع المسار</strong> للتبويب المستهدف (دون شرطة مائلة في البداية). أمثلة: <code>&quot;after:skills&quot;</code>، <code>&quot;before:config&quot;</code>.</td></tr><tr><td><code>tab.override</code></td><td>لا</td><td>اضبطه على مسار route مدمج (<code>&quot;/&quot;</code>، <code>&quot;/sessions&quot;</code>، <code>&quot;/config&quot;</code>، ...) لكي <strong>تستبدل</strong> تلك الصفحة بدلًا من إضافة تبويب جديد. راجع <a href="#replacing-built-in-pages-taboverride">استبدال الصفحات المدمجة</a>.</td></tr><tr><td><code>tab.hidden</code></td><td>لا</td><td>عند ضبطه على true، يُسجَّل المكوّن وأي slots دون إضافة تبويب إلى شريط التنقل. تستخدمه الإضافات التي تعتمد على الـ slots فقط. راجع <a href="#slot-only-plugins-tabhidden">إضافات تعتمد على الـ slots فقط</a>.</td></tr><tr><td><code>slots</code></td><td>لا</td><td>الـ slots المسمّاة في الـ shell التي تملؤها هذه الإضافة. <strong>للتوثيق فقط</strong> — فالتسجيل الفعلي يتم من حزمة JS عبر <code>registerSlot()</code>. وإدراج الـ slots هنا يجعل واجهات الاكتشاف أكثر إفادة.</td></tr><tr><td><code>entry</code></td><td>نعم</td><td>مسار حزمة JS نسبةً إلى <code>dashboard/</code>. القيمة الافتراضية <code>dist/index.js</code>.</td></tr><tr><td><code>css</code></td><td>لا</td><td>مسار ملف CSS يُحقن على شكل وسم <code>&lt;link&gt;</code>.</td></tr><tr><td><code>api</code></td><td>لا</td><td>مسار ملف Python يتضمن مسارات FastAPI. يُركَّب عند <code>/api/plugins/&lt;name&gt;/</code>.</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-icons">الأيقونات المتاحة</h4>
+<p>تستخدم الإضافات أسماء أيقونات Lucide. تربط لوحة التحكم هذه الأيقونات بأسمائها — والأسماء غير المعروفة تعود بصمت إلى <code>Puzzle</code>.</p>
+<p>الأيقونات المربوطة حاليًا: <code>Activity</code>، و <code>BarChart3</code>، و <code>Clock</code>، و <code>Code</code>، و <code>Database</code>، و <code>Eye</code>، و <code>FileText</code>، و <code>Globe</code>، و <code>Heart</code>، و <code>KeyRound</code>، و <code>MessageSquare</code>، و <code>Package</code>، و <code>Puzzle</code>، و <code>Settings</code>، و <code>Shield</code>، و <code>Sparkles</code>، و <code>Star</code>، و <code>Terminal</code>، و <code>Wrench</code>، و <code>Zap</code>.</p>
+<p>تحتاج إلى أيقونة مختلفة؟ افتح PR يعدّل الملف <code>web/src/App.tsx</code> بإضافتها إلى <code>ICON_MAP</code> — وهو تغيير إضافي بحت لا يمسّ شيئًا قائمًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-plugin-sdk">Plugin SDK</h3>
+<p>كل ما تحتاج إليه الإضافة موجود على <code>window.__HERMES_PLUGIN_SDK__</code>. ولا ينبغي للإضافات أن تستورد React مباشرةً أبدًا.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-your-plugins-backend">استدعاء الـ backend الخاص بإضافتك</h4>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>تحقن <code>fetchJSON</code> الـ token الخاص بمصادقة الجلسة، وتُظهر الأخطاء على شكل استثناءات تُرمى، وتحلّل JSON تلقائيًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-built-in-hermes-endpoints">استدعاء endpoints المدمجة في Hermes</h4>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>راجع <a href="/docs/user-guide/features/web-dashboard#rest-api">لوحة التحكم على الويب → REST API</a> للاطلاع على القائمة الكاملة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shell-slots">فتحات الـ shell (Shell slots)</h3>
+<p>تتيح الـ slots للإضافة حقن مكوّنات في مواقع مسمّاة داخل shell التطبيق — الشريط الجانبي لتخطيط cockpit، والشريط العلوي، والتذييل، وطبقة التراكب (overlay) — دون الحاجة إلى الاستحواذ على تبويب كامل. يمكن لعدة إضافات أن تملأ الـ slot نفسه؛ وتُعرض مكوّناتها متراصّة بترتيب التسجيل.</p>
+<p>سجّل من داخل حزمة الإضافة:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="slot-catalogue">كتالوج الـ Slots</h4>
+<p><strong>Slots على مستوى الـ shell بأكمله</strong> (تُعرض في أي مكان من إطار التطبيق):</p>
+<table><thead><tr><th>الـ Slot</th><th>الموقع</th></tr></thead><tbody><tr><td><code>backdrop</code></td><td>داخل مجموعة طبقات <code>&lt;Backdrop /&gt;</code>، فوق طبقة التشويش.</td></tr><tr><td><code>header-left</code></td><td>قبل شعار Hermes في الشريط العلوي.</td></tr><tr><td><code>header-right</code></td><td>قبل مُبدّلَي السمة واللغة في الشريط العلوي.</td></tr><tr><td><code>header-banner</code></td><td>شريط بعرض كامل أسفل شريط التنقل.</td></tr><tr><td><code>sidebar</code></td><td>الشريط الجانبي لتخطيط cockpit — <strong>لا يُعرض إلا عندما يكون <code>layoutVariant === &quot;cockpit&quot;</code></strong>.</td></tr><tr><td><code>pre-main</code></td><td>فوق منفذ عرض الـ route (داخل <code>&lt;main&gt;</code>).</td></tr><tr><td><code>post-main</code></td><td>أسفل منفذ عرض الـ route (داخل <code>&lt;main&gt;</code>).</td></tr><tr><td><code>footer-left</code></td><td>محتوى خلية التذييل (يحلّ محل المحتوى الافتراضي).</td></tr><tr><td><code>footer-right</code></td><td>محتوى خلية التذييل (يحلّ محل المحتوى الافتراضي).</td></tr><tr><td><code>overlay</code></td><td>طبقة ثابتة الموضع فوق كل شيء آخر. مفيدة للمؤثرات المرئية (خطوط المسح، والتظليل الطرفي) التي لا يستطيع <code>customCSS</code> تحقيقها وحده.</td></tr></tbody></table>
+<p><strong>Slots على مستوى الصفحة</strong> (تُعرض فقط في الصفحة المدمجة المسمّاة — استخدمها لحقن عناصر واجهة (widgets) أو بطاقات أو أشرطة أدوات في صفحة قائمة دون استبدال الـ route بأكمله):</p>
+<table><thead><tr><th>الـ Slot</th><th>مكان العرض</th></tr></thead><tbody><tr><td><code>sessions:top</code> / <code>sessions:bottom</code></td><td>أعلى / أسفل صفحة <code>/sessions</code>.</td></tr><tr><td><code>analytics:top</code> / <code>analytics:bottom</code></td><td>أعلى / أسفل صفحة <code>/analytics</code>.</td></tr><tr><td><code>logs:top</code> / <code>logs:bottom</code></td><td>أعلى (فوق شريط أدوات التصفية) / أسفل (تحت عارض السجلات) صفحة <code>/logs</code>.</td></tr><tr><td><code>cron:top</code> / <code>cron:bottom</code></td><td>أعلى / أسفل صفحة <code>/cron</code>.</td></tr><tr><td><code>skills:top</code> / <code>skills:bottom</code></td><td>أعلى / أسفل صفحة <code>/skills</code>.</td></tr><tr><td><code>config:top</code> / <code>config:bottom</code></td><td>أعلى / أسفل صفحة <code>/config</code>.</td></tr><tr><td><code>env:top</code> / <code>env:bottom</code></td><td>أعلى / أسفل صفحة <code>/env</code> (Keys).</td></tr><tr><td><code>docs:top</code> / <code>docs:bottom</code></td><td>أعلى (فوق الـ iframe) / أسفل صفحة <code>/docs</code>.</td></tr><tr><td><code>chat:top</code> / <code>chat:bottom</code></td><td>أعلى / أسفل صفحة <code>/chat</code> (لا تعمل إلا عند تفعيل المحادثة المضمّنة).</td></tr></tbody></table>
+<p>مثال — إضافة بطاقة إعلانية (banner) إلى أعلى صفحة Sessions:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>اجمع بين الـ slots على مستوى الصفحة و <code>tab.hidden: true</code> إذا كانت إضافتك تكتفي بتعزيز صفحات قائمة ولا تحتاج إلى تبويب خاص بها في الشريط الجانبي.</p>
+<p>لا يعرض الـ shell العنصر <code>&lt;PluginSlot name=&quot;...&quot; /&gt;</code> إلا للـ slots المذكورة أعلاه. أما الأسماء الإضافية فيقبلها السجل (registry) لاستخدامها في واجهات الإضافات المتداخلة — إذ يمكن للإضافة أن توفّر slots خاصة بها عبر <code>SDK.components.PluginSlot</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="re-registration-and-hmr">إعادة التسجيل و HMR</h4>
+<p>إذا سُجّل الزوج <code>(plugin, slot)</code> نفسه مرتين، فإن الاستدعاء اللاحق يحلّ محل السابق — وهذا يتوافق مع السلوك الذي يتوقعه React HMR عند إعادة تركيب الإضافات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="replacing-built-in-pages-taboverride">استبدال الصفحات المدمجة (<code>tab.override</code>)</h3>
+<p>عند ضبط <code>tab.override</code> على مسار route مدمج، يحلّ مكوّن الإضافة محل تلك الصفحة بدلًا من إضافة تبويب جديد. وهذا مفيد عندما تريد سمةٌ صفحة رئيسية مخصصة (<code>/</code>) مع إبقاء بقية لوحة التحكم على حالها.</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>عند ضبط <code>override</code>:</p>
+<ul>
+<li>يُزال مكوّن الصفحة الأصلي عند <code>/</code> من الـ router.</li>
+<li>تُعرض إضافتك عند <code>/</code> بدلًا منه.</li>
+<li>لا يُضاف تبويب تنقل لـ <code>tab.path</code> (فالهدف هو الاستبدال).</li>
+</ul>
+<p>لا يمكن إلا لإضافة واحدة أن تستبدل مسارًا معيّنًا. وإذا طالبت إضافتان بالاستبدال نفسه، تفوز الأولى وتُتجاهل الثانية مع تحذير في وضع التطوير.</p>
+<p>إذا كنت تحتاج فقط إلى إضافة بطاقة أو شريط أدوات إلى صفحة قائمة دون الاستحواذ عليها، فاستخدم <a href="#augmenting-built-in-pages-page-scoped-slots">الـ slots على مستوى الصفحة</a> بدلًا من ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="augmenting-built-in-pages-page-scoped-slots">تعزيز الصفحات المدمجة (slots على مستوى الصفحة)</h3>
+<p>الاستبدال الكامل عبر <code>tab.override</code> حلّ ثقيل — إذ تصبح إضافتك مسؤولة عن الصفحة بأكملها، بما في ذلك أي تحديثات مستقبلية نصدرها لها. وفي معظم الأحيان تريد فقط إضافة بطاقة إعلانية أو بطاقة أو شريط أدوات إلى صفحة قائمة. ولهذا الغرض وُجدت <strong>الـ slots على مستوى الصفحة</strong>.</p>
+<p>تتيح كل صفحة مدمجة الـ slots <code>&lt;page&gt;:top</code> و <code>&lt;page&gt;:bottom</code> التي تُعرض في أعلى منطقة محتواها وأسفلها. تملأ إضافتك أحدها باستدعاء <code>registerSlot()</code> — فتواصل الصفحة المدمجة عملها بشكل طبيعي، ويُعرض مكوّنك بجانبها.</p>
+<p>الـ slots المتاحة: <code>sessions:*</code>، و <code>analytics:*</code>، و <code>logs:*</code>، و <code>cron:*</code>، و <code>skills:*</code>، و <code>config:*</code>، و <code>env:*</code>، و <code>docs:*</code>، و <code>chat:*</code> (لكل منها <code>:top</code> و <code>:bottom</code>). راجع الكتالوج الكامل في <a href="#slot-catalogue">فتحات الـ shell → كتالوج الـ Slots</a>.</p>
+<p>مثال مبسّط — تثبيت بطاقة إعلانية في أعلى صفحة Sessions:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>النقاط الأساسية:</p>
+<ul>
+<li>يُبقي <code>tab.hidden: true</code> الإضافة خارج الشريط الجانبي — فليست لها صفحة مستقلة.</li>
+<li>حقل <code>slots</code> في ملف manifest للتوثيق فقط. أما الربط الفعلي فيتم في حزمة JS عبر <code>registerSlot()</code>.</li>
+<li>يمكن لعدة إضافات أن تطالب بالـ slot نفسه على مستوى الصفحة، وتُعرض متراصّة بترتيب التسجيل.</li>
+<li>لا أثر إطلاقًا عندما لا تُسجّل أي إضافة: تُعرض الصفحة المدمجة تمامًا كما كانت.</li>
+</ul>
+<p>تتضمن إضافة مرجعية (<code>example-dashboard</code> في <a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/example-dashboard" data-ext><code>hermes-example-plugins</code></a>) عرضًا حيًا يحقن بطاقة إعلانية في <code>sessions:top</code> — ثبّتها لترى النمط كاملًا من البداية إلى النهاية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="slot-only-plugins-tabhidden">إضافات تعتمد على الـ slots فقط (<code>tab.hidden</code>)</h3>
+<p>عند ضبط <code>tab.hidden: true</code>، تسجّل الإضافة مكوّنها (لمن يزور الـ URL مباشرةً) وأي slots، لكنها لا تضيف تبويبًا إلى شريط التنقل أبدًا. تستخدم ذلك الإضافات التي لا غرض لها سوى الحقن في الـ slots — مثل شعار في الشريط العلوي، أو HUD في الشريط الجانبي، أو طبقة تراكب.</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>تظل الحزمة تستدعي <code>register()</code> مع مكوّن نائب (وهي ممارسة جيدة تحسّبًا لزيارة أحدهم الـ URL مباشرةً)، ثم تستدعي <code>registerSlot()</code> لأداء العمل الفعلي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="backend-api-routes">مسارات API في الـ backend</h3>
+<p>يمكن للإضافات تسجيل مسارات FastAPI بضبط <code>api</code> في ملف manifest. أنشئ الملف وصدِّر منه <code>router</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>تُركَّب المسارات تحت <code>/api/plugins/&lt;name&gt;/</code>، لذا يصبح المثال أعلاه:</p>
+<ul>
+<li><code>GET  /api/plugins/my-plugin/data</code></li>
+<li><code>POST /api/plugins/my-plugin/action</code></li>
+</ul>
+<p>تقع مسارات API الخاصة بالإضافات خلف بوابة المصادقة المعتادة في لوحة التحكم — فالطلبات غير المصادَق عليها تتلقى <code>401</code> قبل تنفيذ مسار الإضافة، والطلبات الموجّهة إلى مسارات إضافة معطّلة تُرفض وقت الطلب. ومع ذلك، <strong>لا تعرض لوحة التحكم على واجهة شبكة عامة باستخدام <code>--host 0.0.0.0</code> إذا كنت تشغّل إضافات غير موثوقة</strong> — فأي جلسة مصادَق عليها يمكنها الوصول إلى مساراتها أيضًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="accessing-hermes-internals">الوصول إلى مكوّنات Hermes الداخلية</h4>
+<p>تعمل مسارات الـ backend داخل عملية لوحة التحكم، لذا يمكنها الاستيراد مباشرةً من قاعدة كود hermes-agent:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-css-per-plugin">CSS مخصص لكل إضافة</h3>
+<p>إذا احتاجت إضافتك إلى أنماط تتجاوز أصناف Tailwind والأنماط المضمّنة عبر <code>style=</code>، فأضف ملف CSS وأشِر إليه في ملف manifest:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>يُحقن الملف على شكل وسم <code>&lt;link&gt;</code> عند تحميل الإضافة. استخدم أسماء أصناف محددة لتجنب التعارض مع أنماط لوحة التحكم، واعتمد على متغيرات CSS الخاصة بلوحة التحكم لتبقى متوافقًا مع السمة:</p>
+<div class="language-css codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>توفّر لوحة التحكم كل token من shadcn على شكل <code>--color-*</code>، إضافةً إلى متغيرات السمة الإضافية (<code>--theme-asset-*</code>، و <code>--component-&lt;bucket&gt;-*</code>، و <code>--radius</code>، و <code>--spacing-mul</code>). اعتمد عليها وسيتغير مظهر إضافتك تلقائيًا مع السمة النشطة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-discovery--reload">اكتشاف الإضافات وإعادة تحميلها</h3>
+<p>تفحص لوحة التحكم ثلاثة مجلدات بحثًا عن <code>dashboard/manifest.json</code>:</p>
+<table><thead><tr><th>الأولوية</th><th>المجلد</th><th>تسمية المصدر</th></tr></thead><tbody><tr><td>1 (يفوز عند التعارض)</td><td><code>~/.hermes/plugins/&lt;name&gt;/dashboard/</code></td><td><code>user</code></td></tr><tr><td>2</td><td><code>&lt;repo&gt;/plugins/memory/&lt;name&gt;/dashboard/</code></td><td><code>bundled</code></td></tr><tr><td>2</td><td><code>&lt;repo&gt;/plugins/&lt;name&gt;/dashboard/</code></td><td><code>bundled</code></td></tr><tr><td>3</td><td><code>./.hermes/plugins/&lt;name&gt;/dashboard/</code></td><td><code>project</code> — فقط عند ضبط <code>HERMES_ENABLE_PROJECT_PLUGINS</code></td></tr></tbody></table>
+<p>تُخزَّن نتائج الاكتشاف مؤقتًا لكل عملية من عمليات لوحة التحكم. بعد إضافة إضافة جديدة، إما أن:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>…أو تعيد تشغيل <code>hermes dashboard</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-load-lifecycle">دورة حياة تحميل الإضافة</h4>
+<ol>
+<li>تُحمَّل لوحة التحكم. يوفّر <code>main.tsx</code> الـ SDK على <code>window.__HERMES_PLUGIN_SDK__</code> والسجل (registry) على <code>window.__HERMES_PLUGINS__</code>.</li>
+<li>يستدعي <code>App.tsx</code> الدالة <code>usePlugins()</code> → التي تجلب <code>GET /api/dashboard/plugins</code>.</li>
+<li>لكل ملف manifest: يُحقن <code>&lt;link&gt;</code> الخاص بـ CSS (إن كان مُعلَنًا)، ثم يحمّل وسم <code>&lt;script&gt;</code> حزمة JS.</li>
+<li>تُنفَّذ دالة IIFE الخاصة بالإضافة وتستدعي <code>window.__HERMES_PLUGINS__.register(name, Component)</code> — واختياريًا <code>.registerSlot(name, slot, Component)</code> لكل slot.</li>
+<li>تطابق لوحة التحكم المكوّن المسجَّل مع ملف manifest، وتضيف التبويب إلى شريط التنقل (ما لم يكن <code>hidden</code>)، وتركّب المكوّن كـ route.</li>
+</ol>
+<p>أمام الإضافات مهلة تصل إلى <strong>ثانيتين</strong> بعد تحميل السكربت الخاص بها لاستدعاء <code>register()</code>. بعد ذلك تتوقف لوحة التحكم عن الانتظار وتُكمل العرض الأولي. وإذا سُجّلت إضافة لاحقًا، فستظهر مع ذلك — لأن شريط التنقل تفاعلي.</p>
+<p>إذا فشل تحميل سكربت إضافة ما (404، أو خطأ في الصياغة، أو استثناء أثناء تنفيذ IIFE)، تسجّل لوحة التحكم تحذيرًا في console المتصفح وتواصل العمل بدونها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="combined-theme--plugin-demo">عرض توضيحي يجمع السمة والإضافة</h2>
+<p>الإضافة <a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/strike-freedom-cockpit" data-ext><code>strike-freedom-cockpit</code></a> (في المستودع المرافق <code>hermes-example-plugins</code>) عرض توضيحي كامل لتغيير المظهر. فهي تجمع ملف YAML لسمة مع إضافة تعتمد على الـ slots فقط لإنتاج واجهة HUD بأسلوب قمرة القيادة (cockpit) دون عمل fork للوحة التحكم.</p>
+<p><strong>ما الذي توضّحه:</strong></p>
+<ul>
+<li>سمة كاملة تستخدم لوحة الألوان، والخطوط، و <code>fontUrl</code>، و <code>layoutVariant: cockpit</code>، و <code>assets</code>، و <code>componentStyles</code> (زوايا بطاقات مشطوفة، وخلفيات متدرّجة)، و <code>colorOverrides</code>، و <code>customCSS</code> (طبقة تراكب لخطوط المسح).</li>
+<li>إضافة تعتمد على الـ slots فقط (<code>tab.hidden: true</code>) تُسجّل في ثلاثة slots:
+<ul>
+<li><code>sidebar</code> — لوحة MS-STATUS بأشرطة قياس حيّة تعتمد على <code>SDK.api.getStatus()</code>.</li>
+<li><code>header-left</code> — شعار فصيل يقرأ <code>--theme-asset-crest</code> من السمة النشطة.</li>
+<li><code>footer-right</code> — شعار نصي مخصص يحلّ محل سطر المؤسسة الافتراضي.</li>
+</ul>
+</li>
+<li>تقرأ الإضافة الأعمال الفنية التي توفّرها السمة عبر متغيرات CSS، لذا يؤدي تبديل السمات إلى تغيير الصورة الرئيسية/الشعار دون أي تعديل على كود الإضافة.</li>
+</ul>
+<p><strong>التثبيت:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>افتح لوحة التحكم، واختر <strong>Strike Freedom</strong> من مُبدّل السمات. سيظهر الشريط الجانبي لتخطيط cockpit، ويظهر الشعار في الشريط العلوي، ويحلّ الشعار النصي محل التذييل. عُد إلى <strong>Hermes Teal</strong> وستبقى الإضافة مثبّتة لكنها غير مرئية (إذ لا يُعرض الـ slot المسمّى <code>sidebar</code> إلا ضمن نمط التخطيط <code>cockpit</code>).</p>
+<p>اقرأ الكود المصدري للإضافة (<code>strike-freedom-cockpit/dashboard/dist/index.js</code> في المستودع المرافق) لترى كيف تقرأ متغيرات CSS، وكيف تحمي نفسها من إصدارات لوحة التحكم الأقدم التي لا تدعم الـ slots، وكيف تُسجّل ثلاثة slots من حزمة واحدة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-reference">مرجع API</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="theme-endpoints">Endpoints السمات</h3>
+<table><thead><tr><th>Endpoint</th><th>الطريقة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>/api/dashboard/themes</code></td><td>GET</td><td>يسرد السمات المتاحة واسم السمة النشطة. تُرجع السمات المدمجة <code>{name, label, description}</code>؛ أما سمات المستخدم فتتضمن أيضًا حقل <code>definition</code> يحتوي على كائن السمة الكامل بعد توحيد صيغته.</td></tr><tr><td><code>/api/dashboard/theme</code></td><td>PUT</td><td>يضبط السمة النشطة. جسم الطلب: <code>{&quot;name&quot;: &quot;midnight&quot;}</code>. يُحفظ في <code>config.yaml</code> تحت <code>dashboard.theme</code>.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-endpoints">Endpoints الإضافات</h3>
+<table><thead><tr><th>Endpoint</th><th>الطريقة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>/api/dashboard/plugins</code></td><td>GET</td><td>يسرد الإضافات المكتشفة (مع ملفات manifest، باستثناء الحقول الداخلية).</td></tr><tr><td><code>/api/dashboard/plugins/rescan</code></td><td>GET</td><td>يفرض إعادة فحص مجلدات الإضافات دون إعادة التشغيل.</td></tr><tr><td><code>/dashboard-plugins/&lt;name&gt;/&lt;path&gt;</code></td><td>GET</td><td>يقدّم الملفات الثابتة من مجلد <code>dashboard/</code> الخاص بالإضافة. ومحاولات تجاوز المسار (path traversal) محظورة.</td></tr><tr><td><code>/api/plugins/&lt;name&gt;/*</code></td><td>*</td><td>مسارات الـ backend التي تسجّلها الإضافات.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sdk-on-window">الـ SDK على <code>window</code></h3>
+<table><thead><tr><th>المتغير العام</th><th>النوع</th><th>المصدر</th></tr></thead><tbody><tr><td><code>window.__HERMES_PLUGIN_SDK__</code></td><td>object</td><td><code>registry.ts</code> — React، و hooks، ومكوّنات الواجهة، وعميل API، وأدوات مساعدة.</td></tr><tr><td><code>window.__HERMES_PLUGINS__.register(name, Component)</code></td><td>function</td><td>يسجّل المكوّن الرئيسي للإضافة.</td></tr><tr><td><code>window.__HERMES_PLUGINS__.registerSlot(name, slot, Component)</code></td><td>function</td><td>يسجّل في slot مسمّى داخل الـ shell.</td></tr></tbody></table>
+<hr>

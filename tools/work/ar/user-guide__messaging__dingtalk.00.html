@@ -1,0 +1,131 @@
+<header><h1>إعداد DingTalk</h1></header>
+<p>يتكامل Hermes Agent مع DingTalk (钉钉) كبوت محادثة (chatbot)، ما يتيح لك محادثة مساعد الذكاء الاصطناعي عبر الرسائل المباشرة أو المحادثات الجماعية. يتصل البوت عبر Stream Mode في DingTalk — وهو اتصال WebSocket طويل الأمد لا يتطلب عنوان URL عامًا أو خادم webhook — ويردّ برسائل منسّقة بصيغة markdown عبر session webhook API الخاصة بـ DingTalk.</p>
+<p>قبل الإعداد، إليك ما يريد معظم الناس معرفته: كيف يتصرف Hermes بعد انضمامه إلى مساحة عمل DingTalk الخاصة بك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-behaves">كيف يتصرف Hermes</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة (محادثة فردية 1:1)</strong></td><td>يردّ Hermes على كل رسالة، دون الحاجة إلى <code>@mention</code>. لكل محادثة مباشرة جلستها الخاصة.</td></tr><tr><td><strong>المحادثات الجماعية</strong></td><td>يردّ Hermes عندما تشير إليه بـ <code>@mention</code>. وبدون إشارة، يتجاهل Hermes الرسالة.</td></tr><tr><td><strong>المجموعات المشتركة بين عدة مستخدمين</strong></td><td>افتراضيًا، يعزل Hermes سجل الجلسة لكل مستخدم داخل المجموعة. فالشخصان اللذان يتحدثان في المجموعة نفسها لا يتشاركان سجل محادثة واحدًا ما لم تعطّل ذلك صراحةً.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-model-in-dingtalk">نموذج الجلسات في DingTalk</h3>
+<p>افتراضيًا:</p>
+<ul>
+<li>تحصل كل محادثة مباشرة على جلستها الخاصة</li>
+<li>يحصل كل مستخدم في محادثة جماعية مشتركة على جلسته الخاصة داخل تلك المجموعة</li>
+</ul>
+<p>يُتحكَّم في ذلك عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اضبطه على <code>false</code> فقط إذا كنت تريد صراحةً محادثة واحدة مشتركة للمجموعة بأكملها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يرشدك هذا الدليل خلال عملية الإعداد الكاملة — من إنشاء بوت DingTalk حتى إرسال رسالتك الأولى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>ثبّت حِزم Python المطلوبة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أو كلٌّ على حدة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<ul>
+<li><code>dingtalk-stream</code> — الـ SDK الرسمي من DingTalk لـ Stream Mode (مراسلة فورية قائمة على WebSocket)</li>
+<li><code>httpx</code> — عميل HTTP غير متزامن يُستخدم لإرسال الردود عبر session webhooks</li>
+<li><code>alibabacloud-dingtalk</code> — SDK لـ DingTalk OpenAPI يُستخدم لـ AI Cards وتفاعلات الإيموجي وتنزيل الوسائط</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-dingtalk-app">الخطوة 1: أنشئ تطبيق DingTalk</h2>
+<ol>
+<li>انتقل إلى <a href="https://open-dev.dingtalk.com/" data-ext>DingTalk Developer Console</a>.</li>
+<li>سجّل الدخول بحساب مسؤول DingTalk الخاص بك.</li>
+<li>انقر على <strong>Application Development</strong> → <strong>Custom Apps</strong> → <strong>Create App via H5 Micro-App</strong> (أو <strong>Robot</strong> بحسب إصدار وحدة التحكم لديك).</li>
+<li>املأ الحقول التالية:
+<ul>
+<li><strong>App Name</strong>: مثل <code>Hermes Agent</code></li>
+<li><strong>Description</strong>: اختياري</li>
+</ul>
+</li>
+<li>بعد الإنشاء، انتقل إلى <strong>Credentials &amp; Basic Info</strong> للعثور على <strong>Client ID</strong> (AppKey) و <strong>Client Secret</strong> (AppSecret). انسخ القيمتين.</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>تُعرض بيانات الاعتماد مرة واحدة فقط</div><div class="admonitionContent_BuS1"><p>لا يُعرض Client Secret إلا مرة واحدة عند إنشاء التطبيق. إذا فقدته، فستحتاج إلى إعادة توليده. لا تشارك بيانات الاعتماد هذه علنًا أبدًا، ولا تضفها في commit إلى Git.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-enable-the-robot-capability">الخطوة 2: فعّل قدرة Robot</h2>
+<ol>
+<li>في صفحة إعدادات تطبيقك، انتقل إلى <strong>Add Capability</strong> → <strong>Robot</strong>.</li>
+<li>فعّل قدرة الروبوت (robot).</li>
+<li>ضمن <strong>Message Reception Mode</strong>، اختر <strong>Stream Mode</strong> (موصى به — لا حاجة إلى عنوان URL عام).</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُعد Stream Mode الإعداد الموصى به. فهو يستخدم اتصال WebSocket طويل الأمد يبدأ من جهازك، لذا لا تحتاج إلى عنوان IP عام أو اسم نطاق أو webhook endpoint. ويعمل خلف NAT والجدران النارية وعلى الأجهزة المحلية.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-find-your-dingtalk-user-id">الخطوة 3: اعثر على User ID الخاص بك في DingTalk</h2>
+<p>يستخدم Hermes Agent معرّف المستخدم (User ID) الخاص بك في DingTalk للتحكم في من يمكنه التفاعل مع البوت. معرّفات المستخدمين في DingTalk سلاسل أبجدية رقمية يضبطها مسؤول مؤسستك.</p>
+<p>للعثور على معرّفك:</p>
+<ol>
+<li>اسأل مسؤول مؤسستك في DingTalk — إذ تُضبط معرّفات المستخدمين في وحدة تحكم مسؤول DingTalk ضمن <strong>Contacts</strong> → <strong>Members</strong>.</li>
+<li>بدلًا من ذلك، يسجّل البوت قيمة <code>sender_id</code> لكل رسالة واردة. شغّل gateway، وأرسل رسالة إلى البوت، ثم ابحث عن معرّفك في السجلات.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-configure-hermes-agent">الخطوة 4: اضبط Hermes Agent</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار A: الإعداد التفاعلي (موصى به)</h3>
+<p>نفّذ أمر الإعداد الموجَّه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اختر <strong>DingTalk</strong> عند المطالبة. يمكن لمعالج الإعداد إتمام التفويض عبر أحد مسارين:</p>
+<ul>
+<li><strong>تدفق الجهاز عبر رمز QR (موصى به).</strong> امسح رمز QR الذي يُطبع في الطرفية باستخدام تطبيق DingTalk على الهاتف — فتُعاد قيمتا Client ID و Client Secret تلقائيًا وتُكتبان في <code>~/.hermes/.env</code>، دون الحاجة إلى زيارة وحدة تحكم المطوّرين.</li>
+<li><strong>اللصق اليدوي.</strong> إذا كانت لديك بيانات الاعتماد مسبقًا (أو لم يكن مسح رمز QR مناسبًا)، فالصق Client ID و Client Secret ومعرّفات المستخدمين المسموح لهم عند المطالبة.</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>إفصاح بشأن علامة openClaw التجارية</div><div class="admonitionContent_BuS1"><p>نظرًا لأن قيمة <code>verification_uri_complete</code> في DingTalk مثبّتة برمجيًا على هوية openClaw في طبقة API، فإن رمز QR يمنح التفويض حاليًا تحت سلسلة المصدر <code>openClaw</code> إلى أن تسجّل Alibaba / DingTalk-Real-AI قالبًا خاصًا بـ Hermes من جهة الخادم. هذه مجرد طريقة عرض DingTalk لشاشة الموافقة — فالبوت الذي تنشئه ملكك بالكامل وخاص بالمستأجر (tenant) الخاص بك.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار B: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى ملف <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>إعدادات سلوك اختيارية في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<ul>
+<li><code>group_sessions_per_user: true</code> يُبقي سياق كل مشارك معزولًا داخل المحادثات الجماعية المشتركة</li>
+<li><code>require_mention: true</code> يمنع البوت من الرد على كل رسالة في المجموعة — فلا يجيب إلا عندما يشير إليه أحدهم بـ @mention</li>
+<li><code>allowed_users</code> ضمن <code>dingtalk.extra</code> بديل لـ <code>DINGTALK_ALLOWED_USERS</code>؛ اضبط أحدهما فقط (إذا ضُبط كلاهما، فلن يُصرَّح إلا للمستخدمين الموجودين في القائمتين معًا)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل Gateway</h3>
+<p>بعد الانتهاء من الإعداد، شغّل gateway الخاص بـ DingTalk:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>من المفترض أن يتصل البوت بـ Stream Mode في DingTalk خلال بضع ثوانٍ. أرسل إليه رسالة — سواء رسالة مباشرة أو في مجموعة أُضيف إليها — لاختباره.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك تشغيل <code>hermes gateway</code> في الخلفية أو كخدمة systemd للتشغيل المستمر. راجع مستندات النشر لمزيد من التفاصيل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ai-cards">AI Cards</h3>
+<p>يستطيع Hermes الرد باستخدام AI Cards في DingTalk بدلًا من رسائل markdown العادية. توفّر البطاقات عرضًا أغنى وأكثر تنظيمًا، وتدعم التحديثات المتدفقة (streaming) أثناء توليد الوكيل لرده.</p>
+<p>لتفعيل AI Cards، اضبط معرّف قالب البطاقة في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يمكنك العثور على معرّف قالب البطاقة في DingTalk Developer Console ضمن إعدادات AI Card الخاصة بتطبيقك. عند تفعيل AI Cards، تُرسَل جميع الردود كبطاقات مع تحديثات نصية متدفقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="emoji-reactions">تفاعلات الإيموجي</h3>
+<p>يضيف Hermes تلقائيًا تفاعلات إيموجي إلى رسائلك لإظهار حالة المعالجة:</p>
+<ul>
+<li>🤔Thinking — يُضاف عندما يبدأ البوت معالجة رسالتك</li>
+<li>🥳Done — يُضاف عند اكتمال الرد (ويحلّ محل تفاعل Thinking)</li>
+</ul>
+<p>تعمل هذه التفاعلات في الرسائل المباشرة والمحادثات الجماعية على حد سواء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="display-settings">إعدادات العرض</h3>
+<p>يمكنك تخصيص سلوك العرض في DingTalk بشكل مستقل عن المنصات الأخرى:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>لتعطيل عرض تقدّم الأدوات والرسائل الوسيطة للحصول على تجربة أنظف:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-not-responding-to-messages">البوت لا يردّ على الرسائل</h3>
+<p><strong>السبب</strong>: قدرة الروبوت غير مفعّلة، أو أن <code>DINGTALK_ALLOWED_USERS</code> لا يتضمن User ID الخاص بك.</p>
+<p><strong>الحل</strong>: تحقّق من تفعيل قدرة الروبوت في إعدادات تطبيقك ومن اختيار Stream Mode. وتحقّق من وجود User ID الخاص بك في <code>DINGTALK_ALLOWED_USERS</code>. ثم أعد تشغيل gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dingtalk-stream-not-installed-error">الخطأ &quot;dingtalk-stream not installed&quot;</h3>
+<p><strong>السبب</strong>: الحزمة <code>dingtalk-stream</code> الخاصة بـ Python غير مثبّتة.</p>
+<p><strong>الحل</strong>: ثبّتها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dingtalk_client_id-and-dingtalk_client_secret-required">الخطأ &quot;DINGTALK_CLIENT_ID and DINGTALK_CLIENT_SECRET required&quot;</h3>
+<p><strong>السبب</strong>: بيانات الاعتماد غير مضبوطة في البيئة أو في ملف <code>.env</code>.</p>
+<p><strong>الحل</strong>: تحقّق من ضبط <code>DINGTALK_CLIENT_ID</code> و <code>DINGTALK_CLIENT_SECRET</code> بشكل صحيح في <code>~/.hermes/.env</code>. قيمة Client ID هي AppKey، وقيمة Client Secret هي AppSecret من DingTalk Developer Console.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stream-disconnects--reconnection-loops">انقطاع Stream / حلقات إعادة الاتصال</h3>
+<p><strong>السبب</strong>: عدم استقرار الشبكة، أو صيانة منصة DingTalk، أو مشكلات في بيانات الاعتماد.</p>
+<p><strong>الحل</strong>: يعيد المحوّل (adapter) الاتصال تلقائيًا مع تراجع أسّي (exponential backoff) (2s → 5s → 10s → 30s → 60s). تحقّق من صلاحية بيانات الاعتماد ومن أن تطبيقك لم يُعطَّل. وتأكد من أن شبكتك تسمح باتصالات WebSocket الصادرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-offline">البوت غير متصل</h3>
+<p><strong>السبب</strong>: gateway الخاص بـ Hermes لا يعمل، أو فشل في الاتصال.</p>
+<p><strong>الحل</strong>: تحقّق من أن <code>hermes gateway</code> قيد التشغيل. راجع مخرجات الطرفية بحثًا عن رسائل الخطأ. المشكلات الشائعة: بيانات اعتماد خاطئة، أو تطبيق معطَّل، أو عدم تثبيت <code>dingtalk-stream</code> أو <code>httpx</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-session_webhook-available">الخطأ &quot;No session_webhook available&quot;</h3>
+<p><strong>السبب</strong>: حاول البوت الرد لكنه لا يملك عنوان URL لـ session webhook. يحدث ذلك عادةً إذا انتهت صلاحية webhook أو أُعيد تشغيل البوت بين استلام الرسالة وإرسال الرد.</p>
+<p><strong>الحل</strong>: أرسل رسالة جديدة إلى البوت — فكل رسالة واردة توفّر session webhook جديدًا للردود. هذا قيد طبيعي في DingTalk؛ إذ لا يستطيع البوت الرد إلا على الرسائل التي استلمها مؤخرًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>DINGTALK_ALLOWED_USERS</code> لتقييد من يمكنه التفاعل مع البوت. بدونه، يرفض gateway جميع المستخدمين افتراضيًا كإجراء احترازي. لا تُضف إلا معرّفات مستخدمين تثق بهم — فالمستخدمون المصرّح لهم يملكون وصولًا كاملًا إلى قدرات الوكيل، بما في ذلك استخدام الأدوات والوصول إلى النظام.</p></div></div>
+<p>لمزيد من المعلومات حول تأمين نشر Hermes Agent، راجع <a href="/docs/user-guide/security">دليل الأمان</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li><strong>Stream Mode</strong>: لا حاجة إلى عنوان URL عام أو اسم نطاق أو خادم webhook. يبدأ الاتصال من جهازك عبر WebSocket، لذا يعمل خلف NAT والجدران النارية.</li>
+<li><strong>AI Cards</strong>: يمكن اختياريًا الرد ببطاقات AI Cards غنية بدلًا من markdown العادي. اضبطها عبر <code>card_template_id</code>.</li>
+<li><strong>تفاعلات الإيموجي</strong>: تفاعلات 🤔Thinking/🥳Done تلقائية لإظهار حالة المعالجة.</li>
+<li><strong>ردود Markdown</strong>: تُنسَّق الردود بصيغة markdown الخاصة بـ DingTalk لعرض نص منسّق.</li>
+<li><strong>دعم الوسائط</strong>: تُستخرج الصور والملفات الموجودة في الرسائل الواردة تلقائيًا، ويمكن معالجتها بأدوات الرؤية (vision).</li>
+<li><strong>إزالة تكرار الرسائل</strong>: يزيل المحوّل الرسائل المكرّرة ضمن نافذة زمنية مدتها 5 دقائق لتجنّب معالجة الرسالة نفسها مرتين.</li>
+<li><strong>إعادة الاتصال التلقائية</strong>: إذا انقطع اتصال stream، يعيد المحوّل الاتصال تلقائيًا مع تراجع أسّي.</li>
+<li><strong>حدّ طول الرسالة</strong>: تُقيَّد الردود بحدّ أقصى 20,000 حرف لكل رسالة، وتُقتطع الردود الأطول.</li>
+</ul>

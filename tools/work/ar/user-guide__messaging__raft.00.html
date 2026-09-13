@@ -1,0 +1,36 @@
+<header><h1>إعداد Raft</h1></header>
+<p>يتّصل Hermes بـ<a href="https://raft.build" data-ext>Raft</a> كوكيل خارجي عبر جسر قناة إيقاظ (wake-channel bridge) محلي. يشغّل المحوّل نقطة نهاية HTTP على loopback تستقبل تلميحات إيقاظ خالية من المحتوى من الجسر، ثم يحقنها في خط أنابيب جلسة gateway الخاص بـ Hermes. يقرأ الوكيل الرسائل ويرسلها عبر Raft CLI — لا يلمس المحوّل أبدًا نصوص الرسائل أو مؤشرات التسليم.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="2"></x-keep></span>تقسيم العمل</div><div class="admonitionContent_BuS1"><ul>
+<li><strong>الجسر</strong> يتولى: استهلاك تلميحات الإيقاظ، وإزالة التكرار، والتراجع التدريجي (backoff)، وإعادة الاتصال، والتسليم بمرة واحدة على الأقل، وتسجيل الإثباتات.</li>
+<li><strong>محوّل Hermes</strong> يتولى: نقطة نهاية إيقاظ على localhost وحقن إشعار قصير في سياق الوكيل.</li>
+<li><strong>الوكيل</strong> يتولى: سحب الرسائل (<code>raft message check</code>)، والرد (<code>raft message send</code>)، وكل تفاعلات Raft الأخرى عبر CLI.</li>
+</ul><p>لا يحمل المحوّل أي بيانات اعتماد لـ Raft — فقط رمز مشترك (token) خاص بكل جلسة لمصادقة localhost بين الجسر ونقطة النهاية.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>مساحة عمل Raft</strong> يمكنك فيها إنشاء وكيل خارجي (External Agent)</li>
+<li><strong>Raft CLI</strong> مُثبَّت ومسجَّل الدخول إلى ملف تعريف ذلك الوكيل الخارجي</li>
+<li><strong>aiohttp</strong> — حزمة Python (مضمَّنة في إضافات (extras) <code>[all]</code> الخاصة بـ Hermes)</li>
+</ul>
+<p>في Raft، افتح قائمة Agents، وأنشئ وكيلًا خارجيًا، واتّبع بطاقة الإعداد لتثبيت Raft CLI وتسجيل دخول ملف تعريف الوكيل. بمجرد إنشاء الوكيل، يعرض Raft دليل إعداد Hermes مع متغيرات البيئة والإعدادات اللازمة لتشغيل gateway.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<p>أضِف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>هذا كل ما في الأمر — يُفعَّل المحوّل تلقائيًا عند ضبط <code>RAFT_PROFILE</code>. يولّد رمز جسر خاصًا بكل جلسة، ويختار منفذًا (port) مؤقتًا، وينشئ العملية الفرعية للجسر تلقائيًا عند تشغيل gateway.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ol>
+<li>يرسل خادم Raft تلميحات إيقاظ إلى عملية الجسر عبر SSE.</li>
+<li>يُعيد الجسر توجيه كل تلميح كـ <code>POST /wake</code> إلى نقطة نهاية loopback الخاصة بالمحوّل.</li>
+<li>يتحقق المحوّل من رمز الجسر، ويتأكد أن الحمولة خالية من المحتوى، ثم يحقن إشعار إيقاظ في جلسة Hermes.</li>
+<li>يرى الوكيل إشعار الإيقاظ ويستخدم Raft CLI لقراءة الرسائل والرد.</li>
+</ol>
+<p>حمولات الإيقاظ <strong>خالية من المحتوى بموجب العقد (contract)</strong> — تحمل بيانات وصفية (معرّف الحدث، ومعرّف الرسالة، والطوابع الزمنية) لكن أبدًا نصوص الرسائل، أو أسماء القنوات، أو هويات المُرسِلين. يرفض المحوّل أي حمولة تحتوي حقولًا شبيهة بالمحتوى (<code>text</code>، و<code>body</code>، و<code>content</code>، و<code>messages</code>، إلخ).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bridge">الجسر (Bridge)</h2>
+<p>ينشئ المحوّل تلقائيًا <code>raft agent bridge</code> كعملية فرعية، مُمرِّرًا رابط نقطة النهاية والرمز. يتصل الجسر بخادم Raft باستخدام ملف التعريف المُعَدّ ويبدأ بإعادة توجيه تلميحات الإيقاظ. يُنهى عند إيقاف gateway.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>الوصف</th><th>القيمة الافتراضية</th></tr></thead><tbody><tr><td><code>RAFT_PROFILE</code></td><td>slug ملف تعريف وكيل Raft — يفعّل المحوّل تلقائيًا عند ضبطه</td><td><em>(مطلوب)</em></td></tr></tbody></table>

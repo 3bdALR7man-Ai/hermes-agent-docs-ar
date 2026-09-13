@@ -1,0 +1,228 @@
+<header><h1>الذاكرة الدائمة</h1></header>
+<p>يملك Hermes Agent ذاكرة محدودة ومنسَّقة تستمر عبر الجلسات. هذا يتيح له تذكّر تفضيلاتك، ومشاريعك، وبيئتك، والأشياء التي تعلّمها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف تعمل</h2>
+<p>يتكوّن ذاكرة الوكيل من ملفين:</p>
+<table><thead><tr><th>الملف</th><th>الغرض</th><th>حدّ الأحرف</th></tr></thead><tbody><tr><td><strong>MEMORY.md</strong></td><td>الملاحظات الشخصية للوكيل — حقائق البيئة، والاصطلاحات، والأشياء المُتعلَّمة</td><td>2,200 حرف (~800 token)</td></tr><tr><td><strong>USER.md</strong></td><td>الملف الشخصي للمستخدم — تفضيلاتك، وأسلوب تواصلك، وتوقعاتك</td><td>1,375 حرفًا (~500 token)</td></tr></tbody></table>
+<p>يُخزَّن كلا الملفين في <code>~/.hermes/memories/</code> ويُحقنان في system prompt كلقطة مجمَّدة عند بدء الجلسة. يدير الوكيل ذاكرته بنفسه عبر أداة <code>memory</code> — يمكنه إضافة إدخالات أو استبدالها أو إزالتها.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>وكيل واحد لكل Hermes home</div><div class="admonitionContent_BuS1"><p>لا توجّه عمليتي وكيل إلى نفس دليل Hermes home. كتابات الذاكرة تلقائية وتُحمَّل مجددًا إلى system prompt عند بدء الجلسة، لذا فإن كاتبَين يتشاركان home واحدًا سيراكمان إدخالات كل منهما إلى حالة لم يؤلّفها أيّ منهما (ولا أنت). الذاكرة محصورة النطاق لكل <a href="/docs/user-guide/profiles">profile</a> بالتصميم — امنح الوكيل الثاني profile خاصًا به، وإذا احتاجا ذاكرة مشتركة، استخدم <a href="/docs/user-guide/features/memory-providers">مزوّد ذاكرة خارجي</a> بدلًا من ذلك.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>حدود الأحرف تُبقي الذاكرة مركَّزة. الذاكرة <strong>لا</strong> تُضغَط تلقائيًا: عندما
+تتجاوز عملية كتابة الحدّ، تُعيد أداة <code>memory</code> خطأً بدلًا من
+إسقاط الإدخالات بصمت. عندها يُفسح الوكيل المجال بنفسه — بدمج أو
+إزالة إدخالات في نفس الدور قبل إعادة المحاولة (انظر <a href="#what-happens-when-memory-is-full">ماذا يحدث عندما تكون الذاكرة
+ممتلئة</a>). لاحظ أن <code>replace</code> مقيَّد
+هو أيضًا بالحدّ: استبدال إدخال بآخر أطول قد يظل يتجاوز الحدّ، لذا يجب
+تقصير المحتوى الجديد (أو إزالة إدخال آخر) ليتّسع.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-memory-appears-in-the-system-prompt">كيف تظهر الذاكرة في system prompt</h2>
+<p>في بداية كل جلسة، تُحمَّل إدخالات الذاكرة من القرص وتُعرَض في system prompt كتلة مجمَّدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تتضمن الصيغة:</p>
+<ul>
+<li>عنوانًا يوضح أي مخزن (MEMORY أو USER PROFILE)</li>
+<li>نسبة الاستخدام وعدد الأحرف ليعرف الوكيل السعة</li>
+<li>إدخالات فردية مفصولة بفواصل <code>§</code> (علامة القسم)</li>
+<li>يمكن أن تكون الإدخالات متعددة الأسطر</li>
+</ul>
+<p><strong>نمط اللقطة المجمَّدة:</strong> يُلتقط حقن system prompt مرة واحدة عند بدء الجلسة ولا يتغيّر أبدًا في منتصف الجلسة. هذا مقصود — فهو يحافظ على ذاكرة التخزين المؤقت (prefix cache) الخاصة بـ LLM من أجل الأداء. عندما يُضيف الوكيل/يزيل إدخالات ذاكرة أثناء الجلسة، تُحفَظ التغييرات إلى القرص فورًا لكنها لن تظهر في system prompt حتى تبدأ الجلسة التالية. استجابات الأدوات تُظهر دائمًا الحالة الحيّة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-needs-session-boundaries">الذاكرة تحتاج حدود جلسات</h2>
+<p>نظام الذاكرة بأكمله مبني حول لحظة <strong>انتهاء</strong> الجلسة: يحمل <code>MEMORY.md</code> و<code>USER.md</code> الأساسيات إلى الجلسة التالية، ويسدّ <code>session_search</code> الفجوات بمجرد زوال السياق القديم. داخل جلسة واحدة، لا سبب يدفع تلك الآلية للعمل — فكل شيء مهم لا يزال في السياق الحيّ، لذا نادرًا ما يستشير الوكيل <code>session_search</code> ويكتفي غالبًا بضغط إدخالات الذاكرة بدلًا من تنسيقها.</p>
+<p>هذا مهم على منصات المراسلة (Telegram، Discord، إلخ)، حيث تكون المحادثة عمدًا <a href="/docs/user-guide/sessions#session-continuity">جلسة مستمرة واحدة</a> تنجو من إعادة التشغيل، وأعطال الـ gateway، وإعادة تشغيل الجهاز. إيقاف تشغيل الجهاز ليلًا <strong>لا</strong> ينهي الجلسة — فالرسالة التالية تلتقطها بالضبط من حيث توقفت. وإذا لم تُعِد الضبط أبدًا، يمكن أن تستمر محادثة أسابيع كجلسة واحدة: مريح، لكنه يصبح مكلفًا (يعمل الضغط مرارًا على سجل يزداد طولًا) ودورة التعلّم من <em>النسيان ← الاستدعاء من الذاكرة ← البحث في جلسات سابقة</em> نادرًا ما تنطلق أبدًا. الإدخالات الجديدة في الذاكرة تبقى أيضًا غير مرئية للجلسة قيد التشغيل بسبب اللقطة المجمَّدة أعلاه.</p>
+<p><strong>ممارسة:</strong> شغّل <code>/new</code> عند الحدود الطبيعية — مهمة اكتملت، تغيير موضوع، بداية يوم جديد. كل حدّ هو حين تُثمر الذاكرة: يعيد الوكيل قراءة لقطة <code>MEMORY.md</code>/<code>USER.md</code> المُحدَّثة، ويبدأ من سياق قصير رخيص، ويلجأ إلى <code>session_search</code> عندما يحتاج فعلًا إلى السجل. على CLI يتكفّل هذا بنفسه غالبًا (كل استدعاء جلسة جديدة)؛ أما على gateways فالحدّ متروك لك لتحدثه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-tool-actions">إجراءات أداة الذاكرة</h2>
+<p>يستخدم الوكيل أداة <code>memory</code> بهذه الإجراءات:</p>
+<ul>
+<li><strong>add</strong> — إضافة إدخال ذاكرة جديد</li>
+<li><strong>replace</strong> — استبدال إدخال موجود بمحتوى مُحدَّث (يستخدم مطابقة سلسلة فرعية عبر <code>old_text</code>)</li>
+<li><strong>remove</strong> — إزالة إدخال لم يعد ذا صلة (يستخدم مطابقة سلسلة فرعية عبر <code>old_text</code>)</li>
+</ul>
+<p>لا يوجد إجراء <code>read</code> — يُحقَن محتوى الذاكرة تلقائيًا في system prompt عند بدء الجلسة. يرى الوكيل ذكرياته كجزء من سياق محادثته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="substring-matching">مطابقة السلسلة الفرعية</h3>
+<p>يستخدم إجراءا <code>replace</code> و<code>remove</code> مطابقة سلسلة فرعية فريدة قصيرة — لست بحاجة إلى نص الإدخال الكامل. معامل <code>old_text</code> يحتاج فقط أن يكون سلسلة فرعية فريدة تحدد إدخالًا واحدًا بالضبط:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا طابقت السلسلة الفرعية عدة إدخالات، يُعاد خطأ يطلب مطابقة أكثر تحديدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-targets-explained">الهدفان موضَّحان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory--agents-personal-notes"><code>memory</code> — الملاحظات الشخصية للوكيل</h3>
+<p>للمعلومات التي يحتاج الوكيل تذكّرها عن البيئة، وسير العمل، والدروس المُستفادة:</p>
+<ul>
+<li>حقائق البيئة (نظام التشغيل، الأدوات، بنية المشروع)</li>
+<li>اصطلاحات المشروع وإعداداته</li>
+<li>غرابات الأدوات والحلول البديلة المُكتشَفة</li>
+<li>إدخالات يوميات المهام المكتملة</li>
+<li>المهارات والتقنيات التي نجحت</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user--user-profile"><code>user</code> — الملف الشخصي للمستخدم</h3>
+<p>للمعلومات عن هوية المستخدم، وتفضيلاته، وأسلوب تواصله:</p>
+<ul>
+<li>الاسم، والدور، والمنطقة الزمنية</li>
+<li>تفضيلات التواصل (موجز مقابل مفصّل، تفضيلات الصيغة)</li>
+<li>الأمور المزعجة والأشياء الواجب تجنبها</li>
+<li>عادات سير العمل</li>
+<li>مستوى المهارة التقنية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-to-save-vs-skip">ما يجب حفظه مقابل ما يجب تخطّيه</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="save-these-proactively">احفظ هذه (استباقيًا)</h3>
+<p>يحفظ الوكيل تلقائيًا — لست بحاجة إلى الطلب. يحفظ عندما يتعلّم:</p>
+<ul>
+<li><strong>تفضيلات المستخدم:</strong> "أفضّل TypeScript على JavaScript" ← احفظ إلى <code>user</code></li>
+<li><strong>حقائق البيئة:</strong> "يعمل هذا الخادم بـ Debian 12 مع PostgreSQL 16" ← احفظ إلى <code>memory</code></li>
+<li><strong>التصحيحات:</strong> "لا تستخدم <code>sudo</code> لأوامر Docker، المستخدم في مجموعة docker" ← احفظ إلى <code>memory</code></li>
+<li><strong>الاصطلاحات:</strong> "المشروع يستخدم tabs، وعرض سطر 120 حرفًا، وdocstrings بأسلوب Google" ← احفظ إلى <code>memory</code></li>
+<li><strong>العمل المكتمل:</strong> "تمت هجرة قاعدة البيانات من MySQL إلى PostgreSQL في 2026-01-15" ← احفظ إلى <code>memory</code></li>
+<li><strong>الطلبات الصريحة:</strong> "تذكّر أن تدوير مفتاح API الخاص بي يحدث شهريًا" ← احفظ إلى <code>memory</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skip-these">تخطَّ هذه</h3>
+<ul>
+<li><strong>معلومات تافهة/بديهية:</strong> "سأل المستخدم عن Python" — غامضة جدًا لتكون مفيدة</li>
+<li><strong>حقائق يسهل إعادة اكتشافها:</strong> "يدعم Python 3.12 تعشيش f-string" — يمكن البحث عن هذا في الويب</li>
+<li><strong>تفريغات بيانات خام:</strong> كتل كود كبيرة، ملفات سجلّ، جداول بيانات — كبيرة جدًا للذاكرة</li>
+<li><strong>أمور عابرة خاصة بالجلسة:</strong> مسارات ملفات مؤقتة، سياق تصحيح لمرة واحدة</li>
+<li><strong>معلومات موجودة أصلًا في ملفات السياق:</strong> محتوى SOUL.md وAGENTS.md</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="capacity-management">إدارة السعة</h2>
+<p>تملك الذاكرة حدود أحرف صارمة للحفاظ على حدود system prompt:</p>
+<table><thead><tr><th>المخزن</th><th>الحدّ</th><th>الإدخالات النموذجية</th></tr></thead><tbody><tr><td>memory</td><td>2,200 حرف</td><td>8-15 إدخالًا</td></tr><tr><td>user</td><td>1,375 حرفًا</td><td>5-10 إدخالات</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-happens-when-memory-is-full">ماذا يحدث عندما تكون الذاكرة ممتلئة</h3>
+<p>عند محاولة إضافة إدخال يتجاوز الحدّ، تُعيد الأداة خطأً:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يجب على الوكيل حينها:</p>
+<ol>
+<li>قراءة الإدخالات الحالية (المعروضة في استجابة الخطأ)</li>
+<li>تحديد الإدخالات التي يمكن إزالتها أو دمجها</li>
+<li>استخدام <code>replace</code> لدمج الإدخالات ذات الصلة في نسخ أقصر</li>
+<li>ثم <code>add</code> للإدخال الجديد</li>
+</ol>
+<p><strong>أفضل ممارسة:</strong> عندما تتجاوز الذاكرة 80% من السعة (مرئية في عنوان system prompt)، ادمج الإدخالات قبل إضافة إدخالات جديدة. مثلًا، ادمج ثلاثة إدخالات منفصلة من نوع "المشروع يستخدم X" في إدخال وصف مشروع شامل واحد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="practical-examples-of-good-memory-entries">أمثلة عملية على إدخالات ذاكرة جيدة</h3>
+<p><strong>الإدخالات المُختصَرة عالية الكثافة المعلوماتية تعمل بشكل أفضل:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="duplicate-prevention">منع التكرار</h2>
+<p>يرفض نظام الذاكرة تلقائيًا الإدخالات المكررة بدقة. إذا حاولت إضافة محتوى موجود بالفعل، يُعيد نجاحًا برسالة "لم يُضَف مكرَّر".</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-scanning">الفحص الأمني</h2>
+<p>تُفحَص إدخالات الذاكرة بحثًا عن أنماط الحقن والتسريب قبل قبولها، لأنها تُحقَن في system prompt. المحتوى المطابق لأنماط التهديد (حقن الـ prompt، تسريب بيانات الاعتماد، أبواب SSH الخلفية) أو الذي يحتوي أحرف Unicode غير مرئية يُحجَب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-search">البحث في الجلسات</h2>
+<p>بالإضافة إلى MEMORY.md وUSER.md، يمكن للوكيل البحث في محادثاته السابقة باستخدام أداة <code>session_search</code>:</p>
+<ul>
+<li>تُخزَّن جميع جلسات CLI والمراسلة في SQLite (<code>~/.hermes/state.db</code>) مع بحث نصي كامل FTS5</li>
+<li>استعلامات البحث تُعيد رسائل فعلية من قاعدة البيانات — دون تلخيص من LLM، ودون اقتطاع</li>
+<li>يمكن للوكيل إيجاد أشياء ناقشها منذ أسابيع، حتى لو لم تكن في ذاكرته النشطة</li>
+<li>يمكن للوكيل أيضًا التمرير للأمام/للخلف داخل أي جلسة يجدها</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>انظر <a href="/docs/user-guide/sessions#session-search-tool">أداة بحث الجلسات</a> للأشكال الثلاثة للاستدعاء (الاكتشاف / التمرير / التصفح) وصيغة الاستجابة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session_search-vs-memory">session_search مقابل memory</h3>
+<table><thead><tr><th>الميزة</th><th>الذاكرة الدائمة</th><th>البحث في الجلسات</th></tr></thead><tbody><tr><td><strong>السعة</strong></td><td>~1,300 token إجمالًا</td><td>غير محدودة (كل الجلسات)</td></tr><tr><td><strong>السرعة</strong></td><td>فورية (في system prompt)</td><td>استعلام FTS5 بحوالي 20ms، تمرير بحوالي 1ms</td></tr><tr><td><strong>التكلفة</strong></td><td>تكلفة token في كل prompt</td><td>مجاني — دون استدعاءات LLM</td></tr><tr><td><strong>حالة الاستخدام</strong></td><td>حقائق أساسية متاحة دائمًا</td><td>إيجاد محادثات سابقة محددة</td></tr><tr><td><strong>الإدارة</strong></td><td>منسَّقة يدويًا من الوكيل</td><td>تلقائية — تُخزَّن جميع الجلسات</td></tr><tr><td><strong>تكلفة token</strong></td><td>ثابتة لكل جلسة (~1,300 token)</td><td>عند الطلب (يُبحث عند الحاجة)</td></tr></tbody></table>
+<p><strong>الذاكرة</strong> للحقائق الحرجة التي يجب أن تكون دائمًا في السياق. <strong>البحث في الجلسات</strong> لاستفسارات من نوع "هل ناقشنا X الأسبوع الماضي؟" حيث يحتاج الوكيل استدعاء تفاصيل من محادثات سابقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="learning-journey-journey">رحلة التعلّم (<code>/journey</code>)</h2>
+<p>رحلة التعلّم هي عرض زمني لكل ما تعلّمه Hermes — المهارات المحفوظة وإدخالات الذاكرة مرسومة عبر الزمن (الأقدم في الأعلى، الأحدث في الأسفل)، مع مُشغِّل "كوكبة" قابل للتشغيل يعيد تمثيل البناء التراكمي. تُشغِّل نفس بيانات الرسم البياني ثلاث واجهات:</p>
+<ul>
+<li><strong>CLI الكلاسيكي / المستقل</strong> — يعرض <code>hermes journey</code> (الأسماء المستعارة: <code>hermes learning</code>، <code>hermes memory-graph</code>) الخط الزمني في الطرفية. الخيارات: <code>--play</code> يُحرِّك البناء التراكمي (<code>--fps</code> لضبطه)، و<code>--width</code>/<code>--height</code> يتجاوزان حجم العرض، و<code>--no-color</code> يعطّل الألوان، و<code>--json</code> يُفرِّغ بيانات الرسم البياني الخام.</li>
+<li><strong>TUI</strong> — يفتح <code>/journey</code> (الأسماء المستعارة: <code>/learning</code>، <code>/memory-graph</code>) الخط الزمني كطبقة تراكب.</li>
+<li><strong>تطبيق Desktop</strong> — يفتح <code>/journey</code> لوحة Star Map / رسم الذاكرة البياني، عرضًا مرئيًا تفاعليًا لنفس العُقد.</li>
+</ul>
+<p>بالإضافة إلى المشاهدة، رحلة التعلّم هي أيضًا حيث <strong>تُقلِّم وتصحِّح</strong> ما تعلّمه Hermes:</p>
+<table><thead><tr><th>الأمر</th><th>ماذا يفعل</th></tr></thead><tbody><tr><td><code>hermes journey list</code></td><td>يسرد معرّفات العُقد — أسماء المهارات ومعرّفات <code>memory:&lt;source&gt;:&lt;index&gt;</code> لأجزاء الذاكرة.</td></tr><tr><td><code>hermes journey delete &lt;node&gt; [-y]</code></td><td>حذف عُقدة. المهارات <strong>تُؤرشَف</strong> (قابلة للاستعادة)، وأجزاء الذاكرة تُزال. <code>-y</code> يتخطى التأكيد.</td></tr><tr><td><code>hermes journey edit &lt;node&gt;</code></td><td>فتح محتوى العُقدة (ملف <code>SKILL.md</code> الخاص بمهارة أو جزء الذاكرة) في <code>$EDITOR</code>.</td></tr></tbody></table>
+<p>نفس الأوامر الفرعية <code>list</code> / <code>delete &lt;id&gt;</code> / <code>edit &lt;id&gt;</code> تعمل من أمر <code>/journey</code> ضمن المحادثة على CLI، وتوفر لوحة desktop تحرير/حذف العُقد مباشرة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ضبط <strong>كلٍّ</strong> من <code>memory_enabled</code> و<code>user_profile_enabled</code> على <code>false</code> يوقف
+المخازن المدمَجة تمامًا: تُسقَط أداة <code>memory</code> من المخطط ويُسقَط
+كتلة إرشاداتها من system prompt، حتى لا يُخبَر النموذج أبدًا
+عن أداة لا يستطيع استخدامها. مزوّد خارجي مضبوط عبر <code>memory.provider</code>
+(Hindsight، وMem0، وHoncho، …) غير متأثر ويحتفظ بأدواته الخاصة —
+استخدم هذا عندما تريد backend ذاكرة من طرف ثالث <em>بدلًا من</em> الملفات المدمَجة.
+إدراج <code>memory</code> تحت <code>agent.disabled_toolsets</code> هو المفتاح الأثقل: فهو يُخفي
+أدوات المزوّد الخارجي أيضًا.</p>
+<p>مع <code>memory_enabled: false</code> فقط (والملف الشخصي للمستخدم لا يزال مفعّلًا)، تبقى الأداة —
+فهي تدعم مخزن الملف الشخصي — لكن system prompt يستبدل
+إرشادات الذاكرة الكاملة بكتلة أضيق خاصة بالملف الشخصي فقط. يعلن مخطط الأداة عن
+هدف <code>user</code> فقط، وتُرفَض الكتابات المباشرة أو المرحلية إلى <code>MEMORY.md</code> المعطَّل.
+الإعداد المعاكس يعلن عن <code>memory</code> فقط ويرفض كتابات <code>USER.md</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="controlling-memory-writes-write_approval">التحكم في كتابات الذاكرة (<code>write_approval</code>)</h2>
+<p>افتراضيًا يحفظ الوكيل الذاكرة بحرية — بما في ذلك من مراجعة التحسين الذاتي
+الخلفية التي تعمل بعد الدور. إذا فضّلت الموافقة على الحفظ
+أولًا، اضبط <code>memory.write_approval: true</code>. إنه مفتاح تشغيل/إيقاف بسيط يُطبَّق على
+<strong>كلٍّ</strong> من الأدوار الأمامية والمراجعة الخلفية:</p>
+<table><thead><tr><th><code>write_approval</code></th><th>السلوك</th></tr></thead><tbody><tr><td><code>false</code> (الافتراضي)</td><td>الكتابة بحرية — الحاجز مُعطَّل (السلوك السابق للحاجز).</td></tr><tr><td><code>true</code></td><td>تتطلب موافقة قبل حفظ أي شيء. في CLI التفاعلي، تطلب الكتابات الأمامية موافقتك مضمَّنة (الإدخالات صغيرة بما يكفي لقراءتها كاملة). في كل مكان آخر — منصات المراسلة، والسكربتات، ومراجعة التحسين الذاتي الخلفية — تُوضَع الكتابات <strong>مرحلية</strong> للمراجعة عبر <code>/memory pending</code>.</td></tr></tbody></table>
+<blockquote>
+<p>لإيقاف تشغيل الذاكرة كليًا (وليس فقط حجبها)، اضبط كلًا من <code>memory_enabled: false</code> و<code>user_profile_enabled: false</code>. عندما يُعطَّل كلا المخزنين المدمَجين، تُخفى أداة <code>memory</code> المدمَجة تلقائيًا.</p>
+</blockquote>
+<p>راجع الكتابات المرحلية من CLI أو أي منصة مراسلة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>هذا هو الجواب على "حفظ الوكيل افتراضًا خاطئًا عني": اضبط
+<code>write_approval: true</code>، وكل حفظ — خصوصًا الحفظات الخلفية غير المُطلَب
+بها — ينتظر رد نعم/لا منك قبل أن يدخل ملفك الشخصي أبدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-review-notifications-displaymemory_notifications">إشعارات المراجعة الخلفية (<code>display.memory_notifications</code>)</h2>
+<p>بعد الدور، قد تحفظ مراجعة التحسين الذاتي الخلفية بصمت ذاكرة
+أو تُحدِّث مهارة. هذه هي حلقة تعلّم Hermes الواعية بالموافقة: التصحيحات
+المتكررة ودروس سير العمل الدائمة تتحول إلى إدخالات ذاكرة مُختصَرة أو
+مهارات إجرائية، بينما يمكن لـ <code>write_approval</code> وضع تلك الكتابات مرحليًا للمراجعة
+قبل أن تؤثر على الجلسات المستقبلية. افتراضيًا يُظهر سطرًا قصيرًا
+<code>💾 Memory updated</code> في المحادثة حتى تعرف أن ذلك حدث. تحكّم في مدى
+ثرثرة ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>off</code></td><td>لا إشعار محادثة. المراجعة تستمر بالتشغيل والكتابة — فقط لا ترى سطرًا لها.</td></tr><tr><td><code>on</code> (الافتراضي)</td><td>سطر عام، مثل <code>💾 Memory updated</code>، <code>💾 Skill &#x27;foo&#x27; patched</code>.</td></tr><tr><td><code>verbose</code></td><td>يتضمن معاينة مُختصَرة لما تغيّر، مثل <code>💾 Memory ➕ User prefers terse replies</code> أو مقتطف فرق (diff) للمهارة على شكل <code>&quot;old&quot; → &quot;new&quot;</code>.</td></tr></tbody></table>
+<blockquote>
+<p>هذا يحكم فقط إشعار محادثة الـ <strong>gateway</strong>. المراجعة نفسها،
+والكتابات إلى مخازن الذاكرة/المهارات لديك، غير متأثرة بهذا الإعداد. اضبطه
+لكل منصة عبر <code>display.platforms.&lt;platform&gt;.memory_notifications</code>.</p>
+</blockquote>
+<p>دفعات المهارات الناجحة تُسمّي كل عملية مُطبَّقة في كلا الوضعين <code>on</code> و<code>verbose</code>،
+بما في ذلك كتابات/إزالات الملفات الداعمة وحذف المهارة. الكتابات المرحلية
+التي تنتظر الموافقة والدفعات المُتراجَع عنها لا تُبلَّغ باعتبارها تغييرات مكتملة.
+ملخصات الدفعات تستخدم النتائج المُطبَّقة بدلًا من افتراض أن الكتابات المطلوبة قد نُفِّذت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-the-review-on-a-cheaper-model-auxiliarybackground_review">تشغيل المراجعة على نموذج أرخص (<code>auxiliary.background_review</code>)</h2>
+<p>تعمل المراجعة على <strong>نموذج محادثتك الرئيسي</strong> افتراضيًا، بإعادة تشغيل
+المحادثة — الدافئة أصلًا في ذاكرة الـ prompt المؤقتة، لذا فهي قراءات ذاكرة تخزين مؤقت رخيصة. على
+نموذج رئيسي مكلف يمكنك تشغيل المراجعة على نموذج أرخص
+بدلًا من ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>عندما توجّهها إلى نموذج <strong>مختلف</strong> عن نموذجك الرئيسي، تعمل المراجعة
+هناك بتكلفة أقل بكثير (~3–5× في القياسات). ولأن نموذجًا
+مختلفًا لا يمكنه إعادة استخدام ذاكرة تخزين الـ prompt المؤقتة لنموذجك الرئيسي على أي حال، يُعيد الفرع (fork)
+تلقائيًا تشغيل <strong>ملخص</strong> مُختصَر للمحادثة (الأدوار الأخيرة حرفيًا + ملخص
+لما هو أقدم) بدلًا من النص الكامل — لتقليل ما
+يكتبه إلى ذاكرة التخزين المؤقت الجديدة. الالتقاط يصمد: في الاختبار، كان التقاط الذاكرة
+مطابقًا والتقاط المهارة شبه مطابق لمراجعة النموذج الرئيسي.</p>
+<p>اتركه على <code>auto</code> (أو اضبطه على نموذجك الرئيسي) ولن يتغيّر شيء — تستمر
+المراجعة بالعمل على النموذج الرئيسي بإعادة التشغيل الكاملة بذاكرة تخزين مؤقتة دافئة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="same-model-review-reasoning">منطق مراجعة النموذج نفسه</h3>
+<p>المراجعة التي تستخدم نفس نموذج العملية الأصلية (parent) <strong>ترث دائمًا جهد استدلال العملية الأصلية</strong>. ضبط <code>auxiliary.background_review.reasoning_effort</code> لا يتجاوز ذلك، سواء كان المسار <code>auto</code> أو يختار صراحة مزوّد/نموذج العملية الأصلية.</p>
+<p>إعدادات الاستدلال، وsystem prompt، ولقطة المحادثة الكاملة، وتعريفات الأدوات تبقى مطابقة حرفيًا للعملية الأصلية عند ولادة الفرع حتى تستطيع المراجعة إعادة استخدام بادئة ذاكرة الـ prompt المؤقتة الخاصة بها. تغيير مستوى تفكير المراجعة فقط سيكسر ذلك التطابق. لا يوجد مفتاح جهد مستقل لمراجعات النموذج نفسه.</p>
+<p>لتقليل عمل المراجعة دون تغيير جهد المحادثة الرئيسية، اضبط <code>memory.nudge_interval</code> / <code>skills.creation_nudge_interval</code>، أو عطّل المراجعات التلقائية كما هو موضح أدناه، أو وجّه المراجعات إلى نموذج مختلف. مسار النموذج المختلف يستخدم ملخصًا ولا يشارك البادئة الدافئة للعملية الأصلية؛ وعلته المستقلة الخاصة بجهد المهمة موثَّقة في <a href="https://github.com/NousResearch/hermes-agent/issues/94825" data-ext>#94825</a>. أدوات التحكم بالتردد والتوجيه هذه لا تفصل استدلال النموذج نفسه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling-automatic-reviews-enabled">تعطيل المراجعات التلقائية (<code>enabled</code>)</h3>
+<p>يمكن أن يستهلك فرع المراجعة حصة معتبرة من إجمالي الـ tokens على المضيفات المشغولة.
+يمكن للمشغّلين تعطيله دون تصفير فترات التذكير:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>مع <code>enabled: false</code>، لا تُطلَق الفروع التلقائية بعد الدور؛ ويستمر
+<code>/refine</code> اليدوي بالعمل.</p>
+<p>يُحفَظ استخدام الفرع في <code>session_model_usage</code> بـ <code>task=&#x27;background_review&#x27;</code>
+ويُكتَب سطر إكمال إلى <code>agent.log</code>
+(<code>Background review complete: thread=bg-review calls=… in=… out=… result=…</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="allowing-a-narrowly-scoped-extra-review-tool-extra_tools">السماح بأداة مراجعة إضافية محصورة النطاق بدقة (<code>extra_tools</code>)</h3>
+<p>يمكن للمراجعة الخلفية استخدام أدوات الذاكرة، وإدارة المهارات، والقراءة فقط للملفات
+افتراضيًا. إذا وفّر profile ما أداة أخرى آمنة لمراجعة
+غير مراقَبة، فعِّلها بالاسم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يجب أن تكون الأداة متاحة أصلًا للوكيل الأصلي (parent)؛ هذا الإعداد يضيفها فقط
+إلى القائمة البيضاء لوقت تشغيل فرع المراجعة. لا يُفعِّل أدوات عشوائية،
+والأدوات غير المُدرَجة هنا تبقى مرفوضة. أبقِ القائمة ضيقة وفضّل الأدوات
+التي تُرحِّل اقتراحًا للمراجعة البشرية بدلًا من تطبيق تغييرات خارجية أو
+مدمّرة مباشرة. الافتراضي قائمة فارغة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-models-reviews-wait-for-an-idle-gpu-defer">النماذج المحلية: تنتظر المراجعات وحدة معالجة رسومات (GPU) خاملة (<code>defer</code>)</h3>
+<p>على مزوّد سحابي، تنتهي المراجعة في ثوانٍ وتعمل جنبًا إلى جنب مع
+ما تفعله بعد ذلك. عندما يكون وقت تشغيل المراجعة هو <strong>خادم llama-server المحلي
+المُدار</strong> (Settings → Local models)، يحتلّ نفس الفرع وحدة معالجة الرسومات (GPU) التي
+يحتاجها موجّهك (prompt) التالي — لدقائق على نموذج كبير — وإرسال موجّه جديد
+يُلغي المراجعة، ويهدر التعلّم. لذا على وقت التشغيل المحلي المُدار، تُؤجَّل
+المراجعات <strong>افتراضيًا</strong>: تُصفّ عند نهاية الدور وتُنفَّذ بمجرد أن يكون الجهاز
+هادئًا لفترة استقرار قصيرة. لا شيء في المراجعة نفسها
+يتغيّر — نفس النموذج، ونفس إعادة تشغيل النسخة الكاملة، ونفس الكتابات — تنتقل فقط
+لحظة التنفيذ.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>auto</code> (الافتراضي)</td><td>المراجعات التي يُحلّ وقت تشغيلها إلى الخادم المحلي المُدار تُصفّ وتعمل عند الخمول؛ وكل وقت تشغيل آخر (سحابي، خوادم خارجية) يُطلَق فورًا كالسابق.</td></tr><tr><td><code>never</code></td><td>السلوك القديم في كل مكان: يُطلَق فورًا عند نهاية الدور، حتى على وحدة معالجة الرسومات المحلية المُدارة.</td></tr></tbody></table>
+<p>المراجعات المصفوفة تندمج لكل جلسة (لقطة الدور الأحدث تحل محل
+اللقطة الأقدم — تُعيد المراجعة تشغيل المحادثة كاملة، لذا لا يُفقَد شيء)،
+والمراجعة التي يستبقها موجّه جديد تُعاد إلى الصفّ بدلًا من إسقاطها، والمراجعة
+التي انتظرت أطول من <code>defer_max_age_s</code> تعمل حتى لو لم يخمل الجهاز
+أبدًا. يعمل <code>/refine</code> الصريح فورًا دائمًا. الصفّ في الذاكرة:
+المراجعات التي لا تزال معلَّقة عند خروج التطبيق تُسقَط، تمامًا كما كان سيحدث
+لفرع قيد التشغيل.</p>

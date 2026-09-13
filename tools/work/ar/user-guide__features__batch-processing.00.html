@@ -1,0 +1,76 @@
+<header><h1>المعالجة الدفعية (Batch Processing)</h1></header>
+<p>تتيح لك المعالجة الدفعية تشغيل وكيل Hermes على مئات أو آلاف الـ prompts بالتوازي، مع توليد بيانات trajectories منظّمة. ويُستخدم ذلك أساسًا في <strong>توليد بيانات التدريب</strong> — أي إنتاج trajectories بصيغة ShareGPT مصحوبة بإحصاءات استخدام الأدوات، يمكن الاستفادة منها في fine-tuning أو التقييم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>يعالج مشغّل الدفعات (<code>batch_runner.py</code>) مجموعة بيانات من الـ prompts بصيغة JSONL، فيمرّر كل prompt عبر جلسة وكيل كاملة مع إمكانية الوصول إلى الأدوات. ويحصل كل prompt على بيئة معزولة خاصة به. والناتج بيانات trajectories منظّمة تتضمن سجل المحادثة كاملًا، وإحصاءات استدعاءات الأدوات، ومقاييس تغطية الاستدلال (reasoning).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>تكلفة متوقعة على نطاق واسع</div><div class="admonitionContent_BuS1"><p>تُطلق عمليات التشغيل الدفعية جلسات وكيل متزامنة كثيرة، وتُجري كلٌّ منها استدعاءات للنموذج واستدعاءات للأدوات. ويجمع اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> الوصول إلى النماذج مع البحث في الويب وتوليد الصور و TTS والمتصفحات السحابية في فاتورة واحدة — وهذا مفيد حين تريد تكلفة ثابتة لكل trajectory دون التوفيق بين حدود المعدل (rate limits) عبر حسابات خمسة مورّدين مختلفين. أجرِ الإعداد باستخدام <code>hermes setup --portal</code>، ثم وجّه <code>--model</code> إلى أحد نماذج Nous.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dataset-format">صيغة مجموعة البيانات</h2>
+<p>مجموعة بيانات الإدخال ملف JSONL (كائن JSON واحد في كل سطر). ويجب أن يحتوي كل إدخال على الحقل <code>prompt</code>:</p>
+<div class="language-jsonl codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ويمكن أن تتضمن الإدخالات اختياريًا:</p>
+<ul>
+<li><code>image</code> أو <code>docker_image</code>: صورة حاوية تُستخدم في sandbox الخاص بهذا الـ prompt (تعمل مع الـ backends الخاصة بـ Docker و Modal و Singularity)</li>
+<li><code>cwd</code>: تجاوز لمجلد العمل في جلسة الطرفية الخاصة بالمهمة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-options">خيارات الإعداد</h2>
+<table><thead><tr><th>المعامل</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--dataset_file</code></td><td>(مطلوب)</td><td>مسار مجموعة بيانات JSONL</td></tr><tr><td><code>--batch_size</code></td><td>(مطلوب)</td><td>عدد الـ prompts في كل دفعة</td></tr><tr><td><code>--run_name</code></td><td>(مطلوب)</td><td>اسم عملية التشغيل هذه (يُستخدم لمجلد الإخراج ولنقاط الحفظ)</td></tr><tr><td><code>--distribution</code></td><td><code>&quot;default&quot;</code></td><td>توزيع الـ toolsets الذي تُسحب منه العيّنات</td></tr><tr><td><code>--model</code></td><td><code>claude-sonnet-4.6</code></td><td>النموذج المستخدم</td></tr><tr><td><code>--base_url</code></td><td><code>https://openrouter.ai/api/v1</code></td><td>عنوان URL الأساسي للـ API</td></tr><tr><td><code>--api_key</code></td><td>(متغير بيئة)</td><td>مفتاح API للنموذج</td></tr><tr><td><code>--max_turns</code></td><td><code>10</code></td><td>الحد الأقصى لدورات استدعاء الأدوات لكل prompt</td></tr><tr><td><code>--num_workers</code></td><td><code>4</code></td><td>عدد عمليات العمل (worker processes) المتوازية</td></tr><tr><td><code>--resume</code></td><td><code>false</code></td><td>الاستئناف من نقطة الحفظ</td></tr><tr><td><code>--verbose</code></td><td><code>false</code></td><td>تفعيل السجلات المفصّلة</td></tr><tr><td><code>--max_samples</code></td><td>الكل</td><td>معالجة أول N عيّنة فقط من مجموعة البيانات</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-routing-openrouter">توجيه المزوّدين (OpenRouter)</h3>
+<table><thead><tr><th>المعامل</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--providers_allowed</code></td><td>المزوّدون المسموح بهم مفصولين بفواصل (مثل <code>&quot;anthropic,openai&quot;</code>)</td></tr><tr><td><code>--providers_ignored</code></td><td>المزوّدون المُتجاهَلون مفصولين بفواصل (مثل <code>&quot;together,deepinfra&quot;</code>)</td></tr><tr><td><code>--providers_order</code></td><td>ترتيب المزوّدين المفضّل مفصولين بفواصل</td></tr><tr><td><code>--provider_sort</code></td><td>الترتيب حسب <code>&quot;price&quot;</code> أو <code>&quot;throughput&quot;</code> أو <code>&quot;latency&quot;</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reasoning-control">التحكم في الاستدلال</h3>
+<table><thead><tr><th>المعامل</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--reasoning_effort</code></td><td>مستوى جهد الاستدلال: <code>none</code>، <code>minimal</code>، <code>low</code>، <code>medium</code>، <code>high</code>، <code>xhigh</code>، <code>max</code>، <code>ultra</code></td></tr><tr><td><code>--reasoning_disabled</code></td><td>تعطيل tokens الاستدلال/التفكير (thinking) تمامًا</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-options">خيارات متقدمة</h3>
+<table><thead><tr><th>المعامل</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--ephemeral_system_prompt</code></td><td>system prompt يُستخدم أثناء التنفيذ لكنه لا يُحفظ في الـ trajectories</td></tr><tr><td><code>--log_prefix_chars</code></td><td>عدد الأحرف المعروضة في معاينات السجل (الافتراضي: 100)</td></tr><tr><td><code>--prefill_messages_file</code></td><td>مسار ملف JSON يحتوي على رسائل تعبئة مسبقة (prefill) للتهيئة بأمثلة قليلة (few-shot)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="toolset-distributions">توزيعات الـ Toolsets</h2>
+<p>يحصل كل prompt على مجموعة من الـ toolsets مسحوبة عشوائيًا من <strong>توزيع</strong> (distribution). ويضمن ذلك أن تغطي بيانات التدريب تركيبات متنوعة من الأدوات. استخدم <code>--list_distributions</code> لعرض جميع التوزيعات المتاحة.</p>
+<p>في التطبيق الحالي، تُسند التوزيعات احتمالًا إلى <strong>كل toolset على حدة</strong>. إذ يقرّر مُنتقي العيّنات (sampler) تفعيل كل toolset بشكل مستقل، ثم يضمن تفعيل toolset واحد على الأقل. وهذا يختلف عن جدول مُعَدّ يدويًا من التركيبات الجاهزة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-format">صيغة الإخراج</h2>
+<p>يُكتب كل الإخراج إلى <code>data/&lt;run_name&gt;/</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="trajectory-format">صيغة Trajectory</h3>
+<p>كل سطر في <code>trajectories.jsonl</code> هو كائن JSON:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يستخدم الحقل <code>conversations</code> صيغة شبيهة بـ ShareGPT تتضمن الحقلين <code>from</code> و <code>value</code>. وتُوحَّد إحصاءات الأدوات بحيث تشمل جميع الأدوات الممكنة بقيم افتراضية صفرية، مما يضمن مخططًا (schema) متسقًا عبر الإدخالات للتوافق مع مجموعات بيانات HuggingFace.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checkpointing">نقاط الحفظ (Checkpointing)</h2>
+<p>يتمتع مشغّل الدفعات بآلية قوية لنقاط الحفظ تضمن تحمّل الأعطال:</p>
+<ul>
+<li><strong>ملف نقطة الحفظ:</strong> يُحفظ بعد اكتمال كل دفعة، ويتتبّع فهارس الـ prompts التي اكتملت</li>
+<li><strong>الاستئناف المعتمد على المحتوى:</strong> عند استخدام <code>--resume</code>، يفحص المشغّل ملفات الدفعات الموجودة ويطابق الـ prompts المكتملة حسب نصها الفعلي (لا حسب الفهارس فقط)، مما يتيح الاستعادة حتى لو تغيّر ترتيب مجموعة البيانات</li>
+<li><strong>الـ prompts الفاشلة:</strong> لا تُعلَّم كمكتملة إلا الـ prompts التي اكتملت بنجاح — أما الفاشلة فتُعاد محاولتها عند الاستئناف</li>
+<li><strong>دمج الدفعات:</strong> عند الاكتمال، تُدمج جميع ملفات الدفعات (بما فيها ملفات عمليات التشغيل السابقة) في ملف واحد هو <code>trajectories.jsonl</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-resume-works">آلية عمل الاستئناف</h3>
+<ol>
+<li>فحص جميع ملفات <code>batch_*.jsonl</code> بحثًا عن الـ prompts المكتملة (بمطابقة المحتوى)</li>
+<li>تصفية مجموعة البيانات لاستبعاد الـ prompts المكتملة مسبقًا</li>
+<li>إعادة تقسيم الـ prompts المتبقية إلى دفعات</li>
+<li>معالجة الـ prompts المتبقية فقط</li>
+<li>دمج جميع ملفات الدفعات (القديمة + الجديدة) في الإخراج النهائي</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quality-filtering">تصفية الجودة</h2>
+<p>يطبّق مشغّل الدفعات تصفية تلقائية للجودة:</p>
+<ul>
+<li><strong>مرشّح غياب الاستدلال:</strong> تُستبعد العيّنات التي لا يحتوي أيٌّ من أدوار المساعد فيها على استدلال (لا <code>&lt;REASONING_SCRATCHPAD&gt;</code> ولا tokens تفكير أصلية)</li>
+<li><strong>مرشّح الإدخالات التالفة:</strong> تُستبعد أثناء الدمج النهائي الإدخالاتُ التي تحتوي على أسماء أدوات متوهَّمة (غير موجودة في قائمة الأدوات الصالحة)</li>
+<li><strong>إحصاءات الاستدلال:</strong> تتبّع نسبة الأدوار التي تتضمن استدلالًا أو تخلو منه على امتداد عملية التشغيل كاملة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="statistics">الإحصاءات</h2>
+<p>بعد الاكتمال، يطبع المشغّل إحصاءات شاملة:</p>
+<ul>
+<li><strong>استخدام الأدوات:</strong> عدد الاستدعاءات، ومعدلات النجاح/الفشل لكل أداة</li>
+<li><strong>تغطية الاستدلال:</strong> نسبة أدوار المساعد التي تتضمن استدلالًا</li>
+<li><strong>العيّنات المستبعدة:</strong> عدد العيّنات التي استُبعدت لافتقارها إلى الاستدلال</li>
+<li><strong>المدة:</strong> إجمالي وقت المعالجة</li>
+</ul>
+<p>كما تُحفظ الإحصاءات في <code>statistics.json</code> لتحليلها برمجيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-cases">حالات الاستخدام</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="training-data-generation">توليد بيانات التدريب</h3>
+<p>ولّد trajectories متنوعة لاستخدام الأدوات بهدف fine-tuning:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-evaluation">تقييم النماذج</h3>
+<p>قيّم مدى إتقان نموذج ما لاستخدام الأدوات عبر مجموعة prompts موحّدة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-prompt-container-images">صور حاويات لكل Prompt</h3>
+<p>بالنسبة إلى معايير الأداء (benchmarks) التي تتطلب بيئات محددة، يمكن لكل prompt أن يحدد صورة الحاوية الخاصة به:</p>
+<div class="language-jsonl codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يتحقق مشغّل الدفعات من إمكانية الوصول إلى صور Docker قبل تشغيل كل prompt.</p>

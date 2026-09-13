@@ -1,0 +1,63 @@
+
+<header><h1>Watchers</h1></header>
+<p>استطلاع RSS وواجهات JSON وGitHub مع إزالة التكرار عبر علامة مائية (watermark).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/devops/watchers</code></td></tr><tr><td>المسار</td><td><code>optional-skills/devops/watchers</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>cron</code>, <code>polling</code>, <code>rss</code>, <code>github</code>, <code>http</code>, <code>automation</code>, <code>monitoring</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Watchers</h1>
+<p>استطلع مصادر خارجية على فترات زمنية وتفاعل فقط مع العناصر الجديدة. ثلاثة سكربتات جاهزة بالإضافة إلى مساعد watermark مشترك؛ اربطها بمهمة cron (أو شغّلها عند الحاجة من الطرفية).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يريد المستخدم مراقبة موجز RSS/Atom والحصول على إشعار بالإدخالات الجديدة</li>
+<li>يريد المستخدم مراقبة issues / pulls / releases / commits لمستودع GitHub</li>
+<li>يريد المستخدم استطلاع أي نقطة نهاية JSON والحصول على إشعار بالعناصر الجديدة</li>
+<li>يطلب المستخدم &quot;watcher لـ X&quot; أو &quot;أعلمني عند تغيّر X&quot;</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mental-model">النموذج الذهني</h2>
+<p>الـ watcher هو مجرد سكربت:</p>
+<ol>
+<li>يجلب البيانات من المصدر الخارجي</li>
+<li>يقارنها بملف watermark يحتوي المعرّفات المُشاهدة مسبقًا</li>
+<li>يكتب الـ watermark الجديد مرة أخرى</li>
+<li>يطبع العناصر الجديدة على stdout (أو لا شيء عند عدم وجود تغيير)</li>
+</ol>
+<p>تتولى السكربتات أدناه الأمور الثلاثة كلها. يشغّلها الوكيل عبر أداة الطرفية — من مهمة cron، أو webhook، أو محادثة تفاعلية — ويبلّغ بما هو جديد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ready-made-scripts">سكربتات جاهزة</h2>
+<p>توجد السكربتات الثلاثة كلها في <code>$HERMES_HOME/skills/devops/watchers/scripts/</code> بمجرد تثبيت المهارة. يقرأ كل واحد منها <code>WATCHER_STATE_DIR</code> (الافتراضي <code>$HERMES_HOME/watcher-state/</code>) لملف حالته، مُفهرَسًا بمعطى <code>--name</code>.</p>
+<table><thead><tr><th>السكربت</th><th>ما يراقبه</th><th>مفتاح إزالة التكرار</th></tr></thead><tbody><tr><td><code>watch_rss.py</code></td><td>رابط موجز RSS 2.0 أو Atom</td><td><code>&lt;guid&gt;</code> / <code>&lt;id&gt;</code></td></tr><tr><td><code>watch_http_json.py</code></td><td>أي نقطة نهاية JSON تُعيد قائمة كائنات</td><td>حقل معرّف قابل للتهيئة</td></tr><tr><td><code>watch_github.py</code></td><td>issues / pulls / releases / commits لمستودع في GitHub</td><td><code>id</code> / <code>sha</code></td></tr></tbody></table>
+<p>السكربتات الثلاثة كلها:</p>
+<ul>
+<li>يسجّل التشغيل الأول خط أساس — لا يعيد أبدًا تشغيل الموجز الحالي</li>
+<li>الـ watermark مجموعة معرّفات محدودة (500 كحد أقصى) للحد من استهلاك الذاكرة</li>
+<li>صيغة المخرجات: <code>## &lt;title&gt;\n&lt;url&gt;\n\n&lt;optional body&gt;</code> لكل عنصر</li>
+<li>مخرجات stdout فارغة عند عدم وجود جديد — يعامل المستدعي ذلك بصمت</li>
+<li>كود خروج غير صفري عند أخطاء الجلب</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage">الاستخدام</h2>
+<p>شغّل watcher مباشرة من أداة الطرفية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>راقب مستودع GitHub (اضبط <code>GITHUB_TOKEN</code> في <code>${HERMES_HOME:-~/.hermes}/.env</code> لتجنّب حد المعدل المجهول البالغ 60 طلبًا/ساعة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>استطلع واجهة JSON برمجية عشوائية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="wiring-into-cron">الربط مع cron</h2>
+<p>اطلب من الوكيل جدولة مهمة cron بـ prompt مثل:</p>
+<blockquote>
+<p>كل 15 دقيقة، شغّل <code>watch_rss.py --name hn --url https://news.ycombinator.com/rss</code>. إذا طبع أي شيء، لخّص العناوين وسلّمها. إذا لم يطبع شيئًا، ابقَ صامتًا.</p>
+</blockquote>
+<p>يستدعي الوكيل السكربت عبر أداة الطرفية داخل حلقة الوكيل الخاصة بمهمة cron؛ لا حاجة إلى أي تغييرات على خيار <code>--script</code> المدمج في cron.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="state-files">ملفات الحالة</h2>
+<p>يكتب كل watcher الملف <code>$HERMES_HOME/watcher-state/&lt;name&gt;.json</code>. للفحص:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لإجبار إعادة التشغيل (يُعامل التشغيل التالي كأنه أول استطلاع):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="writing-your-own">كتابة watcher خاص بك</h2>
+<p>تستخدم السكربتات الثلاثة كلها القالب نفسه: تحميل الـ watermark، الجلب، حساب الفرق، الحفظ، الإصدار. <code>scripts/_watermark.py</code> هو المساعد المشترك؛ استورده لتحصل مجانًا على كتابة ذرية (atomic) + مجموعة معرّفات محدودة + خط أساس للتشغيل الأول. راجع أيًا من السكربتات المرجعية الثلاثة لترى كم هو قليل الكود التمهيدي (boilerplate) اللازم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">المزالق الشائعة</h2>
+<ol>
+<li><strong>طباعة ترويسة &quot;لا عناصر جديدة&quot; في كل دورة.</strong> يعتمد المستدعون على أن stdout الفارغ يعني الصمت. إذا طبعت أي شيء عند عدم وجود فرق، فأنت تُغرق القناة برسائل. تتعامل السكربتات المُرفَقة مع هذا، ويجب أن تفعل السكربتات المخصّصة الشيء نفسه.</li>
+<li><strong>توقّع أن يُصدر التشغيل الأول عناصر.</strong> لن يفعل — يسجّل التشغيل الأول خط أساس. إذا احتجت ملخّصًا أوليًا، احذف ملف الحالة بعد التشغيل الأول أو أضِف خيار <code>--prime-with-latest N</code> في سكربتك الخاص.</li>
+<li><strong>نمو الـ watermark بلا حدود.</strong> يحدّه المساعد المشترك عند 500 معرّف. ارفع الحد للموجزات كثيرة التغيّر؛ اخفضه على أنظمة ملفات محدودة.</li>
+<li><strong>وضع مجلد الحالة حيث لا يستطيع sandbox الوكيل الكتابة.</strong> <code>$HERMES_HOME/watcher-state/</code> قابل للكتابة دائمًا. قد لا ترى واجهات Docker/Modal الخلفية مسارات مضيف عشوائية.</li>
+</ol>

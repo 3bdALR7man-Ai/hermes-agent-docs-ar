@@ -1,0 +1,144 @@
+
+<header><h1>Python Debugpy</h1></header>
+<p>صحّح أخطاء Python: REPL الخاص بـ pdb + debugpy عن بُعد (DAP).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/software-development/python-debugpy</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>debugging</code>, <code>python</code>, <code>pdb</code>, <code>debugpy</code>, <code>breakpoints</code>, <code>dap</code>, <code>post-mortem</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging"><code>systematic-debugging</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger"><code>node-inspect-debugger</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مصحّح Python (pdb + debugpy)</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>ثلاث أدوات، تُختار حسب الموقف:</p>
+<table><thead><tr><th>الأداة</th><th>متى تُستخدم</th></tr></thead><tbody><tr><td><strong><code>breakpoint()</code> + pdb</strong></td><td>محلية، تفاعلية، الأبسط. أضف <code>breakpoint()</code> في الكود المصدري، شغّله بشكل عادي، واحصل على REPL عند ذلك السطر.</td></tr><tr><td><strong><code>python -m pdb</code></strong></td><td>تشغيل سكربت موجود تحت pdb دون أي تعديل على المصدر. مفيدة للفحص السريع.</td></tr><tr><td><strong><code>debugpy</code></strong></td><td>عن بُعد / بلا واجهة رسومية / «الاتصال بعملية قيد التشغيل فعلًا». يتحدث DAP، قابل للسكربتة من الطرفية، يعمل مع العمليات طويلة الأمد (gateway، daemon، عمليات PTY الفرعية).</td></tr></tbody></table>
+<p><strong>ابدأ بـ <code>breakpoint()</code>.</strong> إنها أرخص وسيلة تنجح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>يفشل اختبار ولا يكشف تتبّع الاستثناء (traceback) سبب خطأ إحدى القيم</li>
+<li>تحتاج إلى الخطو عبر دالة ومراقبة تغيّر مجموعة (collection)</li>
+<li>تسيء عملية طويلة التشغيل (hermes gateway، tui_gateway) التصرف ولا يمكنك إعادة تشغيلها</li>
+<li>تحليل ما بعد الحدث (post-mortem): أُطلق استثناء في كود شبيه بالإنتاج وتريد فحص المتغيرات المحلية عند موضع الانهيار</li>
+<li>عملية فرعية / تابعة (Python <code>_SlashWorker</code>، عامل جسر PTY) هي موضع الخطأ الفعلي</li>
+</ul>
+<p><strong>لا تستخدمها في:</strong> ما يحلّه <code>print()</code> / <code>logging.debug</code> في أقل من دقيقة، أو ما يكشفه أصلًا <code>pytest -vv --tb=long --showlocals</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pdb-quick-reference">مرجع سريع لـ pdb</h2>
+<p>داخل أي موجّه pdb (<code>(Pdb)</code>):</p>
+<table><thead><tr><th>الأمر</th><th>الإجراء</th></tr></thead><tbody><tr><td><code>h</code> / <code>h cmd</code></td><td>المساعدة</td></tr><tr><td><code>n</code></td><td>السطر التالي (خطو فوق)</td></tr><tr><td><code>s</code></td><td>خطو داخل</td></tr><tr><td><code>r</code></td><td>الرجوع من الدالة الحالية</td></tr><tr><td><code>c</code></td><td>المتابعة</td></tr><tr><td><code>unt N</code></td><td>المتابعة حتى السطر N</td></tr><tr><td><code>j N</code></td><td>القفز إلى السطر N (داخل الدالة نفسها فقط)</td></tr><tr><td><code>l</code> / <code>ll</code></td><td>عرض الكود المصدري حول السطر الحالي / الدالة كاملة</td></tr><tr><td><code>w</code></td><td>where (تتبّع المكدس)</td></tr><tr><td><code>u</code> / <code>d</code></td><td>التنقل لأعلى / لأسفل في المكدس</td></tr><tr><td><code>a</code></td><td>طباعة معطيات (args) الدالة الحالية</td></tr><tr><td><code>p expr</code> / <code>pp expr</code></td><td>طباعة / طباعة منسّقة للتعبير</td></tr><tr><td><code>display expr</code></td><td>طباعة التعبير تلقائيًا عند كل توقف</td></tr><tr><td><code>b file:line</code></td><td>تعيين نقطة توقف</td></tr><tr><td><code>b func</code></td><td>التوقف عند دخول الدالة</td></tr><tr><td><code>b file:line, cond</code></td><td>نقطة توقف شرطية</td></tr><tr><td><code>cl N</code></td><td>حذف نقطة التوقف N</td></tr><tr><td><code>tbreak file:line</code></td><td>نقطة توقف تُستخدم مرة واحدة</td></tr><tr><td><code>!stmt</code></td><td>تنفيذ أي كود Python (بما في ذلك التعيينات)</td></tr><tr><td><code>interact</code></td><td>الدخول إلى REPL Python كامل في النطاق الحالي (Ctrl+D للخروج)</td></tr><tr><td><code>q</code></td><td>الخروج</td></tr></tbody></table>
+<p>أمر <code>interact</code> هو الأقوى — يمكنك استيراد أي شيء، وفحص كائنات معقّدة، بل واستدعاء توابع تغيّر الحالة. المتغيرات المحلية للقراءة فقط افتراضيًا؛ استخدم <code>!x = 42</code> من موجّه <code>(Pdb)</code> لتغييرها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-1-local-breakpoint">الوصفة 1: نقطة توقف محلية</h2>
+<p>الأسهل. عدّل الملف:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>شغّل الكود بشكل عادي. ستصل إلى سطر <code>breakpoint()</code> مع وصول كامل إلى المتغيرات المحلية.</p>
+<p><strong>لا تنسَ إزالة <code>breakpoint()</code> قبل الالتزام (commit).</strong> استخدم <code>git diff</code> أو بحثًا (grep) قبل الالتزام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-2-launch-a-script-under-pdb-no-source-edits">الوصفة 2: تشغيل سكربت تحت pdb (دون تعديل المصدر)</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-3-debug-a-pytest-test">الوصفة 3: تصحيح اختبار pytest</h2>
+<p>يدعم كلٌّ من مشغّل اختبارات hermes و pytest ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ملاحظة: يشغّل <code>scripts/run_tests.sh</code> كل ملف اختبار في عملية فرعية مُلتقطة (captured) عبر <code>run_tests_parallel.py</code> (دون xdist)، لذا لا يعمل pdb التفاعلي تحت هذا الغلاف (wrapper). شغّل pytest مباشرة لاستخدام <code>--pdb</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>هذا يتجاوز ضمانات البيئة المعزولة (hermetic-env) — مقبول للتصحيح، لكن أعد التشغيل تحت الغلاف للتأكد قبل الدفع (push).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-4-post-mortem-on-any-exception">الوصفة 4: تحليل ما بعد الحدث لأي استثناء</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أو غلّف سكربتًا كاملًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>أو عيّن hook عامًا في repl/jupyter:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-5-remote-debug-with-debugpy-attach-to-running-process">الوصفة 5: تصحيح عن بُعد بـ debugpy (الاتصال بعملية قيد التشغيل)</h2>
+<p>للعمليات طويلة الأمد: hermes gateway، tui_gateway، أو daemon، أو عملية تسيء التصرف بالفعل ولا يمكن إعادة تشغيلها بشكل نظيف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-a-source-edit--process-waits-for-debugger-at-launch">النمط أ: تعديل المصدر — العملية تنتظر المصحّح عند الإطلاق</h3>
+<p>أضف قرب أعلى نقطة الدخول (أو داخل الدالة التي تريد تصحيحها):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>شغّل العملية؛ ستُحجب عند <code>wait_for_client()</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-b-no-source-edit--launch-with--m-debugpy">النمط ب: دون تعديل المصدر — التشغيل بـ <code>-m debugpy</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>المكافئ لنقطة دخول وحدة (module):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-c-attach-to-an-already-running-process">النمط ج: الاتصال بعملية قيد التشغيل فعلًا</h3>
+<p>يحتاج إلى رقم العملية (PID) وإلى تثبيت debugpy مسبقًا في بيئة الهدف:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>بعض النواة (kernels)/إعدادات الأمان تمنع الحقن المعتمد على ptrace (<code>/proc/sys/kernel/yama/ptrace_scope</code>). أصلح ذلك بـ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connecting-a-client-from-the-terminal">توصيل عميل من الطرفية</h3>
+<p>أسهل عميل DAP من جهة الطرفية هو CLI الخاص بـ VS Code أو سكربت صغير. من داخل Hermes لديك خياران عمليان:</p>
+<p><strong>الخيار 1: REPL CLI الخاص بـ <code>debugpy</code> نفسه</strong> — ليست ميزة رسمية، لكنها سكربت عميل DAP صغير:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>هذا مناسب لأتمتة لمرة واحدة لكنه مؤلم كتجربة تفاعلية.</p>
+<p><strong>الخيار 2: الاتصال من VS Code / Cursor / Zed</strong> — إن كان لدى المستخدم أحدها مفتوحًا، يمكنه إضافة <code>launch.json</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>الخيار 3: تخلَّ عن DAP، استخدم <code>remote-pdb</code></strong> — عادةً ما تريده فعليًا من وكيل الطرفية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>في كودك:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>ثم من الطرفية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><code>remote-pdb</code> هو الخيار الأنظف والأنسب للوكيل عندما يكون بروتوكول DAP الخاص بـ <code>debugpy</code> مبالغًا فيه. استخدم <code>debugpy</code> فقط عندما تحتاج فعلًا إلى تكامل مع بيئة تطوير (IDE).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-hermes-specific-processes">تصحيح عمليات خاصة بـ Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tests">الاختبارات</h3>
+<p>راجع الوصفة 3. يلتقط الغلاف مخرجات العملية الفرعية، لذا شغّل pytest مباشرة لاستخدام pdb التفاعلي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run_agentpy--cli--one-shot"><code>run_agent.py</code> / CLI — لمرة واحدة</h3>
+<p>الأسهل: أضف <code>breakpoint()</code> قرب السطر المشتبه به، ثم شغّل <code>hermes</code> بشكل عادي. يعود التحكم إلى طرفيتك عند نقطة التوقف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tui_gateway-subprocess-spawned-by-hermes---tui">عملية <code>tui_gateway</code> الفرعية (التي يُطلقها <code>hermes --tui</code>)</h3>
+<p>تعمل الـ gateway كعملية تابعة لـ TUI الخاصة بـ Node. الخيارات:</p>
+<p><strong>أ. عدّل مصدر الـ gateway:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>شغّل <code>hermes --tui</code>. ستبدو TUI متجمّدة (خلفيتها بانتظار). صل عميلًا؛ يستأنف التنفيذ عندما تنفّذ <code>continue</code>.</p>
+<p><strong>ب. استخدم <code>remote-pdb</code> عند معالج محدد:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>شغّل أمر slash المطابق من TUI، ثم <code>nc 127.0.0.1 4444</code> في طرفية أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="_slashworker-subprocess">عملية <code>_SlashWorker</code> الفرعية</h3>
+<p>النمط نفسه — <code>remote-pdb</code> مع <code>set_trace()</code> داخل مسار <code>exec</code> الخاص بالعامل (worker). العامل مستمر عبر أوامر slash، فتتوقف أول محاولة إطلاق حتى تتصل؛ وتمر أوامر slash التالية بشكل عادي ما لم تُعِد التسليح (re-arm).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-gatewayrunpy">الـ Gateway (<code>gateway/run.py</code>)</h3>
+<p>طويلة الأمد. استخدم <code>remote-pdb</code> عند معالج، أو <code>debugpy</code> مع <code>--wait-for-client</code> إن كنت ستعيد تشغيل الـ gateway على أي حال.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">مزالق شائعة</h2>
+<ol>
+<li>
+<p><strong>لا يفعل pdb شيئًا بصمت تحت مشغّل متوازٍ/يلتقط المخرجات.</strong> لن ترى الموجّه، والاختبار يتوقف فقط (صحيح مع pytest-xdist ومع العمليات الفرعية الملتقطة لكل ملف في <code>scripts/run_tests.sh</code>). شغّل pytest مباشرة على ملف واحد للتصحيح التفاعلي.</p>
+</li>
+<li>
+<p><strong><code>breakpoint()</code> في CI / سياقات بلا TTY يعلّق العملية.</strong> آمن محليًا؛ لا تلتزمه (commit) أبدًا. أضف بحث grep قبل الالتزام كشبكة أمان.</p>
+</li>
+<li>
+<p><strong><code>PYTHONBREAKPOINT=0</code></strong> يعطّل جميع استدعاءات <code>breakpoint()</code>. تحقّق من متغير البيئة إن كانت نقطة توقفك لا تُصاب:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+</li>
+<li>
+<p><strong>يحجب <code>debugpy.listen</code> فقط إن استدعيت أيضًا <code>wait_for_client()</code>.</strong> بدونها يستمر التنفيذ وقد تُطلق نقطة توقفك الأولى قبل اتصال العميل.</p>
+</li>
+<li>
+<p><strong>يفشل الاتصال بـ PID على النواة المُشدَّدة (hardened).</strong> يسمح <code>ptrace_scope=1</code> (الافتراضي في Ubuntu) فقط بـ ptrace من نفس المستخدم للعمليات الفرعية. الحل البديل: <code>echo 0 &gt; /proc/sys/kernel/yama/ptrace_scope</code> (يحتاج صلاحيات root) أو التشغيل تحت <code>debugpy</code> من البداية.</p>
+</li>
+<li>
+<p><strong>الخيوط (threads).</strong> يصحّح <code>pdb</code> الخيط الحالي فقط. للكود متعدد الخيوط، استخدم <code>debugpy</code> (وهو DAP واعٍ بالخيوط) أو عيّن <code>threading.settrace()</code> لكل خيط.</p>
+</li>
+<li>
+<p><strong>asyncio.</strong> يعمل <code>pdb</code> في الدوال المشتركة (coroutines) لكن <code>await</code> داخل pdb يتطلب Python 3.13+ أو <code>await</code> من نمط <code>interact</code> في الإصدارات الأقدم. لإصداري 3.11/3.12، استخدم حيل <code>asyncio.run_coroutine_threadsafe</code> أو انتظارات (awaits) عبر <code>!stmt</code> باستخدام <code>asyncio.ensure_future</code>.</p>
+</li>
+<li>
+<p><strong>يزيل <code>scripts/run_tests.sh</code> بيانات الاعتماد ويعيّن <code>HOME=&lt;tmpdir&gt;</code>.</strong> إذا كان خطؤك يعتمد على إعدادات المستخدم أو مفاتيح API حقيقية، فلن يتكرّر تحت الغلاف. صحّح باستخدام <code>pytest</code> الخام أولًا لإعادة إنتاجه، ثم تأكّد مجددًا تحت الغلاف.</p>
+</li>
+<li>
+<p><strong>Forking / multiprocessing.</strong> لا يتتبّع pdb عمليات fork. تحتاج كل عملية فرعية إلى <code>breakpoint()</code> أو <code>set_trace()</code> خاصة بها. لـ subagents في Hermes، صحّح عملية واحدة في كل مرة.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="28"></x-keep> بعد <code>pip install debugpy</code>، تحقّق: <code>python -c &quot;import debugpy; print(debugpy.__version__)&quot;</code></li>
+<li class="task-list-item"><x-keep id="29"></x-keep> للتصحيح عن بُعد، تحقّق أن المنفذ يستمع فعليًا: <code>ss -tlnp | grep 5678</code></li>
+<li class="task-list-item"><x-keep id="30"></x-keep> نقطة التوقف الأولى تُصاب فعليًا (إن لم تُصب، فمن المرجّح أن لديك <code>PYTHONBREAKPOINT=0</code>، أو أنك تحت مشغّل متوازٍ/يلتقط المخرجات، أو انتهى التنفيذ قبل الاتصال)</li>
+<li class="task-list-item"><x-keep id="31"></x-keep> يعرض <code>where</code> / <code>w</code> مكدس الاستدعاءات المتوقع</li>
+<li class="task-list-item"><x-keep id="32"></x-keep> تنظيف ما بعد التصحيح: لا يوجد <code>breakpoint()</code> / <code>set_trace()</code> متبقٍّ في الكود الملتزَم (committed)
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-recipes">وصفات لمرة واحدة</h2>
+<p><strong>«لماذا يفتقد هذا القاموس (dict) مفتاحًا؟»</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>«هذا الاختبار ينجح بمفرده لكنه يفشل ضمن المجموعة (suite).»</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><strong>«معالجي غير المتزامن (async) يتجمّد (deadlock).»</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>أطلق المعالج. نفّذ <code>nc 127.0.0.1 4444</code>، ثم <code>w</code> لرؤية الإطار المعلَّق، و <code>!import asyncio; asyncio.all_tasks()</code> لرؤية ما هو معلّق أيضًا.</p>
+<p><strong>«تحليل ما بعد الحدث لانهيار في عملية Ink فرعية / عملية فرعية.»</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>

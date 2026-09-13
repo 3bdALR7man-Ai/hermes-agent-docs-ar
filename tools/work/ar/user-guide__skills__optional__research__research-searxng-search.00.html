@@ -1,0 +1,71 @@
+
+<header><h1>البحث عبر SearXNG</h1></header>
+<p>محرك بحث تجميعي (meta-search) مجاني وبلا مفتاح، يجمع أكثر من 70 محركًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/research/searxng-search</code></td></tr><tr><td>المسار</td><td><code>optional-skills/research/searxng-search</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>hermes-agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos</td></tr><tr><td>الوسوم</td><td><code>search</code>، <code>searxng</code>، <code>meta-search</code>، <code>self-hosted</code>، <code>free</code>، <code>fallback</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/research/research-duckduckgo-search"><code>duckduckgo-search</code></a>، <a href="/docs/user-guide/skills/optional/research/research-domain-intel"><code>domain-intel</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>بحث SearXNG</h1>
+<p>بحث تجميعي مجاني باستخدام <a href="https://searxng.org/" data-ext>SearXNG</a> — مجمّع بحث مستضاف ذاتيًا ويحترم الخصوصية، يستعلم أكثر من 70 محرك بحث في آن واحد.</p>
+<p><strong>لا يتطلب مفتاح API</strong> عند استخدام نسخة عامة (public instance). يمكن أيضًا استضافته ذاتيًا للتحكم الكامل. يظهر تلقائيًا كخيار احتياطي (fallback) عندما لا يكون toolset البحث الرئيسي في الويب مضبوطًا (<code>FIRECRAWL_API_KEY</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>يتطلب SearXNG متغير بيئة <code>SEARXNG_URL</code> يشير إلى نسختك من SearXNG:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا لم تُضبط أي نسخة، تصبح هذه المهارة غير متاحة ويعود الوكيل إلى خيارات بحث أخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="detection-flow">مسار الاكتشاف</h2>
+<p>تحقق مما هو متاح فعليًا قبل اختيار نهج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>شجرة القرار:</p>
+<ol>
+<li>إذا كان <code>SEARXNG_URL</code> مضبوطًا وكانت النسخة تستجيب، استخدم SearXNG</li>
+<li>إذا كان <code>SEARXNG_URL</code> غير مضبوط أو يتعذّر الوصول إليه، عُد إلى أدوات بحث أخرى متاحة</li>
+<li>إذا أراد المستخدم SearXNG تحديدًا، ساعده على إعداد نسخة أو إيجاد نسخة عامة</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-1-cli-via-curl-preferred">الطريقة 1: CLI عبر curl (مفضّلة)</h2>
+<p>استخدم <code>curl</code> عبر <code>terminal</code> لاستدعاء واجهة SearXNG JSON API. هذا يتفادى افتراض تثبيت أي حزمة Python بعينها.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-cli-flags">خيارات CLI الشائعة</h3>
+<table><thead><tr><th>الخيار</th><th>الوصف</th><th>مثال</th></tr></thead><tbody><tr><td><code>q</code></td><td>نص الاستعلام (مُرمَّز URL)</td><td><code>q=python+async</code></td></tr><tr><td><code>format</code></td><td>صيغة الإخراج: <code>json</code>، <code>csv</code>، <code>rss</code></td><td><code>format=json</code></td></tr><tr><td><code>engines</code></td><td>أسماء المحركات مفصولة بفواصل</td><td><code>engines=google,bing,ddg</code></td></tr><tr><td><code>limit</code></td><td>الحد الأقصى للنتائج لكل محرك (الافتراضي 10)</td><td><code>limit=5</code></td></tr><tr><td><code>categories</code></td><td>التصفية حسب الفئة</td><td><code>categories=news,science</code></td></tr><tr><td><code>safesearch</code></td><td>0=بلا، 1=معتدل، 2=صارم</td><td><code>safesearch=0</code></td></tr><tr><td><code>time_range</code></td><td>التصفية: <code>day</code>، <code>week</code>، <code>month</code>، <code>year</code></td><td><code>time_range=week</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parsing-json-results">تحليل نتائج JSON</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يُعيد لكل نتيجة: <code>title</code>، <code>url</code>، <code>content</code> (مقتطف)، <code>engine</code>، <code>parsed_url</code>، <code>img_src</code>، <code>thumbnail</code>، <code>author</code>، <code>published_date</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-2-python-api-via-requests">الطريقة 2: واجهة Python عبر <code>requests</code></h2>
+<p>استخدم واجهة SearXNG REST مباشرةً من Python بواسطة مكتبة <code>requests</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-hosting-searxng">استضافة SearXNG ذاتيًا</h2>
+<p>لتشغيل نسختك الخاصة من SearXNG:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أو ثبّتها عبر pip:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تتوفر نسخ عامة من SearXNG على:</p>
+<ul>
+<li><code>https://searxng.example.com</code> (استبدلها بأي نسخة عامة)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-search-then-extract">سير العمل: البحث ثم الاستخلاص</h2>
+<p>يُعيد SearXNG العناوين والروابط والمقتطفات — لا المحتوى الكامل للصفحة. للحصول على المحتوى الكامل، ابحث أولًا ثم استخلص الرابط الأنسب باستخدام <code>web_extract</code>، أو أدوات المتصفح، أو <code>curl</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>توفّر النسخة</strong>: إذا كانت نسخة SearXNG معطلة أو يتعذّر الوصول إليها، يفشل البحث. تحقق دائمًا من ضبط <code>SEARXNG_URL</code> ومن إمكانية الوصول إلى النسخة.</li>
+<li><strong>لا استخلاص للمحتوى</strong>: يُعيد SearXNG مقتطفات لا محتوى الصفحة الكامل. استخدم <code>web_extract</code> أو أدوات المتصفح أو <code>curl</code> للمقالات الكاملة.</li>
+<li><strong>تحديد المعدل (rate limiting)</strong>: بعض النسخ العامة تحدّ من الطلبات. الاستضافة الذاتية تتجنب ذلك.</li>
+<li><strong>تغطية المحركات</strong>: تعتمد المحركات المتاحة على إعدادات نسخة SearXNG. قد تكون بعض المحركات معطّلة.</li>
+<li><strong>حداثة النتائج</strong>: يجمّع البحث التجميعي محركات خارجية — وتعتمد حداثة النتائج على تلك المحركات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>السبب المحتمل</th><th>ما يجب فعله</th></tr></thead><tbody><tr><td><code>SEARXNG_URL</code> غير مضبوط</td><td>لا نسخة مضبوطة</td><td>استخدم نسخة عامة من SearXNG أو أعدّ نسختك الخاصة</td></tr><tr><td>رُفض الاتصال</td><td>النسخة غير مشغَّلة أو الرابط خاطئ</td><td>تحقق من صحة الرابط ومن تشغيل النسخة</td></tr><tr><td>نتائج فارغة</td><td>النسخة تحظر الاستعلام</td><td>جرّب نسخة أخرى أو استضف نسختك الخاصة</td></tr><tr><td>استجابات بطيئة</td><td>النسخة العامة محمَّلة بشكل زائد</td><td>استضف نسختك الخاصة أو استخدم نسخة عامة أقل ازدحامًا</td></tr><tr><td>صيغة <code>json</code> غير مدعومة</td><td>إصدار SearXNG قديم</td><td>جرّب <code>format=rss</code> أو حدّث SearXNG</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق</h2>
+<ul>
+<li><strong>اضبط <code>SEARXNG_URL</code> دائمًا</strong>: بدونه، لا يمكن للمهارة أن تعمل.</li>
+<li><strong>رمّز الاستعلامات (URL-encode)</strong>: يجب ترميز المسافات والرموز الخاصة في curl، أو استخدام <code>urllib.parse.quote()</code> في Python.</li>
+<li><strong>استخدم <code>format=json</code></strong>: قد لا تكون الصيغة الافتراضية قابلة للقراءة الآلية. اطلب JSON صراحةً دائمًا.</li>
+<li><strong>اضبط مهلة زمنية</strong>: استخدم دائمًا <code>--max-time</code> أو <code>timeout=</code> لتفادي التعليق عند تعذّر الوصول إلى النسخة.</li>
+<li><strong>الاستضافة الذاتية هي الأفضل</strong>: قد تتعطل النسخ العامة أو تحدّ المعدل أو تحظر. النسخة المستضافة ذاتيًا موثوقة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="instance-discovery">اكتشاف النسخ</h2>
+<p>إذا لم يكن <code>SEARXNG_URL</code> مضبوطًا وسأل المستخدم عن SearXNG، ساعده على أحد الخيارين:</p>
+<ol>
+<li>إيجاد نسخة عامة من SearXNG (ابحث عن &quot;public searxng instance&quot;)</li>
+<li>إعداد نسخته الخاصة عبر Docker أو pip</li>
+</ol>
+<p>تُدرَج النسخ العامة على: <a href="https://searxng.org/" data-ext>https://searxng.org/</a></p>

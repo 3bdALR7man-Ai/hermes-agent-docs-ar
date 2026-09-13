@@ -1,0 +1,156 @@
+<header><h1>إعداد Mattermost</h1></header>
+<p>يتكامل Hermes Agent مع Mattermost بصفته بوتًا (bot)، ما يتيح لك محادثة مساعدك الذكي عبر الرسائل المباشرة أو قنوات الفريق. Mattermost بديل لـ Slack مفتوح المصدر ومستضاف ذاتيًا (self-hosted) — تشغّله على بنيتك التحتية الخاصة، فتحتفظ بالتحكم الكامل في بياناتك. يتصل البوت عبر REST API (v4) الخاصة بـ Mattermost و WebSocket لتلقي الأحداث لحظيًا، ويعالج الرسائل عبر pipeline الخاص بـ Hermes Agent (بما في ذلك استخدام الأدوات والذاكرة والاستدلال)، ثم يردّ في الوقت الفعلي. ويدعم النصوص والملفات المرفقة والصور و slash commands.</p>
+<p>لا حاجة إلى أي مكتبة Mattermost خارجية — يستخدم المحوّل (adapter) مكتبة <code>aiohttp</code>، وهي من اعتماديات Hermes أصلًا.</p>
+<p>قبل الإعداد، إليك ما يودّ معظم الناس معرفته: كيف يتصرف Hermes بعد إضافته إلى خادم Mattermost الخاص بك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-behaves">كيف يتصرف Hermes</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة (DM)</strong></td><td>يردّ Hermes على كل رسالة، ولا حاجة إلى <code>@mention</code>. لكل محادثة مباشرة جلستها الخاصة.</td></tr><tr><td><strong>القنوات العامة/الخاصة</strong></td><td>يردّ Hermes عندما تشير إليه عبر <code>@mention</code>. ومن دون إشارة، يتجاهل Hermes الرسالة.</td></tr><tr><td><strong>سلاسل الرسائل (Threads)</strong></td><td>عند ضبط <code>MATTERMOST_REPLY_MODE=thread</code>، يردّ Hermes في سلسلة رسائل أسفل رسالتك، ويبقى سياق السلسلة معزولًا عن القناة الأم.</td></tr><tr><td><strong>القنوات المشتركة بين عدة مستخدمين</strong></td><td>افتراضيًا، يعزل Hermes سجل الجلسة لكل مستخدم داخل القناة؛ فلا يتشارك شخصان يتحدثان في القناة نفسها سجل محادثة واحدًا ما لم تعطّل ذلك صراحةً.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا أردت أن يردّ Hermes في صورة محادثات متسلسلة (متداخلة أسفل رسالتك الأصلية)، فاضبط <code>MATTERMOST_REPLY_MODE=thread</code>. القيمة الافتراضية هي <code>off</code>، وفيها تُرسَل الرسائل مسطّحةً في القناة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-model-in-mattermost">نموذج الجلسات في Mattermost</h3>
+<p>افتراضيًا:</p>
+<ul>
+<li>تحصل كل محادثة مباشرة على جلستها الخاصة</li>
+<li>تحصل كل سلسلة رسائل على نطاق جلسات (namespace) خاص بها</li>
+<li>يحصل كل مستخدم في القناة المشتركة على جلسته الخاصة داخل تلك القناة</li>
+</ul>
+<p>يُتحكَّم في ذلك عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اضبطه على <code>false</code> فقط إذا أردت صراحةً محادثة مشتركة واحدة للقناة بأكملها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>قد تكون الجلسات المشتركة مفيدة في قناة تعاونية، لكنها تعني أيضًا أن:</p>
+<ul>
+<li>المستخدمين يتشاركون نمو السياق وتكاليف الـ token</li>
+<li>مهمة طويلة لشخص واحد تعتمد على الأدوات بكثافة قد تضخّم سياق الجميع</li>
+<li>تشغيلًا جاريًا لشخص ما قد يقاطع رسالة المتابعة التي يرسلها شخص آخر في القناة نفسها</li>
+</ul>
+<p>يرشدك هذا الدليل خلال عملية الإعداد كاملةً — من إنشاء البوت على Mattermost حتى إرسال رسالتك الأولى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-enable-bot-accounts">الخطوة 1: تفعيل حسابات البوت</h2>
+<p>يجب تفعيل حسابات البوت على خادم Mattermost قبل أن تتمكن من إنشاء حساب منها.</p>
+<ol>
+<li>سجّل الدخول إلى Mattermost بصفتك <strong>System Admin</strong>.</li>
+<li>انتقل إلى <strong>System Console</strong> → <strong>Integrations</strong> → <strong>Bot Accounts</strong>.</li>
+<li>اضبط <strong>Enable Bot Account Creation</strong> على <strong>true</strong>.</li>
+<li>انقر <strong>Save</strong>.</li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>إذا لم تكن لديك صلاحية System Admin، فاطلب من مسؤول Mattermost لديك تفعيل حسابات البوت وإنشاء حساب لك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-a-bot-account">الخطوة 2: إنشاء حساب بوت</h2>
+<ol>
+<li>في Mattermost، انقر القائمة <strong>☰</strong> (أعلى اليسار) → <strong>Integrations</strong> → <strong>Bot Accounts</strong>.</li>
+<li>انقر <strong>Add Bot Account</strong>.</li>
+<li>املأ التفاصيل:
+<ul>
+<li><strong>Username</strong>: مثلًا <code>hermes</code></li>
+<li><strong>Display Name</strong>: مثلًا <code>Hermes Agent</code></li>
+<li><strong>Description</strong>: اختياري</li>
+<li><strong>Role</strong>: يكفي الدور <code>Member</code></li>
+</ul>
+</li>
+<li>انقر <strong>Create Bot Account</strong>.</li>
+<li>سيعرض Mattermost <strong>token البوت</strong>. <strong>انسخه فورًا.</strong></li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>يُعرض الـ token مرة واحدة فقط</div><div class="admonitionContent_BuS1"><p>لا يُعرض token البوت إلا مرة واحدة عند إنشاء حساب البوت. وإذا فقدته، فستحتاج إلى إعادة توليده من إعدادات حساب البوت. لا تشارك الـ token علنًا أبدًا ولا تضفه في commit إلى Git — فأي شخص يملك هذا الـ token يتحكم في البوت تحكمًا كاملًا.</p></div></div>
+<p>احفظ الـ token في مكان آمن (مدير كلمات مرور مثلًا)، إذ ستحتاج إليه في الخطوة 5.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك أيضًا استخدام <strong>personal access token</strong> بدلًا من حساب بوت. انتقل إلى <strong>Profile</strong> → <strong>Security</strong> → <strong>Personal Access Tokens</strong> → <strong>Create Token</strong>. يفيد ذلك إذا أردت أن ينشر Hermes الرسائل باسم مستخدمك أنت بدلًا من مستخدم بوت منفصل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-add-the-bot-to-channels">الخطوة 3: إضافة البوت إلى القنوات</h2>
+<p>يجب أن يكون البوت عضوًا في كل قناة تريد أن يردّ فيها:</p>
+<ol>
+<li>افتح القناة التي تريد إضافة البوت إليها.</li>
+<li>انقر اسم القناة → <strong>Add Members</strong>.</li>
+<li>ابحث عن اسم مستخدم البوت (مثلًا <code>hermes</code>) وأضفه.</li>
+</ol>
+<p>أما الرسائل المباشرة، فافتح ببساطة رسالة مباشرة مع البوت — وسيتمكن من الرد فورًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-find-your-mattermost-user-id">الخطوة 4: العثور على معرّف مستخدم Mattermost الخاص بك</h2>
+<p>يستخدم Hermes Agent معرّف المستخدم (User ID) الخاص بك في Mattermost للتحكم في من يمكنه التفاعل مع البوت. للعثور عليه:</p>
+<ol>
+<li>انقر <strong>الصورة الرمزية (avatar)</strong> الخاصة بك (الزاوية العلوية اليسرى) → <strong>Profile</strong>.</li>
+<li>يظهر معرّف المستخدم في نافذة الملف الشخصي — انقره لنسخه.</li>
+</ol>
+<p>معرّف المستخدم سلسلة أبجدية رقمية من 26 حرفًا مثل <code>3uo8dkh1p7g1mfk49ear5fzs5c</code>.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>معرّف المستخدم <strong>ليس</strong> اسم المستخدم. اسم المستخدم هو ما يظهر بعد <code>@</code> (مثلًا <code>@alice</code>)، أما معرّف المستخدم فهو معرّف أبجدي رقمي طويل يستخدمه Mattermost داخليًا.</p></div></div>
+<p><strong>بديل</strong>: يمكنك أيضًا الحصول على معرّف المستخدم عبر API:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>للحصول على <strong>معرّف القناة (Channel ID)</strong>: انقر اسم القناة → <strong>View Info</strong>. يظهر معرّف القناة في لوحة المعلومات، وستحتاج إليه إذا أردت ضبط القناة الرئيسية يدويًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-configure-hermes-agent">الخطوة 5: ضبط إعدادات Hermes Agent</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار أ: الإعداد التفاعلي (موصى به)</h3>
+<p>شغّل أمر الإعداد الموجَّه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اختر <strong>Mattermost</strong> عند المطالبة، ثم الصق عنوان URL للخادم و token البوت ومعرّف المستخدم عندما يُطلب منك ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار ب: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى ملف <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إعدادات سلوك اختيارية في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<ul>
+<li>يُبقي <code>group_sessions_per_user: true</code> سياق كل مشارك معزولًا داخل القنوات وسلاسل الرسائل المشتركة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل الـ Gateway</h3>
+<p>بعد الانتهاء من الإعداد، شغّل gateway الخاص بـ Mattermost:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>من المفترض أن يتصل البوت بخادم Mattermost خلال بضع ثوانٍ. أرسل إليه رسالة — سواء رسالة مباشرة أو في قناة أُضيف إليها — لاختباره.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك تشغيل <code>hermes gateway</code> في الخلفية أو كخدمة systemd لضمان التشغيل المستمر. راجع وثائق النشر للتفاصيل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية</h2>
+<p>يمكنك تعيين &quot;قناة رئيسية&quot; (home channel) يرسل إليها البوت الرسائل الاستباقية (مثل مخرجات مهام cron والتذكيرات والإشعارات). وهناك طريقتان لضبطها:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-the-slash-command">باستخدام الـ Slash Command</h3>
+<p>اكتب <code>/sethome</code> في أي قناة Mattermost يوجد فيها البوت، فتصبح تلك القناة هي القناة الرئيسية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-configuration">الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>استبدل المعرّف بمعرّف القناة الفعلي (انقر اسم القناة → View Info → انسخ المعرّف).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reply-mode">وضع الرد</h2>
+<p>يتحكم الإعداد <code>MATTERMOST_REPLY_MODE</code> في طريقة نشر Hermes للردود:</p>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>off</code> (الافتراضي)</td><td>ينشر Hermes رسائل مسطّحة في القناة، مثل أي مستخدم عادي.</td></tr><tr><td><code>thread</code></td><td>يردّ Hermes في سلسلة رسائل أسفل رسالتك الأصلية، ما يُبقي القنوات مرتبة عند كثرة الأخذ والرد.</td></tr></tbody></table>
+<p>اضبطه في ملف <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mention-behavior">سلوك الإشارة (Mention)</h2>
+<p>افتراضيًا، لا يردّ البوت في القنوات إلا عند الإشارة إليه عبر <code>@mentioned</code>. ويمكنك تغيير ذلك:</p>
+<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>MATTERMOST_REQUIRE_MENTION</code></td><td><code>true</code></td><td>اضبطه على <code>false</code> ليردّ البوت على جميع الرسائل في القنوات (الرسائل المباشرة تعمل دائمًا).</td></tr><tr><td><code>MATTERMOST_FREE_RESPONSE_CHANNELS</code></td><td><em>(لا شيء)</em></td><td>معرّفات قنوات مفصولة بفواصل يردّ فيها البوت دون <code>@mention</code>، حتى عندما تكون قيمة require_mention هي true.</td></tr></tbody></table>
+<p>للعثور على معرّف قناة في Mattermost: افتح القناة، وانقر ترويسة اسم القناة، وابحث عن المعرّف في عنوان URL أو في تفاصيل القناة.</p>
+<p>عند الإشارة إلى البوت عبر <code>@mentioned</code>، تُحذف الإشارة تلقائيًا من الرسالة قبل معالجتها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="channel-allowlist-allowed_channels">قائمة السماح بالقنوات (<code>allowed_channels</code>)</h2>
+<p>قيّد البوت بمجموعة ثابتة من قنوات Mattermost. عند ضبط هذا الخيار، يردّ البوت <strong>فقط</strong> في القنوات التي يرد معرّفها في القائمة — وتُتجاهل الرسائل الواردة من أي قناة أخرى بصمت، حتى لو أُشير إلى البوت عبر <code>@mentioned</code>.</p>
+<p><strong>الرسائل المباشرة مستثناة</strong> من هذا المرشّح، لذا يستطيع المستخدمون المصرّح لهم الوصول إلى البوت دائمًا عبر رسالة مباشرة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>أو عبر متغير البيئة (environment variable) (بقيم مفصولة بفواصل):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>فارغ / غير مضبوط → لا قيود (متوافق تمامًا مع الإصدارات السابقة).</li>
+<li>غير فارغ → يجب أن يكون معرّف القناة ضمن القائمة، وإلا أُسقطت الرسالة قبل تشغيل أي تصفية أخرى (اشتراط الإشارة، و <code>MATTERMOST_FREE_RESPONSE_CHANNELS</code>، وغيرها).</li>
+<li>اعثر على معرّف القناة عبر واجهة Mattermost → ترويسة القناة → &quot;View Info&quot;، أو اقرأه من عنوان URL للقناة.</li>
+</ul>
+<p>راجع أيضًا: <a href="/docs/reference/slash-commands#permissions-and-adminuser-split">الفصل بين slash commands الخاصة بالمسؤول والمستخدم</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-not-responding-to-messages">البوت لا يردّ على الرسائل</h3>
+<p><strong>السبب</strong>: البوت ليس عضوًا في القناة، أو أن <code>MATTERMOST_ALLOWED_USERS</code> لا يتضمن معرّف المستخدم الخاص بك.</p>
+<p><strong>الحل</strong>: أضف البوت إلى القناة (اسم القناة → Add Members → ابحث عن البوت). وتحقق من وجود معرّف المستخدم الخاص بك في <code>MATTERMOST_ALLOWED_USERS</code>، ثم أعد تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="403-forbidden-errors">أخطاء 403 Forbidden</h3>
+<p><strong>السبب</strong>: token البوت غير صالح، أو ليست لدى البوت صلاحية النشر في القناة.</p>
+<p><strong>الحل</strong>: تحقق من صحة <code>MATTERMOST_TOKEN</code> في ملف <code>.env</code>. وتأكد من أن حساب البوت لم يُعطَّل، ومن أن البوت أُضيف إلى القناة. وإذا كنت تستخدم personal access token، فتأكد من أن حسابك يملك الصلاحيات المطلوبة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="websocket-disconnects--reconnection-loops">انقطاع اتصال WebSocket / حلقات إعادة الاتصال</h3>
+<p><strong>السبب</strong>: عدم استقرار الشبكة، أو إعادة تشغيل خادم Mattermost، أو مشكلات في جدار الحماية/الوكيل (proxy) مع اتصالات WebSocket.</p>
+<p><strong>الحل</strong>: يعيد المحوّل الاتصال تلقائيًا مع تراجع أُسّي (exponential backoff) ‏(2s → 60s). راجع إعدادات WebSocket على خادمك — إذ تحتاج الوكلاء العكسية (reverse proxies) مثل nginx و Apache إلى ضبط ترويسات ترقية WebSocket. وتحقق من عدم وجود جدار حماية يحجب اتصالات WebSocket على خادم Mattermost.</p>
+<p>في حالة nginx، تأكد من أن إعداداتك تتضمن ما يلي:</p>
+<div class="language-nginx codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failed-to-authenticate-on-startup">ظهور &quot;Failed to authenticate&quot; عند بدء التشغيل</h3>
+<p><strong>السبب</strong>: الـ token أو عنوان URL للخادم غير صحيح.</p>
+<p><strong>الحل</strong>: تحقق من أن <code>MATTERMOST_URL</code> يشير إلى خادم Mattermost الخاص بك (مع تضمين <code>https://</code> ودون شرطة مائلة في النهاية). وتحقق من صلاحية <code>MATTERMOST_TOKEN</code> — جرّبه باستخدام curl:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>إذا أعاد هذا الأمر معلومات مستخدم البوت، فالـ token صالح. وإذا أعاد خطأً، فأعد توليد الـ token.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-offline">البوت غير متصل</h3>
+<p><strong>السبب</strong>: gateway الخاص بـ Hermes لا يعمل، أو فشل في الاتصال.</p>
+<p><strong>الحل</strong>: تحقق من أن <code>hermes gateway</code> قيد التشغيل، وراجع مخرجات الطرفية بحثًا عن رسائل الخطأ. من المشكلات الشائعة: عنوان URL خاطئ، أو token منتهي الصلاحية، أو تعذّر الوصول إلى خادم Mattermost.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-not-allowed--bot-ignores-you">ظهور &quot;User not allowed&quot; / البوت يتجاهلك</h3>
+<p><strong>السبب</strong>: معرّف المستخدم الخاص بك غير موجود في <code>MATTERMOST_ALLOWED_USERS</code>.</p>
+<p><strong>الحل</strong>: أضف معرّف المستخدم الخاص بك إلى <code>MATTERMOST_ALLOWED_USERS</code> في <code>~/.hermes/.env</code> وأعد تشغيل الـ gateway. تذكّر: معرّف المستخدم سلسلة أبجدية رقمية من 26 حرفًا، وليس <code>@username</code> الخاص بك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-channel-prompts">Prompts خاصة بكل قناة</h2>
+<p>خصّص system prompts مؤقتة (ephemeral) لقنوات Mattermost محددة. يُحقن الـ prompt وقت التشغيل في كل دور — ولا يُحفظ أبدًا في سجل المحادثة — لذا تسري التغييرات فورًا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>المفاتيح هي معرّفات قنوات Mattermost (تجدها في عنوان URL للقناة أو عبر API). وتُحقن في جميع الرسائل في القناة المطابقة تعليمةُ النظام المؤقتة هذه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>MATTERMOST_ALLOWED_USERS</code> لتقييد من يمكنه التفاعل مع البوت. فمن دونه، يرفض الـ gateway جميع المستخدمين افتراضيًا كإجراء احترازي. لا تُضف إلا معرّفات مستخدمين تثق بهم — فالمستخدمون المصرّح لهم يملكون وصولًا كاملًا إلى قدرات الوكيل، بما في ذلك استخدام الأدوات والوصول إلى النظام.</p></div></div>
+<p>لمزيد من المعلومات حول تأمين نشر Hermes Agent، راجع <a href="/docs/user-guide/security">دليل الأمان</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li><strong>ملائم للاستضافة الذاتية</strong>: يعمل مع أي خادم Mattermost مستضاف ذاتيًا، دون الحاجة إلى حساب أو اشتراك في Mattermost Cloud.</li>
+<li><strong>بلا اعتماديات إضافية</strong>: يستخدم المحوّل <code>aiohttp</code> لـ HTTP و WebSocket، وهي مضمّنة أصلًا مع Hermes Agent.</li>
+<li><strong>متوافق مع Team Edition</strong>: يعمل مع كلٍّ من Mattermost Team Edition (المجانية) و Enterprise Edition.</li>
+</ul>

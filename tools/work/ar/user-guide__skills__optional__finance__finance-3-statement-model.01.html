@@ -1,0 +1,112 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-validation-and-audit">التحقق من النموذج وتدقيقه</h2>
+<p>يجمع هذا القسم كل فحوصات التحقق وإجراءات التدقيق للقوالب المكتملة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-linkages-must-always-hold">الروابط الأساسية (يجب أن تصمد دائمًا)</h3>
+<p>راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/finance/3-statement-model/references/formulas.md" data-ext>references/formulas.md</a> لكل تفاصيل الصيغ.</p>
+<table><thead><tr><th>الفحص</th><th>الصيغة</th><th>النتيجة المتوقعة</th></tr></thead><tbody><tr><td>توازن الميزانية العمومية</td><td>الأصول - الخصوم - حقوق الملكية</td><td>= 0</td></tr><tr><td>مطابقة النقد</td><td>النقد الختامي في CF - نقد BS</td><td>= 0</td></tr><tr><td>النقد الشهري مقابل السنوي</td><td>النقد الختامي (شهري) - النقد الختامي (سنوي)</td><td>= 0</td></tr><tr><td>رابط صافي الدخل</td><td>صافي الدخل في IS - صافي الدخل الافتتاحي في CF</td><td>= 0</td></tr><tr><td>الأرباح المحتجزة</td><td>الأرباح المحتجزة السابقة + صافي الدخل + SBC - الأرباح الموزعة - الأرباح المحتجزة الختامية في BS</td><td>= 0</td></tr><tr><td>تمويل حقوق الملكية</td><td>Δ الأسهم العادية/APIC (BS) - إصدار حقوق الملكية (CFF)</td><td>= 0</td></tr><tr><td>حقوق الملكية في السنة صفر</td><td>حقوق الملكية المُجمَّعة (السنة 0) - رأس مال حقوق الملكية الافتتاحي (السنة 1)</td><td>= 0</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sign-convention-reference">مرجع اصطلاح الإشارة</h3>
+<table><thead><tr><th>القائمة</th><th>البند</th><th>اصطلاح الإشارة</th></tr></thead><tbody><tr><td>CFO</td><td>D&amp;A، SBC</td><td>موجب (إضافة)</td></tr><tr><td>CFO</td><td>Δ الذمم المدينة (زيادة)</td><td>سالب (استخدام للنقد)</td></tr><tr><td>CFO</td><td>Δ الذمم الدائنة (زيادة)</td><td>موجب (مصدر للنقد)</td></tr><tr><td>CFI</td><td>النفقات الرأسمالية</td><td>سالب</td></tr><tr><td>CFF</td><td>إصدار الدين</td><td>موجب</td></tr><tr><td>CFF</td><td>سداد الدين</td><td>سالب</td></tr><tr><td>CFF</td><td>الأرباح الموزعة</td><td>سالب</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="circular-reference-handling">التعامل مع المراجع الدائرية</h3>
+<p>يخلق مصروف الفوائد دائرية: الفائدة ← صافي الدخل ← النقد ← رصيد الدين ← الفائدة</p>
+<p>فعّل الحساب التكراري في Excel: File ← Options ← Formulas ← Enable iterative calculation. اضبط الحد الأقصى للتكرارات على 100، والحد الأقصى للتغيير على 0.001. أضف مفتاح قاطع دارة (circuit breaker) في تبويب Assumptions.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-categories">فئات الفحص</h3>
+<p><strong>القسم 1: اتساق العملة</strong></p>
+<ul>
+<li>العملة محددة وموثّقة في Assumptions</li>
+<li>كل التبويبات تستخدم رمز عملة ومقياسًا متسقين</li>
+<li>صف الوحدات يطابق عملة النموذج</li>
+</ul>
+<p><strong>القسم 2: سلامة الميزانية العمومية</strong></p>
+<ul>
+<li>الأصول = الخصوم + حقوق الملكية (لكل فترة)</li>
+<li>الصيغة: الأصول - الخصوم - حقوق الملكية (يجب أن تساوي 0)</li>
+</ul>
+<p><strong>القسم 3: سلامة التدفقات النقدية</strong></p>
+<ul>
+<li>النقد يتطابق مع BS (النقد الختامي في CF = نقد BS)</li>
+<li>النقد الشهري مقابل السنوي: النقد الختامي (شهري) = النقد الختامي (سنوي)</li>
+<li>صافي الدخل يتطابق مع IS (صافي الدخل في CF = صافي الدخل في IS)</li>
+<li>D&amp;A يتطابق مع الجدول</li>
+<li>SBC يتطابق مع IS</li>
+<li>Δ الذمم المدينة، Δ المخزون، Δ الذمم الدائنة تتطابق مع جدول WC</li>
+<li>النفقات الرأسمالية تتطابق مع جدول DA</li>
+</ul>
+<p><strong>القسم 4: الأرباح المحتجزة</strong></p>
+<ul>
+<li>فحص ترحيل الأرباح المحتجزة: الأرباح المحتجزة السابقة + صافي الدخل + SBC - الأرباح الموزعة = الأرباح المحتجزة الختامية</li>
+<li>أظهر تفصيل المكوّنات لأغراض التشخيص</li>
+</ul>
+<p><strong>القسم 5: رأس المال العامل</strong></p>
+<ul>
+<li>الذمم المدينة، والمخزون، والذمم الدائنة تتطابق مع BS</li>
+<li>فحوصات معقولية DSO، وDIO، وDPO (نبّه إن خرجت عن النطاقات المعتادة)</li>
+</ul>
+<p><strong>القسم 6: جدول الدين</strong></p>
+<ul>
+<li>إجمالي الدين يتطابق مع BS (الدين المتداول + طويل الأجل)</li>
+<li>حساب الفائدة يتطابق مع IS</li>
+</ul>
+<p><strong>القسم 6ب: تمويل حقوق الملكية</strong></p>
+<ul>
+<li>عائدات إصدار حقوق الملكية تتطابق مع زيادة الأسهم العادية/APIC في BS</li>
+<li>زيادة النقد من حقوق الملكية = زيادة حساب حقوق الملكية (يجب أن تتوازن)</li>
+<li>مطابقة إصدار حقوق الملكية: Δ الأسهم العادية/APIC (BS) = إصدار حقوق الملكية (CFF) (يجب أن تساوي 0)</li>
+<li>مطابقة حقوق الملكية للسنة صفر: حقوق الملكية المُجمَّعة (السنة 0) = رأس مال حقوق الملكية الافتتاحي (السنة 1)</li>
+</ul>
+<p><strong>القسم 6ج: جدول الخسائر التشغيلية الصافية (NOL)</strong></p>
+<ul>
+<li>NOL الافتتاحي (السنة 1 / التأسيس) = 0 (تبدأ الشركة الجديدة بصفر NOL)</li>
+<li>يزداد NOL فقط عندما يكون EBT &lt; 0 (يجب تحقيق الخسائر لتوليد NOL)</li>
+<li>DTA يتطابق مع BS (DTA في جدول NOL = أصل الضريبة المؤجلة في BS)</li>
+<li>استخدام NOL ≤ 80% من EBT (القيد الفيدرالي بعد 2017)</li>
+<li>رصيد NOL غير سالب (لا يمكن استخدام أكثر من المتاح)</li>
+<li>يُولَّد NOL فقط عندما يكون EBT &lt; 0</li>
+<li>مصروف الضريبة = 0 عندما يكون الدخل الخاضع للضريبة ≤ 0</li>
+</ul>
+<p><strong>القسم 7: ترتيب السيناريوهات</strong></p>
+<ul>
+<li>المقاييس المطلقة: الصعود &gt; الأساسي &gt; الهبوط (صافي الدخل، EBITDA، التدفق النقدي الحر)</li>
+<li>الهوامش: الصعود &gt; الأساسي &gt; الهبوط (هامش الربح الإجمالي%، هامش EBITDA%، هامش صافي الدخل%)</li>
+<li>مقاييس الائتمان: الصعود &lt; الأساسي &lt; الهبوط للرافعة المالية (مقلوب)</li>
+</ul>
+<p><strong>القسم 8: سلامة الصيغ</strong></p>
+<ul>
+<li>تكلفة البضاعة المباعة، والمبيعات والتسويق، والعمومية والإدارية، والبحث والتطوير، وSBC مبنية على نسبة مئوية من الإيرادات (لا قيم ثابتة)</li>
+<li>صيغ متسقة عبر سنوات الإسقاط</li>
+<li>لا أخطاء #REF!، #DIV/0!، #VALUE!</li>
+</ul>
+<p><strong>القسم 9: عتبات مقاييس الائتمان</strong></p>
+<ul>
+<li>ضع علامة على المقاييس بالأخضر/الأصفر/الأحمر بحسب عتبات التعهدات (covenants)</li>
+<li>ملخص لأي علامات حمراء</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="master-check-formula">صيغة الفحص الرئيسي</h3>
+<p>اجمع حالات كل الأقسام في فحص رئيسي واحد:</p>
+<ul>
+<li>إذا نجحت كل الأقسام ← &quot;✓ نجاح كل الفحوصات&quot;</li>
+<li>إذا فشل أي قسم ← &quot;✗ اكتُشفت أخطاء - راجع أدناه&quot;</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-debug-workflow">سير عمل سريع لتصحيح الأخطاء</h3>
+<p>عندما تُظهر الحالة الرئيسية أخطاء:</p>
+<ol>
+<li>مرّر لإيجاد الأقسام المظلَّلة بالأحمر</li>
+<li>حدد فئة الفحص التي تحتوي إخفاقات</li>
+<li>انتقل إلى التبويب المصدر للتحقيق</li>
+<li>أصلح المشكلة الأساسية</li>
+<li>عد إلى تبويب Checks للتحقق من الحل</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-sources--mcp-first-web-fallback">مصادر البيانات — MCP أولًا، والويب كخيار احتياطي</h2>
+<p>تذكر مقاطع كثيرة أدناه &quot;استخدم S&amp;P Kensho MCP / Daloopa MCP / FactSet MCP&quot;. هذه خوادم MCP تجارية للبيانات المالية من سياق إضافة Cowork الأصلية. في Hermes:</p>
+<ul>
+<li><strong>إن كان لديك أي خادم MCP مُعدّ للبيانات المالية المُهيكلة</strong> (يدعم Hermes بروتوكول MCP — راجع مهارة <code>native-mcp</code>)، فضّله للمقارنات الآنية، والصفقات السابقة (precedent transactions)، والملفات التنظيمية.</li>
+<li><strong>وإلا</strong>، الجأ إلى:
+<ul>
+<li><code>web_search</code> / <code>web_extract</code> على SEC EDGAR (<code>https://www.sec.gov/cgi-bin/browse-edgar</code>) للملفات الأمريكية</li>
+<li>صفحات علاقات المستثمرين للشركة للبيانات الصحفية والعروض التقديمية للأرباح</li>
+<li><code>browser_navigate</code> لبوابات البيانات التفاعلية</li>
+<li>البيانات المقدَّمة من المستخدم (اسأل صراحةً عندما لا يتوفر السياق لها)</li>
+</ul>
+</li>
+<li><strong>لا تختلق البيانات أبدًا</strong>. إذا تعذّر توثيق مصدر مضاعف أو صفقة سابقة أو رقم من ملف تنظيمي، ضع على الخلية علامة <code>[UNSOURCED]</code> وأبرزها للمستخدم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="attribution">الإسناد</h2>
+<p>هذه المهارة مُكيَّفة من مجموعة إضافات Anthropic لـ Claude for Financial Services (Apache-2.0). أُزيلت مسارات Office-JS / Excel الحي من Cowork؛ وتستهدف هذه النسخة openpyxl بلا واجهة عبر اصطلاحات مهارة <code>excel-author</code>. الأصل: <a href="https://github.com/anthropics/financial-services" data-ext>https://github.com/anthropics/financial-services</a></p>

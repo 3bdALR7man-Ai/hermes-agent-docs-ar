@@ -1,0 +1,88 @@
+<header><h1>Event Hooks</h1></header>
+<p>لدى Hermes أربعة أنظمة hooks تُشغّل كودًا مخصّصًا عند نقاط رئيسية من دورة الحياة:</p>
+<table><thead><tr><th>النظام</th><th>يُسجَّل عبر</th><th>يعمل في</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><strong><a href="#gateway-event-hooks">Gateway hooks</a></strong></td><td><code>HOOK.yaml</code> + <code>handler.py</code> في <code>~/.hermes/hooks/</code></td><td>الـ Gateway فقط</td><td>التسجيل، التنبيهات، webhooks</td></tr><tr><td><strong><a href="#plugin-hooks">Plugin hooks</a></strong></td><td><code>ctx.register_hook()</code> في <a href="/docs/user-guide/features/plugins">إضافة (plugin)</a></td><td>CLI + Gateway</td><td>اعتراض الأدوات، القياسات، الضوابط الوقائية</td></tr><tr><td><strong><a href="#shell-hooks">Shell hooks</a></strong></td><td>كتلة <code>hooks:</code> في <code>config.yaml</code> الخاص بالـ profile تشير إلى سكربتات shell</td><td>CLI + Gateway + محادثة Desktop/TUI/لوحة التحكم</td><td>سكربتات جاهزة للحجب والتنسيق التلقائي وحقن السياق</td></tr><tr><td><strong><a href="#outbound-webhooks">Outbound webhooks</a></strong></td><td>قائمة <code>hooks.outbound:</code> في <code>~/.hermes/config.yaml</code></td><td>CLI + Gateway</td><td>دفع أحداث دورة حياة موقّعة إلى نقاط نهاية HTTP خارجية — CI، لوحات تحكم، وكلاء آخرون</td></tr></tbody></table>
+<p>تُعزَل أخطاء ردود نداء الـ hooks وتُسجَّل بدلًا من تعطيل الوكيل. ليست كل الـ hooks سلبية: يمكن لـ hooks التوجيه/التحكم تغيير التدفّق، ويمكن للتحويلات استبدال المحتوى، ويمكن لـ hook من نوع <code>pre_tool_call</code> على مستوى shell أن يحجب أو يفشل بأمان.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-event-hooks">Gateway Event Hooks</h2>
+<p>تُطلَق Gateway hooks تلقائيًا أثناء عمل الـ gateway (Telegram، Discord، Slack، WhatsApp، Teams) دون حجب خط أنابيب الوكيل الرئيسي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-a-hook">إنشاء Hook</h3>
+<p>كل hook هو مجلد تحت <code>~/.hermes/hooks/</code> يحتوي ملفين:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="hookyaml">HOOK.yaml</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تحدّد قائمة <code>events</code> الأحداث التي تُشغِّل مُعالِجك. يمكنك الاشتراك في أي تركيبة من الأحداث، بما فيها أشكال جامعة مثل <code>command:*</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="handlerpy">handler.py</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>قواعد المُعالِج:</strong></p>
+<ul>
+<li>يجب أن يُسمَّى <code>handle</code></li>
+<li>يستقبل <code>event_type</code> (نص) و<code>context</code> (قاموس)</li>
+<li>يمكن أن يكون <code>async def</code> أو <code>def</code> عادية — كلاهما يعمل</li>
+<li>تُلتقَط الأخطاء وتُسجَّل، دون أن تُعطِّل الوكيل أبدًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-events">الأحداث المتاحة</h3>
+<table><thead><tr><th>الحدث</th><th>متى يُطلَق</th><th>مفاتيح السياق</th></tr></thead><tbody><tr><td><code>gateway:startup</code></td><td>بدء عملية الـ gateway</td><td><code>platforms</code> (قائمة أسماء المنصات النشطة)</td></tr><tr><td><code>session:start</code></td><td>إنشاء جلسة مراسلة جديدة</td><td><code>platform</code>، <code>user_id</code>، <code>session_id</code>، <code>session_key</code></td></tr><tr><td><code>session:end</code></td><td>انتهاء جلسة (قبل إعادة الضبط)</td><td><code>platform</code>، <code>user_id</code>، <code>session_key</code></td></tr><tr><td><code>session:reset</code></td><td>شغّل المستخدم <code>/new</code> أو <code>/reset</code></td><td><code>platform</code>، <code>user_id</code>، <code>session_key</code></td></tr><tr><td><code>session:compress</code></td><td>اكتمال ضغط السياق لجلسة</td><td><code>platform</code>، <code>session_id</code>، <code>old_session_id</code> (فارغ عند الضغط في المكان نفسه)، <code>in_place</code> (منطقي — <code>true</code> = ضُغط النص في نفس المعرّف، <code>false</code> = دُوِّر من <code>old_session_id</code>)، <code>compression_count</code></td></tr><tr><td><code>agent:start</code></td><td>يبدأ الوكيل معالجة رسالة</td><td><code>platform</code>، <code>user_id</code>، <code>chat_id</code>، <code>thread_id</code> (معرّف موضوع منتدى/جذر thread؛ فارغ خارج موضوع)، <code>chat_type</code> (<code>&quot;dm&quot;</code> | <code>&quot;group&quot;</code> | <code>&quot;forum&quot;</code>؛ فارغ إن كان مجهولًا)، <code>session_id</code>، <code>message</code> (مُقتصَرة على 500 حرف)</td></tr><tr><td><code>agent:step</code></td><td>كل تكرار من حلقة استدعاء الأدوات</td><td><code>platform</code>، <code>user_id</code>، <code>session_id</code>، <code>iteration</code>، <code>tool_names</code></td></tr><tr><td><code>agent:end</code></td><td>انتهاء الوكيل من المعالجة</td><td>نفس مفاتيح <code>agent:start</code>، بالإضافة إلى <code>response</code> (مُقتصَرة على 500 حرف)</td></tr><tr><td><code>reaction:added</code></td><td>أُضيف تفاعل إيموجي إلى رسالة يستطيع البوت رؤيتها (adapter الخاص بـ Slack حاليًا). يتطلّب صلاحية <code>reactions:read</code> + اشتراك حدث البوت <code>reaction_added</code>؛ ويجب أن يكون البوت عضوًا في القناة.</td><td><code>platform</code>، <code>reaction</code>، <code>user_id</code>، <code>item_user_id</code>، <code>item_type</code>، <code>channel_id</code>، <code>message_ts</code>، <code>team_id</code>، <code>event_ts</code>، <code>raw_event</code></td></tr><tr><td><code>reaction:removed</code></td><td>أُزيل تفاعل إيموجي من رسالة يستطيع البوت رؤيتها. يتطلّب اشتراك حدث البوت <code>reaction_removed</code>.</td><td>نفس شكل <code>reaction:added</code></td></tr><tr><td><code>command:*</code></td><td>تنفيذ أي slash command</td><td><code>platform</code>، <code>user_id</code>، <code>command</code>، <code>args</code></td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="wildcard-matching">مطابقة الرموز الجامعة</h4>
+<p>تُطلَق المُعالِجات المسجَّلة لـ <code>command:*</code> عند أي حدث <code>command:</code> (<code>command:model</code>، <code>command:reset</code>، إلخ). راقب كل الـ slash commands باشتراك واحد.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="85"></x-keep></span>الردود ضمن المواضيع</div><div class="admonitionContent_BuS1"><p>يجب أن يُضمِّن المُعالِج الذي يرسل رسالة متابعة إلى نفس موضوع منتدى Telegram العنصر <code>message_thread_id=int(thread_id)</code> عندما يكون <code>chat_type == &quot;forum&quot;</code> و<code>thread_id</code> غير فارغ.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="examples">أمثلة</h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="telegram-alert-on-long-tasks">تنبيه Telegram عند المهام الطويلة</h4>
+<p>أرسل لنفسك رسالة عندما يتجاوز الوكيل 10 خطوات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="command-usage-logger">مُسجِّل استخدام الأوامر</h4>
+<p>تتبّع أي slash commands تُستخدَم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-start-webhook">Webhook بدء الجلسة</h4>
+<p>أرسل POST إلى خدمة خارجية عند الجلسات الجديدة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tutorial-bootmd--run-a-startup-checklist-on-every-gateway-boot">درس تطبيقي: BOOT.md — تشغيل قائمة تحقّق عند بدء التشغيل في كل إقلاع للـ gateway</h3>
+<p>نمط شائع من المجتمع: ضع قائمة تحقّق بصيغة Markdown في <code>~/.hermes/BOOT.md</code>، واجعل الوكيل يُشغّلها مرة واحدة في كل مرة يبدأ فيها الـ gateway. مفيد لـ &quot;في كل إقلاع، تحقّق من إخفاقات cron ليلًا وأبلغني على Discord إن فشل أي شيء&quot;، أو &quot;لخّص آخر 24 ساعة من deploy.log وانشره في Slack #ops&quot;.</p>
+<p>يُظهر هذا الدرس التطبيقي كيفية بناء ذلك بنفسك كـ hook مُعرَّف من المستخدم. لا يشحن Hermes hook مدمج لـ BOOT.md — بل تُعِدّ بالضبط السلوك الذي تريده.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-were-building">ما الذي نبنيه</h4>
+<ol>
+<li>ملف في <code>~/.hermes/BOOT.md</code> يحتوي تعليمات بدء تشغيل بلغة طبيعية.</li>
+<li>gateway hook يُطلَق عند <code>gateway:startup</code>، ويُنشئ وكيلًا لمرة واحدة بنموذج/بيانات اعتماد الـ gateway الخاص بك المُحلَّلة، ويُشغّل تعليمات BOOT.md.</li>
+<li>عُرف <code>[SILENT]</code> ليتمكّن الوكيل من الانسحاب من إرسال رسالة عندما لا يوجد ما يُبلَّغ عنه.</li>
+</ol>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-write-your-checklist">الخطوة 1: اكتب قائمة تحقّقك</h4>
+<p>أنشئ <code>~/.hermes/BOOT.md</code>. اكتبها كما لو كنت تعطي تعليمات لمساعد بشري:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يرى الوكيل هذا كجزء من الـ prompt الخاص به، لذا فإن أي شيء يمكنك وصفه بلغة عادية يعمل — استدعاءات الأدوات، أوامر shell، إرسال الرسائل، تلخيص الملفات.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-the-hook">الخطوة 2: أنشئ الـ hook</h4>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong><code>~/.hermes/hooks/boot-md/HOOK.yaml</code></strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong><code>~/.hermes/hooks/boot-md/handler.py</code></strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>السطران الأساسيان:</p>
+<ul>
+<li>تقرأ <code>_resolve_gateway_model()</code> النموذج المُعدّ حاليًا للـ gateway.</li>
+<li>تُحلّ <code>_resolve_runtime_agent_kwargs()</code> بيانات اعتماد المزوّد بنفس طريقة دور gateway عادي — بما في ذلك مفاتيح API وعناوين URL الأساسية ورموز OAuth ومجمّعات بيانات الاعتماد.</li>
+</ul>
+<p>بدون هذين، يعود <code>AIAgent()</code> المجرد إلى الافتراضيات المدمجة ويُخفق بخطأ 401 أمام أي نقطة نهاية غير افتراضية.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-test-it">الخطوة 3: اختبرها</h4>
+<p>أعد تشغيل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>راقب السجلّات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>يجب أن ترى <code>Running BOOT.md (N chars)</code> متبوعًا إمّا بـ <code>boot-md completed: ...</code> (ملخّص لما فعله الوكيل) أو <code>boot-md completed (nothing to report)</code> عندما يرد الوكيل برمز صمت دقيق مثل <code>[SILENT]</code>.</p>
+<p>احذف <code>~/.hermes/BOOT.md</code> لتعطيل قائمة التحقّق — يبقى الـ hook مُحمَّلًا لكنه يتخطّى بصمت عندما لا يكون الملف موجودًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="extending-the-pattern">توسعة النمط</h4>
+<ul>
+<li><strong>قوائم تحقّق واعية بالجدول:</strong> اعتمد على <code>datetime.now().weekday()</code> داخل تعليمات BOOT.md (&quot;إذا كان الإثنين، تحقّق أيضًا من سجلّ النشر الأسبوعي&quot;). التعليمات نص حرّ، لذا فأي شيء يستطيع الوكيل الاستدلال عليه مقبول.</li>
+<li><strong>قوائم تحقّق متعددة:</strong> وجّه الـ hook إلى ملف مختلف (<code>STARTUP.md</code>، <code>MORNING.md</code>، إلخ) وسجّل مجلدات hook منفصلة لكل واحد.</li>
+<li><strong>البديل بلا وكيل:</strong> إن لم تحتج إلى حلقة وكيل كاملة، تخطَّ <code>AIAgent</code> كليًا واجعل المُعالِج ينشر إشعارًا ثابتًا مباشرة عبر <code>httpx</code>. أرخص وأسرع وبلا اعتماد على مزوّد.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-this-isnt-a-built-in">لماذا ليس هذا ميزة مدمجة</h4>
+<p>شحن إصدار سابق من Hermes هذا كـ hook مدمج وكان يُنشئ وكيلًا بصمت بافتراضيات مجردة عند كل إقلاع للـ gateway. فاجأ ذلك المستخدمين ذوي نقاط النهاية المخصّصة وجعل الميزة غير مرئية للمستخدمين الذين لم يعرفوا أنها تعمل. الحفاظ عليها كنمط موثَّق — تبنيه أنت، في مجلد الـ hooks الخاص بك — يعني أنك ترى بالضبط ما يفعله وتختار المشاركة فيه بكتابة الملفات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
+<ol>
+<li>عند إقلاع الـ gateway، يفحص <code>HookRegistry.discover_and_load()</code> مجلد <code>~/.hermes/hooks/</code></li>
+<li>يُحمَّل كل مجلد فرعي يحتوي <code>HOOK.yaml</code> + <code>handler.py</code> ديناميكيًا</li>
+<li>تُسجَّل المُعالِجات للأحداث المُعلَنة الخاصة بها</li>
+<li>عند كل نقطة من دورة الحياة، يُطلق <code>hooks.emit()</code> كل المُعالِجات المطابقة</li>
+<li>تُلتقَط الأخطاء في أي مُعالِج وتُسجَّل — لا يُعطِّل hook معطوب الوكيل أبدًا</li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="86"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>تُطلَق Gateway hooks فقط في الـ <strong>gateway</strong> (Telegram، Discord، Slack، WhatsApp، Teams). لا يُحمِّل CLI gateway hooks. للـ hooks التي تعمل في كل مكان، استخدم <a href="#plugin-hooks">plugin hooks</a>.</p></div></div>

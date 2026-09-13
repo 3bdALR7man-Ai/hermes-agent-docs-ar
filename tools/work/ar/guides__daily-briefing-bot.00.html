@@ -1,0 +1,99 @@
+<header><h1>درس تطبيقي: بناء بوت الملخّص اليومي</h1></header>
+<p>في هذا الدرس التطبيقي، ستبني بوتًا شخصيًا للملخّصات يستيقظ كل صباح، ويبحث في المواضيع التي تهمّك، ويلخّص النتائج، ثم يسلّم إليك ملخّصًا موجزًا مباشرةً على Telegram أو Discord.</p>
+<p>في النهاية، سيكون لديك سير عمل مؤتمت بالكامل يجمع بين <strong>البحث في الويب</strong>، و<strong>الجدولة عبر cron</strong>، و<strong>التفويض</strong>، و<strong>التسليم عبر المراسلة</strong> — دون الحاجة إلى كتابة أي كود.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تستخدم هذه الوصفة البحث في الويب، والتلخيص، و TTS اختياريًا — وكلها مضمّنة في اشتراك Portal. أسرع طريقة للإعداد هي <code>hermes setup --portal</code>. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-were-building">ما الذي سنبنيه</h2>
+<p>إليك سير العملية:</p>
+<ol>
+<li><strong>8:00 صباحًا</strong> — يُطلق مُجدوِل cron مهمتك</li>
+<li><strong>يُنشئ Hermes</strong> جلسة وكيل جديدة باستخدام الـ prompt الخاص بك</li>
+<li><strong>البحث في الويب</strong> يجلب أحدث الأخبار حول مواضيعك</li>
+<li><strong>التلخيص</strong> يُكثّفها في صيغة ملخّص مرتّبة</li>
+<li><strong>التسليم</strong> يرسل الملخّص إلى Telegram أو Discord</li>
+</ol>
+<p>تعمل العملية بأكملها دون أي تدخل منك. ما عليك سوى قراءة ملخّصك مع قهوة الصباح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>قبل البدء، تأكد من توفّر ما يلي:</p>
+<ul>
+<li><strong>تثبيت Hermes Agent</strong> — راجع <a href="/docs/getting-started/installation">دليل التثبيت</a></li>
+<li><strong>تشغيل الـ Gateway</strong> — يتولى الـ daemon الخاص بالـ gateway تنفيذ مهام cron:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li><strong>مفتاح Firecrawl API</strong> — اضبط <code>FIRECRAWL_API_KEY</code> في بيئتك لتفعيل البحث في الويب</li>
+<li><strong>إعداد المراسلة</strong> (اختياري لكنه موصى به) — إعداد <a href="/docs/user-guide/messaging/telegram">Telegram</a> أو Discord مع قناة رئيسية (home channel)</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>لا تستخدم المراسلة؟ لا مشكلة</div><div class="admonitionContent_BuS1"><p>لا يزال بإمكانك متابعة هذا الدرس باستخدام <code>deliver: &quot;local&quot;</code>. ستُحفظ الملخّصات في <code>~/.hermes/cron/output/</code> ويمكنك قراءتها في أي وقت.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-test-the-workflow-manually">الخطوة 1: اختبار سير العمل يدويًا</h2>
+<p>قبل أتمتة أي شيء، لنتأكد من أن الملخّص يعمل. ابدأ جلسة محادثة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ثم أدخل هذا الـ prompt:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>سيبحث Hermes في الويب، ويقرأ النتائج، ثم يُنتج شيئًا مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>إذا نجح ذلك، فأنت جاهز لأتمتته.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>حسّن الصيغة تدريجيًا</div><div class="admonitionContent_BuS1"><p>جرّب prompts مختلفة حتى تحصل على مخرجات تُعجبك. أضف تعليمات مثل &quot;استخدم رموز emoji في العناوين&quot; أو &quot;اجعل كل ملخّص أقل من جملتين.&quot; وأيًّا كان ما تستقر عليه، فهو ما سيدخل في مهمة cron.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-the-cron-job">الخطوة 2: إنشاء مهمة Cron</h2>
+<p>لنجدول الآن هذه المهمة لتعمل تلقائيًا كل صباح. يمكنك فعل ذلك بطريقتين.</p>
+<p>قبل إنشاء مهام cron، تأكد من أن Hermes مضبوط على نموذج ومزوّد افتراضيين على المستوى العام. وإذا أردت أن تستخدم مهمة بعينها قيمًا مختلفة، فاضبط تجاوزات صريحة للنموذج/المزوّد خاصة بتلك المهمة عند إنشائها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-natural-language-in-chat">الخيار A: اللغة الطبيعية (في المحادثة)</h3>
+<p>ما عليك سوى إخبار Hermes بما تريد:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>سيُنشئ Hermes مهمة cron نيابةً عنك باستخدام الأداة الموحّدة <code>cronjob</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-cli-slash-command">الخيار B: ‏Slash Command في CLI</h3>
+<p>استخدم الأمر <code>/cron</code> لمزيد من التحكم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-golden-rule-self-contained-prompts">القاعدة الذهبية: prompts مكتفية بذاتها</h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>مفهوم بالغ الأهمية</div><div class="admonitionContent_BuS1"><p>تعمل مهام cron في <strong>جلسة جديدة تمامًا</strong> — دون أي ذاكرة لمحادثاتك السابقة، ودون أي سياق حول ما &quot;أعددته سابقًا.&quot; يجب أن يتضمن الـ prompt <strong>كل ما</strong> يحتاجه الوكيل لإنجاز المهمة.</p></div></div>
+<p><strong>prompt سيئ:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>prompt جيد:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>الـ prompt الجيد محدد بشأن <strong>ما يجب البحث عنه</strong>، و<strong>عدد المقالات</strong>، و<strong>الصيغة المطلوبة</strong>، و<strong>الأسلوب</strong>. إنه يمنح الوكيل كل ما يحتاجه دفعة واحدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-customize-the-briefing">الخطوة 3: تخصيص الملخّص</h2>
+<p>بمجرد أن يعمل الملخّص الأساسي، يمكنك إطلاق العنان لإبداعك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-topic-briefings">ملخّصات متعددة المواضيع</h3>
+<p>غطِّ عدة مجالات في ملخّص واحد:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-delegation-for-parallel-research">استخدام التفويض للبحث المتوازي</h3>
+<p>للحصول على ملخّصات أسرع، اطلب من Hermes تفويض كل موضوع إلى sub-agent (وكيل فرعي):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يبحث كل وكيل فرعي بشكل مستقل وبالتوازي، ثم يجمع الوكيل الرئيسي كل النتائج في ملخّص واحد متقن. راجع <a href="/docs/user-guide/features/delegation">توثيق التفويض</a> لمعرفة المزيد عن آلية عمل ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="weekday-only-schedule">جدولة لأيام العمل فقط</h3>
+<p>لا تحتاج إلى ملخّصات في عطلة نهاية الأسبوع؟ استخدم تعبير cron يستهدف الأيام من الاثنين إلى الجمعة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="twice-daily-briefings">ملخّصات مرتين يوميًا</h3>
+<p>احصل على نظرة عامة صباحية وخلاصة مسائية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-personal-context-with-memory">إضافة سياق شخصي عبر الذاكرة</h3>
+<p>إذا كانت <a href="/docs/user-guide/features/memory">الذاكرة</a> مفعّلة لديك، فيمكنك تخزين تفضيلات تستمر عبر الجلسات. لكن تذكّر — تعمل مهام cron في جلسات جديدة دون ذاكرة للمحادثات. لإضافة سياق شخصي، ضمّنه مباشرةً في الـ prompt:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>خصّص الشخصية المستهدفة</div><div class="admonitionContent_BuS1"><p>إن تضمين تفاصيل حول الشخص الذي أُعدّ الملخّص <em>من أجله</em> يحسّن مدى ملاءمته بشكل كبير. أخبر الوكيل بدورك، واهتماماتك، وما يجب تجاهله.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-manage-your-jobs">الخطوة 4: إدارة مهامك</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-all-scheduled-jobs">عرض جميع المهام المجدولة</h3>
+<p>في المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>أو من الطرفية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>سترى مخرجات مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="remove-a-job">حذف مهمة</h3>
+<p>في المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>أو اطلب ذلك بأسلوب المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>سيستخدم Hermes <code>cronjob(action=&quot;list&quot;)</code> للعثور عليها، ثم <code>cronjob(action=&quot;remove&quot;)</code> لحذفها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-gateway-status">التحقق من حالة الـ Gateway</h3>
+<p>تأكد من أن المُجدوِل يعمل فعلًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>إذا لم يكن الـ gateway قيد التشغيل، فلن تُنفَّذ مهامك. ثبّته كخدمة تعمل في الخلفية لضمان الموثوقية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="going-further">التعمّق أكثر</h2>
+<p>لقد بنيت بوت ملخّص يومي يعمل. إليك بعض الاتجاهات التي يمكنك استكشافها لاحقًا:</p>
+<ul>
+<li><strong><a href="/docs/user-guide/features/cron">المهام المجدولة (Cron)</a></strong> — مرجع كامل لصيغ الجدولة، وحدود التكرار، وخيارات التسليم</li>
+<li><strong><a href="/docs/user-guide/features/delegation">التفويض</a></strong> — نظرة معمّقة على سير العمل المتوازي مع الوكلاء الفرعيين</li>
+<li><strong><a href="/docs/user-guide/messaging">منصات المراسلة</a></strong> — إعداد Telegram أو Discord أو وجهات تسليم أخرى</li>
+<li><strong><a href="/docs/user-guide/features/memory">الذاكرة</a></strong> — سياق دائم عبر الجلسات</li>
+<li><strong><a href="/docs/guides/tips">نصائح وأفضل الممارسات</a></strong> — مزيد من النصائح حول هندسة الـ prompts</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>ما الذي يمكنك جدولته أيضًا؟</div><div class="admonitionContent_BuS1"><p>يصلح نمط بوت الملخّص لأي شيء: مراقبة المنافسين، أو ملخّصات مستودعات GitHub، أو توقعات الطقس، أو تتبّع المحفظة الاستثمارية، أو فحوص سلامة الخوادم، أو حتى نكتة يومية. إذا استطعت وصفه في prompt، فبإمكانك جدولته.</p></div></div>

@@ -1,0 +1,107 @@
+<header><h1>بناء إضافة لمزوّد النماذج</h1></header>
+<p>تصرّح إضافات مزوّدي النماذج (model provider plugins) عن backend للـ inference — سواء كان endpoint متوافقًا مع OpenAI، أو خادم Anthropic Messages، أو Responses API على نمط Codex، أو واجهة Bedrock أصلية — يستطيع Hermes توجيه استدعاءات <code>AIAgent</code> عبره. ويأتي كل مزوّد مدمج (OpenRouter و Anthropic و GMI و DeepSeek و Nvidia، …) على هيئة إضافة من هذا النوع. ويمكن للأطراف الخارجية إضافة مزوّديها بوضع مجلد تحت <code>$HERMES_HOME/plugins/model-providers/</code> دون أي تغيير في المستودع.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إضافات مزوّدي النماذج هي النوع الثالث من <strong>إضافات المزوّدين</strong>. أما النوعان الآخران فهما <a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a> (المعرفة عبر الجلسات) و<a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a> (استراتيجيات ضغط السياق). وتتبع الأنواع الثلاثة النمط نفسه: &quot;ضع مجلدًا، وصرّح عن profile، دون تعديل المستودع&quot;.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-discovery-works">كيف يعمل الاكتشاف</h2>
+<p>تُنفَّذ <code>providers/__init__.py._discover_providers()</code> بشكل كسول (lazy) في أول مرة تستدعي فيها أي شيفرة <code>get_provider_profile()</code> أو <code>list_providers()</code>. ترتيب الاكتشاف:</p>
+<ol>
+<li><strong>الإضافات المضمّنة</strong> — <code>&lt;repo&gt;/plugins/model-providers/&lt;name&gt;/</code> — تأتي مع Hermes</li>
+<li><strong>إضافات المستخدم</strong> — <code>$HERMES_HOME/plugins/model-providers/&lt;name&gt;/</code> — ضع أي مجلد؛ ولا حاجة إلى إعادة التشغيل للجلسات اللاحقة</li>
+<li><strong>الإضافات المثبّتة</strong> — <code>$HERMES_HOME/plugins/&lt;name&gt;/</code> (حيث ينسخ <code>hermes plugins install owner/repo</code> المستودعات) — لا تُستورد إلا عندما يصرّح <code>plugin.yaml</code> بـ <code>kind: model-provider</code>؛ وأي نوع آخر هناك يتبع PluginManager العام</li>
+<li><strong>الصيغة القديمة أحادية الملف</strong> — <code>&lt;repo&gt;/providers/&lt;name&gt;.py</code> — للتوافق مع الإصدارات السابقة في عمليات التثبيت القابلة للتعديل (editable) خارج الشيفرة الأساسية</li>
+</ol>
+<p><strong>تتفوق إضافات المستخدم على الإضافات المضمّنة التي تحمل الاسم نفسه</strong> لأن <code>register_provider()</code> تعتمد قاعدة &quot;آخر من يكتب هو الفائز&quot;. ضع مجلد <code>$HERMES_HOME/plugins/model-providers/gmi/</code> لاستبدال profile المدمج الخاص بـ GMI دون لمس المستودع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية المجلدات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>الملف الإلزامي الوحيد هو <code>__init__.py</code>. أما <code>plugin.yaml</code> فيستخدمه <code>hermes plugins</code> للاستبطان (introspection)، ويستخدمه PluginManager العام لتوجيه الإضافة إلى المحمّل المناسب؛ ودونه يلجأ المحمّل العام إلى أسلوب استدلالي يعتمد على نص الشيفرة المصدرية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-example--a-simple-api-key-provider">مثال مبسّط — مزوّد بسيط يعتمد على مفتاح API</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>هذا كل شيء. بعد وضع هذين الملفين، <strong>تُربط تلقائيًا</strong> العناصر التالية دون أي تعديلات أخرى:</p>
+<table><thead><tr><th>التكامل</th><th>الموضع</th><th>ما يحصل عليه</th></tr></thead><tbody><tr><td>حسم بيانات الاعتماد</td><td><code>hermes_cli/auth.py</code></td><td>يُملأ <code>PROVIDER_REGISTRY[&quot;acme-inference&quot;]</code> من الـ profile</td></tr><tr><td>خيار CLI <code>--provider</code></td><td><code>hermes_cli/main.py</code></td><td>يقبل <code>acme-inference</code></td></tr><tr><td>أداة الاختيار <code>hermes model</code></td><td><code>hermes_cli/models.py</code></td><td>يظهر في <code>CANONICAL_PROVIDERS</code>، مع جلب قائمة النماذج من <code>{base_url}/models</code></td></tr><tr><td><code>hermes doctor</code></td><td><code>hermes_cli/doctor.py</code></td><td>فحص سلامة لـ <code>ACME_API_KEY</code> مع اختبار <code>{base_url}/models</code></td></tr><tr><td><code>hermes setup</code></td><td><code>hermes_cli/config.py</code></td><td>يظهر <code>ACME_API_KEY</code> في <code>OPTIONAL_ENV_VARS</code> وفي معالج الإعداد</td></tr><tr><td>الربط العكسي لعناوين URL</td><td><code>agent/model_metadata.py</code></td><td>ربط اسم المضيف ← اسم المزوّد للاكتشاف التلقائي</td></tr><tr><td>النموذج المساعد</td><td><code>agent/auxiliary_client.py</code></td><td>يستخدم <code>default_aux_model</code> للضغط / التلخيص</td></tr><tr><td>الحسم وقت التشغيل</td><td><code>hermes_cli/runtime_provider.py</code></td><td>يُرجع القيم الصحيحة لـ <code>base_url</code> و<code>api_key</code> و<code>api_mode</code></td></tr><tr><td>النقل (Transport)</td><td><code>agent/transports/chat_completions.py</code></td><td>يولّد مسار الـ profile المعاملات (kwargs) عبر <code>prepare_messages</code> / <code>build_extra_body</code> / <code>build_api_kwargs_extras</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="providerprofile-fields">حقول ProviderProfile</h2>
+<p>التعريف الكامل موجود في <code>providers/base.py</code>. وأكثر الحقول فائدة:</p>
+<table><thead><tr><th>الحقل</th><th>النوع</th><th>الغرض</th></tr></thead><tbody><tr><td><code>name</code></td><td>str</td><td>المعرّف القياسي — يطابق <code>model.provider</code> في <code>config.yaml</code> والخيار <code>--provider</code></td></tr><tr><td><code>aliases</code></td><td><code>tuple[str, ...]</code></td><td>أسماء بديلة تحسمها <code>get_provider_profile()</code> (مثل <code>grok</code> ← <code>xai</code>)</td></tr><tr><td><code>api_mode</code></td><td>str</td><td><code>chat_completions</code> | <code>codex_responses</code> | <code>anthropic_messages</code> | <code>bedrock_converse</code></td></tr><tr><td><code>display_name</code></td><td>str</td><td>التسمية المقروءة للبشر المعروضة في أداة الاختيار <code>hermes model</code></td></tr><tr><td><code>description</code></td><td>str</td><td>العنوان الفرعي في أداة الاختيار</td></tr><tr><td><code>signup_url</code></td><td>str</td><td>يُعرض أثناء الإعداد عند التشغيل الأول (&quot;احصل على مفتاح API من هنا&quot;)</td></tr><tr><td><code>env_vars</code></td><td><code>tuple[str, ...]</code></td><td>متغيرات البيئة الخاصة بمفتاح API مرتبة حسب الأولوية؛ ويُستخدم إدخال <code>*_BASE_URL</code> الأخير بوصفه تجاوزًا من المستخدم لعنوان base URL</td></tr><tr><td><code>base_url</code></td><td>str</td><td>endpoint الـ inference الافتراضي</td></tr><tr><td><code>models_url</code></td><td>str</td><td>عنوان URL صريح للكتالوج (مع الرجوع إلى <code>{base_url}/models</code> احتياطيًا)</td></tr><tr><td><code>auth_type</code></td><td>str</td><td><code>api_key</code> | <code>oauth_device_code</code> | <code>oauth_external</code> | <code>copilot</code> | <code>aws_sdk</code> | <code>external_process</code></td></tr><tr><td><code>fallback_models</code></td><td><code>tuple[str, ...]</code></td><td>قائمة منتقاة تُعرض عند فشل جلب الكتالوج المباشر</td></tr><tr><td><code>default_headers</code></td><td><code>dict[str, str]</code></td><td>تُرسل مع كل طلب (مثل <code>Editor-Version</code> الخاص بـ Copilot)</td></tr><tr><td><code>fixed_temperature</code></td><td>Any</td><td><code>None</code> = استخدام قيمة المستدعي؛ والقيمة الخاصة <code>OMIT_TEMPERATURE</code> = عدم إرسال temperature إطلاقًا (Kimi)</td></tr><tr><td><code>default_max_tokens</code></td><td><code>int | None</code></td><td>حد أقصى لـ max_tokens على مستوى المزوّد (Nvidia: 16384)</td></tr><tr><td><code>default_aux_model</code></td><td>str</td><td>نموذج منخفض التكلفة للمهام المساعدة (الضغط، الرؤية، التلخيص)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overridable-hooks">الـ hooks القابلة لإعادة التعريف</h2>
+<p>أنشئ فئة فرعية من <code>ProviderProfile</code> للتعامل مع الخصوصيات غير البسيطة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="external-process-acp-providers">مزوّدو العمليات الخارجية (ACP)</h2>
+<p>وكيل CLI يُدار عبر stdio ليس endpoint من نوع HTTP. اضبط <code>auth_type=&quot;external_process&quot;</code>، وصِف طريقة تشغيل الملف التنفيذي، ووفّر العميل عبر <code>create_client</code>. لا حاجة إلى أي تعديلات في الشيفرة الأساسية — فكل من <code>hermes -m &lt;name&gt;</code> و<code>/model</code> وحسم بيانات الاعتماد والحسم وقت التشغيل والعميل المساعد (الضغط، الرؤية) يعتمد على <code>auth_type</code>، لا على اسم المزوّد. ويُعد <code>plugins/model-providers/copilot-acp/</code> المثال الموجود ضمن الشيفرة الأساسية.</p>
+<table><thead><tr><th>الحقل</th><th>الغرض</th></tr></thead><tbody><tr><td><code>process_command</code></td><td>الملف التنفيذي الافتراضي، مثل <code>&quot;copilot&quot;</code></td></tr><tr><td><code>process_args</code></td><td>ذيل argv الافتراضي، مثل <code>(&quot;--acp&quot;, &quot;--stdio&quot;)</code></td></tr><tr><td><code>process_command_env_vars</code></td><td>متغيرات البيئة التي تتجاوز الملف التنفيذي، ويجري فحصها بالترتيب</td></tr><tr><td><code>process_args_env_var</code></td><td>متغير البيئة الذي يتجاوز argv (يُقسَّم باستخدام shlex)</td></tr></tbody></table>
+<p>يتلقى العميل الذي تُرجعه <code>create_client</code> القيمتين <code>command</code> و<code>args</code> ضمن <code>client_kwargs</code>. وإذا كان العميل مكتملًا أصلًا وآمنًا للاستخدام غير المتزامن، فصرّح بـ <code>HERMES_SKIP_TRANSPORT_WRAP = True</code> / <code>HERMES_SKIP_ASYNC_WRAP = True</code> كخصائص للفئة حتى لا يعيد العميل المساعد توجيهه عبر محوّل (adapter) لبروتوكول HTTP.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hook-reference-examples">أمثلة مرجعية على الـ hooks</h2>
+<p>اطّلع على هذه الإضافات المضمّنة للتعرف على الأساليب المعتادة:</p>
+<table><thead><tr><th>الإضافة</th><th>سبب الاطلاع عليها</th></tr></thead><tbody><tr><td><code>plugins/model-providers/openrouter/</code></td><td>مجمّع (aggregator) مع تفضيلات المزوّدين وكتالوج نماذج عام</td></tr><tr><td><code>plugins/model-providers/gemini/</code></td><td>تحويل <code>thinking_config</code> (الصيغة الأصلية والصيغ المتداخلة المتوافقة مع OpenAI)</td></tr><tr><td><code>plugins/model-providers/kimi-coding/</code></td><td><code>OMIT_TEMPERATURE</code>، و<code>extra_body.thinking</code>، و<code>reasoning_effort</code> على المستوى الأعلى</td></tr><tr><td><code>plugins/model-providers/qwen-oauth/</code></td><td>توحيد صيغة الرسائل، وحقن <code>cache_control</code>، والدقة العالية لنماذج VL</td></tr><tr><td><code>plugins/model-providers/nous/</code></td><td>وسوم الإسناد، و&quot;حذف الاستدلال (reasoning) عند تعطيله&quot;</td></tr><tr><td><code>plugins/model-providers/custom/</code></td><td>خصوصيات Ollama المتعلقة بـ <code>num_ctx</code> و<code>think: false</code></td></tr><tr><td><code>plugins/model-providers/bedrock/</code></td><td><code>api_mode=&quot;bedrock_converse&quot;</code>، و<code>fetch_models</code> تُرجع None (لا يوجد REST endpoint)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-overrides--replace-a-built-in-without-editing-the-repo">تجاوزات المستخدم — استبدال مزوّد مدمج دون تعديل المستودع</h2>
+<p>لنفترض أنك تريد توجيه <code>gmi</code> إلى endpoint خاص بك في بيئة staging لأغراض الاختبار. أنشئ <code>~/.hermes/plugins/model-providers/gmi/__init__.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>في الجلسة التالية، تُرجع <code>get_provider_profile(&quot;gmi&quot;).base_url</code> عنوان URL الخاص ببيئة staging. دون أي تعديل على المستودع، ودون إعادة بناء. ولأن إضافات المستخدم تُكتشف بعد الإضافات المضمّنة، يفوز استدعاء <code>register_provider()</code> الخاص بالمستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api_mode-selection">اختيار api_mode</h2>
+<p>هناك أربع قيم معترف بها. ويختار Hermes إحداها بناءً على ما يلي:</p>
+<ol>
+<li>التجاوز الصريح من المستخدم (<code>config.yaml</code> <code>model.api_mode</code> عند ضبطه)</li>
+<li>التوجيه الخاص بكل نموذج في OpenCode ‏(<code>opencode_model_api_mode</code> لـ Zen و Go)</li>
+<li>الاكتشاف التلقائي من عنوان URL — اللاحقة <code>/anthropic</code> ← <code>anthropic_messages</code>، و<code>api.openai.com</code> ← <code>codex_responses</code>، و<code>api.x.ai</code> ← <code>codex_responses</code>، و<code>/coding</code> على نطاقات Kimi ← <code>chat_completions</code></li>
+<li><strong>قيمة <code>api_mode</code> في الـ profile</strong> كخيار احتياطي عندما لا يجد الاكتشاف من عنوان URL شيئًا</li>
+<li>القيمة الافتراضية <code>chat_completions</code></li>
+</ol>
+<p>اضبط <code>profile.api_mode</code> لتطابق القيمة الافتراضية التي يعتمدها مزوّدك — فهي تعمل كتلميح. وتظل تجاوزات المستخدم لعنوان URL هي الفائزة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auth-types">أنواع المصادقة</h2>
+<table><thead><tr><th><code>auth_type</code></th><th>المعنى</th><th>من يستخدمه</th></tr></thead><tbody><tr><td><code>api_key</code></td><td>متغير بيئة واحد يحمل مفتاح API ثابتًا</td><td>معظم المزوّدين</td></tr><tr><td><code>oauth_device_code</code></td><td>تدفق OAuth برمز الجهاز (device code)</td><td>—</td></tr><tr><td><code>oauth_external</code></td><td>يسجّل المستخدم الدخول في مكان آخر، وتُحفظ الـ tokens في <code>auth.json</code></td><td>Anthropic OAuth، MiniMax OAuth، Qwen Portal، Nous Portal</td></tr><tr><td><code>copilot</code></td><td>دورة تحديث token الخاصة بـ GitHub Copilot</td><td>الإضافة <code>copilot</code> فقط</td></tr><tr><td><code>aws_sdk</code></td><td>سلسلة بيانات الاعتماد في AWS SDK ‏(IAM role، profile، متغيرات البيئة)</td><td>الإضافة <code>bedrock</code> فقط</td></tr><tr><td><code>external_process</code></td><td>تتولى المصادقة عمليةٌ فرعية يشغّلها الوكيل (راجع <a href="#external-process-acp-providers">مزوّدو العمليات الخارجية</a>)</td><td>الإضافة <code>copilot-acp</code>، وإضافات ACP خارج الشيفرة الأساسية</td></tr></tbody></table>
+<p>يحدد <code>auth_type</code> مسارات الشيفرة التي تتعامل مع مزوّدك بوصفه &quot;مزوّدًا بسيطًا يعتمد على مفتاح API&quot; — فإن لم تكن قيمته <code>api_key</code>، يظل PluginManager يسجّل البيان (manifest)، لكن الأتمتة على مستوى CLI في Hermes (فحوص doctor، والخيار <code>--provider</code>، وتفويض معالج الإعداد) قد تتخطاه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery-timing">توقيت الاكتشاف</h2>
+<p>اكتشاف المزوّدين <strong>كسول</strong> — يُطلقه أول استدعاء لـ <code>get_provider_profile()</code> أو <code>list_providers()</code> في العملية. وعمليًا يحدث ذلك مبكرًا عند بدء التشغيل (إذ يوسّع تحميل الوحدة <code>auth.py</code> السجل <code>PROVIDER_REGISTRY</code> فورًا). وإذا احتجت إلى التحقق من تحميل إضافتك، فنفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>— يظهر الـ profile الناجح ذو <code>auth_type=&quot;api_key&quot;</code> تحت قسم Provider Connectivity مع اختبار <code>/models</code>.</p>
+<p>للفحص البرمجي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing-your-plugin">اختبار إضافتك</h2>
+<p>وجّه <code>HERMES_HOME</code> إلى مجلد مؤقت كي لا تلوّث إعداداتك الحقيقية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="general-pluginmanager-integration">التكامل مع PluginManager العام</h2>
+<p>المكوّن العام <code>PluginManager</code> (وهو ما يعمل عليه <code>hermes plugins</code>) <strong>يرى</strong> إضافات مزوّدي النماذج لكنه لا يستوردها — إذ يتولى <code>providers/__init__.py</code> دورة حياتها. ويسجّل المدير البيان (manifest) لأغراض الاستبطان ويصنّفها حسب <code>kind: model-provider</code>. وعندما تضع إضافة مستخدم غير مصنّفة في <code>$HERMES_HOME/plugins/</code> وتصادف أنها تستدعي <code>register_provider</code> مع <code>ProviderProfile</code>، يحوّلها المدير تلقائيًا إلى <code>kind: model-provider</code> بأسلوب استدلالي يعتمد على نص الشيفرة المصدرية — فتُوجَّه الإضافة توجيهًا صحيحًا حتى دون <code>plugin.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-via-pip">التوزيع عبر pip</h2>
+<p>يمكن توزيع مزوّدي النماذج كحزمة pip. أتِح نقطة دخول (entry point) ضمن المجموعة
+<code>hermes_agent.plugins</code> في ملف <code>pyproject.toml</code> الخاص بك:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يمكن أن يكون الهدف أحد الخيارين:</p>
+<ul>
+<li><strong>كائنًا قابلًا للاستدعاء</strong> (<code>module:func</code>) — يُستدعى دون وسائط، وينبغي أن يستدعي
+<code>register_provider(profile)</code>، أو</li>
+<li><strong>وحدة مجردة</strong> (<code>module</code>) — تُستورد من أجل الأثر الجانبي لاستدعاء
+<code>register_provider(...)</code> على مستوى الوحدة، على غرار عقد
+<code>__init__.py</code> في الإضافات القائمة على المجلدات.</li>
+</ul>
+<p>يكتشف <code>providers/__init__.py</code> نقاط الدخول هذه بنفسه — فالمكوّن العام
+<code>PluginManager</code> لا يستدعي أبدًا تسجيل المزوّدين لحزم pip (إذ يستهدف
+مسار نقاط الدخول لديه الإضافات العامة بنمط <code>register(ctx)</code>، ويخضع لـ
+<code>plugins.enabled</code>)، لذا يجري سجل المزوّدين فحصه الخاص. وتنطبق
+قاعدتان:</p>
+<ul>
+<li>
+<p><strong>التفعيل الصريح (opt-in) مطلوب.</strong> تحكم هذا الفحص قائمة السماح نفسها <code>plugins.enabled</code> (وقائمة المنع
+<code>plugins.disabled</code>) الموجودتان في <code>config.yaml</code>. فلا تُستورد حزمة pip
+أبدًا لمجرد أنها مثبّتة — بل يجب على المستخدمين إضافة
+اسم نقطة الدخول إلى <code>plugins.enabled</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+</li>
+<li>
+<p><strong>أدنى أسبقية.</strong> تُكتشف الإضافات القائمة على نقاط الدخول <strong>قبل</strong>
+الإضافات الموجودة في نظام الملفات: ولأن <code>register_provider()</code> تعتمد قاعدة &quot;آخر من يكتب هو الفائز&quot;، فإن
+أي profile مضمّن أو موجود في <code>$HERMES_HOME</code> يحمل الاسم نفسه يتفوق دائمًا على
+الـ profile المثبّت عبر pip. ويمكن لحزمة pip أن تضيف مزوّدًا جديدًا فعلًا، لكنها
+لا تستطيع الاستيلاء بصمت على اسم مزوّد رسمي.</p>
+</li>
+</ul>
+<p>أما الأهداف التي تتطلب وسائط (مثل <code>register(ctx)</code> في الإضافات العامة) فيتخطاها
+فحص المزوّدين — لأنها تتبع <code>PluginManager</code>. ونقطة الدخول المعطوبة
+تُعزل — إذ تُسجَّل بمستوى تحذير وتُتخطى، ولا تعطّل أبدًا
+اكتشاف المزوّدين الآخرين.</p>
+<p>راجع <a href="/docs/developer-guide/plugins#distribute-via-pip">بناء إضافة لـ Hermes</a> للاطلاع على الإعداد الكامل لنقاط الدخول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-pages">صفحات ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل</a> — أسبقية الحسم والموضع الذي تقرأ فيه كل طبقة الـ profile</li>
+<li><a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a> — قائمة تحقق شاملة من البداية إلى النهاية لـ backends الـ inference الجديدة (تغطي مسار الإضافة السريع والتكامل الكامل مع CLI والمصادقة)</li>
+<li><a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a></li>
+<li><a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a></li>
+<li><a href="/docs/developer-guide/plugins">بناء إضافة لـ Hermes</a> — تأليف الإضافات العامة</li>
+</ul>

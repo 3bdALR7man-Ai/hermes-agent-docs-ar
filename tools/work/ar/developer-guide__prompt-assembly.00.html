@@ -1,0 +1,150 @@
+<header><h1>تجميع الـ Prompt</h1></header>
+<p>يفصل Hermes عمدًا بين:</p>
+<ul>
+<li><strong>حالة الـ system prompt المخزَّنة مؤقتًا</strong></li>
+<li><strong>الإضافات العابرة وقت استدعاء API</strong></li>
+</ul>
+<p>هذا واحد من أهم قرارات التصميم في المشروع لأنه يؤثّر في:</p>
+<ul>
+<li>استهلاك الـ token</li>
+<li>فعالية التخزين المؤقت للـ prompt</li>
+<li>استمرارية الجلسة</li>
+<li>صحة الذاكرة</li>
+</ul>
+<p>الملفات الأساسية:</p>
+<ul>
+<li><code>run_agent.py</code></li>
+<li><code>agent/prompt_builder.py</code></li>
+<li><code>tools/memory_tool.py</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cached-system-prompt-layers">طبقات الـ system prompt المخزَّنة مؤقتًا</h2>
+<p>يُجمَّع الـ system prompt المخزَّن مؤقتًا كثلاث طبقات مرتّبة (انظر <code>agent/system_prompt.py</code>):</p>
+<ol>
+<li><strong>الثابتة (stable)</strong> — الهوية (<code>SOUL.md</code> أو الاحتياطية)، وإرشادات الأدوات/النموذج، وموجز التشغيل البرمجي</li>
+<li><strong>السياق (context)</strong> — <code>system_message</code> المُقدَّمة من المستدعي، وملفات سياق المشروع (<code>.hermes.md</code> / <code>AGENTS.md</code> / <code>CLAUDE.md</code> / <code>.cursorrules</code>)، ثم لقطة (snapshot) مساحة عمل git المرتبطة بـ worktree، وتعليمات المشغّل وتلميحات المنصّة</li>
+<li><strong>المتغيّرة (volatile)</strong> — فهرس المهارات، ولقطة الذاكرة المدمجة (<code>MEMORY.md</code>)، ولقطة ملف تعريف المستخدم (<code>USER.md</code>)، وكتلة مزوّد الذاكرة الخارجي، وسطر الطابع الزمني/الجلسة/النموذج/المزوّد، ثم تلميحات بيئة التشغيل (المضيف / المجلد الرئيسي / <strong>دليل العمل الحالي</strong>)</li>
+</ol>
+<p>يُدمَج الـ system prompt النهائي بعد ذلك كالتالي: <code>stable</code> ← <code>context</code> ← <code>volatile</code>.</p>
+<p>هذا الترتيب مهمّ في نقاشات الأسبقية:</p>
+<ul>
+<li>المهارات جزء من الطبقة <strong>الثابتة</strong></li>
+<li>لقطات الذاكرة/الملف الشخصي جزء من الطبقة <strong>المتغيّرة</strong></li>
+<li>كلتاهما لا تزالان ضمن الـ system prompt المخزَّن مؤقتًا (لا تُحقَنان كطبقات مؤقتة مُضافة في منتصف الدور)</li>
+</ul>
+<p>داخل طبقة السياق، تأتي ملفات المشروع المشتركة <strong>قبل</strong> أي شيء يسمّي الـ worktree الحالي.
+تشترك جلسات المشروع نفسه العاملة في worktrees مختلفة لـ git حينئذٍ في بادئة prompt تغطّي كتلة
+السياق بأكملها، بدلًا من التوقّف عند أول سطر مرتبط بدليل العمل الحالي — وتلك البادئة هي ما تُعيد
+ذاكرة مزوّد ذات أطول بادئة مشتركة (longest-prefix) استخدامه. الجلسة التي لا تملك لقطة مساحة عمل تُبقي إرشاداتها
+الختامية ضمن الطبقة الثابتة؛ وتنتهي كتلة بيئة التشغيل دائمًا الطبقة المتغيّرة.</p>
+<p>الأثر على الـ prompts المخزَّنة: تقرأ <code>_stored_prompt_matches_runtime()</code> (في <code>agent/conversation_loop.py</code>)
+الفقرة الأولى لمعلومات المضيف بعد حدّ <code># Hermes runtime environment</code> المُصيَّر، مع علامة إغلاق
+عند النهاية المطلقة تميّز هذا التنسيق عن النصوص القديمة التي تقتبس العنوان.
+يأتي حدّ وقت التشغيل بعد كل نصوص المشروع والمشغّل والذاكرة والإضافات، بحيث لا تتنكّر الأمثلة في تلك
+الكتل بوصفها دليل العمل الحالي وقت التشغيل. تُقرأ معلومات النموذج/المزوّد قبل حدّ وقت التشغيل،
+باستثناء أوصاف embedder. سطر <code>Platform:</code> ليس عمدًا حقل هوية: فتبديل الواجهة
+(سطح مكتب ↔ TUI) يُبقي البايتات المخزَّنة ويسلّم إرشادات الواجهة الحالية كملاحظة لمرة واحدة على
+قناة رسالة المستخدم لكل دور (<code>agent/surface_switch.py</code>)، بحيث تبقى البادئة المخزَّنة مؤقتًا كما هي (#104414). تحتفظ الـ prompts القديمة بمرساها
+الأصلي (المضيف قبل السياق)، لذا تبقى الـ prompts المحفوظة قبل إعادة الترتيب صالحة.</p>
+<p>عند ضبط <code>skip_context_files</code> (مثل تفويض subagent)، لا يُحمَّل SOUL.md ويُستخدم بدلًا منه <code>DEFAULT_AGENT_IDENTITY</code> المُثبَّت في الكود.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="concrete-example-assembled-system-prompt">مثال ملموس: system prompt مُجمَّع</h3>
+<p>إليك عرضًا مبسّطًا لشكل الـ system prompt النهائي عند وجود كل الطبقات (تُظهر التعليقات مصدر كل قسم):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="customizing-platform-hints">تخصيص تلميحات المنصّة</h2>
+<p>تلميح المنصّة (الطبقة 10 أعلاه) هو الإرشاد الخاص بكل واجهة يحقنه
+Hermes لـ Telegram وWhatsApp وSlack وCLI ومنصات أخرى — على سبيل
+المثال &quot;أنت على طرفية، تجنّب Markdown.&quot; تعيش القيم الافتراضية المدمجة
+في <code>PLATFORM_HINTS</code> (<code>agent/system_prompt.py</code>)؛ وتقدّم المنصات التي توفّرها
+الإضافات تلميحاتها الخاصة عبر سجل المنصّات.</p>
+<p>يمكن للمسؤول (administrator) إضافة نص إلى تلميح منصّة واحدة أو استبداله من
+<code>config.yaml</code> عبر المفتاح رفيع المستوى <code>platform_hints</code>، دون المساس
+بأي منصّة أخرى:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ul>
+<li><code>append</code> — يُبقي التلميح المدمج ويضيف النص الإضافي بعده.</li>
+<li><code>replace</code> — يستبدل التلميح المدمج بالكامل.</li>
+<li>سلسلة نصية مجرَّدة — اختصار لـ <code>append</code>.</li>
+<li><code>replace</code> يتغلّب على <code>append</code> عند وجود كليهما.</li>
+<li>يُتجاهل أي مُدخل غير سليم البنية بشكل احترازي ويعود إلى
+الافتراضي غير المُعدَّل، بحيث لا يمكن لقيمة إعداد خاطئة أن تُفسد تجميع
+الـ prompt أو تتسرّب عبر المنصات.</li>
+</ul>
+<p>يُحسَم التجاوز (override) عند بناء الـ system prompt (بدء الجلسة،
+ومرة أخرى عند الضغط لأن ذلك يعيد بناء الـ prompt). ينتج عنه تلميح
+ثابت البايتات لإعداد محدَّد، لذا يعيش في الطبقة <strong>الثابتة</strong>
+جنبًا إلى جنب مع التلميح المدمج ولا يُفسد التخزين المؤقت للـ prompt — إنه
+ليس تعديلًا حيًا في منتصف الجلسة على prompt مُجمَّد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-soulmd-appears-in-the-prompt">كيف يظهر SOUL.md في الـ prompt</h2>
+<p>يعيش <code>SOUL.md</code> في <code>~/.hermes/SOUL.md</code> ويُستخدم كهوية الوكيل — أول قسم في الـ system prompt. تعمل منطق التحميل في <code>prompt_builder.py</code> كالتالي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>عندما تعيد <code>load_soul_md()</code> محتوى، تحلّ محلّ <code>DEFAULT_AGENT_IDENTITY</code> المُثبَّت في الكود. تُستدعى بعد ذلك الدالة <code>build_context_files_prompt()</code> بـ <code>skip_soul=True</code> لمنع ظهور SOUL.md مرتين (مرة كهوية، ومرة كملف سياق).</p>
+<p>إذا لم يكن <code>SOUL.md</code> موجودًا، يعود النظام إلى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-context-files-are-injected">كيف تُحقَن ملفات السياق</h2>
+<p>تستخدم <code>build_context_files_prompt()</code> <strong>نظام أولوية</strong> — يُحمَّل نوع سياق مشروع واحد فقط (أول تطابق يفوز):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-file-discovery-details">تفاصيل اكتشاف ملفات السياق</h3>
+<table><thead><tr><th>الأولوية</th><th>الملفات</th><th>نطاق البحث</th><th>ملاحظات</th></tr></thead><tbody><tr><td>1</td><td><code>.hermes.md</code>، <code>HERMES.md</code></td><td>من دليل العمل الحالي حتى جذر git</td><td>إعداد مشروع أصلي لـ Hermes</td></tr><tr><td>2</td><td><code>AGENTS.md</code></td><td>دليل العمل الحالي فقط</td><td>ملف تعليمات وكيل شائع</td></tr><tr><td>3</td><td><code>CLAUDE.md</code></td><td>دليل العمل الحالي فقط</td><td>توافق مع Claude Code</td></tr><tr><td>4</td><td><code>.cursorrules</code>، <code>.cursor/rules/*.mdc</code></td><td>دليل العمل الحالي فقط</td><td>توافق مع Cursor</td></tr></tbody></table>
+<p>جميع ملفات السياق:</p>
+<ul>
+<li><strong>مفحوصة أمنيًا</strong> — يُتحقّق منها بحثًا عن أنماط حقن التعليمات (unicode غير مرئي، &quot;تجاهل التعليمات السابقة&quot;، محاولات تسريب بيانات الاعتماد)</li>
+<li><strong>مقتطَعة</strong> — محدودة بعدد أحرف <code>context_file_max_chars</code> باستخدام تقسيم 70/20 بين البداية والنهاية مع علامة اقتطاع. يتناسب هذا الحد مع نافذة سياق النموذج (حد أدنى 20,000 حرف، وحد أقصى 500K)؛ وتغلب قيمة <code>context_file_max_chars</code> الصريحة في <code>config.yaml</code> دائمًا.</li>
+<li><strong>مُزال منها ترويسة YAML</strong> — تُزال ترويسة <code>.hermes.md</code> (محجوزة لتجاوزات إعداد مستقبلية)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-call-time-only-layers">طبقات خاصة بوقت استدعاء API فقط</h2>
+<p>هذه <em>لا</em> تُحفظ عمدًا كجزء من الـ system prompt المخزَّن مؤقتًا:</p>
+<ul>
+<li><code>ephemeral_system_prompt</code></li>
+<li>رسائل التمهيد المسبق (prefill)</li>
+<li>طبقات سياق الجلسة المشتقّة من gateway</li>
+<li>استرجاع Honcho/الخارجي في دور لاحق، مُحقَنًا في رسالة المستخدم للدور الحالي</li>
+</ul>
+<p>يقع سياق إضافة <code>pre_llm_call</code> أيضًا في هذا المسار الخاص بوقت استدعاء API: فيُلحَق برسالة <strong>المستخدم</strong> الخاصة بالدور الحالي، لا يُكتَب في الـ system prompt المخزَّن مؤقتًا. عندما تُعيد عدة إضافات سياقًا، يُلحق Hermes تلك الكتل السياقية ببعضها (انظر <a href="/docs/user-guide/features/hooks#pre_llm_call">Hooks ← <code>pre_llm_call</code></a>).</p>
+<p>يحافظ هذا الفصل على استقرار البادئة الثابتة لأغراض التخزين المؤقت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-snapshots">لقطات الذاكرة</h2>
+<p>تُلتقط بيانات الذاكرة المحلية وملف تعريف المستخدم في <strong>الطبقة المتغيّرة</strong> من الـ system prompt. الكتابات في منتصف الجلسة تحدّث حالة القرص لكنها لا تُعدِّل الـ system prompt المخزَّن مؤقتًا والمُجمَّع مسبقًا إلى أن يعمل مسار إعادة بناء (جلسة جديدة، أو مسار إبطال/إعادة بناء صريح مثل إعادة البناء الناتج عن الضغط).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-files">ملفات السياق</h2>
+<p>يفحص <code>agent/prompt_builder.py</code> ملفات سياق المشروع وينظّفها باستخدام <strong>نظام أولوية</strong> — يُحمَّل نوع واحد فقط (أول تطابق يفوز):</p>
+<ol>
+<li><code>.hermes.md</code> / <code>HERMES.md</code> (يتنقّل حتى جذر git)</li>
+<li><code>AGENTS.md</code> (دليل العمل الحالي عند بدء التشغيل؛ تُكتشَف الدلائل الفرعية تدريجيًا أثناء الجلسة عبر <code>agent/subdirectory_hints.py</code>)</li>
+<li><code>CLAUDE.md</code> (دليل العمل الحالي فقط)</li>
+<li><code>.cursorrules</code> / <code>.cursor/rules/*.mdc</code> (دليل العمل الحالي فقط)</li>
+</ol>
+<p>يُحمَّل <code>SOUL.md</code> بشكل منفصل عبر <code>load_soul_md()</code> لمكان الهوية. عندما يُحمَّل بنجاح، تمنع <code>build_context_files_prompt(skip_soul=True)</code> ظهوره مرتين.</p>
+<p>تُقتطَع الملفات الطويلة قبل الحقن.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skills-index">فهرس المهارات</h2>
+<p>يساهم نظام المهارات بفهرس مهارات مُكثَّف في الـ prompt عندما تكون أدوات المهارات متاحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-prompt-customization-surfaces">أسطح التخصيص المدعومة للـ prompt</h2>
+<p>يجب على معظم المستخدمين التعامل مع <code>agent/prompt_builder.py</code> كأنه كود تنفيذي، لا سطح إعدادات. المسار المدعوم للتخصيص هو تغيير مُدخلات الـ prompt التي يحمّلها Hermes بالفعل، بدلًا من تعديل قوالب Python مباشرةً.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-these-surfaces-first">استخدم هذه الأسطح أولًا</h3>
+<ul>
+<li><code>~/.hermes/SOUL.md</code> — استبدل كتلة الهوية الافتراضية المدمجة بشخصية وكيلك الخاصة وسلوكه الدائم.</li>
+<li><code>~/.hermes/MEMORY.md</code> و<code>~/.hermes/USER.md</code> — قدّم حقائق دائمة عبر الجلسات وبيانات ملف تعريف المستخدم التي ينبغي التقاطها كلقطة في الجلسات الجديدة.</li>
+<li>ملفات سياق المشروع مثل <code>.hermes.md</code> و<code>HERMES.md</code> و<code>AGENTS.md</code> و<code>CLAUDE.md</code> أو <code>.cursorrules</code> — لحقن قواعد عمل خاصة بالمستودع.</li>
+<li>المهارات — لتغليف سير عمل ومراجع قابلة لإعادة الاستخدام دون تعديل كود الـ prompt الأساسي.</li>
+<li>إعدادات الـ system prompt الاختيارية / تجاوزات API — لإضافة نص تعليمات خاص بالنشر دون عمل fork لـ Hermes.</li>
+<li>طبقات عابرة مثل <code>HERMES_EPHEMERAL_SYSTEM_PROMPT</code> أو رسائل التمهيد المسبق — لإضافة إرشادات محصورة بدور واحد لا ينبغي أن تصبح جزءًا من بادئة الـ prompt المخزَّنة مؤقتًا.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-edit-code-instead">متى تُعدِّل الكود بدلًا من ذلك</h3>
+<p>عدّل <code>agent/prompt_builder.py</code> فقط إذا كنت تحافظ عمدًا على fork أو تساهم بتغييرات سلوك في المشروع الأصلي (upstream). يجمّع ذلك الملف أسلاك الـ prompt وحدود التخزين المؤقت وترتيب الحقن لكل جلسة. التعديلات المباشرة هناك تغييرات منتج عامة، لا تخصيص prompt خاص بمستخدم واحد.</p>
+<p>بعبارة أخرى:</p>
+<ul>
+<li>إذا أردت هوية مساعد مختلفة، عدّل <code>SOUL.md</code></li>
+<li>إذا أردت قواعد مستودع مختلفة، عدّل ملفات سياق المشروع</li>
+<li>إذا أردت إجراءات تشغيل قابلة لإعادة الاستخدام، أضف مهارات أو عدّلها</li>
+<li>إذا أردت تغيير كيفية تجميع Hermes للـ prompts للجميع، غيّر كود Python واعتبر ذلك مساهمة كودية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-prompt-assembly-is-split-this-way">لماذا يُقسَّم تجميع الـ prompt على هذا النحو</h2>
+<p>البنية المعمارية مُحسَّنة عمدًا من أجل:</p>
+<ul>
+<li>الحفاظ على التخزين المؤقت للـ prompt من جهة المزوّد</li>
+<li>تجنّب تعديل السجل دون داعٍ</li>
+<li>إبقاء دلالات الذاكرة مفهومة</li>
+<li>السماح لـ gateway/ACP/CLI بإضافة سياق دون تلويث حالة الـ prompt الدائمة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق وتخزين الـ Prompt المؤقت</a></li>
+<li><a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></li>
+<li><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a></li>
+</ul>

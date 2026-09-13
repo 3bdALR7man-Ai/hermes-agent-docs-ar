@@ -1,0 +1,167 @@
+<header><h1>ربط Desktop بعدة نُسخ من Hermes</h1></header>
+<p>سجّل كل backend لـ Hermes تملكه — بيئة التشغيل المحلية، والـ gateways البعيدة على شبكتك المحلية (LAN) أو على VPS، ومضيفات SSH، ونُسخ Hermes Cloud — في تطبيق سطح مكتب واحد، واستخدم الوكلاء عليها جميعًا جنبًا إلى جنب. الاتصالات دائمة: إذ يتصل كل gateway مسجّل بالـ backends و WebSockets الخاصة به عند الطلب، ويواصل الوكلاء في الخلفية بثّ مخرجاتهم أثناء اطّلاعك على gateway آخر.</p>
+<p>هذه الصفحة هي المكمّل من جهة سطح المكتب لصفحة
+<a href="/docs/user-guide/multi-profile-gateways">تشغيل عدة Gateways في وقت واحد</a>: فتلك الصفحة تتناول استضافة عدة gateways على جهاز واحد، أما هذه فتتناول تطبيق سطح مكتب واحدًا يتواصل مع عدة أجهزة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-find-it">أين تجدها</h2>
+<p>يوجد كل شيء في صفحة <strong>Settings → Gateways</strong> الموحّدة (كانت الإصدارات الأقدم تحتوي على صفحتين منفصلتين هما <strong>Gateway</strong> و <strong>Connections</strong>؛ وتُعاد توجيه الروابط العميقة القديمة لصفحة Connections إليها). وتؤدي إليها ثلاثة مداخل:</p>
+<ul>
+<li><strong>Settings → Gateways</strong> — الصفحة نفسها (<strong>Cmd/Ctrl+,</strong>، ثم
+<strong>Gateways</strong> في قائمة التنقل ضمن الإعدادات). وسجلّ الاتصالات قسمٌ من تلك الصفحة، يقع أسفل عناصر التحكم في وضع الاتصال على مستوى الجهاز.</li>
+<li><strong>شريط الـ profiles في الشريط الجانبي</strong> — زر القابس في الطرف الأيمن من الشريط
+(التلميح: <strong>&quot;Connect another Hermes gateway…&quot;</strong>) ينقلك مباشرةً إلى صفحة Gateways. وهو ظاهر دائمًا، حتى قبل أن تُنشئ profile ثانيًا أو اتصالًا ثانيًا.</li>
+<li><strong>لوحة الأوامر (command palette)</strong> — <strong>Cmd/Ctrl+K</strong>، ثم اكتب <em>Gateways</em> (وتطابق أيضًا
+<em>connections</em>، <em>add gateway</em>، <em>remote</em>، <em>ssh</em>، <em>instances</em>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-gateway-registry">سجلّ الـ gateways</h2>
+<p>يدير قسم <strong>Registered gateways</strong> في <strong>Settings → Gateways</strong> قائمةً مُسمّاة من gateways الخاصة بـ Hermes. وتوضّح مقدمته ذلك صراحةً: <em>&quot;Manage this device and
+every Hermes gateway it can reach through remote, SSH, or Cloud connections.&quot;</em>
+وكل عنصر فيها هو <em>اتصال</em>:</p>
+<table><thead><tr><th>النوع</th><th>ما هو</th><th>المصادقة</th></tr></thead><tbody><tr><td><strong>Local</strong></td><td>&quot;The Hermes runtime managed by this app.&quot; (بيئة تشغيل Hermes التي يديرها هذا التطبيق)</td><td>تلقائية</td></tr><tr><td><strong>Remote gateway</strong></td><td>&quot;A Hermes gateway reachable over HTTP(S) — LAN, Tailscale, or the internet.&quot; (gateway لـ Hermes يمكن الوصول إليه عبر HTTP(S) — شبكة محلية أو Tailscale أو الإنترنت)</td><td>session token أو OAuth</td></tr><tr><td><strong>SSH</strong></td><td>&quot;A Hermes install reached over SSH.&quot; (تثبيت لـ Hermes يُوصَل إليه عبر SSH). يفتح التطبيق النفق (tunnel) ويشغّل لوحة التحكم نيابةً عنك</td><td>مفتاح SSH + token يتبنّاه التطبيق</td></tr><tr><td><strong>Hermes Cloud</strong></td><td>&quot;A hosted instance discovered through your Hermes Cloud account.&quot; (نسخة مستضافة تُكتشف عبر حسابك في Hermes Cloud)</td><td>تسجيل الدخول عبر البوابة (portal)</td></tr></tbody></table>
+<p>قواعد ينبغي معرفتها:</p>
+<ul>
+<li><strong>يحتاج كل اتصال إلى اسم جهاز فريد</strong> (&quot;Homelab&quot;، &quot;Work laptop&quot;).
+يظهر الاسم في كل مكان تظهر فيه النسخة — شارات قائمة الوكلاء (roster)، والمعرّفات (handles)، ونتائج التحديث. ولا يميّز التفرّد بين الأحرف الكبيرة والصغيرة، لذا لا يمكن أن يوجد <code>Homelab</code> و <code>homelab</code>
+معًا.</li>
+<li>يدير التطبيق العنصر <strong>المحلي</strong> (وتظهر عليه شارة <strong>App-managed</strong>)
+ولا يمكن إزالته. أما إزالة أي اتصال آخر فتُنهي الـ backends والأنفاق الحيّة الخاصة به؛ دون المساس بالنسخة نفسها.</li>
+<li>يكون أحد الاتصالات دائمًا هو الاتصال <strong>Primary</strong> (مع شارة في صفه): وهو الخيار الاحتياطي في السجل لاستدعاءات الـ gateways المتعددة التي لا تُحدّد gateway بعينه.
+ولا يؤدي <strong>Make primary</strong> إلى تبديل مساحة عمل Sessions الحالية؛ وعند إزالة الاتصال الأساسي يُرجَع إلى العنصر المحلي.</li>
+<li>يتحكم الخيار <strong>At startup, return to Sessions on the last-used gateway</strong> في الـ gateway الذي تفتح عليه Sessions بعد إعادة تشغيل التطبيق بالكامل. وهو معطّل افتراضيًا، لذا تفتح Sessions على <strong>Primary</strong>. فعّله لاستئناف آخر gateway نجح الاتصال به. لا يُحفظ التبديل الفاشل أبدًا، والـ gateway المحفوظ الذي أُزيل أو صار غير متاح يُرجَع بدلًا منه إلى Primary.</li>
+<li>يفحص <strong>Test</strong> مساري HTTP <em>و</em> WebSocket الخاصين بالاتصال، لذا فالنجاح
+(إشعار <em>&quot;Reachable&quot;</em>) يعني أن المحادثة ستعمل فعلًا — وليس مجرد أن المضيف استجاب لـ ping.</li>
+<li><strong>تُرفض العناصر المكررة عند الحفظ</strong>: لا يوجد إلا عنصر <strong>محلي</strong>
+واحد؛ وتُزال الازدواجية بين العناصر <strong>البعيدة</strong> و <strong>السحابية</strong> بناءً على الـ URL بعد توحيده (بإزالة المسافات، وحذف الشرطات المائلة في النهاية، وتحويله إلى أحرف صغيرة — وعبر النوعين معًا، فلا يمكن لعنصر سحابي وعنصر بعيد أن يشيرا إلى الـ URL نفسه)؛ وتُزال الازدواجية بين عناصر <strong>SSH</strong> بناءً على <code>user@host:port</code> بعد توحيده إضافةً إلى الـ profile البعيد.</li>
+<li>تأتي عناصر Cloud عادةً من مسار تسجيل الدخول/الاكتشاف في Hermes Cloud أعلى صفحة Gateways — ونوع <strong>Hermes Cloud</strong> في محرر إضافة الاتصال يوجّهك إلى هناك.</li>
+</ul>
+<p>بدّل الـ gateways من الشريط الجانبي <strong>Sessions</strong>. تبقى الـ profiles والمحادثات والمراسلة و cron مقصورة على نطاق ذلك الـ gateway؛ بينما يظل backend النافذة الذي يديره التطبيق يُختار عبر عناصر التحكم في وضع الاتصال أعلاه. أما <strong>Primary</strong> فهو الخيار الاحتياطي في السجل ولا يبدّل مساحة العمل الحالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="organizing-session-groups">تنظيم مجموعات الجلسات</h2>
+<p>في قائمة العرض ضمن الشريط الجانبي Sessions، اختر <strong>Gateway &amp; profile</strong> أثناء عرض جميع الـ profiles. يحصل كل gateway على قسم خاص به قابل للطي، مع أقسام فرعية للـ profiles تحتوي على جلساتها. ويبقى أي اثنين من الـ gateways لديهما profile باسم <code>default</code>
+منفصلين. تبدأ عناوين الـ gateways باسم الاتصال المحفوظ؛ وتعرض عناوين الـ profiles اسم الـ profile.</p>
+<p>استخدم قائمة قسم الـ gateway أو الـ profile لتنفيذ <strong>Rename group</strong> أو <strong>Reset name</strong> أو <strong>Move up</strong> أو
+<strong>Move down</strong>. تغيّر إعادة التسمية تسمية الشريط الجانبي فقط، لا الـ gateway أو الـ profile نفسه.
+يُعاد ترتيب الـ gateways كأقسام كاملة، ويُعاد ترتيب الـ profiles داخل الـ gateway الخاص بها. اسحب الأيقونة الأولى في القسم لإعادة ترتيبه، أو ركّز على ذلك المقبض واستخدم Space ثم مفاتيح الأسهم ثم Space لوضعه في مكانه. تُحفظ الأسماء والترتيب والأقسام المطوية على هذا الجهاز. وطيّ gateway يحافظ على حالات الطي الفردية للـ profiles الخاصة به. وإجراء الجلسة الجديدة في كل profile يستهدف ذلك الـ profile على الـ gateway المالك له.</p>
+<p>تعرض لوحة Hermes Cloud أيضًا <strong>Saved Cloud gateways</strong> عندما يكون اكتشاف البوابة (portal) في حالة تسجيل خروج. يختار <strong>Use gateway</strong> اتصالًا محفوظًا موجودًا دون تغيير الـ gateway الافتراضي؛ بينما تُميّز <strong>Active in this window</strong> الاتصال الحالي. عند إضافة نسخة جديدة يُستخدم اسمها الودّي في Cloud، بينما تُحفظ أسماء الاتصالات المخصصة الموجودة. ولا تزال الاتصالات المحفوظة تحتاج إلى مصادقة gateway صالحة؛ لذا أدِر تسجيل الدخول من عناصر التحكم في الاتصالات المسجّلة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-a-connection-step-by-step">إضافة اتصال خطوة بخطوة</h2>
+<ol>
+<li>افتح <strong>Settings → Gateways</strong> ومرّر إلى سجلّ الاتصالات (أو انقر القابس في شريط الـ profiles).</li>
+<li>انقر <strong>Add connection</strong>.</li>
+<li>اختر النوع: <strong>Local</strong> أو <strong>Hermes Cloud</strong> أو <strong>Remote gateway</strong> أو <strong>SSH</strong>.
+(يكون <strong>Local</strong> معطّلًا ما دام العنصر المحلي الذي يديره التطبيق موجودًا — وهذا هو الحال دائمًا تقريبًا؛ ويوجّهك <strong>Hermes Cloud</strong> إلى مسار تسجيل الدخول/الاكتشاف السحابي أعلاه.)</li>
+<li>املأ الحقول:
+<ul>
+<li><strong>Name</strong> — مطلوب وفريد؛ وهو &quot;اسم الجهاز&quot; الذي يظهر في كل مكان تظهر فيه هذه النسخة (النص المؤقت: <code>Homelab</code>). بحد أقصى 64 حرفًا.</li>
+<li><em>لـ Remote gateway فقط:</em>
+<ul>
+<li><strong>Gateway URL</strong> — الـ URL الأساسي لـ backend يعمل بالأمر <code>hermes serve</code>،
+مثل <code>http://homelab.lan:9119</code>. وتعمل بادئات المسارات الخاصة بالـ reverse proxy.</li>
+<li><strong>Authentication</strong> — اختر <strong>Session token</strong> أو <strong>OAuth</strong>:
+<ul>
+<li><strong>Session token</strong> — الصق session token الخاص بلوحة التحكم من الـ gateway البعيد. وعند التعديل: <em>&quot;Leave blank to keep the saved
+token.&quot;</em> (اتركه فارغًا للاحتفاظ بالـ token المحفوظ).</li>
+<li><strong>OAuth</strong> — سجّل الدخول عبر مسار Nous Portal في المتصفح؛ دون الحاجة إلى لصق أي token.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><em>لـ SSH فقط:</em>
+<ul>
+<li><strong>SSH host</strong> — حقل مركّب واحد بصيغة <code>user@host:22</code> (المستخدم والمنفذ اختياريان). يُستخدم مفتاح SSH الخاص بك؛ ويتبنّى التطبيق token لوحة التحكم عبر النفق.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>انقر <strong>Save connection</strong> (أو <strong>Cancel</strong>).</li>
+<li>انقر <strong>Test</strong> في الصف الجديد وانتظر ظهور <em>&quot;Reachable&quot;</em>.</li>
+</ol>
+<p>عدّل لاحقًا أي عنصر غير محلي باستخدام زر القلم، أو أزِله باستخدام زر سلة المهملات — إذ تطلب الإزالة تأكيدًا وتذكّرك بأن <em>&quot;The
+instance itself is not touched — you can add it again any time.&quot;</em> (لا تُمسّ النسخة نفسها — ويمكنك إضافتها مجددًا في أي وقت).</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>الـ backend البعيد هو عملية <code>hermes serve</code> قيد التشغيل</div><div class="admonitionContent_BuS1"><p>لا يعمل شيء مما سبق ما لم يكن الـ backend يعمل فعلًا ويمكن الوصول إليه على الجهاز الآخر. يتصل تطبيق سطح المكتب به؛ لكنه لا يشغّله نيابةً عنك
+(باستثناء اتصالات SSH، إذ يشغّل التطبيق لوحة التحكم عبر النفق عند الطلب). راجع
+<a href="/docs/user-guide/desktop#connecting-to-a-remote-backend">الاتصال بـ backend بعيد</a>
+لإعداد جانب الـ backend — مزوّدو المصادقة، والربط بعنوان غير loopback، وإرشادات Tailscale.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="migrating-from-the-single-connection-settings">الانتقال من إعدادات الاتصال الواحد</h3>
+<p>يستورد أول تشغيل لإصدار يدعم السجل إعداداتك الحالية تلقائيًا: إذ يتحول وضع الاتصال العام وأي تجاوزات (overrides) قديمة لكل profile من Settings → Gateway إلى عناصر مُسمّاة في السجل (مع إزالة الازدواجية حسب URL/المضيف). (لم تعد الإصدارات الأحدث توفّر تجاوزات لكل profile في صفحة إعدادات Gateways — فاتصالات الـ gateway تكون على مستوى الجهاز، وتُكتشف الـ profiles من الـ gateways التي تتصل بها.)
+ويُترك ملف الإعدادات القديم دون تغيير، لذا تواصل الإصدارات الأقدم على الجهاز نفسه العمل. وإذا تعارض اسم مُرحَّل مع اسم آخر، تُضاف إليه لاحقة
+(<code>Homelab 2</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agents-across-gateways">الوكلاء عبر الـ gateways</h2>
+<p>كل <a href="/docs/user-guide/profiles">profile</a> على كل اتصال مسجّل هو <em>وكيل</em>.
+والقائمة الموحّدة للوكلاء (union roster) هي ما تعرضه واجهات الـ gateways المتعددة (وقائمة
+<a href="/docs/user-guide/bot-mode">Bot Mode</a> المدمجة):</p>
+<ul>
+<li>عندما يوجد اسم الـ profile نفسه على عدة gateways، تُميَّز المعرّفات (handles) بصيغة <strong><code>@name-device</code></strong> — فالـ profile <code>research</code> على Homelab يُعرض بالشكل
+<code>@research-homelab</code>، بينما يحتفظ الـ profile الفريد عبر جميع الـ gateways باسمه المجرّد.</li>
+<li>يُحصى الوكلاء فورًا، أما الـ sockets فلا تُفتح إلا عند الحاجة: إذ يسرد التطبيق الوكلاء عبر REST دون الاتصال بـ WebSocket لكل gateway. والـ gateway الذي يتعذّر الوصول إليه يُبلغ عن ذلك في صفه بدلًا من إفساد القائمة؛ وتبقى اتصالات SSH في وضع الاتصال عند الطلب إلى أن تفتح وكيلًا عليها لأول مرة (دون أنفاق مفاجئة).</li>
+<li>فتح وكيل يتصل بـ <strong>الـ gateway الخاص به</strong> — فالمحادثات والجلسات والذاكرة موجودة على الجهاز المالك للـ profile، تمامًا كما لو كنت تستخدم تلك النسخة مباشرةً.</li>
+</ul>
+<p>يحصل كل زوج <code>(connection, profile)</code> على backend و socket خاصين به، ضمن مجمّع يُطبَّق عليه تنظيف الاتصالات الخاملة نفسه المتبع في الـ backends المحلية لكل profile — لذا يواصل الوكلاء في الخلفية البثّ أثناء اطّلاعك على gateway آخر.</p>
+<p>تُوجَّه أزرار الموافقة إلى الـ backend المالك للجلسة، لا إلى أي profile محدد حاليًا. وبالنسبة إلى profile ثانوي محلي، يمكن لـ Desktop استخدام الـ socket الذي أوصل الطلب حتى عندما يكون ربط الجلسة المخزّن مؤقتًا مفقودًا. وتظل الأولوية لملكية الجلسة المحفوظة، كما أن حذف ذلك الـ profile المحلي أو إعادة تسميته يمسح هذا المسار المؤقت بدلًا من إعادة الاتصال بـ backend متقادم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-and-scoping">التبديل وتحديد النطاق</h3>
+<p>يتبع أسفل الشريط الجانبي تسلسلًا هرميًا واحدًا: <strong>gateway → profile → sessions</strong>.
+فالـ gateways أجهزة أو backends مستضافة؛ والـ profiles وكلاء Hermes معزولون يعيشون على gateway واحد.</p>
+<ul>
+<li>عند وجود gateway مسجّل واحد، لا يُضاف أي عنصر تحكم خاص بالـ gateway. ويحتفظ Desktop المحلي فقط بشريط الـ profiles نفسه وتدفق لوحة المفاتيح كما كان سابقًا.</li>
+<li>عند وجود عدة gateways، يعرض الشريط الجانبي محدِّد gateway واحدًا يحمل اسمًا. وتُحدّد أيقونته (جهاز أو سحابة أو شبكة أو طرفية) نوع الاتصال؛ بينما تبقى الصور الرمزية للـ profiles عنصر تحكم منفصلًا بعد الفاصل. ويتسع المحدِّد نفسه من اثنين من الـ gateways إلى أسطول أكبر دون تحويل الـ backends إلى رموز تشبه الـ profiles أو مزاحمة إجراءات الـ profiles وإخراجها من الشريط.</li>
+<li>يؤدي اختيار gateway إلى استعادة آخر profile استُخدم عليه. وتعيد شارة الصفحة الرئيسية (home) إلى الـ profile الافتراضي الخاص به، وتعرض شارة الطبقات <strong>All profiles on
+this gateway</strong>. وتواصل <strong>Cmd/Ctrl+1–9</strong> التبديل بين الـ profiles داخل الـ gateway النشط.</li>
+<li>عند وجود عدة gateways يصبح شريط الـ profiles <strong>شريط أسطول (fleet rail)</strong>: إذ تصطف profiles كل gateway مسجّل على الشريط الواحد، وتتصدر كل مجموعة رمزُ نوع ذلك الـ gateway (جهاز، شبكة، طرفية، سحابة) — وهو الرمز نفسه الذي يستخدمه محدِّد الـ gateway. تبدو مربعات الـ gateway النشط تمامًا كما تبدو في Desktop ذي الـ gateway الواحد؛ بينما تكون مربعات الـ gateways الأخرى باهتة (&quot;at rest&quot;).
+ويؤدي تمرير المؤشر فوق مربع في حالة السكون إلى إظهار اسم جهازه (<code>omer · This device</code>)، فلا يبدو أبدًا اثنان من الـ profiles بالاسم نفسه على جهازين مختلفين متشابهين.</li>
+<li>يؤدي النقر على مربع في حالة السكون التبديلَ نفسه الذي يؤديه محدِّد الـ gateway، وصولًا إلى <code>(gateway, profile)</code> المحدد تمامًا: يدور المربع أثناء الاتصال بالهدف، ويبقى الـ gateway السابق معروضًا حتى يستجيب الهدف، وإذا كان الهدف لا يستجيب يفشل النقر مع رسالة بدلًا من ترك النافذة في حالة تبديل جزئي. تحافظ المجموعات على ترتيب السجل أيًّا كان الـ gateway النشط، لذا لا يتحرك أي مربع أبدًا من تحت المؤشر الذي نقره. ويوفر النقر بزر الفأرة الأيمن على مربع في حالة السكون الخيارات <strong>Switch to</strong> و <strong>Color</strong> و
+<strong>Rename</strong> و <strong>Edit SOUL.md</strong> و <strong>Delete</strong>، وتُنفَّذ جميعها على الـ gateway الخاص بالمربع؛ ويُسمّي تأكيد الحذف الجهاز.</li>
+<li>الـ gateway الذي تعذّر على آخر عملية إحصاء الوصول إليه يحتفظ بمربعاته، مع نقطة كهرمانية على رمزه — فالجهاز النائم لا يزال لك. ويُدمج تسجيلان لـ backend واحد في مجموعة واحدة. وعندما يتجاوز عدد المربعات ثلاثة عشر مربعًا عبر الأسطول، يتقلص الشريط إلى قائمة واحدة مقسّمة حسب الـ gateway.</li>
+<li>لا يبقى الـ gateway المحدد بعد الخروج وإعادة التشغيل إلا عند تفعيل <strong>Settings →
+Gateways → At startup, return to Sessions on the last-used gateway</strong>.
+ويُخزَّن هذا التفضيل ومعرّف الـ gateway في سجلّ بيانات المستخدم الخاص بالتطبيق، لذا لا يؤدي استبدال حزمة التطبيق أو تحديثها إلى إعادة ضبطهما.</li>
+<li>عند وجود أكثر من ثلاثة عشر profile على الـ gateway النشط، يتقلص شريط صورها الرمزية إلى محدِّد profile مُسمّى. وبذلك يمكن لمجموعات كبيرة من الـ gateways والـ profiles أن تتعايش دون تغيير نموذج <strong>gateway → profile → sessions</strong>.</li>
+<li>يظل <strong>This device</strong> gateway من الدرجة الأولى حتى عندما يكون اتصال بعيد هو Primary. ويمكنه إبقاء الجلسات المحلية متاحة أثناء انقطاع الاتصال البعيد، لكن التطبيق لا يسمّي ذلك &quot;offline mode&quot;: فالنموذج أو الأدوات المحددة قد تظل تتطلب اتصالًا بالإنترنت.</li>
+<li>قائمة الجلسات، وقنوات المراسلة، ومهام cron، والإعدادات، والملفات، والذاكرة كلها مقصورة على نطاق <code>(gateway, profile)</code> النشط. والتبديل من gateway لـ Telegram
+إلى gateway لـ Signal لا يمكن أن يُبقي مجموعات القنوات أو الجلسات الخاصة بالـ gateway السابق في الشريط الجانبي.</li>
+<li>مجرد عرض أداة التبديل يقرأ سجلّ الاتصالات المحلي في Electron.
+ولا تُفتح الـ gateways البعيدة إلا عند اختيارها؛ ولا يوجد استطلاع دوري للأسطول.</li>
+<li>يؤدي تمرير المؤشر فوق وكيل إلى تهيئة الـ backend الخاص به مسبقًا، فلا يتحمّل التبديل كلفة إقلاع بارد.</li>
+<li>لصفحة <strong>Capabilities</strong> (Skills / Tools / MCP) نطاق مطابق: إذ يسرد محدِّد
+<strong>Configuring</strong> فيها كل وكيل <code>(profile, device)</code> من القائمة الموحّدة، واختيار أحدها يقرأ ويكتب المهارات و toolsets وخوادم MCP الخاصة بـ <strong>ذلك الجهاز</strong> دون تبديل مساحة عمل Sessions. وتُطبَّق عمليات التثبيت من Hub ومفاتيح البيئة وإعداد MCP جميعها على الـ backend الخاص بالوكيل المحدد.
+ولا يظهر زر <em>hot-reload into a live session</em> في تبويب MCP إلا للوكلاء على الـ gateway المتصلة به النافذة؛ أما التعديلات على الأجهزة الأخرى فتُطبَّق في جلستها التالية.</li>
+</ul>
+<p>أضِف الـ gateways أو اختبرها أو أعد تسميتها أو أزِلها من <strong>Settings → Gateways</strong>. وزر القابس بجوار إجراءات الـ profile اختصار إلى مركز الإدارة الوحيد ذاك، وليس مسار إضافة ثانيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sessions-and-bot-mode">Sessions و Bot Mode</h3>
+<p>تعرض Sessions عمدًا gateway نشطًا واحدًا في كل مرة: فهذا يُبقي الملفات والأدوات والقنوات و cron وسجل الجلسات ضمن سياق تنفيذ واحد مفهوم. ولا يوسّع شريط الأسطول للـ profiles سوى <em>أداة الاختيار</em> — فمساحة العمل تظل على <code>(gateway, profile)</code> واحد تمامًا بعد كل نقرة. أما Bot Mode فيؤدي مهمة مختلفة وقد يعرض القائمة الموحّدة مجمّعةً حسب الـ gateway، بحيث يستطيع المستخدم فتح وكيل على NAS وآخر على VPS من واجهة واحدة. ومع ذلك يظل فتح بوت يُفعّل مسار <code>(gateway, profile)</code> الخاص به تمامًا.</p>
+<p>تظل الإشارات المباشرة إلى البوتات والتفويض محليةً ضمن الـ gateway افتراضيًا. فتجاوز حدود الـ backend يغيّر نظام الملفات وبيانات الاعتماد والأدوات وسياق الثقة، لذا ينبغي أن يكون التنفيذ عبر الـ gateways جسرًا صريحًا لا أثرًا جانبيًا عرضيًا لمشاركة نافذة Desktop واحدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-every-instance-at-once">تحديث جميع النُسخ دفعة واحدة</h2>
+<p>يُرسل <strong>Settings → Gateways → Update all instances</strong> (الذي يظهر بمجرد تسجيل أكثر من اتصال واحد) الأمر <code>hermes update</code> إلى كل اتصال مؤهل بالتوازي:</p>
+<ul>
+<li>يُحدَّث <strong>Local</strong> عبر pipeline التحديث الخاص بالتطبيق (المسار نفسه المتبع في Settings → Updates).</li>
+<li>يُطلب من اتصالات <strong>Remote و SSH</strong> تحديث نفسها عبر الـ backend الخاص بها — فيجري التحديث على <em>ذلك</em> الجهاز.</li>
+<li>تُتخطى نُسخ <strong>Hermes Cloud</strong> مع ملاحظة <em>&quot;Managed by Hermes Cloud&quot;</em>:
+إذ تدير المنصة إصداراتها.</li>
+</ul>
+<p>تُبلغ كل نسخة عن نتيجتها بشكل مستقل، لذا لا يعطّل جهاز واحد يتعذّر الوصول إليه الدفعةَ كلها أبدًا. أما الـ backends التي تُدار تحديثاتها خارجيًا (Docker، Nix) فترفض بلطف برسالتها الخاصة، في كل صف.</p>
+<p>ومع ذلك نادرًا ما تحتاج إلى زر الإعدادات: فبمجرد وجود أكثر من هدف للتحديث، تُنفّذ عناصر التحديث المعتادة في التطبيق (<strong>Update now</strong> في لوحة About، و ⌘K <strong>Update Hermes</strong>، وإشعار جاهزية التحديث) التوزيعَ نفسه تلقائيًا — الـ backend النشط أولًا، ثم كل gateway مؤهل آخر، ثم تطبيق سطح المكتب نفسه أخيرًا. راجع
+<a href="/docs/user-guide/desktop#updating">التحديث</a> في دليل سطح المكتب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-notes">ملاحظات أمنية</h2>
+<ul>
+<li><strong>مكان تخزين الـ tokens.</strong> تُخزَّن session tokens الخاصة بالـ gateways البعيدة (و OAuth tokens الخاصة بتسجيل الدخول الأصلي، مفهرسةً حسب الـ URL الأساسي للـ gateway) في مجلد بيانات المستخدم الخاص بالتطبيق كملفات لا يصل إليها إلا المالك (0600)، ضمن العملية الرئيسية لـ Electron؛ ولا ترى عملية العرض (renderer) ولا الإضافات بايتات الـ tokens أبدًا.</li>
+<li><strong>تشفير اختياري عبر keychain.</strong> افتراضيًا <strong>لا</strong> تمر الـ tokens عبر keychain نظام التشغيل — ففي macOS تحديدًا، يضع <code>safeStorage</code> في Electron
+مفتاحًا خاصًا بالتطبيق في login keychain، وإذا كان الـ keychain مقفلًا أو معطوبًا يتحول ذلك إلى طلب كلمة مرور عند كل تشغيل. إذا أردت التشفير أثناء التخزين (at-rest) فوق صلاحيات الملفات، ففعّل <strong>Settings → Gateway →
+&quot;Encrypt saved secrets with the OS keychain&quot;</strong>؛ فيُعاد تشفير الأسرار المخزّنة الحالية في مكانها (Keychain في macOS، و DPAPI في Windows، و keyring backend الخاص بالجلسة في Linux). وإيقاف الخيار مجددًا يفك تشفيرها.</li>
+<li><strong>ملف السجل</strong> (<code>connections.json</code> ضمن مجلد بيانات المستخدم الخاص بالتطبيق) يحتوي على التسميات والـ URLs والمضيفات — ولا تظهر الأسرار إلا داخل أغلفة مشفّرة.</li>
+<li>تُرجع الدالة <code>host.connections()</code> في plugin SDK عمدًا التسميات والأنواع ومعرّف الاتصال الأساسي — ولا تُرجع أبدًا أي بيانات للـ tokens.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="for-plugin-authors">لمؤلفي الإضافات</h2>
+<p>يتيح <a href="/docs/developer-guide/desktop-plugin-sdk">plugin SDK</a> الخاص بـ Desktop واجهة الـ gateways المتعددة مباشرةً:</p>
+<ul>
+<li><code>host.connections()</code> — قائمة الاتصالات المسجّلة (التسميات، والأنواع، والاتصال الأساسي؛ دون بايتات الـ tokens أبدًا).</li>
+<li><code>host.agents()</code> — القائمة الموحّدة: صف واحد لكل <code>(gateway, profile)</code> مع المعرّف <code>@name-device</code> المحسوب مسبقًا.</li>
+<li><code>host.ensureAgent(connectionId, profile)</code> — يُفعّل الـ gateway الخاص بوكيل ما بحيث تصل استدعاءات <code>host.request</code> اللاحقة إلى الـ backend الخاص به.</li>
+<li><code>host.warmAgent(connectionId, profile)</code> — تهيئة مسبقة للـ socket دون انتظار النتيجة (fire-and-forget) عند نية التمرير (hover-intent).</li>
+</ul>
+<p>تُكتشف الدوال الأربع جميعها عبر كشف الميزات (feature detection): ففي إصدار Desktop أقدم لا تكون موجودة، وينبغي للإضافة الرجوع إلى مسار <code>profiles.list</code> الخاص بالـ gateway الواحد. وقائمة الوكلاء متعددة الـ gateways في Bot Mode هي المستهلك المرجعي لها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<ul>
+<li><strong>&quot;Connection test failed&quot;</strong> — لا يمكن الوصول إلى الـ backend على ذلك الـ URL من هذا الجهاز. تحقّق من أن <code>hermes serve</code> يعمل على المضيف البعيد، وأن المنفذ مفتوح، و(في حالة المصادقة بالـ token) أن الـ token ساري المفعول. أعد تشغيل <strong>Test</strong>
+بعد الإصلاح.</li>
+<li><strong>يظهر وكيل لكنه لا يُفتح</strong> — شغّل <strong>Test</strong> على اتصاله. ففشل مسار WebSocket مع نجاح HTTP يعني عادةً أن proxy أو جدار حماية أو حارس المصادقة/المصدر (origin) في الـ gateway يحظر <code>/api/ws</code>.</li>
+<li><strong>gateway بعيد مفقود من قائمة الوكلاء</strong> — الـ backend الخاص به متوقف أو يتعذّر الوصول إليه؛ وتسرده القائمة ضمن الـ gateways مع الخطأ. وتُظهر اتصالات SSH الحالة <em>connect-on-demand</em> حتى أول استخدام — وهذا مقصود بالتصميم، وليس فشلًا.</li>
+<li><strong>&quot;Update Hermes Desktop to chat with agents on other connections&quot;</strong> — التطبيق أقدم من حزمة الاتصالات المتعددة؛ حدّث تطبيق سطح المكتب نفسه.</li>
+<li><strong>أسماء أجهزة مكررة</strong> — غير ممكن؛ إذ يُفرض تفرّد الأسماء عند الحفظ. وإذا تعارض اسم مُرحَّل، تُضاف إليه لاحقة (<code>Homelab 2</code>).</li>
+<li><strong>&quot;Could not save the connection&quot;</strong> — السبب الأكثر شيوعًا هو غياب <strong>Name</strong>، أو اسم مستخدم بالفعل، أو <strong>Gateway URL</strong> / <strong>SSH host</strong> بصيغة غير صحيحة؛ وتُحدّد رسالة الخطأ المخالفة بدقة.</li>
+</ul>

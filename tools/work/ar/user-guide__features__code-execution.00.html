@@ -1,0 +1,131 @@
+<header><h1>تنفيذ الكود (Programmatic Tool Calling)</h1></header>
+<p>تتيح أداة <code>execute_code</code> للوكيل كتابة سكربتات Python تستدعي أدوات Hermes برمجيًا، فتختصر سير العمل متعدد الخطوات في دور LLM واحد. يعمل السكربت في عملية ابنة على مضيف الوكيل، ويتواصل مع Hermes عبر RPC من خلال Unix domain socket.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<ol>
+<li>يكتب الوكيل سكربت Python باستخدام <code>from hermes_tools import ...</code></li>
+<li>يولّد Hermes وحدة بديلة (stub) باسم <code>hermes_tools.py</code> تحتوي على دوال RPC</li>
+<li>يفتح Hermes مقبس Unix domain socket ويبدأ خيطًا (thread) للاستماع إلى RPC</li>
+<li>يعمل السكربت في عملية ابنة — وتنتقل استدعاءات الأدوات عبر المقبس عائدةً إلى Hermes</li>
+<li>لا تُعاد إلى LLM إلا مخرجات <code>print()</code> الخاصة بالسكربت؛ ولا تدخل نتائج الأدوات الوسيطة إلى context window أبدًا</li>
+</ol>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>الأدوات المتاحة داخل السكربتات:</strong> <code>web_search</code>، <code>web_extract</code>، <code>read_file</code>، <code>write_file</code>، <code>search_files</code>، <code>patch</code>، <code>terminal</code> (في المقدمة فقط).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-the-agent-uses-this">متى يستخدم الوكيل هذه الأداة</h2>
+<p>يستخدم الوكيل <code>execute_code</code> عندما يكون هناك:</p>
+<ul>
+<li><strong>3 استدعاءات أدوات أو أكثر</strong> بينها منطق معالجة</li>
+<li>ترشيح بيانات بالجملة أو تفرّع شرطي</li>
+<li>حلقات تكرار على النتائج</li>
+</ul>
+<p>الفائدة الأساسية: لا تدخل نتائج الأدوات الوسيطة إلى context window أبدًا — ولا يعود إلا ناتج <code>print()</code> النهائي، مما يقلّل استهلاك الـ tokens بشكل كبير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="practical-examples">أمثلة عملية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-processing-pipeline">Pipeline لمعالجة البيانات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-step-web-research">بحث متعدد الخطوات في الويب</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-file-refactoring">إعادة هيكلة الملفات بالجملة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="build-and-test-pipeline">Pipeline للبناء والاختبار</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="execution-mode">وضع التنفيذ</h2>
+<p>لأداة <code>execute_code</code> وضعا تنفيذ يتحكم فيهما <code>code_execution.mode</code> في <code>~/.hermes/config.yaml</code>:</p>
+<table><thead><tr><th>الوضع</th><th>مجلد العمل</th><th>مفسّر Python</th></tr></thead><tbody><tr><td><strong><code>project</code></strong> (الافتراضي)</td><td>مجلد العمل الخاص بالجلسة (كما في <code>terminal()</code>)</td><td>مفسّر python النشط من <code>VIRTUAL_ENV</code> / <code>CONDA_PREFIX</code>، مع الرجوع إلى مفسّر python الخاص بـ Hermes احتياطيًا</td></tr><tr><td><code>strict</code></td><td>مجلد تجهيز مؤقت معزول عن مشروع المستخدم</td><td><code>sys.executable</code> (مفسّر python الخاص بـ Hermes)</td></tr></tbody></table>
+<p><strong>متى تُبقيه على <code>project</code>:</strong> عندما تريد أن تعمل <code>import pandas</code> أو <code>from my_project import foo</code> أو المسارات النسبية مثل <code>open(&quot;.env&quot;)</code> بالطريقة نفسها التي تعمل بها في <code>terminal()</code>. وهذا ما تريده في أغلب الأحيان.</p>
+<p><strong>متى تحوّله إلى <code>strict</code>:</strong> عندما تحتاج إلى أقصى قدر من قابلية إعادة الإنتاج — أي تريد المفسّر نفسه في كل جلسة بغضّ النظر عن الـ venv الذي فعّله المستخدم، وتريد عزل السكربتات عن شجرة المشروع (دون خطر قراءة ملفات المشروع عن طريق الخطأ عبر مسار نسبي).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>السلوك الاحتياطي في وضع <code>project</code>: إذا كان <code>VIRTUAL_ENV</code> / <code>CONDA_PREFIX</code> غير مضبوط، أو معطوبًا، أو يشير إلى Python أقدم من 3.8، فإن آلية التحديد ترجع بسلاسة إلى <code>sys.executable</code> — فلا تترك الوكيل أبدًا دون مفسّر يعمل.</p>
+<p>الثوابت الحرجة أمنيًا متطابقة في كلا الوضعين:</p>
+<ul>
+<li>تنقية البيئة (إزالة مفاتيح API والـ tokens وبيانات الاعتماد)</li>
+<li>قائمة الأدوات المسموح بها (لا تستطيع السكربتات استدعاء <code>execute_code</code> تكراريًا، ولا <code>delegate_task</code>، ولا أدوات MCP)</li>
+<li>حدود الموارد (المهلة، وسقف stdout، وسقف استدعاءات الأدوات)</li>
+</ul>
+<p>تبديل الوضع يغيّر مكان تشغيل السكربتات والمفسّر الذي يشغّلها، لا بيانات الاعتماد التي يمكنها رؤيتها أو الأدوات التي يمكنها استدعاؤها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resource-limits">حدود الموارد</h2>
+<table><thead><tr><th>المورد</th><th>الحد</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>المهلة</strong></td><td>5 دقائق (300 ثانية)</td><td>يُنهى السكربت بـ SIGTERM، ثم بـ SIGKILL بعد مهلة سماح مدتها 5 ثوانٍ</td></tr><tr><td><strong>Stdout</strong></td><td>50 KB</td><td>تُعرض البداية والنهاية ضمن النتيجة مباشرةً؛ ويُحفظ الناتج الكامل في <code>~/.hermes/cache/exec/</code> ويُضمَّن المسار في النتيجة</td></tr><tr><td><strong>Stderr</strong></td><td>10 KB</td><td>يُضمَّن في المخرجات عند الخروج برمز غير صفري لأغراض التصحيح</td></tr><tr><td><strong>استدعاءات الأدوات</strong></td><td>50 لكل تنفيذ</td><td>يُعاد خطأ عند بلوغ الحد</td></tr></tbody></table>
+<p>جميع الحدود قابلة للضبط عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="state-between-calls-the-session-kernel">الحالة بين الاستدعاءات (نواة الجلسة)</h2>
+<p>على terminal backend المحلي، لا تبدأ <code>execute_code</code> مفسّرًا جديدًا مع كل استدعاء. فلكل جلسة نواة (kernel) Python دائمة، لذا تكون المتغيرات والاستيرادات والبيانات المحمّلة في استدعاء ما متاحةً في الاستدعاء التالي. ويمكن للوكيل تحميل مجموعة بيانات مرة واحدة والاستعلام عنها عبر عدة أدوار بدلًا من إعادة قراءتها في كل مرة. ويحصل كل subagent على نواته الخاصة؛ ولا تُشارك النوى بين الجلسات أبدًا.</p>
+<p>ما يُنهي النواة:</p>
+<ul>
+<li><strong>انتهاء المهلة أو المقاطعة.</strong> الخلية التي تبلغ المهلة (أو تُقاطَع) تُنهي عملية النواة وتُفقد حالتها عن قصد؛ وتذكر النتيجة ذلك، ويبدأ الاستدعاء التالي نواة جديدة.</li>
+<li><strong><code>reset=true</code>.</strong> يمكن للوكيل تمرير <code>reset: true</code> لتجاهل حالة النواة والبدء من جديد. وهذه أيضًا طريقة التقاط تغييرات البيئة: فبيئة النواة تُجمَّد عند تشغيلها، لذا يبقى المتغير المُضاف حديثًا إلى قائمة السماح بالتمرير غير مرئي حتى تُعاد ضبط النواة.</li>
+<li><strong>مهلة الخمول والإخلاء.</strong> تموت النوى مع الجلسة، أو بعد <code>code_execution.kernel_idle_timeout</code> ثانية من الخمول (الافتراضي 1800)، أو عندما يتجاوز عدد النوى الحية <code>code_execution.max_session_kernels</code> (الافتراضي 4) فتُخلى أقدمها.</li>
+</ul>
+<p>الغلاف الأمني هو نفسه كما في السكربت أحادي التشغيل: إذ تنطبق تنقية البيئة، وقائمة الأدوات المسموح بها، وميزانية الأدوات لكل استدعاء على كل خلية، ويُعاد ربط صلاحية استدعاء الأدوات (الموافقات، والجلسة، وقائمة السماح) عند كل خلية.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>الـ backends البعيدة</strong> (Docker و SSH و Modal) تشغّل نواة جلسة بعيدة بالعقد نفسه. وإذا تعذّر تشغيل النواة على الـ backend، يرجع Hermes إلى تشغيل كل استدعاء بوصفه سكربتًا مستقلًا ويذكر ذلك في النتيجة.</p>
+<p><strong>المخرجات الكبيرة.</strong> تُعرض مخرجات stdout التي تتجاوز 50 KB بعرض البداية والنهاية ضمن النتيجة، ويُحفظ النص الكامل تحت <code>~/.hermes/cache/exec/</code> مع تضمين المسار في النتيجة، لكي يتمكن الوكيل من تصفّحه باستخدام <code>read_file</code> بدلًا من إعادة تشغيل السكربت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-tool-calls-work-inside-scripts">كيف تعمل استدعاءات الأدوات داخل السكربتات</h2>
+<p>عندما يستدعي سكربتك دالة مثل <code>web_search(&quot;query&quot;)</code>:</p>
+<ol>
+<li>يُسلسَل الاستدعاء إلى JSON ويُرسل عبر Unix domain socket إلى العملية الأم</li>
+<li>تمرّر العملية الأم الاستدعاء عبر المعالج القياسي <code>handle_function_call</code></li>
+<li>تُعاد النتيجة عبر المقبس</li>
+<li>تُعيد الدالة النتيجة بعد تحليلها</li>
+</ol>
+<p>وهذا يعني أن استدعاءات الأدوات داخل السكربتات تتصرف تمامًا مثل استدعاءات الأدوات العادية — بحدود المعدل نفسها، ومعالجة الأخطاء نفسها، والقدرات نفسها. القيد الوحيد هو أن <code>terminal()</code> يعمل في المقدمة فقط (دون المعاملين <code>background</code> أو <code>pty</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-handling">معالجة الأخطاء</h2>
+<p>عندما يفشل سكربت، يتلقى الوكيل معلومات خطأ منظَّمة:</p>
+<ul>
+<li><strong>رمز خروج غير صفري</strong>: يُضمَّن stderr في المخرجات فيرى الوكيل الـ traceback كاملًا</li>
+<li><strong>انتهاء المهلة</strong>: يُنهى السكربت ويرى الوكيل <code>&quot;Script timed out after 300s and was killed.&quot;</code></li>
+<li><strong>المقاطعة</strong>: إذا أرسل المستخدم رسالة جديدة أثناء التنفيذ، يُنهى السكربت ويرى الوكيل <code>[execution interrupted — user sent a new message]</code></li>
+<li><strong>حد استدعاءات الأدوات</strong>: عند بلوغ حد الـ 50 استدعاءً، تُعيد استدعاءات الأدوات اللاحقة رسالة خطأ</li>
+</ul>
+<p>تتضمن الاستجابة دائمًا <code>status</code> (success/error/timeout/interrupted)، و <code>output</code>، و <code>tool_calls_made</code>، و <code>duration_seconds</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>نموذج الأمان</div><div class="admonitionContent_BuS1"><p>تعمل العملية الابنة في <strong>بيئة بالحد الأدنى</strong>. تُزال مفاتيح API والـ tokens وبيانات الاعتماد افتراضيًا. ويصل السكربت إلى الأدوات حصريًا عبر قناة RPC — ولا يستطيع قراءة الأسرار من متغيرات البيئة ما لم يُسمح بذلك صراحةً.</p></div></div>
+<p>تُستبعد متغيرات البيئة التي تحتوي أسماؤها على <code>KEY</code> أو <code>TOKEN</code> أو <code>SECRET</code> أو <code>PASSWORD</code> أو <code>CREDENTIAL</code> أو <code>PASSWD</code> أو <code>AUTH</code>. ولا تُمرَّر إلا متغيرات النظام الآمنة (<code>PATH</code>، <code>HOME</code>، <code>LANG</code>، <code>SHELL</code>، <code>PYTHONPATH</code>، <code>VIRTUAL_ENV</code>، إلخ).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-environment-variable-passthrough">تمرير متغيرات البيئة الخاصة بالمهارات</h3>
+<p>عندما تُصرّح مهارةٌ عن <code>required_environment_variables</code> في الـ frontmatter الخاص بها، فإن هذه المتغيرات <strong>تُمرَّر تلقائيًا</strong> إلى كلٍّ من العمليات الأبناء لـ <code>execute_code</code> و <code>terminal</code> بعد تحميل المهارة. يتيح ذلك للمهارات استخدام مفاتيح API المُصرَّح عنها دون إضعاف الوضع الأمني للكود العشوائي.</p>
+<p>لحالات الاستخدام غير المرتبطة بالمهارات، يمكنك إضافة المتغيرات صراحةً إلى قائمة السماح في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>راجع <a href="/docs/user-guide/security#environment-variable-passthrough">دليل الأمان</a> للاطلاع على التفاصيل الكاملة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes_-variables-in-the-child">متغيرات <code>HERMES_*</code> في العملية الابنة</h3>
+<p>لا تتلقى العملية الابنة إلا مجموعة صغيرة وثابتة من متغيرات <code>HERMES_*</code> التشغيلية
+المحددة بأسمائها الدقيقة:</p>
+<ul>
+<li><code>HERMES_HOME</code></li>
+<li><code>HERMES_PROFILE</code></li>
+<li><code>HERMES_CONFIG</code></li>
+<li><code>HERMES_ENV</code></li>
+</ul>
+<p>(إضافةً إلى <code>HERMES_RPC_DIR</code> / <code>HERMES_RPC_SOCKET</code> / <code>TZ</code> / <code>HOME</code>، التي يحقنها Hermes
+صراحةً لكي تعمل قناة RPC).</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>تغيير في السلوك</div><div class="admonitionContent_BuS1"><p>كانت الإصدارات السابقة تمرّر <strong>أي</strong> متغير يبدأ اسمه بـ <code>HERMES_</code>
+إلى العملية الابنة. وقد أُزيلت هذه البادئة الواسعة لتعزيز الأمان: إذ كان يمكن
+أن تتسرّب إعدادات تحمل أسماء <code>HERMES_*</code> ولا تطابق أي جزء نصي يدل على سرّ
+(مثل <code>HERMES_BASE_URL</code> أو <code>HERMES_KANBAN_DB</code> أو endpoint من نوع <code>HERMES_*_WEBHOOK</code>)
+إلى كود عشوائي يعمل في sandbox.</p><p>إذا كان سكربت <code>execute_code</code> — أو وحدة من مستودع/إضافة يستوردها عند الاستيراد
+— يعتمد على متغير <code>HERMES_*</code> خارج الأسماء التشغيلية الأربعة المذكورة أعلاه، فسيجد
+ذلك المتغير الآن <strong>غير مضبوط</strong> في العملية الابنة. هذا الإسقاط مقصود،
+وليس خطأً برمجيًا.</p></div></div>
+<p><strong>الحل البديل — أعِد إدراج المتغير صراحةً.</strong> يمرّر كلا المسارين
+المتغيرَ إلى العمليات الأبناء لكلٍّ من <code>execute_code</code> <em>وكذلك</em> <code>terminal</code>، ولا يُضعف أيٌّ منهما
+ضمان إزالة الأسرار (فبيانات اعتماد المزوّدين التي يديرها Hermes لا يمكن
+السماح بها مجددًا بهذه الطريقة أبدًا):</p>
+<ol>
+<li>
+<p><strong>لكل جهاز، في <code>config.yaml</code></strong> — أضف اسم المتغير الدقيق إلى
+قائمة السماح بالتمرير:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+</li>
+<li>
+<p><strong>لكل مهارة، في الـ frontmatter الخاص بالمهارة</strong> — صرّح عنه لكي يُسجَّل
+تلقائيًا كلما حُمّلت تلك المهارة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+</li>
+</ol>
+<p><strong>التشخيص.</strong> عندما تُسقط العملية الابنة متغيرًا واحدًا أو أكثر من متغيرات <code>HERMES_*</code> غير المدرجة في قائمة السماح،
+يُصدر Hermes سجلًا من سطر واحد بمستوى <code>debug</code> يسمّيها ويشير إلى
+منفذ الخروج <code>env_passthrough</code>. شغّل مع تفعيل سجلات التصحيح (<code>hermes logs --level DEBUG</code>، أو راجع <code>~/.hermes/logs/agent.log</code>) وابحث عن
+<code>execute_code: dropped N non-allowlisted HERMES_* var(s)</code> إذا تصرّف سكربت
+كما لو أن متغير <code>HERMES_*</code> مفقود.</p>
+<p>يكتب Hermes دائمًا السكربت ووحدة RPC البديلة المولَّدة تلقائيًا <code>hermes_tools.py</code> في مجلد تجهيز مؤقت يُنظَّف بعد التنفيذ. في وضع <code>strict</code> <em>يعمل</em> السكربت هناك أيضًا؛ أما في وضع <code>project</code> فيعمل في مجلد العمل الخاص بالجلسة (ويبقى مجلد التجهيز ضمن <code>PYTHONPATH</code> لكي تظل الاستيرادات قابلة للتحديد). وتعمل العملية الابنة في مجموعة عمليات خاصة بها لكي يمكن إنهاؤها بشكل نظيف عند انتهاء المهلة أو المقاطعة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="execute_code-vs-terminal">execute_code مقابل terminal</h2>
+<table><thead><tr><th>حالة الاستخدام</th><th>execute_code</th><th>terminal</th></tr></thead><tbody><tr><td>سير عمل متعدد الخطوات مع استدعاءات أدوات بين الخطوات</td><td>✅</td><td>❌</td></tr><tr><td>أمر shell بسيط</td><td>❌</td><td>✅</td></tr><tr><td>ترشيح/معالجة مخرجات الأدوات الكبيرة</td><td>✅</td><td>❌</td></tr><tr><td>تشغيل build أو مجموعة اختبارات</td><td>❌</td><td>✅</td></tr><tr><td>التكرار على نتائج البحث</td><td>✅</td><td>❌</td></tr><tr><td>العمليات التفاعلية/العاملة في الخلفية</td><td>❌</td><td>✅</td></tr><tr><td>الحاجة إلى مفاتيح API في البيئة</td><td>⚠️ فقط عبر <a href="/docs/user-guide/security#environment-variable-passthrough">التمرير (passthrough)</a></td><td>✅ (يُمرَّر معظمها)</td></tr></tbody></table>
+<p><strong>قاعدة عامة:</strong> استخدم <code>execute_code</code> عندما تحتاج إلى استدعاء أدوات Hermes برمجيًا مع منطق بين الاستدعاءات. واستخدم <code>terminal</code> لتشغيل أوامر الـ shell وعمليات البناء والعمليات الأخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-support">دعم المنصات</h2>
+<p>تنفيذ الكود متاح على <strong>Linux و macOS و Windows</strong>. على Linux و macOS تستخدم قناة RPC مقبس Unix domain socket؛ أما على Windows، حيث لا يُعتمد على <code>AF_UNIX</code>، فيرجع Hermes تلقائيًا إلى مقبس TCP على واجهة loopback لنقل RPC الخاص بالـ sandbox. وتستخدم terminal backends البعيدة (Docker/SSH/Modal/إلخ) بدلًا من ذلك نقل RPC قائمًا على الملفات، وتتطلب إضافةً إلى ذلك وجود Python 3 داخل الـ backend.</p>

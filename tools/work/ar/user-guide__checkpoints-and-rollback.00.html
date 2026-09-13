@@ -1,0 +1,107 @@
+<header><h1>نقاط الحفظ (Checkpoints) و <code>/rollback</code></h1></header>
+<p>يستطيع Hermes Agent أخذ لقطة (snapshot) من مشروعك تلقائيًا قبل <strong>العمليات المدمّرة</strong> واستعادته بأمر واحد. ومنذ الإصدار v2 أصبحت نقاط الحفظ <strong>اختيارية التفعيل (opt-in)</strong> — فمعظم المستخدمين لا يستخدمون <code>/rollback</code> أبدًا، كما أن المساحة التي يشغلها الـ shadow store تصبح كبيرة مع مرور الوقت، لذا فهي معطّلة افتراضيًا.</p>
+<p>فعّل نقاط الحفظ لكل جلسة على حدة باستخدام <code>--checkpoints</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أو فعّلها بشكل عام في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تعتمد شبكة الأمان هذه على <strong>Checkpoint Manager</strong> داخلي يحتفظ بمستودع git ظلّي (shadow) واحد مشترك تحت <code>~/.hermes/checkpoints/store/</code> — ولا يُمَسّ مجلد <code>.git</code> الحقيقي لمشروعك أبدًا. تتشارك جميع المشاريع التي يعمل عليها الوكيل المخزن نفسه، لذا تُزيل قاعدة بيانات الكائنات في git، المعنونة حسب المحتوى، التكرارات عبر المشاريع وعبر الأدوار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-triggers-a-checkpoint">ما الذي يُنشئ نقطة حفظ</h2>
+<p>تُنشأ نقاط الحفظ تلقائيًا قبل:</p>
+<ul>
+<li><strong>أدوات الملفات</strong> — <code>write_file</code> و <code>patch</code></li>
+<li><strong>أوامر الطرفية المدمّرة</strong> — <code>rm</code> و <code>rmdir</code> و <code>cp</code> و <code>install</code> و <code>mv</code> و <code>sed -i</code> و <code>truncate</code> و <code>dd</code> و <code>shred</code>، وإعادة توجيه المخرجات (<code>&gt;</code>)، و <code>git reset</code>/<code>clean</code>/<code>checkout</code></li>
+</ul>
+<p>يُنشئ الوكيل <strong>نقطة حفظ واحدة على الأكثر لكل مجلد في كل دور</strong>، حتى لا تُغرق الجلسات الطويلة المخزن باللقطات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<p>Slash commands داخل الجلسة:</p>
+<table><thead><tr><th>الأمر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>/rollback</code></td><td>يعرض جميع نقاط الحفظ مع إحصاءات التغييرات</td></tr><tr><td><code>/rollback &lt;N&gt;</code></td><td>يستعيد الحالة إلى نقطة الحفظ N مع الإبقاء على تعديلاتك اليدوية (ويتراجع أيضًا عن آخر دور في المحادثة)</td></tr><tr><td><code>/rollback &lt;N&gt; --all</code></td><td>استعادة كاملة — تكتب فوق تعديلاتك اليدوية أيضًا</td></tr><tr><td><code>/rollback diff &lt;N&gt;</code></td><td>يعاين الفروق (diff) بين نقطة الحفظ N والحالة الحالية</td></tr><tr><td><code>/rollback &lt;N&gt; &lt;file&gt;</code></td><td>يستعيد ملفًا واحدًا من نقطة الحفظ N</td></tr></tbody></table>
+<p>أوامر CLI لفحص المخزن وإدارته خارج الجلسة:</p>
+<table><thead><tr><th>الأمر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>hermes checkpoints</code></td><td>يعرض الحجم الإجمالي وعدد المشاريع وتفصيلًا لكل مشروع</td></tr><tr><td><code>hermes checkpoints status</code></td><td>مماثل لـ <code>checkpoints</code> دون وسائط</td></tr><tr><td><code>hermes checkpoints list</code></td><td>اسم بديل لـ <code>status</code></td></tr><tr><td><code>hermes checkpoints prune</code></td><td>يفرض عملية تنظيف: حذف العناصر اليتيمة/القديمة، وتشغيل GC، وفرض الحد الأقصى للحجم</td></tr><tr><td><code>hermes checkpoints clear</code></td><td>يمسح قاعدة نقاط الحفظ بالكامل (يطلب التأكيد أولًا)</td></tr><tr><td><code>hermes checkpoints clear-legacy</code></td><td>يحذف فقط أرشيفات <code>legacy-*</code> الناتجة عن الترحيل من v1</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-checkpoints-work">كيف تعمل نقاط الحفظ</h2>
+<p>على مستوى عام:</p>
+<ul>
+<li>يكتشف Hermes متى تكون الأدوات على وشك <strong>تعديل ملفات</strong> في شجرة العمل لديك.</li>
+<li>مرة واحدة في كل دور من المحادثة (لكل مجلد)، يقوم بما يلي:
+<ul>
+<li>يحدد جذرًا مناسبًا للمشروع الذي ينتمي إليه الملف.</li>
+<li>يهيّئ <strong>الـ shadow store الوحيد المشترك</strong> في <code>~/.hermes/checkpoints/store/</code> أو يعيد استخدامه.</li>
+<li>يُجهّز التغييرات (stage) في فهرس خاص بكل مشروع، ويبني شجرة، ثم ينفّذ commit إلى مرجع (ref) خاص بكل مشروع (<code>refs/hermes/&lt;project-hash&gt;</code>).</li>
+</ul>
+</li>
+<li>تشكّل هذه المراجع الخاصة بكل مشروع سجلًّا لنقاط الحفظ يمكنك فحصه والاستعادة منه عبر <code>/rollback</code>.</li>
+</ul>
+
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>اضبط الإعدادات في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لتعطيل كل شيء:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>عند ضبط <code>enabled: false</code>، لا يفعل Checkpoint Manager شيئًا ولا يحاول أبدًا تنفيذ عمليات git. وعند ضبط <code>auto_prune: false</code>، يستمر المخزن في النمو حتى تنفّذ <code>hermes checkpoints prune</code> يدويًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="listing-checkpoints">عرض نقاط الحفظ</h2>
+<p>من جلسة CLI:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يرد Hermes بقائمة منسّقة تعرض إحصاءات التغييرات:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspecting-the-store-from-the-shell">فحص المخزن من الـ shell</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>مثال على المخرجات:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>افرض عملية تنظيف كاملة (تتجاهل علامة منع التكرار الخاصة بفترة 24 ساعة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="previewing-changes-with-rollback-diff">معاينة التغييرات باستخدام <code>/rollback diff</code></h2>
+<p>قبل الإقدام على الاستعادة، عاين ما تغيّر منذ نقطة حفظ معيّنة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يعرض هذا ملخص إحصاءات git diff يليه الـ diff الفعلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="restoring-with-rollback">الاستعادة باستخدام <code>/rollback</code></h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>خلف الكواليس، يقوم Hermes بما يلي:</p>
+<ol>
+<li>يتحقق من وجود الـ commit المستهدف في الـ shadow store.</li>
+<li>يأخذ <strong>لقطة سابقة للتراجع</strong> من الحالة الحالية حتى تتمكن لاحقًا من &quot;التراجع عن التراجع&quot;.</li>
+<li>يستعيد الملفات المتتبَّعة في مجلد العمل — <strong>مع الحفاظ على تعديلاتك اليدوية</strong> (انظر أدناه).</li>
+<li><strong>يتراجع عن آخر دور في المحادثة</strong> حتى يتطابق سياق الوكيل مع حالة نظام الملفات المستعادة.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-hand-edits-are-preserved-by-default">تعديلات المستخدم اليدوية محفوظة افتراضيًا</h3>
+<p>لا يستعيد <code>/rollback &lt;N&gt;</code> إلا الملفات التي غيّرها Hermes نفسه. فكل عملية
+<code>write_file</code> / <code>patch</code> ناجحة تسجّل بصمة (hash) محتوى الملف في <strong>سجل كتابات
+الوكيل (agent-write ledger)</strong>؛ وعند الاستعادة، فإن أي ملف لم يعد محتواه الحالي يطابق آخر ما
+كتبه Hermes (لأنك عدّلته لاحقًا، أو لأن Hermes لم يلمسه قط)
+<strong>يجري تخطيه</strong> بدلًا من الكتابة فوقه، ويُدرج في المخرجات:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>لفرض الاستعادة الكاملة التقليدية التي تُرجع كل شيء — بما في ذلك
+تعديلاتك الخاصة — أضف <code>--all</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>إذا كان السجل فارغًا (مخزن أُنشئ قبل هذه الميزة، أو لم يكتب Hermes
+أي ملفات في المشروع بعد)، يلجأ <code>/rollback</code> تلقائيًا إلى
+الاستعادة الكاملة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-file-restore">استعادة ملف واحد</h2>
+<p>استعد ملفًا واحدًا فقط من نقطة حفظ دون التأثير في بقية المجلد:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety-and-performance-guards">ضوابط الأمان والأداء</h2>
+<ul>
+<li><strong>توفّر Git</strong> — إذا لم يُعثر على <code>git</code> ضمن <code>PATH</code>، تُعطَّل نقاط الحفظ بشكل شفاف.</li>
+<li><strong>نطاق المجلد</strong> — يتخطى Hermes المجلدات الواسعة جدًا (الجذر <code>/</code>، والمجلد الرئيسي <code>$HOME</code>).</li>
+<li><strong>حجم المستودع</strong> — يجري تخطي المجلدات التي تحتوي على أكثر من 50,000 ملف.</li>
+<li><strong>الحد الأقصى لحجم الملف الواحد</strong> — تُستبعد من اللقطة الملفات الأكبر من <code>max_file_size_mb</code> (الافتراضي 10 MB). وهذا يمنع ابتلاع مجموعات البيانات أو أوزان النماذج أو الوسائط المولَّدة عن طريق الخطأ.</li>
+<li><strong>الحد الأقصى للحجم الإجمالي للمخزن</strong> — عندما يتجاوز المخزن <code>max_total_size_mb</code> (الافتراضي 500 MB)، يُحذف أقدم commit لكل مشروع بالتناوب (round-robin) حتى يعود الحجم إلى ما دون الحد.</li>
+<li><strong>تقليم فعلي</strong> — يُفرض <code>max_snapshots</code> بإعادة كتابة المرجع الخاص بكل مشروع ثم تشغيل <code>git gc --prune=now</code> بعد ذلك، حتى لا تتراكم الكائنات السائبة.</li>
+<li><strong>اللقطات دون تغييرات</strong> — إذا لم تكن هناك تغييرات منذ آخر لقطة، يجري تخطي نقطة الحفظ.</li>
+<li><strong>أخطاء غير قاتلة</strong> — تُسجَّل جميع الأخطاء داخل Checkpoint Manager على مستوى debug؛ وتستمر أدواتك في العمل.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-checkpoints-live">أين تُخزَّن نقاط الحفظ</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>تُشتق كل قيمة <code>&lt;hash&gt;</code> من المسار المطلق لمجلد العمل. ولا تحتاج عادةً إلى التعامل مع هذه المجلدات يدويًا — استخدم <code>hermes checkpoints status</code> / <code>prune</code> / <code>clear</code> بدلًا من ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="migration-from-v1">الترحيل من v1</h3>
+<p>قبل إعادة الكتابة في v2، كان لكل مجلد عمل مستودع git ظلّي كامل خاص به تحت <code>~/.hermes/checkpoints/&lt;hash&gt;/</code> مباشرةً. لم يكن ذلك التنظيم قادرًا على إزالة تكرار الكائنات عبر المشاريع، وكانت أداة التقليم فيه لا تفعل شيئًا (وهو أمر موثّق) — فكان المخزن ينمو بلا حدود.</p>
+<p>عند أول تشغيل لـ v2، تُنقل أي مستودعات ظلّية سابقة لـ v2 إلى <code>~/.hermes/checkpoints/legacy-&lt;timestamp&gt;/</code> حتى يبدأ التنظيم الجديد ذو المخزن الواحد نظيفًا. ويظل سجل <code>/rollback</code> القديم متاحًا عبر فحص الأرشيف القديم يدويًا باستخدام <code>git</code>؛ وعندما تتأكد من أنك لم تعد بحاجة إليه، نفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>لاستعادة المساحة. كما يُنظّف <code>auto_prune</code> الأرشيفات القديمة بعد انقضاء <code>retention_days</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h2>
+<ul>
+<li><strong>فعّل نقاط الحفظ فقط عند الحاجة إليها</strong> — عبر <code>hermes chat --checkpoints</code> أو بضبط <code>enabled: true</code> لكل profile.</li>
+<li><strong>استخدم <code>/rollback diff</code> قبل الاستعادة</strong> — عاين ما سيتغير لاختيار نقطة الحفظ الصحيحة.</li>
+<li><strong>استخدم <code>/rollback</code> بدلًا من <code>git reset</code></strong> عندما تريد التراجع عن التغييرات التي أجراها الوكيل فقط.</li>
+<li><strong>راجع <code>hermes checkpoints status</code> من حين لآخر</strong> إذا كنت تستخدم نقاط الحفظ بانتظام — فهو يعرض المشاريع النشطة والمساحة التي يستهلكها المخزن.</li>
+<li><strong>اجمع بينها وبين Git worktrees</strong> لتحقيق أقصى درجات الأمان — أبقِ كل جلسة Hermes في worktree/branch خاص بها، مع نقاط الحفظ كطبقة إضافية.</li>
+</ul>
+<p>لتشغيل عدة وكلاء بالتوازي على المستودع نفسه، راجع دليل <a href="/docs/user-guide/git-worktrees">Git worktrees</a>.</p>

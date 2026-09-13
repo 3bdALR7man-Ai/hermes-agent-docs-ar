@@ -1,0 +1,97 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hindsight">Hindsight</h3>
+<p>ذاكرة طويلة الأمد مع رسم بياني معرفي (knowledge graph)، وتحديد الكيانات (entity resolution)، واسترجاع متعدد الاستراتيجيات. توفّر الأداة <code>hindsight_reflect</code> تركيبًا عبر الذكريات لا يقدّمه أي مزوّد آخر. ويحتفظ تلقائيًا بأدوار المحادثة كاملة (بما في ذلك استدعاءات الأدوات) مع تتبّع المستندات على مستوى الجلسة.</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>الاسترجاع المعتمد على الرسم البياني المعرفي مع العلاقات بين الكيانات</td></tr><tr><td><strong>المتطلبات</strong></td><td>السحابي: مفتاح API من <a href="https://ui.hindsight.vectorize.io" data-ext>ui.hindsight.vectorize.io</a>. المحلي: مفتاح API لـ LLM (OpenAI، أو Groq، أو OpenRouter، وغيرها)</td></tr><tr><td><strong>تخزين البيانات</strong></td><td>Hindsight Cloud أو PostgreSQL مضمّن محليًا</td></tr><tr><td><strong>التكلفة</strong></td><td>حسب تسعير Hindsight (سحابي) أو مجاني (محلي)</td></tr></tbody></table>
+<p><strong>الأدوات:</strong> <code>hindsight_retain</code> (تخزين مع استخلاص الكيانات)، <code>hindsight_recall</code> (بحث متعدد الاستراتيجيات)، <code>hindsight_reflect</code> (تركيب عبر الذكريات)</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>يثبّت معالج الإعداد الاعتماديات تلقائيًا، ولا يثبّت إلا ما يلزم للوضع المختار (<code>hindsight-client</code> للسحابي، و <code>hindsight-all</code> للمحلي). يتطلب <code>hindsight-client &gt;= 0.4.22</code> (وتجري ترقيته تلقائيًا عند بدء الجلسة إذا كان قديمًا).</p>
+<p><strong>واجهة المستخدم في الوضع المحلي:</strong> <code>hindsight-embed -p hermes ui start</code></p>
+<p><strong>الإعدادات:</strong> <code>$HERMES_HOME/hindsight/config.json</code></p>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>mode</code></td><td><code>cloud</code></td><td><code>cloud</code> أو <code>local</code></td></tr><tr><td><code>bank_id</code></td><td><code>hermes</code></td><td>معرّف بنك الذاكرة</td></tr><tr><td><code>recall_budget</code></td><td><code>mid</code></td><td>مدى شمولية الاسترجاع: <code>low</code> / <code>mid</code> / <code>high</code></td></tr><tr><td><code>memory_mode</code></td><td><code>hybrid</code></td><td><code>hybrid</code> (سياق + أدوات)، <code>context</code> (حقن تلقائي فقط)، <code>tools</code> (أدوات فقط)</td></tr><tr><td><code>auto_retain</code></td><td><code>true</code></td><td>الاحتفاظ بأدوار المحادثة تلقائيًا</td></tr><tr><td><code>auto_recall</code></td><td><code>true</code></td><td>استرجاع الذكريات تلقائيًا قبل كل دور</td></tr><tr><td><code>retain_async</code></td><td><code>true</code></td><td>معالجة عمليات الاحتفاظ بشكل غير متزامن على الخادم</td></tr><tr><td><code>retain_context</code></td><td><code>conversation between Hermes Agent and the User</code></td><td>تسمية السياق للذكريات المحتفَظ بها</td></tr><tr><td><code>retain_tags</code></td><td>—</td><td>الوسوم الافتراضية المطبّقة على الذكريات المحتفَظ بها؛ وتُدمج مع وسوم الأداة الخاصة بكل استدعاء</td></tr><tr><td><code>retain_source</code></td><td>—</td><td>قيمة <code>metadata.source</code> اختيارية تُرفق بالذكريات المحتفَظ بها</td></tr><tr><td><code>retain_user_prefix</code></td><td><code>User</code></td><td>التسمية المستخدمة قبل أدوار المستخدم في النصوص المحتفَظ بها تلقائيًا</td></tr><tr><td><code>retain_assistant_prefix</code></td><td><code>Assistant</code></td><td>التسمية المستخدمة قبل أدوار المساعد في النصوص المحتفَظ بها تلقائيًا</td></tr><tr><td><code>recall_tags</code></td><td>—</td><td>وسوم للتصفية عند الاسترجاع</td></tr></tbody></table>
+<p>راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/plugins/memory/hindsight/README.md" data-ext>ملف README الخاص بالإضافة</a> للاطلاع على المرجع الكامل للإعدادات.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="holographic">Holographic</h3>
+<p>مخزن حقائق محلي على SQLite مع بحث نصي كامل FTS5، وتقييم للثقة، و HRR (Holographic Reduced Representations) للاستعلامات الجبرية التركيبية.</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>ذاكرة محلية فقط مع استرجاع متقدم، ودون اعتماديات خارجية</td></tr><tr><td><strong>المتطلبات</strong></td><td>لا شيء (SQLite متاح دائمًا). و NumPy اختياري لجبر HRR.</td></tr><tr><td><strong>تخزين البيانات</strong></td><td>SQLite محلي</td></tr><tr><td><strong>التكلفة</strong></td><td>مجاني</td></tr></tbody></table>
+<p><strong>الأدوات:</strong> <code>fact_store</code> (9 إجراءات: add، search، probe، related، reason، contradict، update، remove، list)، <code>fact_feedback</code> (تقييم helpful/unhelpful يُدرّب درجات الثقة)</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>الإعدادات:</strong> <code>config.yaml</code> تحت <code>plugins.hermes-memory-store</code></p>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>db_path</code></td><td><code>$HERMES_HOME/memory_store.db</code></td><td>مسار قاعدة بيانات SQLite</td></tr><tr><td><code>auto_extract</code></td><td><code>false</code></td><td>استخلاص الحقائق تلقائيًا عند نهاية الجلسة</td></tr><tr><td><code>default_trust</code></td><td><code>0.5</code></td><td>درجة الثقة الافتراضية (0.0–1.0)</td></tr></tbody></table>
+<p><strong>القدرات الفريدة:</strong></p>
+<ul>
+<li><code>probe</code> — استرجاع جبري خاص بكيان محدد (جميع الحقائق عن شخص/شيء ما)</li>
+<li><code>reason</code> — استعلامات AND تركيبية عبر عدة كيانات</li>
+<li><code>contradict</code> — اكتشاف آلي للحقائق المتعارضة</li>
+<li>تقييم الثقة بتغذية راجعة غير متماثلة (+0.05 لـ helpful / -0.10 لـ unhelpful)</li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="retaindb">RetainDB</h3>
+<p>واجهة API سحابية للذاكرة مع بحث هجين (Vector + BM25 + Reranking)، و 7 أنواع من الذاكرة، وضغط الفروقات (delta compression).</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>الفرق التي تستخدم البنية التحتية لـ RetainDB بالفعل</td></tr><tr><td><strong>المتطلبات</strong></td><td>حساب RetainDB + مفتاح API</td></tr><tr><td><strong>تخزين البيانات</strong></td><td>RetainDB Cloud</td></tr><tr><td><strong>التكلفة</strong></td><td>$20 شهريًا</td></tr></tbody></table>
+<p><strong>الأدوات (10):</strong> <code>retaindb_profile</code> (ملف المستخدم الشخصي)، <code>retaindb_search</code> (بحث دلالي)، <code>retaindb_context</code> (سياق ذو صلة بالمهمة)، <code>retaindb_remember</code> (تخزين مع النوع + الأهمية)، <code>retaindb_forget</code> (حذف الذكريات)، إضافةً إلى أدوات الملفات: <code>retaindb_upload_file</code>، <code>retaindb_list_files</code>، <code>retaindb_read_file</code>، <code>retaindb_ingest_file</code>، <code>retaindb_delete_file</code></p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="byterover">ByteRover</h3>
+<p>ذاكرة دائمة عبر أداة CLI المسماة <code>brv</code> — شجرة معرفة هرمية مع استرجاع متدرّج (بحث نصي تقريبي (fuzzy) → بحث يقوده LLM). تعتمد على التخزين المحلي أولًا مع مزامنة سحابية اختيارية.</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>المطوّرون الذين يريدون ذاكرة محمولة ومحلية أولًا عبر CLI</td></tr><tr><td><strong>المتطلبات</strong></td><td>ByteRover CLI (<code>npm install -g byterover-cli</code> أو <a href="https://byterover.dev" data-ext>سكربت التثبيت</a>)</td></tr><tr><td><strong>تخزين البيانات</strong></td><td>محلي (الافتراضي) أو ByteRover Cloud (مزامنة اختيارية)</td></tr><tr><td><strong>التكلفة</strong></td><td>مجاني (محلي) أو حسب تسعير ByteRover (سحابي)</td></tr></tbody></table>
+<p><strong>الأدوات:</strong> <code>brv_query</code> (البحث في شجرة المعرفة)، <code>brv_curate</code> (تخزين الحقائق/القرارات/الأنماط)، <code>brv_status</code> (إصدار CLI + إحصاءات الشجرة)</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p><strong>الميزات الرئيسية:</strong></p>
+<ul>
+<li>استخلاص تلقائي قبل الضغط (يحفظ الأفكار المستخلصة قبل أن يتخلص منها ضغط السياق)</li>
+<li>تُخزَّن شجرة المعرفة في <code>$HERMES_HOME/byterover/</code> (ضمن نطاق الـ profile)</li>
+<li>مزامنة سحابية حاصلة على شهادة SOC2 Type II (اختيارية)</li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supermemory">Supermemory</h3>
+<p>ذاكرة دلالية طويلة الأمد مع استرجاع الملف الشخصي، وبحث دلالي، وأدوات ذاكرة صريحة، واستيعاب المحادثة عند نهاية الجلسة عبر Supermemory graph API.</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>الاسترجاع الدلالي مع بناء ملف تعريفي للمستخدم ورسم بياني على مستوى الجلسة</td></tr><tr><td><strong>المتطلبات</strong></td><td><code>pip install supermemory</code> + <a href="http://app.supermemory.ai/integrations?connect=hermes" data-ext>مفتاح API سحابي</a>، أو <a href="https://supermemory.ai/docs/self-hosting/overview" data-ext>خادم مستضاف ذاتيًا</a></td></tr><tr><td><strong>تخزين البيانات</strong></td><td>Supermemory Cloud أو مستضاف ذاتيًا</td></tr><tr><td><strong>التكلفة</strong></td><td>حسب تسعير Supermemory (سحابي) / مجاني (مستضاف ذاتيًا)</td></tr></tbody></table>
+<p><strong>الأدوات:</strong> <code>supermemory_store</code> (حفظ ذكريات صريحة)، <code>supermemory_search</code> (بحث بالتشابه الدلالي)، <code>supermemory_forget</code> (النسيان بواسطة المعرّف أو بأفضل استعلام مطابق)، <code>supermemory_profile</code> (الملف الشخصي الدائم + السياق الحديث)</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>إعداد النسخة المستضافة ذاتيًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>قبل تشغيل <code>hermes memory setup</code>، اضبط <code>base_url</code> في
+<code>$HERMES_HOME/supermemory.json</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>ثم شغّل <code>hermes memory setup</code> وأدخل مفتاح API الذي يطبعه الخادم
+المحلي. فضبط الـ endpoint أولًا يضمن أن يبقى فحص الاتصال أثناء الإعداد
+محليًا أيضًا.</p>
+<p><strong>الإعدادات:</strong> <code>$HERMES_HOME/supermemory.json</code></p>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>base_url</code></td><td><code>https://api.supermemory.ai</code></td><td>الـ endpoint الخاص بـ API لنسخة Supermemory المستضافة أو المستضافة ذاتيًا. له الأولوية على <code>SUPERMEMORY_BASE_URL</code>.</td></tr><tr><td><code>container_tag</code></td><td><code>hermes</code></td><td>وسم الحاوية (container tag) المستخدم للبحث والكتابة. يدعم القالب <code>{identity}</code> للوسوم الخاصة بنطاق الـ profile.</td></tr><tr><td><code>auto_recall</code></td><td><code>true</code></td><td>حقن سياق الذاكرة ذي الصلة قبل الأدوار</td></tr><tr><td><code>auto_capture</code></td><td><code>true</code></td><td>تخزين أدوار المستخدم والمساعد بعد تنظيفها عقب كل رد</td></tr><tr><td><code>max_recall_results</code></td><td><code>10</code></td><td>الحد الأقصى للعناصر المسترجعة التي تُنسَّق ضمن السياق</td></tr><tr><td><code>profile_frequency</code></td><td><code>50</code></td><td>تضمين حقائق الملف الشخصي في الدور الأول ثم كل N دورًا</td></tr><tr><td><code>capture_mode</code></td><td><code>all</code></td><td>تخطي الأدوار الصغيرة جدًا أو التافهة افتراضيًا</td></tr><tr><td><code>search_mode</code></td><td><code>hybrid</code></td><td>وضع البحث: <code>hybrid</code>، أو <code>memories</code>، أو <code>documents</code></td></tr><tr><td><code>api_timeout</code></td><td><code>5.0</code></td><td>المهلة الزمنية لطلبات SDK والاستيعاب</td></tr></tbody></table>
+<p><strong>متغيرات البيئة:</strong> <code>SUPERMEMORY_API_KEY</code> (مطلوب)، <code>SUPERMEMORY_BASE_URL</code> (قيمة احتياطية للتوافق عندما لا يكون <code>base_url</code> مضبوطًا)، <code>SUPERMEMORY_CONTAINER_TAG</code> (يتجاوز ملف الإعدادات).</p>
+<p>ترتيب أولوية عنوان URL الأساسي هو <code>supermemory.json</code> → <code>SUPERMEMORY_BASE_URL</code> → <code>https://api.supermemory.ai</code>. وتستخدم عمليات SDK، وفحوص الإعداد/الحالة، واستيعاب المحادثات جميعها الـ endpoint الذي جرى تحديده.</p>
+<p><strong>الميزات الرئيسية:</strong></p>
+<ul>
+<li>تسييج تلقائي للسياق (context fencing) — يزيل الذكريات المسترجعة من الأدوار الملتقطة لمنع التلوث التكراري للذاكرة</li>
+<li>استيعاب الجلسة كاملة — تُرسل المحادثة بأكملها مرة واحدة عند حدود الجلسة</li>
+<li>استيعاب المحادثة عند نهاية الجلسة (إلى <code>/v4/conversations</code>) لبناء ملف شخصي ورسم بياني أغنى في Supermemory</li>
+<li>توجيه مستضاف ذاتيًا من طرف إلى طرف — تستخدم طلبات SDK والفحص واستيعاب المحادثات الـ endpoint المضبوط نفسه</li>
+<li>تُحقن حقائق الملف الشخصي في الدور الأول وعلى فترات قابلة للضبط</li>
+<li><strong>حاويات ضمن نطاق الـ profile</strong> — استخدم <code>{identity}</code> في <code>container_tag</code> (مثل <code>hermes-{identity}</code> → <code>hermes-coder</code>) لعزل الذكريات لكل profile في Hermes</li>
+<li><strong>وضع الحاويات المتعددة</strong> — فعّل <code>enable_custom_container_tags</code> مع قائمة <code>custom_containers</code> للسماح للوكيل بالقراءة والكتابة عبر حاويات مسمّاة. أما العمليات التلقائية فتبقى على الحاوية الأساسية.</li>
+</ul>
+<details class="details_lb9f alert alert--info details_b_Ee" data-collapsed="true"><summary>مثال على الحاويات المتعددة</summary><div><div class="collapsibleContent_i85q"><div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div></div></div></details>
+<p><strong>الدعم:</strong> <a href="https://supermemory.link/discord" data-ext>Discord</a> · <a href="mailto:support@supermemory.com" data-ext>support@supermemory.com</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memori">Memori</h3>
+<p>ذاكرة منظَّمة طويلة الأمد باستخدام Memori Cloud، مع التقاط الأدوار المكتملة في الخلفية، وسياق للأدوار يراعي الأدوات، وأدوات استرجاع صريحة للحقائق، والملخصات، والحصة، والتسجيل، والملاحظات.</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><strong>الأنسب لـ</strong></td><td>استرجاع يتحكم فيه الوكيل مع إسناد منظَّم إلى المشروع والجلسة</td></tr><tr><td><strong>المتطلبات</strong></td><td><code>pip install hermes-memori</code> + <code>hermes-memori install</code> + <a href="https://app.memorilabs.ai/signup" data-ext>مفتاح Memori API</a></td></tr><tr><td><strong>تخزين البيانات</strong></td><td>Memori Cloud</td></tr><tr><td><strong>التكلفة</strong></td><td>حسب تسعير Memori</td></tr></tbody></table>
+<p><strong>الأدوات:</strong> <code>memori_recall</code> (البحث في الذاكرة طويلة الأمد)، <code>memori_recall_summary</code> (سياق ملخّص)، <code>memori_quota</code> (الاستخدام/الحصة)، <code>memori_signup</code> (طلب رسالة بريد إلكتروني للتسجيل)، <code>memori_feedback</code> (إرسال ملاحظات حول التكامل)</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-comparison">مقارنة المزوّدين</h2>
+<table><thead><tr><th>المزوّد</th><th>التخزين</th><th>التكلفة</th><th>الأدوات</th><th>الاعتماديات</th><th>الميزة الفريدة</th></tr></thead><tbody><tr><td><strong>Honcho</strong></td><td>سحابي</td><td>مدفوع</td><td>5</td><td><code>honcho-ai</code></td><td>نمذجة جدلية للمستخدم + سياق ضمن نطاق الجلسة</td></tr><tr><td><strong>OpenViking</strong></td><td>مستضاف ذاتيًا</td><td>مجاني</td><td>6</td><td><code>openviking</code> + خادم</td><td>تسلسل هرمي على غرار نظام الملفات + تحميل متدرّج</td></tr><tr><td><strong>Mem0</strong></td><td>سحابي/مستضاف ذاتيًا</td><td>مجاني/مدفوع</td><td>4</td><td><code>mem0ai</code></td><td>استخلاص بواسطة LLM على الخادم + وضعا الاستضافة الذاتية/OSS</td></tr><tr><td><strong>Hindsight</strong></td><td>سحابي/محلي</td><td>مجاني/مدفوع</td><td>3</td><td><code>hindsight-client</code></td><td>رسم بياني معرفي + تركيب عبر reflect</td></tr><tr><td><strong>Holographic</strong></td><td>محلي</td><td>مجاني</td><td>2</td><td>لا يوجد</td><td>جبر HRR + تقييم الثقة</td></tr><tr><td><strong>RetainDB</strong></td><td>سحابي</td><td>$20 شهريًا</td><td>10</td><td><code>requests</code></td><td>ضغط الفروقات (Delta compression)</td></tr><tr><td><strong>ByteRover</strong></td><td>محلي/سحابي</td><td>مجاني/مدفوع</td><td>3</td><td><code>brv</code> CLI</td><td>الاستخلاص قبل الضغط</td></tr><tr><td><strong>Supermemory</strong></td><td>سحابي/مستضاف ذاتيًا</td><td>مجاني/مدفوع</td><td>4</td><td><code>supermemory</code></td><td>تسييج السياق + استيعاب الرسم البياني للجلسة + حاويات متعددة</td></tr><tr><td><strong>Memori</strong></td><td>سحابي</td><td>مجاني/مدفوع</td><td>5</td><td><code>hermes-memori</code></td><td>ذاكرة تراعي الأدوات + استرجاع منظَّم</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profile-isolation">عزل الـ Profiles</h2>
+<p>تُعزل بيانات كل مزوّد لكل <a href="/docs/user-guide/profiles">profile</a> على حدة:</p>
+<ul>
+<li><strong>مزوّدو التخزين المحلي</strong> (Holographic، و ByteRover) يستخدمون مسارات <code>$HERMES_HOME/</code> التي تختلف من profile إلى آخر</li>
+<li><strong>المزوّدون المعتمدون على ملفات الإعدادات</strong> (Honcho، و Mem0، و Hindsight، و Supermemory) يخزّنون الإعدادات في <code>$HERMES_HOME/</code>، لذا يكون لكل profile بيانات اعتماده الخاصة</li>
+<li><strong>المزوّدون السحابيون</strong> (RetainDB) يشتقّون تلقائيًا أسماء مشاريع خاصة بنطاق كل profile</li>
+<li><strong>المزوّدون المعتمدون على متغيرات البيئة</strong> (OpenViking) يُضبطون عبر ملف <code>.env</code> الخاص بكل profile</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="building-a-memory-provider">بناء مزوّد ذاكرة</h2>
+<p>راجع <a href="/docs/developer-guide/memory-provider-plugin">دليل المطوّر: إضافات مزوّدي الذاكرة</a> لمعرفة كيفية إنشاء مزوّدك الخاص.</p>

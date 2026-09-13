@@ -1,0 +1,209 @@
+
+<header><h1>Unreal Mcp</h1></header>
+<p>أتمتة مشاهد محرر Unreal Engine، والممثلين (actors)، والعروض المرئية (renders).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/creative/unreal-mcp</code></td></tr><tr><td>المسار</td><td><code>optional-skills/creative/unreal-mcp</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>unreal</code>, <code>unreal-engine</code>, <code>ue5</code>, <code>3d</code>, <code>mcp</code>, <code>scenes</code>, <code>cinematics</code>, <code>lighting</code>, <code>gamedev</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Unreal Engine MCP</h1>
+<p>مهارة مصاحبة لمدخل <code>unreal-engine</code> في كتالوج MCP الخاص بـ Hermes. يعمل
+خادم MCP (إضافة &quot;Unreal MCP&quot; الرسمية والتجريبية من Epic، ومعرّفها الداخلي
+<code>ModelContextProtocol</code>) داخل عملية محرر Unreal، ويعرض وظائف المحرر
+كأدوات مُعرَّفة الأنواع. تعلّم هذه المهارة كيفية استخدامه بفعالية:
+اكتشاف سطح الأدوات الحي، وتسلسل الاستدعاءات بأمان، وترجمة الطلبات
+باللغة الطبيعية إلى مشاهد تبدو جيدة فعلًا، والتحقق البصري من العمل. لا ينبغي أن
+يحتاج المستخدم إلى لمس المحرر إطلاقًا سوى لتشغيله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>استخدمها عندما يريد المستخدم إنجاز أي شيء في Unreal Engine: بناء مستوى (level)
+أو تنسيقه، أو إنشاء/نقل/حذف ممثلين (actors)، أو ضبط الإضاءة والأجواء، أو إنشاء
+أو ضبط نسخ من المواد (material instances)، أو تأطير لقطة كاميرا، أو التقاط لقطات
+شاشة أو عروض مرئية (renders)، أو استيراد أصول، أو فحص المشهد أو الواجهة، أو تشغيل
+اختبارات الأتمتة، أو كتابة سكربتات للمحرر. تعمل للإجراءات المفردة (&quot;اجعل الشمس
+بلون الساعة الذهبية&quot;) وللمشاريع متعددة الخطوات الكاملة (&quot;ابنِ لي غابة هادئة
+بها موقد نار واعرض لقطة منها&quot;).</p>
+<p>لا تستخدمها لـ: نمذجة/نحت الشبكات (mesh) بأسلوب DCC (صمّم في Blender واستورد
+النتيجة)، أو تحرير كود مصدر مشروع Unreal بلغة C++ (فهذا عمل برمجي عادي — استخدم
+الطرفية؛ هذه المهارة تخص المحرر الحي).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>هناك جزءان بهذا الترتيب: يجب أن يعمل جانب المحرر قبل أن يتصل Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-editor-side">مرة واحدة، جانب المحرر</h3>
+<ol>
+<li>محرر Unreal بإصدار <strong>5.8 فأعلى</strong> مع فتح مشروع. (macOS: يجب تثبيت Xcode
+الكامل وقبول ترخيصه — يُغلق المحرر عند أول تشغيل بدونه؛ راجع المزالق.)</li>
+<li><strong>Edit &gt; Plugins</strong> — فعّل إضافة <strong>Unreal MCP</strong> (يُفعَّل اعتمادها على
+Toolset Registry تلقائيًا). أعد تشغيل المحرر عند الطلب.</li>
+<li>تُشحَن مجموعات الأدوات المُعرَّفة الأنواع منفصلة عن الخادم: فعّل أيضًا إضافة
+<strong>AllToolsets</strong> في نفس متصفح الإضافات. لا تقدّم Unreal MCP أي أدوات
+بذاتها — بل توفّرها AllToolsets (SceneTools، وActorTools، وMaterialInstanceTools،
+وObjectTools، وغيرها)؛ فإن أهملتها يتصل الخادم لكن لا يجد الوكيل شيئًا يستدعيه.</li>
+<li><strong>Edit &gt; Editor Preferences &gt; General &gt; Model Context Protocol</strong> — فعّل
+<strong>Auto Start Server</strong>. الربط الافتراضي هو <code>http://127.0.0.1:8000/mcp</code>
+(المنفذ/المسار قابلان للضبط في نفس اللوحة؛ اسم الخادم هو <code>unreal-mcp</code>).
+لتشغيله يدويًا بدلًا من ذلك، شغّل <code>ModelContextProtocol.StartServer</code> في
+طرفية المحرر (مفتاح backtick).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-hermes-side">مرة واحدة، جانب Hermes</h3>
+<p>hermes mcp install unreal-engine</p>
+<p>يكتب هذا مدخل <code>mcp_servers.unreal-engine</code> عبر HTTP مشيرًا إلى
+<code>http://127.0.0.1:8000/mcp</code> ويستطلع الخادم الحي عن أدواته. شغّله بينما
+المحرر والخادم يعملان حتى يرى الاستطلاع السطح الفعلي. إذا غيّر المستخدم
+المنفذ/المسار في Editor Preferences، عدّل <code>url</code> في
+<code>~/.hermes/config.yaml</code> ضمن <code>mcp_servers.unreal-engine</code> ليطابقه.</p>
+<p>لا تستخدم <code>ModelContextProtocol.GenerateClientConfig</code> لأجل Hermes — فهو
+يكتب ملفات على غرار <code>.mcp.json</code> لبرامج مثل Claude Code/Cursor وغيرها. يتصل
+Hermes من <code>config.yaml</code> عبر مدخل الكتالوج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="every-session">في كل جلسة</h3>
+<ol>
+<li>شغّل محرر Unreal، وانتظر انتهاء تحميل المشروع؛ تأكد من بدء تشغيل
+الخادم (يعرض Output Log عنوان الربط، أو شغّل
+<code>ModelContextProtocol.StartServer</code> يدويًا).</li>
+<li>ابدأ جلسة Hermes. تُسجَّل الأدوات باسم <code>mcp_unreal_engine_*</code>. فإن كانت
+مفقودة: فهذا يعني أن المحرر لم يكن يعمل أولًا — شغّله، ثم افتح جلسة
+Hermes جديدة.</li>
+<li>تحقق سريع: استدعِ <code>mcp_unreal_engine_list_toolsets</code> وتأكد من عودة
+مجموعات الأدوات.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-tool-surface-discovery-not-a-fixed-list">سطح الأدوات: اكتشاف، لا قائمة ثابتة</h2>
+<p>تعمل الإضافة افتراضيًا في <strong>وضع البحث عن الأدوات (tool-search mode)</strong>: تعيد
+<code>tools/list</code> ثلاثة أدوات وصفية (meta-tools) فقط، ويُصل إلى كل أداة حقيقية عبرها.
+تظهر عبر Hermes كما يلي:</p>
+<table><thead><tr><th>أداة Hermes</th><th>الغرض</th></tr></thead><tbody><tr><td><code>mcp_unreal_engine_list_toolsets</code></td><td>أسماء ووصف كل مجموعة أدوات مسجَّلة</td></tr><tr><td><code>mcp_unreal_engine_describe_toolset</code></td><td>مخططات JSON الكاملة لأدوات مجموعة أدوات معيّنة بالاسم</td></tr><tr><td><code>mcp_unreal_engine_call_tool</code></td><td>استدعِ أداة معيّنة بالاسم مع وسائط، واحصل على النتيجة</td></tr></tbody></table>
+<p>مسار الاكتشاف، بهذا الترتيب دائمًا:</p>
+<ol>
+<li><code>list_toolsets</code> ← لترى مجموعات القدرات المتاحة فعليًا لهذا المشروع
+(السطح يعتمد على المشروع: الإضافات المفعّلة، وGame Feature Plugins،
+وأي مجموعات أدوات مخصصة، كلها تسهم فيه). تعود الأسماء مؤهَّلة بالكامل
+(<code>editor_toolset.toolsets.scene.SceneTools</code>،
+<code>EditorToolset.EditorAppToolset</code>) — استخدمها حرفيًا كـ <code>toolset_name</code>.</li>
+<li><code>describe_toolset</code> على المجموعة التي تحتاجها ← اقرأ مخططات المعاملات
+الفعلية. لا تخمّن أسماء المعاملات أبدًا — فالمخططات هي العقد الملزم.</li>
+<li><code>call_tool</code> مع اسم مجموعة الأدوات المؤهَّل، واسم الأداة القصير
+(<code>find_actors</code> وليس الصيغة المفصولة بنقاط)، ووسائط مطابقة للمخطط.</li>
+</ol>
+<p>احتفظ بما تتعلّمه لبقية الجلسة؛ ولا تُعِد السرد إلا بعد تغيّر جانب المحرر
+(تفعيل إضافة جديدة، تأليف مجموعة أدوات، تشغيل <code>RefreshTools</code>).</p>
+<p>الوضع البديل الحريص (<code>Enable Tool Search</code> مُعطَّل في Editor Preferences)
+يعرض كل أداة كمدخل مستقل باسم <code>mcp_unreal_engine_&lt;tool&gt;</code>. عندها يحدث الاكتشاف
+عند تنفيذ <code>hermes mcp install</code>/<code>configure</code> بدلًا من ذلك. وضع البحث عن الأدوات
+هو الافتراضي وما تفترضه هذه المهارة؛ كما أنه يبقي tokens المخططات خارج كل
+استدعاء API، لذا يُفضَّل.</p>
+<p>راجع <code>references/tool-surface.md</code> لكتالوج مجموعات الأدوات المضمّنة، وتأليف
+مجموعات أدوات مخصصة، ومرجع إعدادات الإضافة/أوامر الطرفية الكامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="operating-loop">حلقة التشغيل</h2>
+<p>كل مهمة في Unreal تتبع نفس الحلقة:</p>
+<ol>
+<li><strong>افحص أولًا.</strong> اسرد مجموعات الأدوات، ثم استعلم عن حالة المشهد/المستوى
+قبل لمس أي شيء. لا تفترض أبدًا مستوًى فارغًا أو افتراضيًا. في مشروع غير
+مألوف، تحقق أيضًا من Agent Skills المسجَّلة على مستوى المشروع
+(<code>call_tool</code> ← <code>AgentSkillToolset.ListSkills</code>): تعليمات مهارة مشروع مطابقة
+تتفوّق على الإعدادات الافتراضية العامة لهذه المهارة.</li>
+<li><strong>اعمل باستدعاءات صغيرة وأحادية الغرض.</strong> خطوة منطقية واحدة لكل
+<code>call_tool</code>. يشغّل الخادم الأدوات <strong>تسلسليًا على خيط اللعبة (game thread)</strong> —
+فأي عملية ضخمة واحدة تجمّد واجهة المحرر حتى تنتهي وتخاطر بتجاوز
+مهلة العميل. الاستثناء: للحلقات التي تضم 5 عمليات متجانسة أو أكثر،
+يجمّع استدعاء واحد لـ<code>ProgrammaticToolset.execute_tool_script</code> هذه
+العمليات على جانب الخادم دون خرق قاعدة التسلسل
+(<code>references/advanced-workflows.md</code>).</li>
+<li><strong>لا تُصدر أبدًا استدعاءات متداخلة.</strong> لا تُجمِّع عدة استدعاءات
+<code>mcp_unreal_engine_*</code> في دور واحد — إذ يشغّل Hermes الاستدعاءات المجمَّعة
+بشكل متزامن، وتؤدي الاستدعاءات المتوازية ضد خيط اللعبة إلى تعليق (deadlock)
+أو فشل. استدعِ واحدًا فقط في كل مرة، وانتظر النتيجة، ثم انتقل للتالي. وهذا
+يتجاوز التوجيه العام بشأن استدعاءات الأدوات المتوازية.</li>
+<li><strong>اقرأ كل نتيجة.</strong> تُبلغ أدوات كثيرة (تجميع Blueprint، تعديلات المواد،
+إنشاء الودجت) عن النجاح/الفشل داخل نص الاستجابة دون استثناء على مستوى
+البروتوكول. وأي نتيجة ليست نجاحًا صريحًا تستوجب التوقف والتشخيص، لا التجاهل.
+بعد كتابة الخصائص، أعد قراءة القيمة — إذ تفشل بصمت بعض مسارات الكتابة (راجع
+المزالق).</li>
+<li><strong>تحقق بصريًا وهيكليًا.</strong> بعد كل مرحلة رئيسية، تأكد من الحالة
+باستعلام الممثلين/الخصائص التي غيّرتها، والتقط لقطة شاشة لعرض المشهد
+عندما يهم التكوين البصري (راجع <code>references/tool-surface.md</code> لخيارات
+الالتقاط؛ استخدم <code>vision_analyze</code> على الصورة — أنت المخرج الفني، فاحكم عليها).</li>
+<li><strong>احفظ باستمرار.</strong> تبقى تعديلات المحرر في الذاكرة حتى تُحفظ الحزم/المستويات؛
+وأي انهيار للمحرر يفقد كل ما تم منذ آخر حفظ، كما أن تعديلات MCP ليست قابلة
+للتراجع بموثوقية. احفظ قبل وبعد أي تغيير كبير، وبعد كل مرحلة رئيسية.</li>
+<li><strong>أبلغ بدقة.</strong> تسميات الممثلين، ومسارات الأصول (<code>/Game/...</code>)، ومواقع
+ملفات اللقطات/العروض المرئية.</li>
+</ol>
+<p>قواعد العالم أثناء عملك:</p>
+<ul>
+<li>الوحدات <strong>سنتيمترات</strong>؛ والمحاور <strong>Z للأعلى</strong>، وX للأمام؛ والدورانات
+بالدرجات (Rotator: Roll حول X، وPitch حول Y، وYaw حول Z). ارتفاع عين
+الإنسان تقريبًا 165 سم؛ والباب تقريبًا 210×90 سم. جداول كاملة في
+<code>references/scene-craft.md</code>.</li>
+<li>تستخدم مسارات المحتوى أسماء حزم طويلة: <code>/Game/Folder/Asset.Asset</code> لمحتوى
+المشروع، و<code>/Engine/BasicShapes/Cube.Cube</code> للأشكال الأولية في المحرك.</li>
+<li><strong>تسميات</strong> الممثل (ما تراه في Outliner، قابلة للضبط، وغير فريدة) ليست
+<strong>أسماء</strong> الممثل (داخلية، فريدة). يُفضَّل تحديد الممثلين عبر استعلامات
+التسمية/الصنف، ثم الاحتفاظ بأي مقبض (handle) تُعيده الأداة.</li>
+<li>يُفضَّل استخدام قيم إضاءة واقعية فيزيائيًا (لوكس/شمعة/كلفن) بدلًا من أرقام
+سطوع عشوائية — لكن اقرأ أولًا شدة الشمس الحالية لتتعرف على اصطلاح المعايرة
+في المشهد؛ فغالبًا ما تُعاير عوالم القوالب حول <code>intensity: 10</code>، وتُفرِط القيم
+الفيزيائية في الإضاءة (يحوي <code>references/scene-craft.md</code> الأرقام،
+وقاعدة المعايرة في البند 12ب من <code>references/pitfalls.md</code>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-plain-english-to-a-scene">من اللغة الطبيعية إلى مشهد</h2>
+<p>يعطيك المستخدم نيّة، لا مواصفات. ترجمها قبل البناء:</p>
+<ol>
+<li><strong>استخرج الموجز.</strong> الموضوع، والمزاج، ووقت اليوم، وداخلي/خارجي،
+والأسلوب، والمُخرج المطلوب (لقطة شاشة؟ عرض مرئي؟ مستوى قابل للعب؟). اطرح
+جولة واحدة على الأكثر من أسئلة التوضيح، ثم التزم — أنت المخرج التقني؛ لا
+تُعِد مصطلحات Unreal للمستخدم دون فهم.</li>
+<li><strong>خطّط لترتيب البناء.</strong> الترتيب الناجح: قشرة المستوى/البيئة ←
+البناء الأولي (وضع الهندسة/الشبكات الرئيسية) ← الإضاءة والأجواء ←
+المواد ← تنسيق المشهد/التفاصيل ← الكاميرا ← الالتقاط/العرض المرئي. انشر الخطة
+كقائمة مهام للمشاريع متعددة الخطوات.</li>
+<li><strong>ابنِ باستخدام الحلقة أعلاه</strong>، مرحلة واحدة في كل مرة، مع لقطة شاشة عند
+كل مرحلة.</li>
+<li><strong>وجّه نفسك فنيًا.</strong> قارن كل لقطة شاشة بالموجز: هل الصورة الظلية
+واضحة؟ هل اتجاه/شدة الضوء مقنعان؟ هل الأفق ليس في المنتصف تمامًا؟ هل
+المقياس صحيح مقارنة بمرجع ارتفاع إنسان؟ أصلح قبل المتابعة.</li>
+<li><strong>سلِّم.</strong> لقطات الشاشة/العروض المرئية كملفات (مسار <code>MEDIA:</code>)، مع ملخص
+قصير لما هو موجود في المستوى وأين حُفظ.</li>
+</ol>
+<p>يحتوي <code>references/recipes.md</code> على بنى كاملة مُجرَّبة (مشهد نهاري خارجي،
+مشهد داخلي هادئ، لقطة سينمائية بالساعة الذهبية + عرض مرئي، استيراد الأصول
+ووضعها) مع تسلسلات الاستدعاء والقيم الدقيقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-files">ملفات مرجعية</h2>
+<p>حمّلها عند الحاجة؛ وضع قواعد مستوى SKILL.md في بالك طوال الوقت.</p>
+<table><thead><tr><th>المرجع</th><th>المحتوى</th></tr></thead><tbody><tr><td><code>references/tool-surface.md</code></td><td>كتالوج مجموعات الأدوات المضمّنة، وتفاصيل بروتوكول الاكتشاف، وأوامر/متغيرات/أعلام طرفية الإضافة، ومسارات لقطات الشاشة والالتقاط، وتصحيح أخطاء MCP Inspector، والتوسعة بمجموعات أدوات مخصصة بلغة Python/C++</td></tr><tr><td><code>references/advanced-workflows.md</code></td><td>سير عمل متقدم مُتحقَّق منه مباشرة: تجميع ProgrammaticToolset، حلقة تأليف Blueprint DSL (إنشاء ← DSL ← تجميع ← استحداث)، جلسات اختبار PIE، توجيه Sequencer (140 أداة)، تصحيح ذاتي عبر LogsToolset، اختبار الأتمتة، البحث الدلالي عن الأصول، إعدادات الضبط، جدول قرارات حسب كل موقف</td></tr><tr><td><code>references/scene-craft.md</code></td><td>ورقة مرجعية رقمية: شدات الإضاءة الفيزيائية، ودرجات حرارة اللون، والتعريض/EV100، وكثافات الضباب، ووصفات المزاج (ظهرًا/الساعة الذهبية/غائم/ليلًا/داخليًا)، وجداول المقياس، واصطلاحات مسارات المحتوى</td></tr><tr><td><code>references/recipes.md</code></td><td>بنى كاملة مُجرَّبة من البداية إلى النهاية مع تسلسلات الاستدعاء الدقيقة</td></tr><tr><td><code>references/pitfalls.md</code></td><td>مزالق الإعداد والتشغيل وسير العمل مع حلولها — اقرأها قبل أول جلسة وكلما ساءت الأمور</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls-top-of-mind--full-list-in-referencespitfallsmd">مزالق تستحق الانتباه (القائمة الكاملة في references/pitfalls.md)</h2>
+<ul>
+<li><strong>الترتيب مهم عند البدء.</strong> المحرر + الخادم يعملان أولًا، ثم جلسة
+Hermes. غياب أدوات <code>mcp_unreal_engine_*</code> يعني ترتيبًا خاطئًا.</li>
+<li><strong>استدعاء واحد في كل مرة.</strong> خيط اللعبة تسلسلي؛ لا تجميع، لا تداخل.</li>
+<li><strong>تتجمّد واجهة المحرر أثناء كل استدعاء.</strong> هذا مقصود (تنفيذ على خيط
+اللعبة). حذّر المستخدم أثناء العمليات الطويلة؛ وأبقِ الاستدعاءات صغيرة.</li>
+<li><strong>مربعات الحوار المشروطة (modal) توقف كل شيء.</strong> استدعاء أداة يفتح (أو يتصادم مع)
+مربع حوار مشروط في المحرر يتوقف حتى يُغلقه إنسان. إذا تعلّق الاستدعاء بلا نهاية،
+أخبر المستخدم بفحص المحرر بحثًا عن مربع حوار.</li>
+<li><strong>مهلات على العمليات الطويلة.</strong> المهلة الافتراضية لكل استدعاء في Hermes
+هي 120 ثانية؛ ويمكن أن تتجاوزها عمليات استيراد الأصول، وحفظ المستويات
+الكبيرة، والعروض المرئية. ارفع <code>mcp_servers.unreal-engine.timeout</code> في
+<code>~/.hermes/config.yaml</code> للجلسات كثيفة العرض المرئي/الاستيراد.</li>
+<li><strong>مخططات أدوات قديمة (stale).</strong> بعد تأليف مجموعات أدوات أو إعادة تحميلها
+حيًا أو تفعيل إضافة، شغّل <code>ModelContextProtocol.RefreshTools</code> في طرفية
+المحرر وأعد <code>list_toolsets</code>. تحتاج دوال <code>UFUNCTION</code> الجديدة بلغة C++ إعادة
+تشغيل كاملة للمحرر — فلن يُظهرها Live Coding.</li>
+<li><strong>إضافة تجريبية.</strong> يمكن أن تتغيّر واجهات API وأشكال الأدوات بين إصدارات
+المحرك؛ ثِق بـ <code>describe_toolset</code> أكثر من الذاكرة، بما في ذلك أمثلة هذه
+المهارة. عند اختلاف الوثائق مع المخطط الحي، يفوز المخطط الحي.</li>
+<li><strong>لا تعرّض الخادم خارج localhost.</strong> عبر loopback فقط، بلا مصادقة، بحسب
+التصميم. لا تقترح أبدًا ربطه بنطاق أوسع.</li>
+<li><strong>ملاحظة الترخيص.</strong> يسجّل الخادم عند بدء التشغيل أن البيانات المُرسَلة عبر
+الإضافة إلى خدمة LLM متصلة تُعد &quot;تقنية مرخّصة&quot; (Licensed Technology) بموجب
+اتفاقية ترخيص المستخدم النهائي (EULA) لمحرك Unreal، البند §6(هـ) — والمستخدم
+مسؤول عن التأكد من أن مزوّد LLM لديه لا يدرّب نماذجه عليها. أظهر هذا إذا سأل
+المستخدم عن التعامل مع البيانات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="1"></x-keep> <code>list_toolsets</code> يعيد مجموعات الأدوات عند بدء الجلسة (اتصال سليم)</li>
+<li class="task-list-item"><x-keep id="2"></x-keep> حالة المشهد مُستعلَم عنها قبل أول تعديل (لم تُفترض فارغة أبدًا)</li>
+<li class="task-list-item"><x-keep id="3"></x-keep> بعد كل مرحلة رئيسية: أُعيد استعلام الممثلين/الخصائص المتغيّرة وروجعت
+لقطة شاشة مقابل الموجز</li>
+<li class="task-list-item"><x-keep id="4"></x-keep> حُفظت الحزم/المستويات غير المحفوظة بعد كل مرحلة رئيسية وفي النهاية</li>
+<li class="task-list-item"><x-keep id="5"></x-keep> المُخرجات موجودة على القرص (مسارات لقطات الشاشة/العروض المرئية مؤكَّدة)
+وأُبلغت للمستخدم بمسارات مطلقة</li>
+<li class="task-list-item"><x-keep id="6"></x-keep> المحرر في حالة نظيفة: لا مربع حوار معلَّق، ولا مفاجأة غير محفوظة،
+وأُخبر المستخدم بدقة بما أُنشئ أو تغيّر وأين</li>
+</ul>

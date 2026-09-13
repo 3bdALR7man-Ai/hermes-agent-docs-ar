@@ -1,0 +1,90 @@
+<header><h1>MiniMax OAuth</h1></header>
+<p>يدعم Hermes Agent خدمة <strong>MiniMax</strong> عبر تدفّق تسجيل دخول OAuth قائم على المتصفح، باستخدام بيانات الاعتماد نفسها الخاصة بـ <a href="https://www.minimax.io" data-ext>بوابة MiniMax</a>. لا حاجة إلى مفتاح API أو بطاقة ائتمان — سجّل الدخول مرة واحدة، ويجدّد Hermes جلستك تلقائيًا.</p>
+<p>يعيد النقل استخدام محوّل <code>anthropic_messages</code> (تعرض MiniMax endpoint متوافقًا مع Anthropic Messages على <code>/anthropic</code>)، لذا تعمل جميع ميزات استدعاء الأدوات والبث والسياق الحالية دون أي تغيير في المحوّل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<table><thead><tr><th>العنصر</th><th>القيمة</th></tr></thead><tbody><tr><td>معرّف المزوّد</td><td><code>minimax-oauth</code></td></tr><tr><td>الاسم المعروض</td><td>MiniMax (OAuth)</td></tr><tr><td>نوع المصادقة</td><td>OAuth عبر المتصفح (تدفّق إعادة توجيه PKCE)</td></tr><tr><td>النقل</td><td>متوافق مع Anthropic Messages (<code>anthropic_messages</code>)</td></tr><tr><td>النماذج</td><td><code>MiniMax-M2.7</code>، <code>MiniMax-M2.7-highspeed</code></td></tr><tr><td>Endpoint العالمي</td><td><code>https://api.minimax.io/anthropic</code></td></tr><tr><td>Endpoint الصين</td><td><code>https://api.minimaxi.com/anthropic</code></td></tr><tr><td>يتطلب متغير بيئة</td><td>لا (<code>MINIMAX_API_KEY</code> <strong>لا</strong> يُستخدم لهذا المزوّد)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li>Python 3.9 أو أحدث</li>
+<li>تثبيت Hermes Agent</li>
+<li>حساب MiniMax على <a href="https://www.minimax.io" data-ext>minimax.io</a> (عالمي) أو <a href="https://www.minimaxi.com" data-ext>minimaxi.com</a> (الصين)</li>
+<li>متصفح متاح على الجهاز المحلي (أو استخدم <code>--no-browser</code> للجلسات البعيدة)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>بعد تسجيل الدخول الأول، تُخزَّن بيانات الاعتماد تحت <code>~/.hermes/auth.json</code> ويتم تجديدها تلقائيًا قبل كل جلسة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-in-manually">تسجيل الدخول يدويًا</h2>
+<p>يمكنك بدء تسجيل الدخول دون المرور بقائمة اختيار النموذج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="china-region">منطقة الصين</h3>
+<p>إذا كان حسابك على منصة الصين (<code>minimaxi.com</code>)، استخدم بدلًا من ذلك مزوّد <code>minimax-cn</code> القائم على مفتاح API — إذ إن <code>minimax-cn</code> مسجَّل بـ <code>auth_type=&quot;api_key&quot;</code> فقط (بدون تدفّق OAuth). اضبط <code>MINIMAX_CN_API_KEY</code> (واختياريًا <code>MINIMAX_CN_BASE_URL</code>) مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="remote--headless-sessions">الجلسات البعيدة / بلا واجهة (headless)</h3>
+<p>على الخوادم أو الحاويات التي لا يتوفر فيها متصفح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>سيطبع Hermes رابط التحقق ورمز المستخدم — افتح الرابط على أي جهاز وأدخل الرمز عند الطلب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-oauth-flow">تدفّق OAuth</h2>
+<p>ينفّذ Hermes تدفّق OAuth عبر المتصفح باستخدام PKCE مقابل نقاط نهاية OAuth الخاصة بـ MiniMax:</p>
+<ol>
+<li>يولّد Hermes زوج تحقّق/تحدٍّ (verifier / challenge) PKCE وقيمة state عشوائية.</li>
+<li>يرسل طلب POST إلى <code>{base_url}/oauth/code</code> مع التحدي ويستلم <code>user_code</code> و <code>verification_uri</code>.</li>
+<li>يفتح متصفحك <code>verification_uri</code>. إذا طُلب منك، أدخل <code>user_code</code>.</li>
+<li>يستطلع Hermes <code>{base_url}/oauth/token</code> إلى أن يصل الرمز (أو تنتهي المهلة).</li>
+<li>تُحفظ الرموز (<code>access_token</code>، <code>refresh_token</code>، تاريخ الانتهاء) في <code>~/.hermes/auth.json</code> تحت المفتاح <code>minimax-oauth</code>.</li>
+</ol>
+<p>يُشغَّل تجديد الرمز (منح <code>refresh_token</code> القياسي في OAuth) تلقائيًا عند بدء كل جلسة عندما يكون رمز الوصول على بعد 60 ثانية من انتهاء صلاحيته.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checking-login-status">التحقق من حالة تسجيل الدخول</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>سيعرض قسم <code>◆ Auth Providers</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أو، إن لم تكن مسجّل الدخول:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models">تبديل النماذج</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أو اضبط النموذج مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<p>بعد تسجيل الدخول، سيحتوي <code>~/.hermes/config.yaml</code> على إدخالات مشابهة لـ:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="region-endpoints">نقاط نهاية المناطق</h3>
+<table><thead><tr><th>معرّف المزوّد</th><th>البوابة</th><th>نقطة نهاية الاستدلال</th></tr></thead><tbody><tr><td><code>minimax-oauth</code> (عالمي)</td><td><code>https://api.minimax.io</code></td><td><code>https://api.minimax.io/anthropic</code></td></tr><tr><td><code>minimax-cn</code> (الصين)</td><td><code>https://api.minimaxi.com</code></td><td><code>https://api.minimaxi.com/anthropic</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-aliases">أسماء المزوّد المستعارة</h3>
+<p>تشير جميع ما يلي إلى <code>minimax-oauth</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h2>
+<p>مزوّد <code>minimax-oauth</code> <strong>لا</strong> يستخدم <code>MINIMAX_API_KEY</code> أو <code>MINIMAX_BASE_URL</code>. هذان المتغيران مخصّصان فقط لمزوّدَي <code>minimax</code> و <code>minimax-cn</code> القائمَين على مفتاح API.</p>
+<table><thead><tr><th>المتغير</th><th>التأثير</th></tr></thead><tbody><tr><td><code>MINIMAX_API_KEY</code></td><td>يُستخدم فقط بواسطة مزوّد <code>minimax</code> — يُتجاهل مع <code>minimax-oauth</code></td></tr><tr><td><code>MINIMAX_CN_API_KEY</code></td><td>يُستخدم فقط بواسطة مزوّد <code>minimax-cn</code> — يُتجاهل مع <code>minimax-oauth</code></td></tr></tbody></table>
+<p>لاستخدام <code>minimax-oauth</code> كمزوّد نشط، اضبط <code>model.provider: minimax-oauth</code> في <code>config.yaml</code> (استخدم <code>hermes setup</code> لتدفّق موجَّه)، أو مرّر <code>--provider minimax-oauth</code> لاستدعاء واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="models">النماذج</h2>
+<table><thead><tr><th>النموذج</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><code>MiniMax-M2.7</code></td><td>الاستدلال بسياق طويل، استدعاء الأدوات المعقّد</td></tr><tr><td><code>MiniMax-M2.7-highspeed</code></td><td>زمن استجابة أقل، مهام أخف، الاستدعاءات المساعدة</td></tr></tbody></table>
+<p>يدعم كلا النموذجين سياقًا يصل إلى 200,000 token.</p>
+<p>يُستخدم <code>MiniMax-M2.7</code> أيضًا تلقائيًا كنموذج مساعد لمهام الرؤية (vision) والتفويض عندما يكون <code>minimax-oauth</code> هو المزوّد الأساسي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-expired--not-re-logging-in-automatically">انتهت صلاحية الرمز (token) — لا يعيد تسجيل الدخول تلقائيًا</h3>
+<p>يجدّد Hermes الرمز عند بدء كل جلسة إذا كان على بعد 60 ثانية من انتهاء صلاحيته. إذا كان رمز الوصول منتهي الصلاحية بالفعل (مثلًا بعد فترة طويلة دون اتصال)، يحدث التجديد تلقائيًا عند الطلب التالي. إذا فشل التجديد بخطأ <code>refresh_token_reused</code> أو <code>invalid_grant</code>، يُعلِّم Hermes الجلسة بأنها تحتاج إلى إعادة تسجيل دخول.</p>
+<p>عندما يكون فشل التجديد نهائيًا (HTTP 4xx، أو <code>invalid_grant</code>، أو منح مُلغى، وما شابه)، يُعلِّم Hermes رمز التجديد بأنه ميت ويعزله محليًا حتى لا يستمر في إعادة محاولة تبادل محكوم عليه بالفشل. يعرض الوكيل رسالة واحدة تفيد بـ&quot;لزوم إعادة المصادقة&quot; ويتوقف عن التدخل إلى أن تسجّل الدخول مرة أخرى.</p>
+<p><strong>الحل:</strong> شغّل <code>hermes auth add minimax-oauth</code> مرة أخرى لبدء تسجيل دخول جديد. يُزال الحجر (quarantine) عند أول تبادل ناجح تالٍ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization-timed-out">انتهت مهلة التفويض</h3>
+<p>لتدفّق رمز الجهاز (device code) نافذة انتهاء صلاحية محدودة. إذا لم توافق على تسجيل الدخول في الوقت المحدد، يُطلق Hermes خطأ انتهاء مهلة.</p>
+<p><strong>الحل:</strong> أعد تشغيل <code>hermes auth add minimax-oauth</code> (أو <code>hermes model</code>). يبدأ التدفّق من جديد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="state-mismatch-possible-csrf">عدم تطابق state (احتمال CSRF)</h3>
+<p>اكتشف Hermes أن قيمة <code>state</code> التي أعادها خادم التفويض لا تطابق ما أرسله.</p>
+<p><strong>الحل:</strong> أعد تشغيل تسجيل الدخول. إذا استمرت المشكلة، تحقّق من وجود وكيل (proxy) أو إعادة توجيه يعدّل استجابة OAuth.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-in-from-a-remote-server">تسجيل الدخول من خادم بعيد</h3>
+<p>إذا تعذّر على <code>hermes</code> فتح نافذة متصفح، استخدم <code>--no-browser</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يطبع Hermes الرابط والرمز. افتح الرابط على أي جهاز وأكمل التدفّق هناك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="not-logged-into-minimax-oauth-error-at-runtime">خطأ &quot;Not logged into MiniMax OAuth&quot; أثناء التشغيل</h3>
+<p>لا يحتوي مخزن المصادقة على بيانات اعتماد لـ <code>minimax-oauth</code>. إما أنك لم تسجّل الدخول بعد، أو أن ملف بيانات الاعتماد قد حُذف.</p>
+<p><strong>الحل:</strong> شغّل <code>hermes model</code> واختر MiniMax (OAuth)، أو شغّل <code>hermes auth add minimax-oauth</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-out">تسجيل الخروج</h2>
+<p>لإزالة بيانات اعتماد MiniMax OAuth المخزّنة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">اطّلع أيضًا على</h2>
+<ul>
+<li><a href="/docs/integrations/providers">مرجع مزوّدي الذكاء الاصطناعي (AI Providers)</a></li>
+<li><a href="/docs/reference/environment-variables">متغيرات البيئة (Environment Variables)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+<li><a href="/docs/reference/cli-commands">hermes doctor</a></li>
+</ul>

@@ -1,0 +1,109 @@
+<header><h1>تشغيل Hermes Agent مع Nous Portal</h1></header>
+<p>يرشدك هذا الدليل خطوة بخطوة إلى تشغيل Hermes Agent باشتراك <a href="https://portal.nousresearch.com" data-ext>Nous Portal</a> من البداية إلى النهاية — بدءًا من التسجيل ووصولًا إلى التحقق من أن كل أداة تُوجَّه بشكل صحيح. وإذا كنت تريد فقط نظرة عامة على ماهية Portal وما يتضمنه الاشتراك، فراجع <a href="/docs/integrations/nous-portal">صفحة التكامل مع Nous Portal</a>. أما هذه الصفحة فهي خطوات تنفيذ المهمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>أن يكون Hermes Agent مثبّتًا (<a href="/docs/getting-started/quickstart">البدء السريع</a>)</li>
+<li>متصفح ويب على الجهاز الذي تُعدّه (أو إعادة توجيه المنافذ عبر SSH — راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH</a>)</li>
+<li>نحو 5 دقائق</li>
+</ul>
+<p>أنت <strong>لا</strong> تحتاج إلى: مفتاح OpenAI، أو مفتاح Anthropic، أو حساب Firecrawl، أو حساب FAL، أو حساب Browser Use، أو أي بيانات اعتماد أخرى خاصة بكل مورّد. وهذا هو جوهر الفكرة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-get-a-subscription">1. احصل على اشتراك</h2>
+<p>افتح <a href="https://portal.nousresearch.com/manage-subscription" data-ext>portal.nousresearch.com/manage-subscription</a>، وسجّل، واختر خطة.</p>
+<p>مشترك بالفعل؟ انتقل مباشرةً إلى الخطوة 2.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-run-the-one-shot-setup">2. شغّل الإعداد بأمر واحد</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يؤدي هذا الأمر الواحد خمس مهام:</p>
+<ol>
+<li>يفتح متصفحك على portal.nousresearch.com لتسجيل الدخول عبر OAuth</li>
+<li>يخزّن الـ refresh token في <code>~/.hermes/auth.json</code></li>
+<li>يضبط <code>model.provider: nous</code> في <code>~/.hermes/config.yaml</code></li>
+<li>يختار نموذجًا وكيليًا (agentic) افتراضيًا (<code>anthropic/claude-sonnet-4.6</code> أو ما يماثله)</li>
+<li>يفعّل Tool Gateway للبحث في الويب وتوليد الصور و TTS وأتمتة المتصفح</li>
+</ol>
+<p>عند انتهائه، تعود إلى الطرفية جاهزًا للمحادثة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-if-im-sshd-into-a-server">ماذا لو كنت متصلًا بخادم عبر SSH؟</h3>
+<p>يحتاج OAuth إلى متصفح، لكن استدعاء الرجوع (callback) عبر loopback يعمل على الجهاز الذي يعمل عليه Hermes. لديك خياران:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a> للاطلاع على الشرح الكامل، بما في ذلك سلاسل ProxyJump و mosh/tmux والمشكلات الخفية في ControlMaster.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-verify-it-worked">3. تحقّق من نجاح العملية</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُفترض أن ترى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>إذا أظهر أي سطر شيئًا غير &quot;via Nous Portal&quot; أو كان سطر المصادقة يقول &quot;not logged in&quot;، فانتقل إلى قسم <a href="#troubleshooting">استكشاف الأخطاء وإصلاحها</a> أدناه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-run-your-first-conversation">4. أجرِ محادثتك الأولى</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>جرّب شيئًا يستخدم كلًّا من النموذج و Tool Gateway:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُفترض أن ترى Hermes يستدعي <code>web_search</code> (المدعومة بـ Firecrawl، عبر الـ gateway) ويردّ بملخص. وإذا نُفّذ البحث وكانت الاستجابة منطقية، فقد انتهيت — فـ Portal موصول بالكامل من البداية إلى النهاية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-pick-the-model-you-actually-want">5. اختر النموذج الذي تريده فعلًا</h2>
+<p>يتيح لك <code>hermes setup --portal</code> اختيار نموذج أثناء الإعداد، لكن جوهر الاشتراك هو الوصول إلى الكتالوج الكامل — بدّل في أي وقت باستخدام <code>/model</code> في منتصف الجلسة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>أو افتح المنتقي لتصفّح النماذج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>اختر نموذجًا افتراضيًا مختلفًا بشكل دائم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dont-pick-hermes-4-for-agent-work">لا تختر Hermes-4 لأعمال الوكيل</h3>
+<p>يتوفر Hermes-4-70B و Hermes-4-405B على Portal بخصومات كبيرة، لكنهما <strong>نموذجان للمحادثة/الاستدلال</strong>، وليسا مضبوطين لاستدعاء الأدوات. لذا سيواجهان صعوبة في حلقات الوكيل متعددة الخطوات. استخدمهما في أعمال المحادثة/البحث عبر <a href="/docs/user-guide/features/subscription-proxy">وسيط الاشتراك (subscription proxy)</a> من أدوات لا تعمل كوكلاء. أما لـ Hermes Agent نفسه، فالتزم بالنماذج الوكيلية المتقدمة المذكورة أعلاه.</p>
+<p>وتتضمن <a href="https://portal.nousresearch.com/info" data-ext>صفحة المعلومات</a> الخاصة بـ Portal هذا التحذير أيضًا — فهو إرشاد رسمي من Nous، وليس مجرد رأي من جهة Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-optional-customize-tool-gateway-routing">6. (اختياري) خصّص توجيه Tool Gateway</h2>
+<p>الاشتراك في الـ gateway اختياري لكل أداة على حدة، وليس كل شيء أو لا شيء. فإذا كان لديك حساب Browserbase بالفعل وتريد الاستمرار في استخدامه مع توجيه البحث في الويب وتوليد الصور عبر Nous، فهذا مدعوم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تظهر هذه الصفوف في <code>hermes tools</code> حتى قبل تسجيل دخولك إلى Nous Portal — فإذا اخترت &quot;Nous Subscription&quot; دون جلسة نشطة، يُجري Hermes تسجيل الدخول إلى Portal مباشرةً في المكان نفسه (دون تغيير مزوّد الـ inference أو أدواتك الأخرى).</p>
+<p>تحقّق من التوليفة لديك باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>سترى التوجيه لكل أداة — <code>via Nous Portal</code> للأدوات الموجَّهة عبر الاشتراك، واسم الشريك (<code>browserbase</code> و <code>firecrawl</code> وغيرهما) للأدوات التي تستخدم مفاتيحك الخاصة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-optional-enable-voice-mode">7. (اختياري) فعّل الوضع الصوتي</h2>
+<p>بما أن Tool Gateway يتضمن OpenAI TTS، فإن <a href="/docs/user-guide/features/voice-mode">الوضع الصوتي (voice mode)</a> يعمل دون مفتاح OpenAI منفصل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>بعد ذلك، في أي جلسة على منصة مراسلة (Telegram و Discord و Signal وغيرها)، أرسل رسالة صوتية وسيحوّلها Hermes إلى نص، ويستجيب، ثم يردّ بصوت مُركَّب — وكل ذلك ضمن اشتراكك في Portal.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-optional-cron--always-on-workflows">8. (اختياري) Cron وسير العمل الدائم التشغيل</h2>
+<p>يعمل اشتراك Portal مع <a href="/docs/user-guide/features/cron">مهام cron</a> و<a href="/docs/user-guide/features/batch-processing">المعالجة الدفعية</a> بالطريقة نفسها التي يعمل بها مع المحادثة التفاعلية — إذ يُعاد استخدام OAuth refresh token تلقائيًا. لا حاجة إلى إعداد إضافي؛ فقط جدوِل مهام cron وستُحتسب تكلفتها على اشتراكك.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>تعمل مهمة cron دون إشراف، وتستدعي النموذج والبحث في الويب والتلخيص، وكل ذلك عبر اشتراكك في Portal.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profiles-and-multi-user-setups">Profiles والإعدادات متعددة المستخدمين</h2>
+<p>إذا كنت تستخدم <a href="/docs/user-guide/profiles">Hermes profiles</a> (مثل إعدادات منفصلة لكل مشروع)، فإن refresh token الخاص بـ Portal يُشارَك تلقائيًا بين جميع الـ profiles عبر مخزن tokens مشترك. سجّل الدخول مرة واحدة من أي profile، وستلتقطه البقية تلقائيًا.</p>
+<p>أما في إعدادات الفرق التي يتشارك فيها عدة أشخاص جهازًا واحدًا، فلكل شخص حسابه الخاص على Portal → لكل مجلد home ملف <code>~/.hermes/auth.json</code> الخاص به → لا مشاركة للـ tokens بين المستخدمين. وهذا هو الحدّ الصحيح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-portal-info-shows-not-logged-in-after-hermes-setup---portal"><code>hermes portal info</code> يعرض &quot;not logged in&quot; بعد <code>hermes setup --portal</code></h3>
+<p>لم يكتمل مسار OAuth. أعد تشغيله:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>إذا لم يُفتح متصفحك أو فشل استدعاء الرجوع، فالأرجح أنك على جهاز بعيد أو بلا واجهة (headless) — راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH</a> للاطلاع على حلول إعادة توجيه المنافذ البديلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-currently-openrouter-or-some-other-provider-instead-of-using-nous-as-inference-provider">ظهور &quot;Model: currently openrouter&quot; (أو مزوّد آخر) بدلًا من &quot;using Nous as inference provider&quot;</h3>
+<p>انحرفت إعداداتك المحلية. فقد نجح OAuth لكن <code>model.provider</code> لا يزال يشير إلى مزوّد مختلف. الحل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أو بشكل تفاعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>أعد التحقق باستخدام <code>hermes portal info</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-gateway-tools-showing-partner-names-instead-of-via-nous-portal">أدوات Tool Gateway تعرض أسماء الشركاء بدلًا من &quot;via Nous Portal&quot;</h3>
+<p>إعدادات كل أداة تتجاوز الـ gateway. نفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>يمزج بعض المستخدمين عمدًا — مثل توجيه الويب عبر Nous مع استخدام مفتاح Browserbase الخاص بهم للمتصفح. فإن كان ذلك مقصودًا، فاتركه كما هو. وإن لم يكن كذلك، فهذا الأمر يُصلحه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="re-authentication-required-mid-session">ظهور &quot;Re-authentication required&quot; في منتصف الجلسة</h3>
+<p>أُبطل refresh token الخاص بـ Portal لديك (بسبب تغيير كلمة المرور، أو إلغاء يدوي، أو انتهاء صلاحية الجلسة). وقد عُزل الـ token الآن محليًا كي لا يعيد Hermes استخدامه بلا نهاية. ما عليك سوى تسجيل الدخول مجددًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>يُرفع العزل تلقائيًا عند نجاح تسجيل الدخول مجددًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-i-want-isnt-in-the-model-picker">النموذج الذي أريده غير موجود في منتقي <code>/model</code></h3>
+<p>يعتمد كتالوج Portal على قائمة نماذج OpenRouter (أكثر من 300) إضافةً إلى نماذج تُقدَّم عبر مزوّدين خاصين أو ثانويين. وإذا كان نموذج ما مفقودًا، فجرّب كتابة المعرّف (slug) بصيغة OpenRouter مباشرةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>إذا كان النموذج غير متاح فعلًا، <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>افتح issue</a> — فمعظم الثغرات تتعلق بإعدادات توجيه يمكننا تحديثها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="billing-not-appearing-on-my-portal-account">الفوترة لا تظهر في حسابي على Portal</h3>
+<p>سيخبرك <code>hermes portal info</code> ما إذا كان التوجيه يتم فعلًا عبر Portal أو عبر مزوّد آخر. الأسباب الشائعة:</p>
+<ul>
+<li>ضبط <code>model.provider</code> على <code>openrouter</code>/<code>anthropic</code>/وغيرهما بدلًا من <code>nous</code></li>
+<li>فشل في تحديث OAuth أدى إلى اللجوء احتياطيًا إلى مزوّد آخر مضبوط</li>
+<li>وجود عدة Hermes profiles وأنت تستخدم الخطأ منها (تحقق باستخدام <code>hermes profile list</code>)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="want-to-revoke-and-start-clean">تريد إلغاء التفويض والبدء من جديد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-gets-you-in-plain-numbers">ما الذي تحصل عليه، بالأرقام</h2>
+<table><thead><tr><th>دون Portal</th><th>مع Portal</th></tr></thead><tbody><tr><td>مفتاح واحد لـ OpenRouter / Anthropic / OpenAI في <code>.env</code></td><td>OAuth refresh token واحد، دون مفاتيح في <code>.env</code></td></tr><tr><td>مفتاح Firecrawl واحد للويب</td><td>الويب يُوجَّه عبر الـ gateway</td></tr><tr><td>مفتاح FAL واحد لتوليد الصور</td><td>توليد الصور يُوجَّه عبر الـ gateway</td></tr><tr><td>مفتاح Browser Use / Browserbase واحد للمتصفح</td><td>المتصفح يُوجَّه عبر الـ gateway</td></tr><tr><td>مفتاح OpenAI واحد لـ TTS / الوضع الصوتي</td><td>TTS يُوجَّه عبر الـ gateway</td></tr><tr><td>5 لوحات تحكم منفصلة، وعمليات شحن رصيد، وفواتير</td><td>اشتراك واحد، وفاتورة واحدة</td></tr><tr><td>عبر الأجهزة: تكرار المفاتيح الخمسة جميعها</td><td>عبر الأجهزة: إعادة مصادقة OAuth مرة واحدة</td></tr></tbody></table>
+<p>هذه هي الصفقة. وإذا كنت تستخدم أكثر من اثنتين من هذه الخدمات على أي حال، فإن الاشتراك يغطي تكلفته بنفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><strong><a href="/docs/integrations/nous-portal">صفحة التكامل مع Nous Portal</a></strong> — نظرة عامة على ما يتضمنه الاشتراك</li>
+<li><strong><a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a></strong> — تفاصيل كاملة عن كل أداة تُوجَّه عبر الـ gateway</li>
+<li><strong><a href="/docs/user-guide/features/subscription-proxy">وسيط الاشتراك (Subscription proxy)</a></strong> — استخدم اشتراكك في Portal من أدوات غير Hermes</li>
+<li><strong><a href="/docs/user-guide/features/voice-mode">الوضع الصوتي (Voice Mode)</a></strong> — إعداد المحادثات الصوتية ضمن اشتراك Portal</li>
+<li><strong><a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH</a></strong> — أنماط تسجيل الدخول على الأجهزة البعيدة أو التي بلا واجهة</li>
+<li><strong><a href="/docs/user-guide/profiles">Profiles</a></strong> — مشاركة تسجيل دخول واحد إلى Portal بين عدة إعدادات لـ Hermes</li>
+</ul>

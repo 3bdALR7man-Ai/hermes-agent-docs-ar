@@ -1,0 +1,68 @@
+<header><h1>البنية المعمارية (Architecture)</h1></header>
+<p>هذه الصفحة هي الخريطة العليا للآليات الداخلية في Hermes Agent. استخدمها لتتعرّف على موقعك في قاعدة الكود، ثم انتقل إلى المستندات الخاصة بكل نظام فرعي للاطلاع على تفاصيل التنفيذ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="system-overview">نظرة عامة على النظام</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية المجلدات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-flow">تدفّق البيانات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-session">جلسة CLI</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-message">رسالة عبر Gateway</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-job">مهمة Cron</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-reading-order">ترتيب القراءة المقترح</h2>
+<p>إذا كنت جديدًا على قاعدة الكود:</p>
+<ol>
+<li><strong>هذه الصفحة</strong> — لتتعرّف على موقعك</li>
+<li><strong><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></strong> — كيف يعمل AIAgent</li>
+<li><strong><a href="/docs/developer-guide/prompt-assembly">تجميع الـ Prompt</a></strong> — بناء الـ system prompt</li>
+<li><strong><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</a></strong> — كيف يُختار المزوّدون</li>
+<li><strong><a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a></strong> — دليل عملي لإضافة مزوّد جديد</li>
+<li><strong><a href="/docs/developer-guide/tools-runtime">بيئة تشغيل الأدوات (Tools Runtime)</a></strong> — سجل الأدوات، والتوزيع (dispatch)، والبيئات</li>
+<li><strong><a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></strong> — مخطط SQLite، و FTS5، وتسلسل نسب الجلسات (lineage)</li>
+<li><strong><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a></strong> — الـ gateway الخاص بمنصات المراسلة</li>
+<li><strong><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق والتخزين المؤقت للـ Prompt (Prompt Caching)</a></strong> — الضغط والتخزين المؤقت</li>
+<li><strong><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></strong> — التكامل مع بيئات التطوير (IDE)</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="major-subsystems">الأنظمة الفرعية الرئيسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-loop">حلقة الوكيل (Agent Loop)</h3>
+<p>محرّك التنسيق المتزامن (<code>AIAgent</code>، الذي تكشفه الواجهة <code>run_agent.py</code>؛ بينما توجد الحلقة نفسها في <code>agent/conversation_loop.py</code> و<code>agent/turn_*.py</code>). يتولى اختيار المزوّد، وبناء الـ prompt، وتنفيذ الأدوات، وإعادة المحاولة، واللجوء الاحتياطي (fallback)، والاستدعاءات العكسية (callbacks)، والضغط، والحفظ الدائم. ويدعم ثلاثة أوضاع API لمختلف أنواع الـ backends الخاصة بالمزوّدين.</p>
+<p>→ <a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-system">نظام الـ Prompt</h3>
+<p>بناء الـ prompt وصيانته عبر دورة حياة المحادثة:</p>
+<ul>
+<li><strong><code>system_prompt.py</code> + <code>prompt_builder.py</code></strong> — يجمّعان مستويات الـ system prompt المرتّبة (<code>stable</code> → <code>context</code> → <code>volatile</code>): الهوية/إرشادات الأدوات/المهارات، ثم ملفات السياق، ثم كتل الذاكرة/الـ profile/الطابع الزمني</li>
+<li><strong><code>prompt_caching.py</code></strong> — يطبّق نقاط التوقف الخاصة بالتخزين المؤقت في Anthropic (cache breakpoints) للتخزين المؤقت للبادئة (prefix caching)</li>
+<li><strong><code>context_compressor.py</code></strong> — يلخّص أدوار المحادثة الوسطى حين يتجاوز السياق الحدود المعيّنة</li>
+</ul>
+<p>→ <a href="/docs/developer-guide/prompt-assembly">تجميع الـ Prompt</a>، <a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق والتخزين المؤقت للـ Prompt (Prompt Caching)</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-resolution">تحديد المزوّد</h3>
+<p>مُحلِّل مشترك وقت التشغيل يستخدمه كلٌّ من CLI، والـ gateway، و cron، و ACP، والاستدعاءات المساعدة. يربط الثنائيات <code>(provider, model)</code> بالقيم <code>(api_mode, api_key, base_url)</code>. ويتعامل مع أكثر من 18 مزوّدًا، وتدفّقات OAuth، ومجمّعات بيانات الاعتماد، وتحليل الأسماء المستعارة.</p>
+<p>→ <a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-system">نظام الأدوات</h3>
+<p>سجل مركزي للأدوات (<code>tools/registry.py</code>) يضم أكثر من 70 أداة مسجّلة موزّعة على نحو 28 toolset. يسجّل كل ملف أداة نفسه تلقائيًا عند الاستيراد. يتولى السجل جمع المخططات (schemas)، والتوزيع، والتحقق من التوفّر، وتغليف الأخطاء. تدعم أدوات الطرفية 7 أنواع من الـ backends (local، و Docker، و SSH، و Daytona، و Modal، و Singularity، و Vercel Sandbox).</p>
+<p>→ <a href="/docs/developer-guide/tools-runtime">بيئة تشغيل الأدوات (Tools Runtime)</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-persistence">الحفظ الدائم للجلسات</h3>
+<p>تخزين للجلسات قائم على SQLite مع بحث نصي كامل عبر FTS5. تتضمن الجلسات تتبّعًا للنسب (أب/ابن عبر عمليات الضغط)، وعزلًا لكل منصة، وعمليات كتابة ذرّية (atomic) مع معالجة التزاحم.</p>
+<p>→ <a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messaging-gateway">Messaging Gateway</h3>
+<p>عملية طويلة التشغيل تضم أكثر من 25 platform adapter (مدمجة + إضافات مضمّنة)، وتوجيهًا موحّدًا للجلسات، وتفويضًا للمستخدمين (قوائم السماح + الاقتران عبر الرسائل المباشرة DM)، وتوزيعًا للـ slash commands، ونظامًا للـ hooks، ونبضات cron، وصيانة في الخلفية.</p>
+<p>→ <a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-system">نظام الإضافات (Plugins)</h3>
+<p>ثلاثة مصادر للاكتشاف: <code>~/.hermes/plugins/</code> (للمستخدم)، و<code>.hermes/plugins/</code> (للمشروع)، ونقاط الدخول (entry points) الخاصة بـ pip. تسجّل الإضافات الأدوات والـ hooks وأوامر CLI عبر API للسياق. ويوجد نوعان متخصصان من الإضافات: مزوّدو الذاكرة (<code>plugins/memory/</code>) ومحركات السياق (<code>plugins/context_engine/</code>). وكلاهما أحادي الاختيار — أي لا يمكن تفعيل أكثر من واحد من كل نوع في الوقت نفسه، ويُضبط ذلك عبر <code>hermes plugins</code> أو <code>config.yaml</code>.</p>
+<p>→ <a href="/docs/developer-guide/plugins">دليل الإضافات</a>، <a href="/docs/developer-guide/memory-provider-plugin">إضافة مزوّد الذاكرة</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron">Cron</h3>
+<p>مهام وكيل من الدرجة الأولى (وليست مهام shell). تُخزَّن المهام بصيغة JSON، وتدعم صيغ جدولة متعددة، ويمكن أن تُرفق بها مهارات وسكربتات، وأن تُسلِّم نتائجها إلى أي منصة.</p>
+<p>→ <a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="acp-integration">التكامل مع ACP</h3>
+<p>يكشف Hermes بوصفه وكيلًا أصيلًا داخل المحرّر عبر stdio/JSON-RPC لكلٍّ من VS Code و Zed و JetBrains.</p>
+<p>→ <a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="trajectories">مسارات التنفيذ (Trajectories)</h3>
+<p>يولّد trajectories بصيغة ShareGPT من جلسات الوكيل لإنتاج بيانات التدريب.</p>
+<p>→ <a href="/docs/developer-guide/trajectory-format">صيغة Trajectories والتدريب</a></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="design-principles">مبادئ التصميم</h2>
+<table><thead><tr><th>المبدأ</th><th>ما يعنيه عمليًا</th></tr></thead><tbody><tr><td><strong>ثبات الـ Prompt</strong></td><td>لا يتغيّر الـ system prompt في منتصف المحادثة. ولا توجد تعديلات تكسر التخزين المؤقت إلا عبر إجراءات صريحة من المستخدم (<code>/model</code>).</td></tr><tr><td><strong>تنفيذ قابل للمراقبة</strong></td><td>كل استدعاء لأداة مرئي للمستخدم عبر الاستدعاءات العكسية. تظهر تحديثات التقدّم في CLI (مؤشر دوّار) وفي الـ gateway (رسائل المحادثة).</td></tr><tr><td><strong>قابل للمقاطعة</strong></td><td>يمكن إلغاء استدعاءات API وتنفيذ الأدوات أثناء عملها عبر مدخلات المستخدم أو الإشارات (signals).</td></tr><tr><td><strong>نواة مستقلة عن المنصة</strong></td><td>صنف AIAgent واحد يخدم CLI، والـ gateway، و ACP، والمعالجة الدفعية، وخادم API. وتقع الفروقات بين المنصات في نقطة الدخول، لا في الوكيل.</td></tr><tr><td><strong>اقتران مرن</strong></td><td>تستخدم الأنظمة الفرعية الاختيارية (MCP، والإضافات، ومزوّدو الذاكرة، وبيئات RL) أنماط السجلات (registry) والتقييد عبر check_fn، لا الاعتماديات الصلبة.</td></tr><tr><td><strong>عزل الـ Profiles</strong></td><td>يحصل كل profile (<code>hermes -p &lt;name&gt;</code>) على HERMES_HOME وإعدادات وذاكرة وجلسات ومعرّف عملية (PID) للـ gateway خاصة به. ويمكن تشغيل عدة profiles بالتزامن.</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-dependency-chain">سلسلة اعتماديات الملفات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تعني هذه السلسلة أن تسجيل الأدوات يحدث عند الاستيراد، قبل إنشاء أي نسخة من الوكيل. يُكتشف تلقائيًا أي ملف <code>tools/*.py</code> يحتوي على استدعاء <code>registry.register()</code> في المستوى الأعلى — دون الحاجة إلى قائمة استيراد يدوية.</p>

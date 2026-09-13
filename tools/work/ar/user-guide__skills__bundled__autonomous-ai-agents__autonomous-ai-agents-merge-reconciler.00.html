@@ -1,0 +1,145 @@
+
+<header><h1>Merge Reconciler</h1></header>
+<p>حلّ محايد من طرف ثالث لتعارضات الدمج (merge conflicts) بين الوكلاء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/autonomous-ai-agents\merge-reconciler</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Multi-Agent</code>, <code>Git</code>, <code>Merge-Conflict</code>, <code>Kanban</code>, <code>Arbitration</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Merge Reconciler</h1>
+<p>حلّ تعارض دمج (merge conflict) في git بين فرعَي وكيلَين (AGENTS)، بصفتك طرفًا ثالثًا
+محايدًا. الوكلاء الذين يحلّون التعارضات مقابل عمل نظير لهم يميلون بشكل موثوق إما إلى
+الكتابة فوق عمل النظير أو التخلي عن تغييرهم الخاص — فهم يفتقرون إلى سياق النظير
+وينحازون لجانبهم. هذه المهارة هي الحل: مُوفِّق محايد يستلم كلا الفرقين (diffs)
+مع النوايا المُصرَّح بها من الجانبين وينتج نتيجة مدمجة، مثل حَكَم قائمة الدمج
+(merge-queue arbiter).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>عندما يتصادم فرعا/worktree لوكيلين أثناء حملة عمل متوازية (خط أنابيب هندسي
+على Kanban، موجة PR متوازية، إعادة هيكلة عبر عدة worktrees).</li>
+<li>عندما يتوقف <code>git merge</code> أو <code>git rebase</code> بسبب تعارضات بين عمل وكيلين ولا
+ينبغي لأيٍّ من الوكيلين الأصليين أن يحكم بنفسه.</li>
+<li>لا تستخدمها للتعارضات داخل عمل وكيل واحد، أو للتعارضات التافهة في ملفات
+القفل (lockfile) أو الملفات المولَّدة (أعد توليدها بدلًا من ذلك).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>نسخة مسحوبة (checkout) من المستودع تحتوي على الدمج المتوقف، أو اسما الفرعين
+مع صلاحية تنفيذ الدمج بنفسك.</li>
+<li>مصادر نية كلا الجانبين: ملخصات إنجاز Kanban (عبر <code>terminal</code> بتشغيل
+<code>hermes kanban show &lt;task-id&gt;</code>)، أو نص PR، أو على الأقل رسائل commit كل فرع.</li>
+<li>أمر البناء/الاختبار الخاص بالمشروع، إن وُجد.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p><strong>مستقلة (Standalone)</strong> — يستدعي إنسان (أو وكيل) هذه المهارة داخل المستودع
+المتعارض: حمّل المهارة، ثم اتبع الإجراء من الأعلى إلى الأسفل.</p>
+<p><strong>وكيل محايد يُستدعى (Spawned)</strong> — الشكل المفضّل في الحملات متعددة الوكلاء:</p>
+<ul>
+<li><code>delegate_task</code>: أنشئ subagent تحتوي رسالة مهمته على مسار المستودع، واسمَي
+الفرعين، وملخصَي نية الجانبين حرفيًا، بالإضافة إلى تعليمة باتباع هذه المهارة.</li>
+<li>أسلوب مبني على Kanban: أنشئ بطاقة توفيق (reconciliation) مُسندة إلى
+<strong>profile ثالث</strong> (ليس profile أيٍّ من العاملَين) مع ربط كلتا البطاقتين
+المتعارضتين كأبوين لها —
+<code>kanban_create(title=&quot;reconcile branch-a x branch-b&quot;, assignee=&quot;reconciler&quot;, parents=[&quot;t_a&quot;, &quot;t_b&quot;])</code>. تنقل روابط الأصل ملخصات إنجاز
+الجانبين تلقائيًا إلى سياق المُوفِّق؛ وينبغي أن يذكر نص البطاقة مسار المستودع
+والفرعين.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>فئة الجزء المتعارض (hunk)</th><th>التعريف</th><th>الحل</th></tr></thead><tbody><tr><td>disjoint-intent (نيّة منفصلة)</td><td>التغييران يخدمان هدفين مختلفين ويمكن أن يتعايشا</td><td>ادمج كليهما</td></tr><tr><td>same-question-different-answer (سؤال واحد بإجابتين)</td><td>أجاب الجانبان عن سؤال تصميم واحد بإجابتين مختلفتين</td><td>اختر إجابة واحدة وفق النوايا المُصرَّح بها؛ واعرض القرار</td></tr><tr><td>superseded (تجاوزه الزمن)</td><td>لم تعد فرضية أحد الجانبين قائمة بعد تغيير الآخر</td><td>أبقِ على الجانب الصامد؛ ودوّن السبب</td></tr></tbody></table>
+<p>عقد الحياد: لا تُفضّل أبدًا الجانب الذي استدعاك؛ اقتصر على تعديل المناطق
+المتعارضة فقط (بلا تعديلات عرضية)؛ ويجب أن يظهر كل اختيار لسؤال تصميم صراحةً
+في ملخص التسليم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-gather-both-sides">1. اجمع الجانبين</h3>
+<ul>
+<li>نفّذ عبر <code>terminal</code>: <code>git status</code> (للتأكد من حالة التعارض وسرد الملفات
+المتعارضة)، ثم <code>git merge-base &lt;A&gt; &lt;B&gt;</code>، ثم لكل جانب
+<code>git log --oneline &lt;base&gt;..&lt;side&gt;</code> و <code>git diff &lt;base&gt;..&lt;side&gt; -- &lt;file&gt;</code>
+لكل ملف متعارض. في الدمج المتوقف، يمثّل <code>HEAD</code> أحد الجانبين ويمثّل
+<code>MERGE_HEAD</code> الجانب الآخر.</li>
+<li>اجمع نية كل جانب: <code>hermes kanban show &lt;task-id&gt;</code> لملخصات/بيانات الإنجاز
+الوصفية، أو نص PR، أو رسائل commit من السجل أعلاه. دوّن جملة واحدة تلخّص
+نية كل جانب قبل لمس أي ملف.</li>
+<li>تنتهي هذه الخطوة عندما تستطيع صياغة نية الجانبين بكلماتك وتمتلك كلا
+الفرقين (diffs) لكل ملف متعارض.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-classify-every-conflicted-hunk">2. صنّف كل جزء متعارض (hunk)</h3>
+<ul>
+<li>افتح كل ملف متعارض باستخدام <code>read_file</code> وحدّد موضع كل كتلة
+<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>/<code>=======</code>/<code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>.</li>
+<li>أسنِد لكل جزء فئة واحدة بالضبط من جدول المرجع السريع، بالحكم استنادًا
+إلى النوايا المُصرَّح بها — لا إلى أي التغييرين يبدو أفضل.</li>
+<li>إذا احتوى جزء واحد على عدة قرارات مستقلة (مثلًا منطق جديد يندمج بسلاسة
+مع اختيار أسلوب/تقريب أجاب عنه الجانبان بشكل مختلف)، فكِّكه إلى قرارات
+فرعية وصنّف كل واحد منها.</li>
+<li>غالبًا ما يمزج الملف الواحد بين عدة فئات: قد يكون جزء تصادمًا تصميميًا
+بينما يكون الجزء المجاور منفصل النية. صنّف حسب الجزء لا حسب الملف.</li>
+<li>تنتهي هذه الخطوة عندما تحصل كل جزء على فئة مكتوبة ومسوّغ من سطر واحد.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-resolve-under-the-impartiality-contract">3. الحلّ بموجب عقد الحياد</h3>
+<ul>
+<li>عدّل كل جزء باستخدام <code>patch</code> (أو <code>write_file</code> لإعادة كتابة الملف كاملًا):
+<ul>
+<li>disjoint-intent ← ادمج التغييرين معًا بحيث تُخدَم كل نية بالكامل.</li>
+<li>same-question-different-answer ← اختر الإجابة الأنسب للنوايا
+المُصرَّح بها (مثلًا نية «التحقق الصارم» تتغلّب على «قيمة افتراضية سريعة»
+إذا كانت المهمة تتطلب الدقة). لا تقسّم الفارق أبدًا إلى حل هجين لم
+يطلبه أي جانب.</li>
+<li>superseded ← أبقِ على الجانب الصامد؛ واحذف الفرضية الميتة.</li>
+</ul>
+</li>
+<li>لا تُفضّل أبدًا الجانب الذي استدعاك. وإذا تعادلت النوايا فعلًا، صعّد الأمر
+(عطّل بطاقة Kanban / أبلغ عن ذلك) بدلًا من التخمين.</li>
+<li>لا تغيّر شيئًا خارج علامات التعارض — بلا تنسيق أو إعادة تسمية أو
+إصلاحات عرضية.</li>
+<li>نفّذ <code>git add</code> لكل ملف مُحلّ عبر <code>terminal</code>.</li>
+<li>تنتهي هذه الخطوة عندما لا يجد <code>search_files</code> أي علامات <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>
+في المستودع ويكون كل ملف محلول مُهيَّأً (staged).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-verify">4. التحقق</h3>
+<ul>
+<li>شغّل بناء/اختبارات المشروع عبر <code>terminal</code>؛ وفي أقل الأحوال استورد/نفّذ
+الوحدات (modules) التي طالها التعديل. يجب أن تكون كلتا النيتين ملحوظتين
+في السلوك المدموج (مثلًا الدلالات الجديدة للجانب A والإضافة المنفصلة
+للجانب B، كلتاهما حاضرة).</li>
+<li>أكمل الدمج: <code>git commit</code> (تكفي رسالة الدمج الافتراضية مع نص يسرد
+قرارات الأجزاء).</li>
+<li>تنتهي هذه الخطوة عند نجاح التحقق ووجود commit الدمج.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-hand-back">5. التسليم</h3>
+<ul>
+<li>أنتج ملخص إنجاز يذكر كل قرار جزء (hunk):
+<code>file:lines — class — which side(s) kept — rationale</code>. ولكل جزء من نوع
+same-question-different-answer، اذكر سؤال التصميم والإجابة التي اخترتها
+حتى يتمكن إنسان من الاعتراض عليها — لا تُخفِ قرارًا تصميميًا أبدًا.</li>
+<li>على Kanban: <code>kanban_complete(summary=...)</code>. في الوضع المستقل: اطبع
+الملخص.</li>
+<li>تنتهي هذه الخطوة عند تسليم الملخص وسرده لكل الأجزاء.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>التحيّز الذاتي</strong>: إذا استدعاك أحد الوكيلين المتعارضين، فأنت منحاز
+بنيويًا — أقرّ بذلك ورجّح نية الجانب الآخر عمدًا. يُفضَّل استخدام شكل
+الـ profile الثالث كي لا ينشأ هذا الموقف أصلًا.</li>
+<li><strong>تقسيم الفارق</strong> في تصادم تصميمي ينتج حلًا هجينًا لم يصممه أحد؛ اختر
+إجابة واحدة واعرضها.</li>
+<li><strong>التصنيف حسب الملف</strong>: غالبًا ما تمزج الملفات بين فئات الأجزاء؛ تصنيف
+ملف كامل كفئة واحدة يُسقط بصمت تغييرًا منفصل النية.</li>
+<li><strong>التعديلات العرضية</strong> تجعل الدمج غير قابل للمراجعة وتسلب القرار من
+الوكيلين الأصليين.</li>
+<li><strong>غياب النوايا</strong>: قد تكون رسائل commit وحدها ضعيفة المحتوى؛ فضّل ملخصات
+إنجاز Kanban أو نصوص PR. وإذا تعذّر استرداد نية أي جانب، صعّد الأمر بدلًا
+من التخمين.</li>
+<li><strong>المخالفون المتكررون</strong>: تكرار التعارضات على نفس الملف عبر جولات متتالية
+هو مؤشر بؤرة مشكلة (hotspot)، وليس عملًا اعتياديًا للتوفيق — أبلغ عنه
+(مثلًا بتعليق Kanban على شكل <code>hotspot: &lt;path&gt; — &lt;reason&gt;</code>) كي يقوم
+المنسّق (orchestrator) بتفكيك ذلك الملف، بدلًا من التوفيق التسلسلي في
+كل تصادم جديد عليه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li>يُظهر <code>git status</code> شجرة نظيفة على الفرع الهدف مع وجود commit الدمج.</li>
+<li>لا تبقى أي علامات تعارض (نمط <code>search_files</code> هو <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>).</li>
+<li>تنجح عمليات البناء/الاختبار؛ وتكون نوايا الجانبين حاضرة بوضوح، أو يُذكر
+صراحةً في الملخص الجانب المُسقَط إن وُجد.</li>
+<li>يسرد ملخص التسليم كل جزء (hunk) مع فئته ومسوّغه.</li>
+</ul>

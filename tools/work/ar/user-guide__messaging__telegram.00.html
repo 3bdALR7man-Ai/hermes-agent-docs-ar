@@ -1,0 +1,187 @@
+<header><h1>إعداد Telegram</h1></header>
+<p>يتكامل Hermes Agent مع Telegram كبوت محادثة متكامل الميزات. وبعد الربط، يمكنك محادثة وكيلك من أي جهاز، وإرسال مذكرات صوتية تُفرَّغ نصيًا تلقائيًا، وتلقي نتائج المهام المجدولة، واستخدام الوكيل في المحادثات الجماعية. وقد بُني هذا التكامل على <a href="https://python-telegram-bot.org/" data-ext>python-telegram-bot</a>، ويدعم النصوص والرسائل الصوتية والصور والملفات المرفقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-setup-dashboard-and-desktop-app">الإعداد السريع (لوحة التحكم وتطبيق سطح المكتب)</h2>
+<p>تحتوي صفحة <strong>Messaging → Telegram</strong> في <a href="/docs/user-guide/features/web-dashboard">لوحة التحكم</a> وفي <a href="/docs/user-guide/desktop">تطبيق سطح المكتب</a> على زر <strong>Create with QR</strong>. امسح الرمز (أو افتح الرابط) في Telegram؛ فيُنشئ Hermes البوت نيابةً عنك، ويكتشف معرّف مستخدم Telegram الخاص بك، ويكتب <code>TELEGRAM_BOT_TOKEN</code> و <code>TELEGRAM_ALLOWED_USERS</code> في ملف <code>.env</code> الخاص بالـ profile لديك، ثم يعيد تشغيل gateway. وإذا كنت تفضّل إنشاء البوت بنفسك، فاتبع الخطوات اليدوية أدناه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-bot-via-botfather">الخطوة 1: إنشاء بوت عبر BotFather</h2>
+<p>يتطلب كل بوت على Telegram رمز API (token) يصدره <a href="https://t.me/BotFather" data-ext>@BotFather</a>، وهو الأداة الرسمية لإدارة البوتات في Telegram.</p>
+<ol>
+<li>افتح Telegram وابحث عن <strong>@BotFather</strong>، أو زُر <a href="https://t.me/BotFather" data-ext>t.me/BotFather</a></li>
+<li>أرسل <code>/newbot</code></li>
+<li>اختر <strong>اسم العرض</strong> (مثل &quot;Hermes Agent&quot;) — يمكن أن يكون أي اسم</li>
+<li>اختر <strong>اسم المستخدم</strong> — يجب أن يكون فريدًا وأن ينتهي بـ <code>bot</code> (مثل <code>my_hermes_bot</code>)</li>
+<li>يرد BotFather بـ <strong>API token</strong> الخاص بك. ويبدو هكذا:</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="59"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>احتفظ بـ token البوت سرًّا. فأي شخص يملك هذا الـ token يستطيع التحكم في بوتك. وإذا تسرّب، فألغِه فورًا عبر <code>/revoke</code> في BotFather.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-customize-your-bot-optional">الخطوة 2: تخصيص بوتك (اختياري)</h2>
+<p>تحسّن أوامر BotFather التالية تجربة المستخدم. راسل @BotFather واستخدم:</p>
+<table><thead><tr><th>الأمر</th><th>الغرض</th></tr></thead><tbody><tr><td><code>/setdescription</code></td><td>نص &quot;What can this bot do?&quot; الذي يظهر قبل أن يبدأ المستخدم المحادثة</td></tr><tr><td><code>/setabouttext</code></td><td>نص قصير في صفحة الملف التعريفي للبوت</td></tr><tr><td><code>/setuserpic</code></td><td>رفع صورة رمزية لبوتك</td></tr><tr><td><code>/setcommands</code></td><td>تحديد قائمة الأوامر (زر <code>/</code> في المحادثة)</td></tr><tr><td><code>/setprivacy</code></td><td>التحكم في ما إذا كان البوت يرى جميع رسائل المجموعة (انظر الخطوة 3)</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="60"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>بالنسبة إلى <code>/setcommands</code>، إليك مجموعة بداية مفيدة:</p><div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="onlineoffline-status-indicator-optional">مؤشر حالة الاتصال Online/Offline (اختياري)</h3>
+<p>لا تملك بوتات Telegram نقطة حضور حقيقية تدل على الاتصال أو عدمه — فتلك النقطة الخضراء ميزة خاصة
+<em>بحسابات المستخدمين</em>، وليست شيئًا توفّره Bot API للبوتات. وأقرب بديل
+لها هو <strong>الوصف القصير</strong> للبوت (السطر الذي يظهر أسفل اسمه في
+صفحة الملف التعريفي للبوت).</p>
+<p>فعّل <code>status_indicator</code> وسيضبط Hermes هذا الوصف القصير على <strong>Online</strong>
+عند اتصال gateway، وعلى <strong>Offline</strong> عند الإيقاف النظيف:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>الوصف القصير <strong>عام</strong> على مستوى البوت (مرئي لجميع المستخدمين)، وليس
+خاصًا بكل محادثة. ويراه المستخدمون في صفحة الملف التعريفي للبوت، لا كشارة مباشرة داخل
+محادثة مفتوحة.</li>
+<li>لا يكتب &quot;Offline&quot; إلا إيقاف gateway <strong>النظيف</strong> (<code>/stop</code>، <code>disconnect</code>).
+أما الانهيار المفاجئ فيترك آخر حالة معروفة — وهذا قيد متأصل في أي مؤشر
+يعتمد على نص الملف التعريفي.</li>
+<li>معطّل افتراضيًا، لأنه يعدّل الملف التعريفي العام للبوت.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="command-menu-priority-and-cap-optional">أولوية قائمة الأوامر وحدّها الأقصى (اختياري)</h3>
+<p>يسجّل Hermes قائمة أوامره تلقائيًا عند بدء gateway الخاص بـ Telegram. وتُبنى القائمة من السجل المركزي للـ slash commands بالإضافة إلى أوامر الإضافات والمهارات المؤهلة، ثم تُقيَّد بحد أقصى كي يقبل Telegram الحمولة (payload) بشكل موثوق. والحد الافتراضي 60 أمرًا — وهو كافٍ لإبقاء جميع الأوامر المدمجة إلى جانب أوامر المهارات الشائعة ظاهرة.</p>
+<p>إذا كانت لديك أوامر مهارات أو إضافات أو أوامر مدمجة يجب أن تبقى ظاهرة في منتقي <code>/</code> في Telegram، فامنحها الأولوية في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يتحكم <code>priority_mode</code> في كيفية دمج قائمتك مع قائمة الأولويات المدمجة في Hermes:</p>
+<ul>
+<li><code>prepend</code>: ضع أوامرك أولًا، ثم الأوامر الافتراضية في Hermes</li>
+<li><code>append</code>: أبقِ الأوامر الافتراضية في Hermes أولًا، ثم أوامرك</li>
+<li><code>replace</code>: استخدم قائمتك وحدها لترتيب الأولويات</li>
+</ul>
+<p>تُطبَّق الأولوية على قائمة المرشحين <strong>المدمجة</strong> (الأوامر الأساسية وأوامر الإضافات وأوامر المهارات) قبل فرض الحد الأقصى — لذا يُضمن لأمر المهارة ذي الأولوية مكان في القائمة حتى عندما تكفي الأوامر الأساسية وحدها لملء القائمة. في السابق كانت المهارات تُقتطع دائمًا أولًا وبالترتيب الأبجدي، فلم يكن بإمكان المهارات المتأخرة أبجديًا أن تظهر أبدًا بغض النظر عن <code>priority</code>.</p>
+<p>يسمح Telegram بما يصل إلى 100 من BotCommands، لكن حمولات الأوامر الكبيرة قد تفشل. لذا يستخدم Hermes القيمة 60 افتراضيًا من أجل الموثوقية، ويحصر القيم المضبوطة ضمن النطاق <code>1..100</code>؛ واستخدم <code>/commands</code> لعرض قائمة الأوامر الكاملة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inline-command-picker-search-every-command-no-cap">منتقي الأوامر المضمّن (inline): ابحث في كل الأوامر (بلا حد أقصى)</h3>
+<p>قائمة <code>/</code> محدودة بحد أقصى، أما <strong>الوضع المضمّن (inline mode)</strong> في Telegram فليس كذلك. بعد تفعيله، اكتب <code>@yourbotname</code> متبوعًا بعبارة بحث في أي محادثة لتحصل على منتقٍ مباشر قابل للبحث يشمل <strong>كل</strong> أوامر Hermes والمهارات المثبّتة — إذ تُحتسب النتائج مع كل ضغطة مفتاح وتُقسَّم إلى صفحات، فلا يُقتطع منها شيء أبدًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تُصفّي الكلمة الأولى الكتالوج؛ وكل ما يليها يُمرَّر إلى الأمر المُرسل كوسيط له. والنقر على نتيجة يرسل الأمر كرسالة عادية منك، فيُعالَج عبر مسار الأوامر القياسي (فالرسائل التي تبدأ ببادئة أمر تصل إلى البوت حتى مع تفعيل وضع الخصوصية).</p>
+<p><strong>إعداد لمرة واحدة:</strong> الوضع المضمّن معطّل افتراضيًا في كل بوت على Telegram. فعّله في <a href="https://t.me/BotFather" data-ext>@BotFather</a> باستخدام <code>/setinline</code> (اختر بوتك، واضبط أي نص توضيحي، مثل <code>Search commands and skills...</code>). وإلى أن تفعل ذلك، لن يسلّم Telegram أي استعلامات مضمّنة وسيبقى المنتقي معطّلًا.</p>
+<p>لا تُقدَّم النتائج إلا للمستخدمين الذين يجتازون قائمة السماح (allowlist) الخاصة بـ gateway — أما المستخدمون غير المصرّح لهم فيحصلون على قائمة فارغة، فلا ينكشف كتالوج المهارات المثبّتة لديك للغرباء (إذ يمكن إرسال الاستعلامات المضمّنة من أي محادثة، حتى تلك التي ليس البوت عضوًا فيها).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-privacy-mode-critical-for-groups">الخطوة 3: وضع الخصوصية (بالغ الأهمية للمجموعات)</h2>
+<p>تملك بوتات Telegram <strong>وضع خصوصية</strong> يكون <strong>مفعّلًا افتراضيًا</strong>. وهذا هو المصدر الأكثر شيوعًا للالتباس عند استخدام البوتات في المجموعات.</p>
+<p><strong>عندما يكون وضع الخصوصية مفعّلًا</strong>، لا يستطيع بوتك أن يرى إلا:</p>
+<ul>
+<li>الرسائل التي تبدأ بأمر <code>/</code></li>
+<li>الردود المباشرة على رسائل البوت نفسه</li>
+<li>رسائل الخدمة (انضمام الأعضاء/مغادرتهم، والرسائل المثبّتة، إلخ)</li>
+<li>الرسائل في القنوات التي يكون فيها البوت مشرفًا</li>
+</ul>
+<p><strong>عندما يكون وضع الخصوصية معطّلًا</strong>، يتلقى البوت كل رسالة في المجموعة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-disable-privacy-mode">كيفية تعطيل وضع الخصوصية</h3>
+<ol>
+<li>راسل <strong>@BotFather</strong></li>
+<li>أرسل <code>/mybots</code></li>
+<li>اختر بوتك</li>
+<li>انتقل إلى <strong>Bot Settings → Group Privacy → Turn off</strong></li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="61"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>يجب عليك إزالة البوت من أي مجموعة ثم إضافته إليها مجددًا</strong> بعد تغيير إعداد الخصوصية. إذ يخزّن Telegram حالة الخصوصية مؤقتًا عند انضمام البوت إلى مجموعة، ولن تتحدّث حتى تُزيل البوت وتضيفه من جديد.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="62"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>بديل لتعطيل وضع الخصوصية: رقِّ البوت إلى <strong>مشرف في المجموعة</strong>. فالبوتات المشرفة تتلقى جميع الرسائل دائمًا بغض النظر عن إعداد الخصوصية، وهذا يغنيك عن تبديل وضع الخصوصية العام.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="observe-group-chatter-without-auto-replying">مراقبة أحاديث المجموعة دون رد تلقائي</h3>
+<p>للحصول على سلوك في المجموعات مشابه لما في OpenClaw/Yuanbao، اضبط Telegram بحيث يستطيع البوت <strong>رؤية</strong> رسائل المجموعة العادية لكنه لا <strong>يرد</strong> إلا عند استدعائه مباشرةً:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>عند تفعيل هذا الوضع، تُلحق رسائل المجموعة التي لا تتضمن إشارة إلى البوت، والقادمة من محادثات/مواضيع مدرجة صراحةً في قائمة السماح، بسجل جلسة المحادثة/الموضوع المشتركة كسياق مُلاحَظ، لكنها لا تُطلق الوكيل. يحدد <code>allowed_chats</code> الأماكن التي يرد فيها البوت؛ بينما يصرّح <code>group_allowed_chats</code> بجلسة المجموعة المشتركة المستخدمة للسياق المُلاحَظ، لذا استخدم معرّفات المحادثات نفسها لهذا الوضع. ويمكن لإشارة لاحقة بـ <code>@botname</code>، أو رد على البوت، أو نمط إشارة مضبوط في المحادثة/الموضوع نفسه المدرج في قائمة السماح، أن يستفيد من ذلك السياق المُلاحَظ. كما تُوسم الرسالة التي أطلقت الوكيل بـ <code>[nickname|user_id]</code> وتحصل على prompt أمان خاص بكل دور، كي يتعامل النموذج مع الأسطر المُلاحَظة السابقة كسياق، لا كتعليمات موجّهة إلى البوت.</p>
+<p>متغير البيئة المكافئ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يتطلب ذلك أن يسلّم Telegram رسائل المجموعة العادية إلى gateway، لذا عطّل وضع الخصوصية في BotFather أو رقِّ البوت إلى مشرف في المجموعة كما هو موضح أعلاه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-find-your-user-id">الخطوة 4: العثور على معرّف المستخدم الخاص بك</h2>
+<p>يستخدم Hermes Agent معرّفات مستخدمي Telegram الرقمية للتحكم في الوصول. ومعرّف المستخدم الخاص بك <strong>ليس</strong> اسم المستخدم — بل هو رقم مثل <code>123456789</code>.</p>
+<p><strong>الطريقة 1 (موصى بها):</strong> راسل <a href="https://t.me/userinfobot" data-ext>@userinfobot</a> — وسيرد فورًا بمعرّف المستخدم الخاص بك.</p>
+<p><strong>الطريقة 2:</strong> راسل <a href="https://t.me/get_id_bot" data-ext>@get_id_bot</a> — وهو خيار موثوق آخر.</p>
+<p>احفظ هذا الرقم؛ فستحتاج إليه في الخطوة التالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-configure-hermes">الخطوة 5: إعداد Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار A: الإعداد التفاعلي (موصى به)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>اختر <strong>Telegram</strong> عند المطالبة. سيطلب منك المعالج token البوت ومعرّفات المستخدمين المسموح لهم، ثم يكتب الإعدادات نيابةً عنك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار B: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>من المفترض أن يصبح البوت متصلًا خلال ثوانٍ. أرسل إليه رسالة على Telegram للتحقق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-generated-files-from-docker-backed-terminals">إرسال الملفات المُولَّدة من طرفيات تعمل على Docker</h2>
+<p>إذا كان الـ terminal backend لديك هو <code>docker</code>، فتذكّر أن مرفقات Telegram
+تُرسل من <strong>عملية gateway</strong>، لا من داخل الحاوية. وهذا يعني أن
+مسار <code>MEDIA:/...</code> النهائي يجب أن يكون قابلًا للقراءة على الجهاز المضيف الذي يعمل عليه
+gateway.</p>
+<p>خطأ شائع:</p>
+<ul>
+<li>يكتب الوكيل ملفًا داخل Docker في <code>/workspace/report.txt</code></li>
+<li>يُخرج النموذج <code>MEDIA:/workspace/report.txt</code></li>
+<li>يفشل التسليم عبر Telegram لأن <code>/workspace/report.txt</code> موجود فقط داخل
+الحاوية، لا على الجهاز المضيف</li>
+</ul>
+<p>النمط الموصى به:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>ثم:</p>
+<ul>
+<li>اكتب الملفات داخل Docker في <code>/output/...</code></li>
+<li>أخرج المسار <strong>المرئي من الجهاز المضيف</strong> في <code>MEDIA:</code>، على سبيل المثال:
+<code>MEDIA:/home/user/.hermes/cache/documents/report.txt</code></li>
+</ul>
+<p>إذا كان لديك قسم <code>docker_volumes:</code> بالفعل، فأضف نقطة الربط الجديدة إلى القائمة
+نفسها. فالمفاتيح المكررة في YAML تلغي المفاتيح السابقة بصمت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-media-file-extensions">امتدادات الملفات المدعومة في <code>MEDIA:</code></h3>
+<p>يستخرج gateway وسوم <code>MEDIA:/path/to/file</code> من ردود الوكيل ويرسل الملف المشار إليه كمرفق أصلي على المنصة. وفيما يلي الامتدادات المدعومة عبر جميع منصات gateway:</p>
+<table><thead><tr><th>الفئة</th><th>الامتدادات</th></tr></thead><tbody><tr><td>الصور</td><td><code>png</code>, <code>jpg</code>, <code>jpeg</code>, <code>gif</code>, <code>webp</code>, <code>bmp</code>, <code>tiff</code>, <code>svg</code></td></tr><tr><td>الصوت</td><td><code>mp3</code>, <code>wav</code>, <code>ogg</code>, <code>m4a</code>, <code>opus</code>, <code>flac</code>, <code>aac</code></td></tr><tr><td>الفيديو</td><td><code>mp4</code>, <code>mov</code>, <code>webm</code>, <code>mkv</code>, <code>avi</code></td></tr><tr><td><strong>المستندات</strong></td><td><code>pdf</code>, <code>txt</code>, <code>md</code>, <code>csv</code>, <code>json</code>, <code>xml</code>, <code>html</code>, <code>yaml</code>, <code>yml</code>, <code>log</code></td></tr><tr><td><strong>ملفات Office</strong></td><td><code>docx</code>, <code>xlsx</code>, <code>pptx</code>, <code>odt</code>, <code>ods</code>, <code>odp</code></td></tr><tr><td><strong>الأرشيفات المضغوطة</strong></td><td><code>zip</code>, <code>rar</code>, <code>7z</code>, <code>tar</code>, <code>gz</code>, <code>bz2</code></td></tr><tr><td><strong>الكتب / الحزم</strong></td><td><code>epub</code>, <code>apk</code>, <code>ipa</code></td></tr></tbody></table>
+<p>كل ما في هذه القائمة يُسلَّم كمرفق أصلي على المنصات التي تدعم ذلك (Telegram و Discord و Signal و Slack و WhatsApp و Feishu و Matrix وغيرها)؛ أما على المنصات التي لا تدعمه أصليًا فيُستعاض عنه برابط أو بمؤشر نصي عادي. وقد أُضيفت الفئات المكتوبة <strong>بخط عريض</strong> في الإصدارات القليلة الأخيرة — فإذا كنت تعتمد بدلًا من ذلك على أن يقول النموذج <code>here is the file: /path/to/report.docx</code>، فانتقل إلى <code>MEDIA:/path/to/report.docx</code> للحصول على تسليم أصلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-mode">وضع Webhook</h2>
+<p>افتراضيًا، يتصل Hermes بـ Telegram باستخدام <strong>long polling</strong> — إذ يرسل gateway طلبات صادرة إلى خوادم Telegram لجلب التحديثات الجديدة. ويعمل هذا جيدًا في عمليات النشر المحلية والعاملة دائمًا.</p>
+<p>أما في <strong>عمليات النشر السحابية</strong> (Fly.io و Railway و Render وغيرها)، فإن <strong>وضع webhook</strong> أوفر تكلفة. إذ يمكن لهذه المنصات إيقاظ الأجهزة المعلّقة تلقائيًا عند وصول حركة HTTP واردة، لكن ليس عند الاتصالات الصادرة. وبما أن الاستطلاع (polling) اتصال صادر، فإن البوت الذي يعتمد عليه لا يمكنه الدخول في وضع السكون أبدًا. أما وضع webhook فيعكس الاتجاه — إذ يدفع Telegram التحديثات إلى HTTPS URL الخاص ببوتك، مما يتيح عمليات نشر تنام عند الخمول.</p>
+<table><thead><tr><th></th><th>Polling (الافتراضي)</th><th>Webhook</th></tr></thead><tbody><tr><td>الاتجاه</td><td>Gateway → Telegram (صادر)</td><td>Telegram → Gateway (وارد)</td></tr><tr><td>الأنسب لـ</td><td>الخوادم المحلية والعاملة دائمًا</td><td>المنصات السحابية التي تدعم الإيقاظ التلقائي</td></tr><tr><td>الإعداد</td><td>لا حاجة إلى إعدادات إضافية</td><td>اضبط <code>TELEGRAM_WEBHOOK_URL</code></td></tr><tr><td>تكلفة الخمول</td><td>يجب أن يبقى الجهاز قيد التشغيل</td><td>يمكن للجهاز الدخول في وضع السكون بين الرسائل</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>TELEGRAM_WEBHOOK_URL</code></td><td>نعم</td><td>HTTPS URL عام يرسل إليه Telegram التحديثات. ويُستخرج مسار URL تلقائيًا (مثل <code>/telegram</code> من المثال أعلاه).</td></tr><tr><td><code>TELEGRAM_WEBHOOK_SECRET</code></td><td><strong>نعم</strong> (عند ضبط <code>TELEGRAM_WEBHOOK_URL</code>)</td><td>token سري يعيده Telegram في كل طلب webhook للتحقق. ويرفض gateway البدء من دونه — راجع <a href="https://github.com/NousResearch/hermes-agent/security/advisories/GHSA-3vpc-7q5r-276h" data-ext>GHSA-3vpc-7q5r-276h</a>. أنشئه باستخدام <code>openssl rand -hex 32</code>.</td></tr><tr><td><code>TELEGRAM_WEBHOOK_PORT</code></td><td>لا</td><td>المنفذ المحلي الذي يستمع عليه خادم webhook (الافتراضي: <code>8443</code>).</td></tr></tbody></table>
+<p>عند ضبط <code>TELEGRAM_WEBHOOK_URL</code>، يشغّل gateway خادم HTTP webhook بدلًا من الاستطلاع. وعند عدم ضبطه، يُستخدم وضع الاستطلاع — دون أي تغيير في السلوك عن الإصدارات السابقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cloud-deployment-example-flyio">مثال على النشر السحابي (Fly.io)</h3>
+<ol>
+<li>أضف متغيرات البيئة إلى أسرار (secrets) تطبيقك على Fly.io:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<ol start="2">
+<li>اكشف منفذ webhook في ملف <code>fly.toml</code> لديك:</li>
+</ol>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<ol start="3">
+<li>انشر التطبيق:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>من المفترض أن يعرض سجل gateway ما يلي: <code>[telegram] Connected to Telegram (webhook mode)</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="proxy-support">دعم Proxy</h2>
+<p>إذا كانت API الخاصة بـ Telegram محجوبة أو كنت بحاجة إلى توجيه حركة المرور عبر proxy، فاضبط proxy URL خاصًا بـ Telegram. وتكون له الأولوية على متغيرات البيئة العامة <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code>.</p>
+<p><strong>الخيار 1: config.yaml (موصى به)</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>الخيار 2: متغير البيئة</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>المخططات (schemes) المدعومة: <code>http://</code>، <code>https://</code>، <code>socks5://</code>.</p>
+<p>ينطبق الـ proxy على كلٍّ من اتصال Telegram الرئيسي ونقل عناوين IP الاحتياطية (fallback). وإذا لم يُضبط proxy خاص بـ Telegram، فيعود gateway إلى <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> / <code>ALL_PROXY</code> (أو الاكتشاف التلقائي لـ proxy النظام في macOS).</p>
+<p>إذا كان مسار اكتشاف عناوين IP الاحتياطية متعثرًا على جهازك المضيف، فاضبط <code>HERMES_TELEGRAM_DISABLE_FALLBACK_IPS=true</code> لإبقاء الاتصال الأولي على مسار <code>api.telegram.org</code> العادي. ويمكنك أيضًا تحديد مهلة للاكتشاف الاحتياطي عبر DNS-over-HTTPS باستخدام <code>HERMES_TELEGRAM_FALLBACK_DISCOVERY_TIMEOUT</code> بالثواني؛ والقيمة الافتراضية <code>5</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية (Home Channel)</h2>
+<p>استخدم الأمر <code>/sethome</code> في أي محادثة على Telegram (رسائل مباشرة أو مجموعة) لتعيينها <strong>قناةً رئيسية</strong>. وتسلّم المهام المجدولة (مهام cron) نتائجها إلى هذه القناة.</p>
+<p>يمكنك أيضًا ضبطها يدويًا في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="63"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>معرّفات المحادثات الجماعية أرقام سالبة (مثل <code>-1001234567890</code>). أما معرّف محادثة الرسائل المباشرة الشخصية فهو نفسه معرّف المستخدم الخاص بك.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-deliveries-in-topic-mode">تسليمات Cron في وضع المواضيع</h3>
+<p>إذا كان وضع المواضيع (topic mode) مفعّلًا في الرسائل المباشرة مع بوتك، فإن رسائل cron المُسلَّمة إلى المحادثة الجذرية تصل إلى الردهة المخصصة للنظام فقط — والرد هناك لا يفتح أي جلسة، وسترى إشعار &quot;main chat is reserved for system commands&quot;. أنشئ موضوع منتدى مخصصًا (مثل <code>Cron</code>) واضبط:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>يتجاوز <code>TELEGRAM_CRON_THREAD_ID</code> قيمة <code>TELEGRAM_HOME_CHANNEL_THREAD_ID</code> في تسليمات cron فقط. والردود في ذلك الموضوع تواصل الجلسة الحالية للموضوع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-messages">الرسائل الصوتية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="incoming-voice-speech-to-text">الصوت الوارد (تحويل الكلام إلى نص)</h3>
+<p>تُفرَّغ الرسائل الصوتية التي ترسلها على Telegram نصيًا تلقائيًا بواسطة مزوّد STT المضبوط في Hermes، ثم تُدرج كنص في المحادثة.</p>
+<ul>
+<li><code>local</code> يستخدم <code>faster-whisper</code> على الجهاز الذي يشغّل Hermes — دون الحاجة إلى مفتاح API</li>
+<li><code>groq</code> يستخدم Groq Whisper ويتطلب <code>GROQ_API_KEY</code></li>
+<li><code>openai</code> يستخدم OpenAI Whisper ويتطلب <code>VOICE_TOOLS_OPENAI_KEY</code></li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="skipping-stt-pass-the-raw-audio-file-to-the-agent">تخطي STT: تمرير الملف الصوتي الخام إلى الوكيل</h4>
+<p>إذا كنت تفضّل أن يتولى <strong>الوكيل نفسه</strong> معالجة الصوت — لتمييز المتحدثين (diarization)، أو لاستخدام أداة تفريغ نصي مخصصة، أو لمجرد أرشفة التسجيل — فاضبط <code>stt.enabled: false</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>عند تعطيل STT، يظل gateway ينزّل المرفق الصوتي إلى ذاكرة التخزين المؤقت للصوت في Hermes، لكنه <strong>لا يفرّغه نصيًا</strong>. ويتلقى الوكيل الرسالة مع علامة مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يمكن لأدواتك أو مهاراتك بعد ذلك قراءة هذا المسار مباشرةً (مثلًا تسليمه إلى pipeline محلي لتمييز المتحدثين، أو إلى نموذج تفريغ نصي أغنى، أو رفعه إلى مساحة تخزين طويلة الأمد). ويعكس امتداد الملف التنسيق الأصلي الذي سلّمه Telegram (<code>.ogg</code> للملاحظات الصوتية، و<code>.mp3</code>/<code>.m4a</code>/إلخ للمرفقات الصوتية).</p>
+<p>ويتكامل هذا بشكل طبيعي مع قسم <a href="#large-files-20mb-via-local-bot-api-server">خادم Bot API المحلي</a> أدناه، الذي يرفع سقف getFile في Telegram من 20MB إلى 2GB — وهذا مفيد عندما تكون التسجيلات التي تريد معالجتها أطول من بضع دقائق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outgoing-voice-text-to-speech">الصوت الصادر (تحويل النص إلى كلام)</h3>
+<p>عندما يولّد الوكيل صوتًا عبر TTS، يُسلَّم على شكل <strong>فقاعات صوتية</strong> أصلية في Telegram — من النوع الدائري القابل للتشغيل داخل المحادثة.</p>
+<ul>
+<li><strong>OpenAI و ElevenLabs</strong> تُنتجان Opus أصليًا — دون الحاجة إلى إعداد إضافي</li>
+<li><strong>Edge TTS</strong> (المزوّد المجاني الافتراضي) يُخرج MP3 ويتطلب <strong>ffmpeg</strong> للتحويل إلى Opus:</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>من دون ffmpeg، يُرسل صوت Edge TTS كملف صوتي عادي (يظل قابلًا للتشغيل، لكنه يستخدم المشغّل المستطيل بدلًا من الفقاعة الصوتية).</p>
+<p>اضبط مزوّد TTS في ملف <code>config.yaml</code> لديك تحت المفتاح <code>tts.provider</code>.</p>

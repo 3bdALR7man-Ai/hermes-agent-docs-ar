@@ -1,0 +1,77 @@
+<header><h1>التفويض والعمل المتوازي</h1></header>
+<p>يستطيع Hermes إنشاء وكلاء فرعيين (subagents) معزولين للعمل على مهام بالتوازي. يحصل كل subagent على محادثته الخاصة، وجلسة طرفية خاصة به، وطقم أدوات (toolset) خاص به. لا يعود إلى سياقك سوى الملخّص النهائي — لا تدخل استدعاءات الأدوات الوسيطة إلى نافذة سياقك أبدًا.</p>
+<p>للمرجع الكامل للميزة، راجع <a href="/docs/user-guide/features/delegation">تفويض المهام إلى Subagents</a>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-delegate">متى تُفوّض</h2>
+<p><strong>مرشحون جيدون للتفويض:</strong></p>
+<ul>
+<li>المهام الفرعية الكثيفة الاستدلال (تصحيح الأخطاء، مراجعة الكود، تجميع نتائج البحث)</li>
+<li>المهام التي قد تُغرق سياقك ببيانات وسيطة</li>
+<li>مسارات عمل مستقلة متوازية (بحث A و B في آن واحد)</li>
+<li>مهام تحتاج سياقًا جديدًا حيث تريد أن يتعامل الوكيل معها دون تحيّز</li>
+</ul>
+<p><strong>استخدم شيئًا آخر عندما:</strong></p>
+<ul>
+<li>استدعاء أداة واحد ← استخدم الأداة مباشرة</li>
+<li>عمل ميكانيكي متعدد الخطوات بمنطق بين الخطوات ← <code>execute_code</code></li>
+<li>مهام تحتاج تفاعل المستخدم ← لا يمكن للـ subagents استخدام <code>clarify</code></li>
+<li>تعديلات ملفات سريعة ← نفّذها مباشرة</li>
+<li>عمل دائم طويل الأمد يجب أن يبقى بعد إغلاق الجلسة أو إعادة تشغيل العملية ← <code>cronjob</code> أو <code>terminal(background=True, notify_on_complete=True)</code>. التفويض على المستوى الأعلى غير متزامن (asynchronous) لكنه يبقى محليًا للعملية نفسها.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-parallel-research">النمط: البحث المتوازي</h2>
+<p>ابحث في ثلاثة مواضيع في آن واحد واحصل على ملخصات منظّمة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>خلف الكواليس، يستخدم Hermes:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تعمل الثلاثة جميعًا بالتزامن. يبحث كل subagent في الويب بشكل مستقل ويعيد ملخصًا. ثم يجمّع الوكيل الأصلي هذه الملخصات في إحاطة متماسكة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-code-review">النمط: مراجعة الكود</h2>
+<p>فوّض مراجعة أمنية إلى subagent بسياق جديد يتعامل مع الكود دون أفكار مسبقة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>المفتاح هو حقل <code>context</code> — يجب أن يتضمن كل ما يحتاجه الـ subagent:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>مشكلة السياق</div><div class="admonitionContent_BuS1"><p>لا يعرف الـ subagents <strong>أي شيء على الإطلاق</strong> عن محادثتك. تبدأ من الصفر تمامًا. إذا فوّضت &quot;أصلح الخطأ الذي كنا نناقشه&quot;، فلن يكون لدى الـ subagent أي فكرة عن الخطأ المقصود. مرّر دائمًا مسارات الملفات ورسائل الأخطاء وبنية المشروع والقيود صراحةً.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-compare-alternatives">النمط: مقارنة البدائل</h2>
+<p>قيّم عدة مقاربات لنفس المشكلة بالتوازي، ثم اختر الأفضل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يبحث كل subagent في خيار واحد بشكل مستقل. ونظرًا لأنها معزولة، لا يوجد تلوّث متبادل — كل تقييم يقف على أسسه الخاصة. يحصل الوكيل الأصلي على الملخصات الثلاثة جميعها ويجري المقارنة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-multi-file-refactoring">النمط: إعادة الهيكلة عبر ملفات متعددة</h2>
+<p>قسّم مهمة إعادة هيكلة كبيرة عبر subagents متوازية، يتولى كل منها جزءًا مختلفًا من قاعدة الكود:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يحصل كل subagent على جلسة طرفية خاصة به. يمكنها العمل على نفس مجلد المشروع دون أن تتعارض مع بعضها البعض — طالما أنها تعدّل ملفات مختلفة. إذا كان اثنان من الـ subagents قد يلمسان نفس الملف، تعامل مع ذلك الملف بنفسك بعد اكتمال العمل المتوازي.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-gather-then-analyze">النمط: الجمع ثم التحليل</h2>
+<p>استخدم <code>execute_code</code> لجمع البيانات الميكانيكي، ثم فوّض التحليل الكثيف الاستدلال:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>هذا غالبًا ما يكون النمط الأكثر كفاءة: يتولى <code>execute_code</code> أكثر من 10 استدعاءات أدوات متسلسلة بتكلفة زهيدة، ثم يقوم subagent بمهمة الاستدلال المكلفة الوحيدة بسياق نظيف.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inherited-tool-access">الوصول الموروث إلى الأدوات</h2>
+<p>ترث الـ subagents toolsets المفعّلة للوكيل الأصل. لا تقبل <code>delegate_task</code> معامل <code>toolsets</code> ظاهرًا للنموذج، لذا لا يستطيع العمل المفوَّض منح نفسه قدرات لا يملكها الوكيل الأصل. اضبط أدوات الوكيل الأصل قبل بدء المحادثة عندما تحتاج مهمة مفوَّضة إلى وصول للويب أو الطرفية أو الملفات أو غيرها. لا يزال Hermes يستبعد الأدوات المحظورة على الأبناء مثل <code>clarify</code> و<code>memory</code> و<code>send_message</code>؛ يحتفظ الأبناء بـ <code>execute_code</code> لاستدعاء الأدوات برمجيًا (Programmatic Tool Calling).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="constraints">القيود</h2>
+<ul>
+<li><strong>10 مهام متوازية افتراضيًا</strong>: تعمل الدفعات افتراضيًا بـ 10 subagents متزامنة (قابلة للضبط عبر <code>delegation.max_concurrent_children</code> في config.yaml، لا سقف أقصى، فقط حدّ أدنى قدره 1)</li>
+<li><strong>التفويض المتداخل اختياري بالانضمام (opt-in)</strong>: لا يمكن لـ subagents الورقية (leaf، الافتراضي) استدعاء <code>delegate_task</code> أو <code>clarify</code> أو <code>memory</code> أو <code>execute_code</code>. تحتفظ الـ subagents المنسّقة (orchestrator، عبر <code>role=&quot;orchestrator&quot;</code>) بـ <code>delegate_task</code> لمزيد من التفويض، لكن فقط عندما تُرفع <code>delegation.max_spawn_depth</code> فوق الافتراضي وهو 1 (حدّ أدنى 1، لا سقف)؛ تبقى الأدوات الثلاث الأخرى محظورة. عطّل هذا عالميًا عبر <code>delegation.orchestrator_enabled: false</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tuning-concurrency-and-depth">ضبط التزامن والعمق</h3>
+<table><thead><tr><th>الإعداد</th><th>القيمة الافتراضية</th><th>النطاق</th><th>الأثر</th></tr></thead><tbody><tr><td><code>max_concurrent_children</code></td><td>10</td><td>&gt;=1</td><td>حجم الدفعة المتوازية لكل استدعاء لـ <code>delegate_task</code></td></tr><tr><td><code>max_spawn_depth</code></td><td>1</td><td>&gt;=1</td><td>عدد مستويات التفويض التي يمكنها إنشاء المزيد</td></tr></tbody></table>
+<p>مثال: تشغيل 30 عاملًا متوازيًا مع subagents متداخلة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<ul>
+<li><strong>أطراف منفصلة (terminals)</strong> — يحصل كل subagent على جلسة طرفية خاصة به بمجلد عمل وحالة منفصلين</li>
+<li><strong>لا سجل محادثة</strong> — لا يرى الـ subagents سوى <code>goal</code> و<code>context</code> اللذين يمرّرهما الوكيل الأصل عند استدعاء <code>delegate_task</code></li>
+<li><strong>250 تكرارًا افتراضيًا</strong> — اضبط <code>delegation.max_iterations</code> على قيمة أقل في <code>config.yaml</code> لأساطيل من المهام البسيطة لتوفير التكلفة</li>
+<li><strong>غير دائم</strong> — يعمل التفويض على المستوى الأعلى في الخلفية وينشر نتيجته لاحقًا، لكنه يبقى مرتبطًا بالجلسة المالكة وعملية Hermes. يمكن لإغلاق الجلسة، أو <code>/stop</code>، أو <code>/new</code>، أو إعادة تشغيل العملية أن تُلغي العمل الجاري أو تتركه معلّقًا. استخدم <code>cronjob</code> أو <code>terminal(background=True, notify_on_complete=True)</code> للعمل الذي يجب أن يبقى بعد هذه الحدود.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tips">نصائح</h2>
+<p><strong>كن محددًا في الأهداف.</strong> &quot;أصلح الخطأ&quot; غامضة جدًا. &quot;أصلح خطأ TypeError في api/handlers.py السطر 47 حيث تستقبل process_request() القيمة None من parse_body()&quot; يمنح الـ subagent ما يكفي للعمل عليه.</p>
+<p><strong>أدرج مسارات الملفات.</strong> لا تعرف الـ subagents بنية مشروعك. أدرج دائمًا المسارات المطلقة للملفات ذات الصلة، وجذر المشروع، وأمر الاختبار.</p>
+<p><strong>استخدم التفويض لعزل السياق.</strong> أحيانًا تريد منظورًا جديدًا. يجبرك التفويض على صياغة المشكلة بوضوح، ويتعامل معها الـ subagent دون الافتراضات التي تراكمت في محادثتك.</p>
+<p><strong>تحقق من النتائج.</strong> ملخصات الـ subagent هي مجرد ملخصات. إذا قال subagent &quot;أصلحت الخطأ والاختبارات تنجح&quot;، تحقق بتشغيل الاختبارات بنفسك أو بقراءة الفرق (diff).</p>
+<p><strong>تظهر الإخفاقات بوضوح.</strong> يُبلَّغ عن subagent يموت (خطأ مزوّد، مهلة، تعطل) بإشعار نظيف من سطر واحد — <code>⚠️ Subagent failed — &quot;your goal&quot;: &lt;reason&gt;</code> — في شجرة التفويض في CLI وكإشعار محادثة على منصات الـ gateway، حتى عندما يكون عرض تقدم الأداة مُطفأً. يتلقى الوكيل الأصل أيضًا الخطأ الكامل في نتيجة الأداة.</p>
+<hr>
+<p><em>للمرجع الكامل للتفويض — جميع المعاملات، والتكامل مع ACP، والإعدادات المتقدمة — راجع <a href="/docs/user-guide/features/delegation">تفويض المهام إلى Subagents</a>.</em></p>

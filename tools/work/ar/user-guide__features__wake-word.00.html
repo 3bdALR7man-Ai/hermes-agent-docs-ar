@@ -1,0 +1,100 @@
+<header><h1>كلمة التنبيه (&quot;Hey Hermes&quot;)</h1></header>
+<p>تجعل كلمة التنبيه (wake word) من Hermes مساعدًا يعمل دون استخدام اليدين عبر CLI و TUI وتطبيق سطح المكتب: فبتفعيل إعداد واحد، يستمع Hermes في الخلفية إلى عبارة تنبيه منطوقة. قُلها، وسيبدأ Hermes جلسة جديدة، ويفتح الميكروفون، ويلتقط أمرك عبر <a href="/docs/user-guide/features/voice-mode">pipeline الصوت</a> المعتاد، ثم يجيب — تمامًا مثل &quot;Hey Siri&quot; أو &quot;Alexa&quot;. استخدم <code>surface</code> لاختيار الواجهة التي تستمع.</p>
+<p>يعمل الاكتشاف <strong>بالكامل على الجهاز</strong>. ولا يراقب المستمع الدائم إلا عبارة التنبيه؛ فلا يغادر أي صوت جهازك حتى تنطق فعليًا أمرًا موجّهًا إلى الوكيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<ol>
+<li>مع <code>wake_word.enabled: true</code> (أو بعد <code>/wake on</code>)، يستمع كاشف hotword خفيف إلى جهاز الإدخال الذي ضبطته، أو إلى الميكروفون الافتراضي للعملية عندما لا يكون <code>wake_word.input_device</code> مضبوطًا.</li>
+<li>عندما يسمع عبارة التنبيه، يوقف نفسه مؤقتًا (محرّرًا الميكروفون)، ويبدأ جلسة جديدة، ويسجّل عبارة منطوقة واحدة باستخدام اكتشاف الصمت الخاص بالوضع الصوتي.</li>
+<li>يُحوَّل كلامك إلى نص ويُرسل إلى الوكيل. وبعد أن يرد، يستأنف المستمع عمله تلقائيًا وينتظر كلمة التنبيه التالية.</li>
+</ol>
+<p>وهي <strong>معطّلة افتراضيًا</strong> — فلا شيء يستمع حتى تفعّلها.</p>
+<p>في تطبيق سطح المكتب، يمكن إنهاء المحادثة الصوتية التي تجري دون استخدام اليدين ببساطة <strong>بقول &quot;stop&quot;</strong> (أو &quot;never mind&quot;، &quot;goodbye&quot;، &quot;cancel&quot;، &quot;that&#x27;s all&quot;) — فينهي الأمر المنطوق المحادثة بدلًا من إرساله إلى الوكيل. ولا يُطابَق إلا أمر الإيقاف الذي يشكّل العبارة المنطوقة كاملة، لذا فإن طلبًا حقيقيًا مثل &quot;stop the docker container&quot; يمر بشكل طبيعي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="remote-desktop-client-capture">سطح المكتب البعيد (الالتقاط من جهة العميل)</h2>
+<p>عندما يتصل تطبيق سطح المكتب بـ Hermes backend <strong>بعيد</strong> (مثل مضيف Docker بلا واجهة أو جهاز في غرفة أخرى)، فغالبًا لا يكون لدى الـ backend <strong>أي ميكروفون</strong>. عندها يفشل PortAudio من جهة الخادم بالرسالة “Failed to open the wake-word microphone.”</p>
+<p>يدعم Hermes <strong>الالتقاط من جهة العميل (client capture)</strong> لهذه الحالة:</p>
+<ol>
+<li>يُفعّل تطبيق سطح المكتب التنبيه مع <code>capture: client</code> (تلقائيًا في الواجهة الرسومية عندما لا يملك الـ backend جهاز إدخال محليًا، أو بضبطه صراحةً كما هو موضح أدناه).</li>
+<li>يظل openWakeWord يعمل <strong>على الـ backend</strong> (المحركات نفسها، والنماذج نفسها).</li>
+<li>يفتح تطبيق سطح المكتب <strong>ميكروفون جهاز Mac/PC المحلي</strong>، ويعيد أخذ العينات إلى 16 kHz mono int16، ويبث إطارات قصيرة عبر RPC المسمى <code>wake.feed</code>.</li>
+<li>عند الاكتشاف، يُطلق الـ backend الحدث <code>wake.detected</code> كالمعتاد؛ ويبدأ تطبيق سطح المكتب pipeline الصوت المعتاد على ميكروفون العميل.</li>
+</ol>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تمرّر الواجهة الرسومية لسطح المكتب دائمًا <code>client_capture: true</code> عند <code>wake.start</code>، لذا فإن الـ backends البعيدة التي لا تملك ميكروفونًا تُفعَّل في وضع العميل تلقائيًا. أما CLI و TUI فيحتفظان بالالتقاط المحلي ما لم تضبط <code>capture: client</code> صراحةً.</p>
+<p>ملاحظة حول الخصوصية: مع الالتقاط من جهة العميل، تنتقل بيانات PCM الخاصة بالتنبيه عبر اتصال WebSocket المُصادَق عليه بين سطح المكتب↔الـ backend (القناة نفسها المستخدمة لبقية الجلسة). ولا يزال الاكتشاف لا يرسل الصوت إلى APIs تنبيه تابعة لجهات خارجية؛ فالمحرك محلي داخل عملية الـ backend.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="engines">المحركات</h2>
+<table><thead><tr><th>المحرك</th><th>التكلفة</th><th>مفتاح API</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>openWakeWord</strong> (الافتراضي)</td><td>مجاني</td><td>لا يوجد</td><td>نماذج ONNX محلية. يأتي مع نموذج مضمّن هو <strong>&quot;hey hermes&quot;</strong> (الافتراضي)؛ ويدعم أيضًا <code>hey_jarvis</code> و <code>alexa</code> و <code>hey_mycroft</code> و… والنماذج المخصصة</td></tr><tr><td><strong>sherpa</strong></td><td>مجاني</td><td>لا يوجد</td><td><strong>مفردات مفتوحة</strong> — يكتشف أي عبارة مكتوبة دون أي تدريب. يُنزَّل نموذج إنجليزي صغير تلقائيًا عند أول استخدام (~13 MB)</td></tr><tr><td><strong>Porcupine</strong></td><td>فئة مجانية / مدفوع</td><td><code>PORCUPINE_ACCESS_KEY</code></td><td>محرك Picovoice؛ كلمات مفتاحية مدمجة + ملفات <code>.ppn</code> مخصصة</td></tr></tbody></table>
+<p>العبارة الافتراضية هي <strong>&quot;hey hermes&quot;</strong> — ويأتي نموذج خاص بها مع Hermes، لذا تعمل مباشرة دون أي تدريب. (عند أول استخدام، يُنزّل openWakeWord نماذج استخراج الميزات المشتركة الخاصة به — وهو تنزيل صغير لمرة واحدة.)</p>
+<p>يُثبَّت كلاهما بشكل كسول (lazy) في أول مرة تفعّل فيها كلمة التنبيه (أما عمليات تثبيت سطح المكتب التي تُجرى باستخدام <code>--include-desktop</code> فتثبّتها مسبقًا، فتعمل أيقونة الأذن فورًا). للتثبيت مسبقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>في تطبيق سطح المكتب، انقر أيقونة الأذن في مربع الكتابة (composer).</p>
+<p>زر التبديل هو الإعداد نفسه: فتفعيل كلمة التنبيه أو تعطيلها — عبر <code>/wake</code> أو زر الأذن في سطح المكتب — يكتب أيضًا <code>wake_word.enabled</code> إلى <code>~/.hermes/config.yaml</code>، فيبقى اختيارك محفوظًا عبر الجلسات. ويمكنك أيضًا تغييره يدويًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تنطبق <code>sensitivity</code> و <code>phrase</code> و <code>start_new_session</code> على كلا المحركين. وتحدد الكتلتان <code>openwakeword</code> و <code>porcupine</code> نموذج الاكتشاف الفعلي.</p>
+<p>يُمرَّر <code>input_device</code> مباشرة إلى تدفق PortAudio (<code>sounddevice</code>) الخاص بمستمع التنبيه. استخدم إما فهرس جهاز رقميًا أو جزءًا من اسم الجهاز لا يحتمل اللبس. يغيّر هذا الإعداد التقاط كلمة التنبيه فقط؛ إذ تظل ميزة push-to-talk في سطح المكتب تستخدم مسار الميكروفون الخاص بتطبيق سطح المكتب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reducing-false-triggers-on-ambient-speech">تقليل التنبيهات الخاطئة الناتجة عن الكلام المحيط</h3>
+<p>يقيّم openWakeWord إطارًا صوتيًا قصيرًا واحدًا (~80ms) في كل مرة، لذا قد يتسبب صوت لغوي (phoneme) عابر في محادثة خلفية أحيانًا في رفع درجة إطار واحد فوق العتبة وإطلاق كلمة التنبيه دون قصد. يتحكم في ذلك خياران:</p>
+<ul>
+<li><strong><code>confirmation_frames</code></strong> (الافتراضي <code>3</code>، في openWakeWord فقط) — عدد الإطارات <em>المتتالية</em> التي تتجاوز العتبة والمطلوبة قبل إطلاق التنبيه. فعبارة &quot;hey hermes&quot; الحقيقية تحافظ على درجة عالية عبر عدة إطارات؛ بينما يرفع الصوت المحيط العابر إطارًا واحدًا فقط. ارفع القيمة (مثل <code>4</code>–<code>5</code>) إذا ظلت التنبيهات الخاطئة تحدث في غرفة صاخبة؛ والثمن بضع عشرات من المللي ثانية من التأخير الإضافي. وتعيد القيمة <code>1</code> السلوك القديم الذي يُطلق التنبيه عند أول إطار.</li>
+<li><strong><code>sensitivity</code></strong> (الافتراضي <code>0.6</code>) — عتبة الاكتشاف، من <code>0.0</code> إلى <code>1.0</code>. القيمة الأعلى أكثر صرامة (تنبيهات خاطئة أقل). وهذا الاتجاه متسق عبر <strong>جميع</strong> المحركات — ففي openWakeWord هي عتبة الدرجة الخام لكل إطار، وفي sherpa تُحوَّل إلى عتبة الكلمة المفتاحية، وفي Porcupine تُعكس داخليًا كي تبقى قاعدة &quot;أعلى = أكثر صرامة&quot; سارية هناك أيضًا. تقع القيمة الافتراضية <code>0.6</code> فوق خط الأساس المتساهل <code>0.5</code> في openWakeWord، والذي كان يسمح بمرور عبارات قريبة مثل &quot;hey hor&quot;؛ ارفعها نحو <code>0.8</code> إذا ظلت التنبيهات الخاطئة تحدث، واخفضها إذا فاتت عبارات &quot;hey hermes&quot; الحقيقية.</li>
+</ul>
+<p>يفك المحركان <code>sherpa</code> و <code>porcupine</code> ترميز العبارة كاملة داخليًا، لذا لا يعانيان من مشكلة ارتفاع الإطار الواحد ويتجاهلان <code>confirmation_frames</code> (لكنهما يلتزمان بـ <code>sensitivity</code>).</p>
+<p>يحدد <code>inference_framework</code> الـ backend الخاص بـ openWakeWord. اتركه فارغًا (الافتراضي) ليختار Hermes حسب المنصة: <strong>tflite على Apple Silicon</strong>، و onnx في كل مكان آخر. إذ يعيد الـ onnx backend في openWakeWord درجات قريبة من الصفر على macOS ARM64 (<a href="https://github.com/dscripka/openWakeWord/issues/336" data-ext>openWakeWord#336</a>)، لذا فإن المستمع المثبّت على <code>onnx</code> هناك سيُفعَّل ويظهر كأنه يستمع، لكنه لن يُطلق التنبيه أبدًا. ويحتاج الـ tflite backend إلى <code>ai-edge-litert</code> على macOS، والذي يثبّته Hermes عند الطلب إلى جانب اعتماديات كلمة التنبيه الأخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="surfaces-cli-tui-gui">الواجهات (CLI و TUI و GUI)</h3>
+<p>تعمل كلمة التنبيه في واجهات Hermes الثلاث جميعها، ويحدد <code>surface</code> الواجهة التي تمتلك المستمع وتفتح الجلسة الجديدة عند إطلاق التنبيه:</p>
+<table><thead><tr><th><code>surface</code></th><th>السلوك</th></tr></thead><tbody><tr><td><code>auto</code> (الافتراضي)</td><td>جميع الواجهات المحلية مؤهلة؛ وأول واجهة تُفعّل التنبيه تمتلك المستمع.</td></tr><tr><td><code>cli</code></td><td>واجهة <code>hermes</code> CLI الكلاسيكية فقط.</td></tr><tr><td><code>tui</code></td><td><code>hermes --tui</code> فقط.</td></tr><tr><td><code>gui</code></td><td>تطبيق سطح المكتب فقط.</td></tr></tbody></table>
+<p>الكاشف يعمل على الجهاز ويستخدم ميكروفونًا واحدًا، لذا لا تستمع إلا واجهة واحدة في كل مرة، حتى عندما تعمل واجهات Hermes في عمليات منفصلة. والملكية ثابتة: إذ يحتفظ أول طالب مؤهل بالمستمع حتى يتوقف، أو ينقطع اتصاله، أو تنتهي عمليته. ولا ينتقل Hermes بصمت إلى واجهة أخرى مفتوحة. اضبط <code>surface</code> عندما تريد تثبيت الملكية بدلًا من قاعدة &quot;الأسبق يفوز&quot;. تتشارك TUI والواجهة الرسومية لسطح المكتب الـ backend نفسه المكتوب بـ Python (<code>tui_gateway</code>)، والذي يشغّل الكاشف من جهة الخادم ويتنازل عن الميكروفون لالتقاط الصوت أثناء تسجيل أمر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-a-different-phrase">استخدام عبارة مختلفة</h2>
+<p>تعمل &quot;Hey Hermes&quot; مباشرة — فنموذج openWakeWord المضمّن (<code>model: hey_hermes</code>) هو الافتراضي. وللتنبيه بعبارة أخرى، فإن أسهل طريق هو محرك المفردات المفتوحة:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a--sherpa-any-phrase-zero-training">الخيار A — sherpa (أي عبارة، دون تدريب)</h3>
+<p>اكتب العبارة التي تريدها؛ إذ تُقسَّم إلى tokens وقت التشغيل — &quot;hey coder&quot;، &quot;computer&quot;، &quot;wake up neo&quot;، أي شيء:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُنزَّل نموذج KWS الإنجليزي الصغير (~13 MB) مرة واحدة عند أول استخدام. ويمكن لكل profile ضبط عبارته الخاصة — &quot;hey &lt;profile&gt;&quot; لكل profile تشغّله.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="waking-a-specific-profile-desktop">إيقاظ profile محدد (سطح المكتب)</h3>
+<p>مع محرك sherpa، يستطيع مستمع واحد فقط إيقاظ أي profile. إذ يُسجَّل تلقائيًا كل profile تحتوي إعداداته على <code>wake_word.enabled: true</code>؛ وتكون عبارته الافتراضية <code>hey &lt;profile name&gt;</code> عندما لا تكون مضبوطة. قل عبارة profile ما، وسينتقل تطبيق سطح المكتب مباشرة إلى ذلك الـ profile، ويفتح جلسة جديدة فيه، ويبدأ الصوت دون استخدام اليدين:</p>
+<ul>
+<li>&quot;hey hermes&quot; → الـ profile الافتراضي</li>
+<li>&quot;hey coder&quot; → الـ profile <code>coder</code></li>
+<li>&quot;hey trader&quot; → الـ profile <code>trader</code></li>
+</ul>
+<p>اضبط <code>wake_word.profile_routing: false</code> على profile المستمع لإلغاء هذا السلوك والاستماع لعبارته الخاصة فقط. أما CLI و TUI فهما عمليتان أحاديتا الـ profile: فعبارة التنبيه التي تخص profile آخر تطبع أمر التبديل (<code>hermes -p &lt;profile&gt;</code>) بدلًا من التوجيه.</p>
+<p>تُطابَق الأسماء صوتيًا بحسب أصوات مقاطعها الفرعية الإنجليزية: وتعمل العبارات المكونة من كلمتين بأسماء مميزة من مقطعين صوتيين أو أكثر بشكل أفضل. أما الأسماء القصيرة جدًا، أو الأسماء ذات النطق البعيد كثيرًا عن الإنجليزية، أو وجود اثنين من الـ profiles بأسماء متشابهة النطق، فستُضعف الدقة — اضبط <code>sensitivity</code> لكل profile عند الحاجة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b--openwakeword-free-trained-model">الخيار B — openWakeWord (مجاني، نموذج مُدرَّب)</h3>
+<p>حدد اسم نموذج مدمج (<code>hey_jarvis</code>، <code>alexa</code>، <code>hey_mycroft</code>، …)، أو درّب نموذجًا مخصصًا (≈75–90 دقيقة على GPU مجاني/Colab) لأقصى قدر من المتانة، وضع ملف <code>.onnx</code> في أي مكان، ثم أشِر إليه:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>مراجع التدريب:</p>
+<ul>
+<li><a href="https://github.com/dscripka/openWakeWord" data-ext>openWakeWord</a></li>
+<li><a href="https://github.com/alfiedennen/openwakeword-colab-2026" data-ext>Colab التدريب لعام 2026</a></li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>اختر عبارة مميزة</div><div class="admonitionContent_BuS1"><p>عبارات التنبيه التي لا تتداخل مع الكلام اليومي تعمل بشكل أفضل. فكلمة غير شائعة من مقطعين صوتيين (&quot;hermes&quot; مثال مناسب) تتفوق على الكلمات الشائعة مثل &quot;hello&quot; أو &quot;stop&quot;.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-c--porcupine-custom-keyword-in-seconds">الخيار C — Porcupine (كلمة مفتاحية مخصصة في ثوانٍ)</h3>
+<p>أنشئ كلمة مفتاحية &quot;Hey Hermes&quot; في <a href="https://console.picovoice.ai/" data-ext>Picovoice Console</a>، ونزّل ملف <code>.ppn</code>، ثم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>اضبط مفتاح الوصول الخاص بك في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="requirements">المتطلبات</h2>
+<ul>
+<li>ميكروفون يعمل وحزمة الصوت <code>sounddevice</code> + <code>numpy</code> (المشتركة مع الوضع الصوتي).</li>
+<li>مزوّد STT لتحويل الأمر المنطوق إلى نص — يعمل <code>faster-whisper</code> المحلي مباشرة؛ راجع <a href="/docs/user-guide/features/voice-mode">الوضع الصوتي (Voice Mode)</a> للاطلاع على القائمة الكاملة للمزوّدين.</li>
+<li>مزوّد TTS لنطق الرد (يعمل <code>edge-tts</code> الافتراضي دون مفتاح). ولأن مسار التنبيه يعمل بالكامل دون استخدام اليدين، يرفض زر التبديل التفعيل حتى يكون كل من STT و TTS جاهزين — ويتولى <code>hermes tools</code> (قسم Voice) إعدادهما.</li>
+<li>اعتماديات محرك التنبيه (تُثبَّت تلقائيًا، أو عبر <code>hermes-agent[wake]</code>).</li>
+</ul>
+<p>يُبلغ <code>/wake status</code> بالضبط عمّا ينقص إذا لم يبدأ المستمع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="listening-but-never-wakes-macos">&quot;Listening&quot; لكنه لا يستيقظ أبدًا (macOS)</h3>
+<p>يمنح macOS صلاحية الوصول إلى الميكروفون لكل <strong>عملية</strong> على حدة. فعمل STT في تطبيق سطح المكتب يثبت أن <em>الـ renderer</em> لديه صلاحية الوصول إلى الميكروفون — أما مستمع التنبيه فيعمل في <em>الـ backend</em> المكتوب بـ Python، والذي يحتاج إلى صلاحية خاصة به. وبدونها، يسلّم CoreAudio الـ backend تدفقًا &quot;يعمل&quot; لكنه لا ينقل إلا الصمت، فتظهر أيقونة الأذن وكأنها تستمع لكن العبارة لا تُطلق التنبيه أبدًا. يكتشف Hermes هذه الحالة (يعرض <code>/wake status</code> الرسالة &quot;mic delivers only silence&quot;؛ ويحمل التلميح المنبثق لأيقونة الأذن في سطح المكتب الإشارة نفسها). الحل: System Settings → Privacy &amp; Security → Microphone → فعّل Hermes backend (قد يظهر باسم الطرفية لديك، أو <code>python</code>، أو Hermes)، ثم عطّل كلمة التنبيه وأعد تفعيلها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="listening-but-receives-silence-windows">&quot;Listening&quot; لكنه لا يستقبل إلا الصمت (Windows)</h3>
+<p>يستخدم push-to-talk والتقاط كلمة التنبيه في سطح المكتب مسارين مختلفين للميكروفون. إذ يستخدم push-to-talk التقاط المتصفح الخاص بتطبيق سطح المكتب، بينما يفتح مستمع كلمة التنبيه تدفق PortAudio في الـ backend المكتوب بـ Python. لذا قد يعمل أحدهما بينما يختار الآخر جهاز إدخال Windows صامتًا أو غير صالح للاستخدام.</p>
+<p>يُبلغ <code>/wake status</code> عن جهاز الإدخال المحدد و host API الصوت في Windows. وعندما يُبلغ عن صمت، اضبط <code>wake_word.input_device</code> على الفهرس الرقمي أو على اسم لا يحتمل اللبس لجهاز إدخال PortAudio الذي يعمل، ثم بدّل حالة كلمة التنبيه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>استخدم <code>null</code> للعودة إلى الجهاز الافتراضي للعملية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes--limits">ملاحظات وقيود</h2>
+<ul>
+<li><strong>الواجهات المحلية فقط.</strong> تعمل كلمة التنبيه في CLI و TUI والواجهة الرسومية لسطح المكتب — أينما يتوفر ميكروفون محلي. ولا تعمل في messaging gateway (Telegram و Discord و…)، إذ لا يملك ميكروفونًا.</li>
+<li><strong>ميكروفون واحد في كل مرة.</strong> يحرّر الكاشف الميكروفون أثناء تسجيل أمر ويستعيده بمجرد انتهاء الدور، لذا لن يتعارض مع التقاط الصوت.</li>
+<li><strong>الخصوصية.</strong> اكتشاف hotword محلي. اضبط <code>sensitivity</code> على قيمة أعلى إذا حصلت على تنبيهات خاطئة، وعلى قيمة أقل إذا لم يلتقط صوتك.</li>
+</ul>

@@ -1,0 +1,26 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>سمتي لا تظهر في المنتقي.</strong>
+تحقّق من أن الملف موجود في <code>~/.hermes/dashboard-themes/</code> وأن امتداده <code>.yaml</code> أو <code>.yml</code>. أعد تحميل الصفحة. نفّذ <code>curl http://127.0.0.1:9119/api/dashboard/themes</code> — يجب أن تظهر سمتك في الاستجابة. وإذا كان في ملف YAML خطأ في التحليل، فستسجّله لوحة التحكم في <code>errors.log</code> داخل <code>~/.hermes/logs/</code>.</p>
+<p><strong>تبويب إضافتي لا يظهر.</strong></p>
+<ol>
+<li>تحقّق من أن ملف manifest موجود في <code>~/.hermes/plugins/&lt;name&gt;/dashboard/manifest.json</code> (لاحظ المجلد الفرعي <code>dashboard/</code>).</li>
+<li>نفّذ <code>curl http://127.0.0.1:9119/api/dashboard/plugins/rescan</code> لفرض إعادة الاكتشاف.</li>
+<li>افتح أدوات المطوّر في المتصفح → Network — وتأكد من تحميل <code>manifest.json</code> و <code>index.js</code> وأي ملف CSS دون أخطاء 404.</li>
+<li>افتح أدوات المطوّر في المتصفح → Console — وابحث عن أخطاء أثناء تنفيذ IIFE أو عن الرسالة <code>window.__HERMES_PLUGINS__ is undefined</code> (التي تشير إلى أن الـ SDK لم يُهيَّأ، وغالبًا بسبب انهيار سابق في عرض React).</li>
+<li>تحقّق من أن حزمتك تستدعي <code>window.__HERMES_PLUGINS__.register(...)</code> <strong>بالاسم نفسه</strong> المحدد في <code>manifest.json:name</code>.</li>
+</ol>
+<p><strong>المكوّنات المسجّلة في الـ slots لا تُعرض.</strong>
+لا يُعرض الـ slot المسمّى <code>sidebar</code> إلا عندما تحتوي السمة النشطة على <code>layoutVariant: cockpit</code>. أما الـ slots الأخرى فتُعرض دائمًا. وإذا كنت تسجّل في slot دون أن يظهر شيء، فأضف <code>console.log</code> داخل <code>registerSlot</code> للتأكد من أن حزمة الإضافة قد نُفّذت أصلًا.</p>
+<p><strong>مسارات الـ backend الخاصة بالإضافة تُرجع 404.</strong></p>
+<ol>
+<li>تأكد من أن ملف manifest يحتوي على <code>&quot;api&quot;: &quot;plugin_api.py&quot;</code> ويشير إلى ملف موجود داخل <code>dashboard/</code>.</li>
+<li>أعد تشغيل <code>hermes dashboard</code> — فمسارات API الخاصة بالإضافات تُركَّب مرة واحدة عند بدء التشغيل، و<strong>ليس</strong> عند إعادة الفحص.</li>
+<li>تحقّق من أن <code>plugin_api.py</code> يصدّر على مستوى الوحدة <code>router = APIRouter()</code>. فأسماء التصدير الأخرى لا تُلتقط.</li>
+<li>تابع آخر سطور <code>~/.hermes/logs/errors.log</code> بحثًا عن <code>Failed to load plugin &lt;name&gt; API routes</code> — إذ تُسجَّل أخطاء الاستيراد هناك.</li>
+</ol>
+<p><strong>تغيير السمة يُسقط تجاوزات الألوان التي ضبطتها.</strong>
+<code>colorOverrides</code> مقيّدة بالسمة النشطة وتُلغى عند تبديل السمة — وهذا مقصود في التصميم. إذا كنت تريد تجاوزات تبقى محفوظة، فضعها في ملف YAML الخاص بسمتك، لا في المُبدّل المباشر.</p>
+<p><strong>يُقتطع customCSS الخاص بالسمة.</strong>
+كتلة <code>customCSS</code> محدودة بـ 32 KiB لكل سمة. قسّم أوراق الأنماط الكبيرة على عدة سمات، أو انتقل إلى إضافة تحقن ورقة أنماط كاملة عبر حقل <code>css</code> الخاص بها (دون حد للحجم).</p>
+<p><strong>أريد نشر إضافة على PyPI.</strong>
+تُثبَّت إضافات لوحة التحكم وفق بنية المجلدات، لا عبر نقطة دخول (entry point) في pip. وأنظف طريقة للتوزيع حاليًا هي مستودع git يستنسخه المستخدم داخل <code>~/.hermes/plugins/</code>. ولا يتوفر حاليًا مُثبّت يعتمد على pip لإضافات لوحة التحكم.</p>

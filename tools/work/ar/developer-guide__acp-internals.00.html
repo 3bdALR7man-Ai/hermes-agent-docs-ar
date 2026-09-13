@@ -1,0 +1,119 @@
+<header><h1>آلية عمل ACP من الداخل</h1></header>
+<p>يغلّف مهايئ ACP (ACP adapter) الكائن المتزامن <code>AIAgent</code> في Hermes ضمن خادم JSON-RPC غير متزامن يعمل عبر stdio.</p>
+<p>ملفات التنفيذ الرئيسية:</p>
+<ul>
+<li><code>acp_adapter/entry.py</code></li>
+<li><code>acp_adapter/server.py</code></li>
+<li><code>acp_adapter/session.py</code></li>
+<li><code>acp_adapter/events.py</code></li>
+<li><code>acp_adapter/permissions.py</code></li>
+<li><code>acp_adapter/tools.py</code></li>
+<li><code>acp_adapter/auth.py</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="boot-flow">مسار الإقلاع</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يُخصَّص stdout لنقل ACP JSON-RPC. أما السجلات المقروءة للبشر فتُوجَّه إلى stderr.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="major-components">المكوّنات الرئيسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermesacpagent"><code>HermesACPAgent</code></h3>
+<p>ينفّذ <code>acp_adapter/server.py</code> بروتوكول وكيل ACP.</p>
+<p>المسؤوليات:</p>
+<ul>
+<li>التهيئة (initialize) / المصادقة (authenticate)</li>
+<li>توابع الجلسة new/load/resume/fork/list/cancel</li>
+<li>تنفيذ الـ prompt</li>
+<li>تبديل نموذج الجلسة</li>
+<li>ربط استدعاءات AIAgent المتزامنة (callbacks) بإشعارات ACP غير المتزامنة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sessionmanager"><code>SessionManager</code></h3>
+<p>يتتبّع <code>acp_adapter/session.py</code> جلسات ACP الحية.</p>
+<p>تخزّن كل جلسة:</p>
+<ul>
+<li><code>session_id</code></li>
+<li><code>agent</code></li>
+<li><code>cwd</code></li>
+<li><code>model</code></li>
+<li><code>history</code></li>
+<li><code>cancel_event</code></li>
+</ul>
+<p>المدير آمن للاستخدام بين الخيوط (thread-safe) ويدعم:</p>
+<ul>
+<li>الإنشاء (create)</li>
+<li>الجلب (get)</li>
+<li>الإزالة (remove)</li>
+<li>التفريع (fork)</li>
+<li>السرد (list)</li>
+<li>التنظيف (cleanup)</li>
+<li>تحديثات cwd</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-bridge">جسر الأحداث</h3>
+<p>يحوّل <code>acp_adapter/events.py</code> استدعاءات AIAgent الراجعة إلى أحداث ACP من نوع <code>session_update</code>.</p>
+<p>الاستدعاءات الراجعة المنقولة عبر الجسر:</p>
+<ul>
+<li><code>tool_progress_callback</code></li>
+<li><code>thinking_callback</code> (مضبوط حاليًا على <code>None</code> في جسر ACP — إذ يُمرَّر الاستدلال (reasoning) عبر <code>step_callback</code> بدلًا منه)</li>
+<li><code>step_callback</code></li>
+</ul>
+<p>لأن <code>AIAgent</code> يعمل في خيط عامل بينما تعمل عمليات الإدخال والإخراج الخاصة بـ ACP على حلقة الأحداث الرئيسية، يستخدم الجسر:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-bridge">جسر الصلاحيات</h3>
+<p>يكيّف <code>acp_adapter/permissions.py</code> طلبات الموافقة على أوامر الطرفية الخطرة لتصبح طلبات صلاحية في ACP.</p>
+<p>التعيين:</p>
+<ul>
+<li><code>allow_once</code> -&gt; <code>once</code> في Hermes</li>
+<li><code>allow_always</code> -&gt; <code>always</code> في Hermes</li>
+<li>خيارات الرفض -&gt; <code>deny</code> في Hermes</li>
+</ul>
+<p>عند انقضاء المهلة أو فشل الجسر، يكون الرفض هو السلوك الافتراضي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-rendering-helpers">أدوات مساعدة لعرض الأدوات</h3>
+<p>يربط <code>acp_adapter/tools.py</code> أدوات Hermes بأنواع أدوات ACP، ويبني المحتوى المعروض في المحرّر.</p>
+<p>أمثلة:</p>
+<ul>
+<li><code>patch</code> / <code>write_file</code> -&gt; فروقات الملفات (diffs)</li>
+<li><code>terminal</code> -&gt; نص أمر الـ shell</li>
+<li><code>read_file</code> / <code>search_files</code> -&gt; معاينات نصية</li>
+<li>النتائج الكبيرة -&gt; كتل نصية مقتطعة حفاظًا على سلامة الواجهة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-lifecycle">دورة حياة الجلسة</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cancelation">الإلغاء</h3>
+<p><code>cancel(session_id)</code>:</p>
+<ul>
+<li>يضبط حدث الإلغاء الخاص بالجلسة</li>
+<li>يستدعي <code>agent.interrupt()</code> عند توفّره</li>
+<li>يجعل استجابة الـ prompt تعيد <code>stop_reason=&quot;cancelled&quot;</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="forking">التفريع (Forking)</h3>
+<p>تنسخ <code>fork_session()</code> سجل الرسائل نسخًا عميقًا إلى جلسة حية جديدة، فتحافظ على حالة المحادثة مع منح الفرع معرّف جلسة و cwd خاصين به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="providerauth-behavior">سلوك المزوّد والمصادقة</h2>
+<p>لا ينفّذ ACP مخزنًا خاصًا به للمصادقة.</p>
+<p>بل يعيد استخدام محلِّل وقت التشغيل (runtime resolver) في Hermes:</p>
+<ul>
+<li><code>acp_adapter/auth.py</code></li>
+<li><code>hermes_cli/runtime_provider.py</code></li>
+</ul>
+<p>لذا يُعلن ACP عن المزوّد وبيانات الاعتماد المضبوطة حاليًا في Hermes ويستخدمها. كما يُعلن دائمًا عن طريقة مصادقة تعتمد على الإعداد في الطرفية (<code>hermes-setup</code>، مع الوسائط <code>--setup</code>)، كي تتمكّن عملاء ACP في تشغيلها الأول من فتح إعدادات النموذج والمزوّد التفاعلية في Hermes قبل بدء جلسة ACP عادية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-directory-binding">ربط مجلد العمل</h2>
+<p>تحمل جلسات ACP مجلد العمل (cwd) الخاص بالمحرّر.</p>
+<p>يربط مدير الجلسات ذلك الـ cwd بمعرّف جلسة ACP عبر تجاوزات للطرفية والملفات محصورة في نطاق المهمة، بحيث تعمل أدوات الملفات والطرفية نسبةً إلى مساحة عمل المحرّر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="duplicate-same-name-tool-calls">استدعاءات الأدوات المكرّرة بالاسم نفسه</h2>
+<p>يتتبّع جسر الأحداث معرّفات الأدوات بترتيب FIFO لكل اسم أداة، لا معرّفًا واحدًا فقط لكل اسم. وهذا مهم في حالتي:</p>
+<ul>
+<li>الاستدعاءات المتوازية بالاسم نفسه</li>
+<li>الاستدعاءات المتكررة بالاسم نفسه في خطوة واحدة</li>
+</ul>
+<p>من دون طوابير FIFO، ستُنسب أحداث الاكتمال إلى استدعاء الأداة الخطأ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-callback-restoration">استعادة استدعاء الموافقة الراجع</h2>
+<p>يثبّت ACP مؤقتًا استدعاءً راجعًا للموافقة (approval callback) على أداة الطرفية أثناء تنفيذ الـ prompt، ثم يستعيد الاستدعاء الراجع السابق بعد ذلك. يتجنّب هذا بقاء معالجات الموافقة الخاصة بجلسة ACP مثبّتة على المستوى العام إلى الأبد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="current-limitations">القيود الحالية</h2>
+<ul>
+<li>تُحفظ جلسات ACP في الملف المشترك <code>~/.hermes/state.db</code> (SessionDB) وتُستعاد بشفافية عبر عمليات إعادة تشغيل العملية؛ وتظهر في <code>session_search</code></li>
+<li>تُتجاهل حاليًا كتل الـ prompt غير النصية عند استخراج نص الطلب</li>
+<li>تختلف تجربة الاستخدام الخاصة بكل محرّر بحسب تنفيذ عميل ACP</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-files">ملفات ذات صلة</h2>
+<ul>
+<li><code>tests/acp/</code> — مجموعة اختبارات ACP</li>
+<li><code>toolsets.py</code> — تعريف toolset <code>hermes-acp</code></li>
+<li><code>hermes_cli/main.py</code> — الأمر الفرعي <code>hermes acp</code> في CLI</li>
+<li><code>pyproject.toml</code> — الاعتمادية الاختيارية <code>[acp]</code> + السكربت <code>hermes-acp</code></li>
+</ul>

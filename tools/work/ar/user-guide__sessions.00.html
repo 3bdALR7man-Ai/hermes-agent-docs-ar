@@ -1,0 +1,166 @@
+<header><h1>الجلسات (Sessions)</h1></header>
+<p>يحفظ Hermes Agent تلقائيًا كل محادثة كجلسة. تتيح الجلسات استئناف المحادثة، والبحث عبر الجلسات، وإدارة سجل المحادثات الكامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-sessions-work">كيف تعمل الجلسات</h2>
+<p>كل محادثة — سواء من CLI أو Telegram أو Discord أو Slack أو WhatsApp أو Signal أو Matrix أو Teams أو أي منصة مراسلة أخرى — تُخزَّن كجلسة بسجل رسائل كامل. تُتَتبَّع الجلسات في:</p>
+<ol>
+<li><strong>قاعدة بيانات SQLite</strong> (<code>~/.hermes/state.db</code>) — بيانات وصفية مُهيكلة للجلسة مع بحث نصي كامل عبر FTS5، بالإضافة إلى سجل الرسائل الكامل</li>
+</ol>
+<p>تخزّن قاعدة بيانات SQLite:</p>
+<ul>
+<li>معرّف الجلسة، منصة المصدر، معرّف المستخدم</li>
+<li><strong>عنوان الجلسة</strong> (اسم فريد قابل للقراءة البشرية)</li>
+<li>اسم النموذج وإعداداته</li>
+<li>لقطة من system prompt</li>
+<li>سجل الرسائل الكامل (الدور، المحتوى، استدعاءات الأدوات، نتائج الأدوات)</li>
+<li>عدد الـ tokens (الدخل/الخرج)</li>
+<li>الطوابع الزمنية (started_at، ended_at)</li>
+<li>معرّف الجلسة الأصل (لتقسيم الجلسة الناتج عن الضغط)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-counts-toward-context">ما الذي يُحتسب ضمن السياق</h3>
+<p>يخزّن Hermes سجل الجلسة حتى يتمكن من استئناف المحادثات، لكنه لا
+يُعيد إرسال كل بايت تعامل معه على الإطلاق. في كل دور، يرى النموذج
+system prompt المختار، ونافذة المحادثة الحالية، وأي محتوى
+يحقنه Hermes صراحة لذلك الدور.</p>
+<p>تُعامَل مرفقات الوسائط كمدخلات محصورة بالدور:</p>
+<ul>
+<li>يمكن إرفاق الصور مباشرة بالاستدعاء التالي للنموذج، أو تحليلها مسبقًا إلى
+وصف نصي عندما لا يدعم النموذج النشط الرؤية (vision) الأصلية.</li>
+<li>يُنقَل الصوت إلى نص عند ضبط خدمة تحويل الكلام إلى نص.</li>
+<li>يمكن تضمين النص المستخرج من مستندات نصية؛ أما أنواع المستندات الأخرى
+فعادةً ما تُمثَّل بمسار محلي محفوظ وملاحظة قصيرة.</li>
+<li>يمكن أن تظهر مسارات المرفقات والنصوص المستخرَجة/المُشتقّة في النسخة النصية، لكن
+البايتات الخام للصورة أو الصوت أو الملف الثنائي لا تُنسَخ مرارًا إلى
+الـ prompts المستقبلية.</li>
+</ul>
+<p>مثلًا، إذا أرسل المستخدم صورة وطلب من Hermes صنع ميم منها،
+فقد يفحص Hermes تلك الصورة مرة واحدة بالرؤية ويُشغِّل سكربت
+معالجة صور. لا تحمل الأدوار المستقبلية تلقائيًا ملف JPEG الأصلي في السياق.
+بل تحمل فقط ما كُتب في المحادثة، مثل طلب المستخدم،
+أو وصف مختصر للصورة، أو مسار تخزين مؤقت محلي، أو استجابة المساعد
+النهائية.</p>
+<p>السبب الأكثر شيوعًا لنمو السياق ليس ملف الوسائط نفسه، بل
+النص المطوَّل: النصوص الملصقة، والسجلات الكاملة، ومخرجات الأدوات الضخمة، والفروقات (diffs) الطويلة،
+وتقارير الحالة المكرَّرة، وتفريغات الإثبات المفصَّلة. فضِّل الملخصات، ومسارات
+الملفات، والمقتطفات المركَّزة، والاستعلامات المدعومة بالأدوات على نسخ الأصول الكبيرة
+في المحادثة.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="37"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>/compress</code> عندما تطول الجلسة، و<code>/new</code> لبدء خيط جديد، و
+<code>hermes sessions prune</code> فقط عندما تريد حذف الجلسات المنتهية القديمة من
+التخزين. إذا نما <code>state.db</code> ببساطة إلى حجم كبير، ابدأ بالخيار غير المدمِّر أولًا:
+<code>hermes sessions optimize</code> يدمج مقاطع فهرس FTS5 وينفّذ
+VACUUM على قاعدة البيانات دون المساس بأي بيانات جلسة. الضغط يقلّص السياق النشط؛ وهو ليس حذفًا للخصوصية.
+مرّر اسمًا إلى <code>/new</code> (مثل <code>/new payments-refactor</code>) لضبط العنوان
+الأولي للجلسة الجديدة مسبقًا — مفيد لإيجادها لاحقًا باستخدام <code>/resume &lt;name&gt;</code> أو
+في قائمة <code>/sessions</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-sources">مصادر الجلسات</h3>
+<p>تُوسَم كل جلسة بمنصة مصدرها:</p>
+<table><thead><tr><th>المصدر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>cli</code></td><td>CLI التفاعلي (<code>hermes</code> أو <code>hermes chat</code>)</td></tr><tr><td><code>telegram</code></td><td>تطبيق مراسلة Telegram</td></tr><tr><td><code>discord</code></td><td>خادم/رسائل مباشرة Discord</td></tr><tr><td><code>slack</code></td><td>مساحة عمل Slack</td></tr><tr><td><code>whatsapp</code></td><td>تطبيق مراسلة WhatsApp</td></tr><tr><td><code>signal</code></td><td>تطبيق مراسلة Signal</td></tr><tr><td><code>matrix</code></td><td>غرف ورسائل مباشرة Matrix</td></tr><tr><td><code>mattermost</code></td><td>قنوات Mattermost</td></tr><tr><td><code>email</code></td><td>البريد الإلكتروني (IMAP/SMTP)</td></tr><tr><td><code>sms</code></td><td>رسائل SMS عبر Twilio</td></tr><tr><td><code>dingtalk</code></td><td>تطبيق مراسلة DingTalk</td></tr><tr><td><code>feishu</code></td><td>تطبيق مراسلة Feishu/Lark</td></tr><tr><td><code>wecom</code></td><td>WeCom (WeChat Work)</td></tr><tr><td><code>weixin</code></td><td>Weixin (WeChat الشخصي)</td></tr><tr><td><code>bluebubbles</code></td><td>Apple iMessage عبر خادم BlueBubbles لـ macOS</td></tr><tr><td><code>qqbot</code></td><td>QQ Bot (Tencent QQ) عبر API الرسمي v2</td></tr><tr><td><code>homeassistant</code></td><td>محادثة Home Assistant</td></tr><tr><td><code>webhook</code></td><td>webhooks الواردة</td></tr><tr><td><code>api-server</code></td><td>طلبات خادم API</td></tr><tr><td><code>acp</code></td><td>تكامل محرر ACP</td></tr><tr><td><code>cron</code></td><td>مهام cron المجدولة</td></tr><tr><td><code>batch</code></td><td>عمليات المعالجة الدفعية</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-session-resume">استئناف جلسة CLI</h2>
+<p>استأنف المحادثات السابقة من CLI باستخدام <code>--continue</code> أو <code>--resume</code>:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="continue-last-session">متابعة آخر جلسة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يبحث هذا عن أحدث جلسة <code>cli</code> من قاعدة بيانات SQLite ويحمّل سجل محادثتها الكامل.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-terminal-continue">المتابعة لكل طرفية</h4>
+<p><code>-c</code> المجردة تُدرك الطرفية: تترك كل جلسة CLI ملف أثر صغيرًا تحت <code>~/.hermes/terminal-sessions/</code> مفهرسًا بالطرفية التي تعمل فيها (جهاز tty، لوحة tmux، نافذة kitty، لوحة wezterm، لوحة Zellij، جلسة Windows Terminal، ...). عندما تشغّل <code>hermes -c</code> مرة أخرى في <em>نفس</em> الطرفية، يستأنف Hermes جلسة تلك الطرفية الخاصة — بحيث يتابع كل لوحين متجاورين محادثتهما الخاصة بدلًا من أن يستحوذ كلاهما على الجلسة الأحدث عالميًا. إذا لم يوجد أثر للطرفية (أول استخدام، جلسة محذوفة، أو أثر قديم يتجاوز عمره 30 يومًا)، تعود <code>-c</code> إلى سلوك الجلسة الأحدث. لا يتأثر <code>-c &quot;name&quot;</code> و<code>--resume</code> بذلك. عطِّل هذا بضبط <code>session.terminal_continue: false</code> في <code>config.yaml</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-by-name">الاستئناف بالاسم</h3>
+<p>إذا منحت جلسة عنوانًا (راجع <a href="#session-naming">تسمية الجلسات</a> أدناه)، يمكنك استئنافها بالاسم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-specific-session">استئناف جلسة محدَّدة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تُعرَض معرّفات الجلسات عند خروجك من جلسة CLI، ويمكن إيجادها باستخدام <code>hermes sessions list</code>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="38"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p><code>latest</code> كلمة محجوزة لـ <code>--resume</code>. تظل الجلسة المُسمَّاة حرفيًا &quot;latest&quot; قابلة للوصول عبر معرّفها أو عبر <code>-c latest</code> (تطابق العنوان).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-in-a-specific-directory">الاستئناف في دليل محدَّد</h3>
+<p>مرّر <code>--in &lt;dir&gt;</code> للانتقال إلى دليل قبل البدء أو الاستئناف. مع الجمع مع <code>--resume latest</code> (أو <code>-c</code>)، تُختار أحدث جلسة لمساحة عمل ذلك الدليل — دون الحاجة إلى تنفيذ <code>cd</code> أولًا أو تذكّر معرّفات الجلسات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>--in</code> يُثبِّت أيضًا الجلسة على ذلك الدليل: دليل العمل المسجَّل للجلسة المستأنفة لا يُستعاد (كما لو مُرِّر <code>--no-restore-cwd</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-restores-the-working-directory">الاستئناف يستعيد دليل العمل</h3>
+<p>استئناف جلسة CLI يُنفّذ أيضًا <code>cd</code> عائدًا إلى دليل العمل المسجَّل للجلسة (جذر مستودع git أو دليل المشروع الخاص بها)، بحيث تستأنف المحادثة في مساحة العمل التي تنتمي إليها. إذا فضّلت البقاء حيث أنت، مرّر <code>--no-restore-cwd</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يؤكِّد سطر <code>↪ restored workspace dir: …</code> التبديل. فشل الاستعادة لا يُعطِّل الاستئناف نفسه أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtering-sessions-by-workspace">تصفية الجلسات حسب مساحة العمل</h3>
+<p>تقبل <code>hermes sessions list</code> الخيار <code>--workspace &lt;needle&gt;</code> لعرض الجلسات فقط التي يطابق مفتاح مساحة عملها (جذر مستودع git، وإلا دليل العمل) — عبر جزء من المسار أو اسم الدليل الأساسي المطابق تمامًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conversation-recap-on-resume">ملخّص المحادثة عند الاستئناف</h3>
+<p>عندما تستأنف جلسة، يعرض Hermes ملخصًا مُختصرًا للمحادثة السابقة في لوحة مُنسَّقة قبل موجّه الإدخال:</p>
+<x-keep id="44"></x-keep>
+<p class="docs-figure-caption">يعرض وضع الاستئناف لوحة ملخص مُختصرة بأدوار المستخدم والمساعد الأخيرة قبل إعادتك إلى الموجّه الحي.</p>
+<p>الملخّص:</p>
+<ul>
+<li>يعرض <strong>رسائل المستخدم</strong> (<code>●</code> ذهبي) و<strong>استجابات المساعد</strong> (<code>◆</code> أخضر)</li>
+<li><strong>يقتطع</strong> الرسائل الطويلة (300 حرف للمستخدم، 200 حرف / 3 أسطر للمساعد)</li>
+<li><strong>يطوي استدعاءات الأدوات</strong> إلى عدد مع أسماء الأدوات (مثل <code>[3 tool calls: terminal, web_search]</code>)</li>
+<li><strong>يخفي</strong> رسائل النظام، ونتائج الأدوات، والاستدلال الداخلي</li>
+<li><strong>يحدّ</strong> العرض بآخر 10 تبادلات مع مؤشر &quot;... N earlier messages ...&quot;</li>
+<li>يستخدم <strong>تنسيقًا خافتًا</strong> للتمييز عن المحادثة النشطة</li>
+</ul>
+<p>لتعطيل الملخّص والإبقاء على سلوك السطر الواحد المُقتضب، اضبط في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="39"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تتبع معرّفات الجلسات الصيغة <code>YYYYMMDD_HHMMSS_&lt;hex&gt;</code> — تستخدم جلسات CLI/TUI لاحقة سداسية عشرية من 6 أحرف (مثل <code>20250305_091523_a1b2c3</code>)، وتستخدم جلسات gateway لاحقة من 8 أحرف (مثل <code>20250305_091523_a1b2c3d4</code>). يمكنك الاستئناف بالمعرّف (كاملًا أو بادئة فريدة) أو بالعنوان — يعمل كلاهما مع <code>-c</code> و<code>-r</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-platform-handoff">التسليم عبر المنصات</h2>
+<p>استخدم <code>/handoff &lt;platform&gt;</code> من جلسة CLI لنقل المحادثة الحية إلى قناة المنزل (home channel) لمنصة مراسلة. يتابع الوكيل بالضبط من حيث توقف CLI — نفس معرّف الجلسة، وسجل نصي كامل يراعي الأدوار، واستدعاءات الأدوات وكل شيء.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>ما الذي يحدث:</p>
+<ol>
+<li>
+<p>يتحقق CLI من أن <code>&lt;platform&gt;</code> مفعَّلة ولديها قناة منزل مضبوطة (شغّل <code>/sethome</code> من المحادثة الوجهة مرة واحدة لضبطها).</p>
+</li>
+<li>
+<p>يضع CLI الجلسة في حالة انتظار و<strong>يستقصي (يـblock-poll) الـ gateway</strong>. يرفض إن كان الوكيل في منتصف دور — انتظر انتهاء الاستجابة الحالية أولًا.</p>
+</li>
+<li>
+<p>يستحوذ مراقب gateway على التسليم ويطلب من المحوّل الوجهة خيطًا جديدًا:</p>
+<ul>
+<li><strong>Telegram</strong> — يفتح موضوع منتدى جديد (مواضيع DM إذا كان وضع Topics في Bot API 9.4+ مفعَّلًا في المحادثة، أو موضوع في مجموعة منتدى فائقة).</li>
+<li><strong>Discord</strong> — ينشئ خيطًا بأرشفة تلقائية بعد 1440 دقيقة تحت قناة المنزل النصية.</li>
+<li><strong>Slack</strong> — ينشر رسالة بذرة ويستخدم <code>ts</code> الخاص بها كمرساة للخيط.</li>
+<li><strong>WhatsApp / Signal / Matrix / SMS</strong> — لا خيوط أصلية، فيعود إلى قناة المنزل مباشرة.</li>
+</ul>
+</li>
+<li>
+<p>يعيد الـ gateway ربط مفتاح الوجهة بمعرّف جلسة CLI الحالية لديك، ثم يصوغ دور مستخدم صناعيًا يطلب من الوكيل التأكيد والتلخيص. يصل الرد إلى الخيط الجديد.</p>
+</li>
+<li>
+<p>عندما يؤكد الـ gateway النجاح، يطبع CLI تلميح <code>/resume</code> ويخرج بسلاسة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+</li>
+<li>
+<p>من تلك النقطة، تعيش المحادثة على المنصة. رُدّ في الخيط الجديد — أي شخص مُصرَّح له في تلك القناة يشارك نفس الجلسة، وأي رسالة مستخدم حقيقية لاحقة في الخيط تنضم بسلاسة لأن جلسات الخيوط تُفهرَس دون <code>user_id</code>.</p>
+</li>
+</ol>
+<p><strong>الاستئناف عائدًا إلى CLI:</strong> عندما تريد العودة إلى سطح المكتب، فقط شغّل <code>/resume &lt;title&gt;</code> (أو <code>hermes -r &quot;&lt;title&gt;&quot;</code> من الـ shell) وتابع من حيث توقفت المنصة.</p>
+<p><strong>أنماط الفشل:</strong></p>
+<ul>
+<li>لا قناة منزل مضبوطة ← يرفض CLI مع تلميح <code>/sethome</code>.</li>
+<li>الـ gateway غير قيد التشغيل (لا شيء يستحوذ على الطلب على الإطلاق) ← تنتهي مهلة CLI عند 60 ثانية برسالة واضحة وتظل جلسة CLI لديك سليمة.</li>
+<li>نقل بطيء: بمجرد استحواذ الـ gateway على التسليم، يعيد تشغيل جلستك الكاملة عبر دور وكيل حقيقي، ما قد يستغرق دقائق قليلة على الجلسات الطويلة. يعرض CLI نبضات &quot;Still transferring...&quot; وينتظر حتى 15 دقيقة — لا يُبلِّغ أبدًا عن نقل بطيء خطأً على أنه &quot;gateway غير قيد التشغيل&quot;.</li>
+<li>فشل إنشاء الخيط (صلاحيات، وضع المواضيع مُعطَّل) ← يعود إلى قناة المنزل مباشرة ويكتمل مع ذلك؛ بلا عزل خيط لكن التسليم نفسه يعمل.</li>
+<li>فشل <code>adapter.send</code> (حد معدل، خطأ API عابر) ← يُوسم التسليم كفاشل مع السبب؛ ويُمسح الصف لتتمكن من إعادة المحاولة.</li>
+</ul>
+<p><strong>قيد يستحق المعرفة:</strong> بالنسبة إلى المنصات غير القادرة على الخيوط ذات قنوات منزل جماعية متعددة المستخدمين، يُفهرَس الدور الصناعي كجلسة بنمط DM. هذا يعمل مع قنوات المنزل ذات DM الذاتي (الإعداد المعتاد) لكنه ليس مثاليًا للمحادثات الجماعية المشتركة فعليًا. تغطي الخيوط Telegram / Discord / Slack — الحالة الشائعة إلى حد بعيد — لذا لا تصادف معظم الإعدادات هذا القيد أبدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-naming">تسمية الجلسات</h2>
+<p>امنح الجلسات عناوين قابلة للقراءة البشرية حتى تتمكن من إيجادها واستئنافها بسهولة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-generated-titles">العناوين المُولَّدة تلقائيًا</h3>
+<p>يولِّد Hermes تلقائيًا عنوانًا وصفيًا قصيرًا (3-7 كلمات) لكل جلسة بعد التبادل الأول. يعمل هذا في خيط خلفي باستخدام نموذج مساعد سريع، لذا لا يضيف أي زمن انتقال (latency). سترى العناوين المُولَّدة تلقائيًا عند تصفح الجلسات باستخدام <code>hermes sessions list</code> أو <code>hermes sessions browse</code>.</p>
+<p>يعمل التوسيم التلقائي مرة واحدة فقط لكل جلسة ويُتخطَّى إذا كنت قد ضبطت عنوانًا يدويًا بالفعل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setting-a-title-manually">ضبط عنوان يدويًا</h3>
+<p>استخدم أمر <code>/title</code> السريع داخل أي جلسة محادثة (CLI أو gateway):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يُطبَّق العنوان فورًا. إذا لم تُنشأ الجلسة بعد في قاعدة البيانات (مثلًا، شغّلت <code>/title</code> قبل إرسال رسالتك الأولى)، تُصفّ ويُطبَّق فور بدء الجلسة.</p>
+<p>يمكنك أيضًا إعادة تسمية الجلسات الموجودة من سطر الأوامر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="title-rules">قواعد العنوان</h3>
+<ul>
+<li><strong>فريد</strong> — لا يمكن لجلستين مشاركة نفس العنوان</li>
+<li><strong>100 حرف كحد أقصى</strong> — يبقي مخرجات القوائم نظيفة</li>
+<li><strong>مُطهَّر</strong> — تُزال تلقائيًا أحرف التحكم، والأحرف عديمة العرض، وتجاوزات RTL</li>
+<li><strong>Unicode العادي يعمل بلا مشاكل</strong> — الرموز التعبيرية (emoji)، وحروف CJK، والأحرف المُشكَّلة كلها تعمل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-lineage-on-compression">النسب التلقائي عند الضغط</h3>
+<p>عندما يُضغَط سياق جلسة (يدويًا عبر <code>/compress</code> أو تلقائيًا)، ينشئ Hermes جلسة استمرار جديدة. إذا كان للجلسة الأصلية عنوان، تحصل الجلسة الجديدة تلقائيًا على عنوان مُرقَّم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>عندما تستأنف بالاسم (<code>hermes -c &quot;my project&quot;</code>)، يختار تلقائيًا أحدث جلسة في النسب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="title-in-messaging-platforms">أمر /title في منصات المراسلة</h3>
+<p>يعمل أمر <code>/title</code> في جميع منصات gateway (Telegram، Discord، Slack، WhatsApp):</p>
+<ul>
+<li><code>/title My Research</code> — ضبط عنوان الجلسة</li>
+<li><code>/title</code> — عرض العنوان الحالي</li>
+</ul>

@@ -1,0 +1,93 @@
+
+<header><h1>Stripe Link Cli</h1></header>
+<p>مدفوعات الوكيل عبر Stripe Link — البطاقات، SPT، الموافقات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/payments/stripe-link-cli</code></td></tr><tr><td>المسار</td><td><code>optional-skills/payments/stripe-link-cli</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Payments</code>, <code>Stripe</code>, <code>Link</code>, <code>Checkout</code>, <code>MPP</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/payments/payments-mpp-agent"><code>mpp-agent</code></a>, <a href="/docs/user-guide/skills/optional/payments/payments-stripe-projects"><code>stripe-projects</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Stripe Link CLI</h1>
+<p>تُغلّف هذه المهارة <a href="https://github.com/stripe/link-cli" data-ext>@stripe/link-cli</a> بحيث يستطيع Hermes إتمام عمليات الشراء نيابةً عن المستخدم باستخدام بطاقات افتراضية لمرة استخدام واحدة أو رموز دفع مشتركة (SPT). كل عملية إنفاق تخضع لموافقة داخل تطبيق Link على الجوال أو الويب — لا يستطيع Hermes الموافقة على نفسه.</p>
+<p>مقتصرة حاليًا على الولايات المتحدة (متطلب حساب Link). لا يدعم Windows الأداة المصدر — لذا هذه المهارة مقيَّدة بـ <code>[linux, macos]</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>عبارات التفعيل:</p>
+<ul>
+<li>&quot;اشترِ X&quot;، &quot;ادفع مقابل X&quot;، &quot;نفّذ عملية شراء&quot;، &quot;أكمل الدفع&quot;</li>
+<li>&quot;أحضر لي بطاقة&quot;، &quot;أحتاج طريقة دفع&quot;</li>
+<li>&quot;سجّل الدخول إلى Link&quot;، &quot;اربط محفظة Link الخاصة بي&quot;</li>
+<li>استجابة HTTP 402 من واجهة برمجية تابعة لتاجر مع <code>www-authenticate: ... method=&quot;stripe&quot;</code></li>
+</ul>
+<p>إذا أراد المستخدم استدعاء واجهة برمجية مدفوعة (HTTP 402، بلا نموذج دفع)، فمسار <code>card</code> غير مناسب — استخدم SPT عبر هذه المهارة نفسها، أو انقل المهمة إلى مهارة <code>mpp-agent</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li>Node.js 20+ متاح ضمن <code>PATH</code> (<code>node --version</code>)</li>
+<li>مقيم في الولايات المتحدة (متطلب حساب Link)</li>
+</ul>
+<p>لا يلزم إعداد حساب Link وطريقة الدفع وتطبيق موافقة الإنفاق قبل أن يحاول Hermes الدفع — فأداة سطر الأوامر ترشد المستخدم خلالها عند أول تشغيل:</p>
+<ul>
+<li>حساب Link على <a href="https://app.link.com" data-ext>https://app.link.com</a> — يُنشأ/يُربط أثناء أول مصادقة لـ <code>link-cli</code></li>
+<li>طريقة دفع واحدة على الأقل — تُضاف أثناء أول تشغيل على <a href="https://app.link.com/wallet" data-ext>https://app.link.com/wallet</a></li>
+<li>تطبيق Link على الجوال أو الويب — يُفتح للموافقة على أول طلب إنفاق عند إجرائه</li>
+</ul>
+<p>لا حاجة إلى متغيرات بيئة — تخزّن أداة سطر الأوامر حالة المصادقة محليًا ضمن دليل إعداداتها الخاص.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install">التثبيت</h2>
+<p>ثبّتها مرة واحدة، بشكل عام:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أو استدعها عند الحاجة عبر <code>npx @stripe/link-cli</code>. تستخدم المهارة أدناه صيغة <code>link-cli</code> المثبَّتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p>تُنفَّذ كل الأوامر عبر أداة <code>terminal</code>. تكتشف أداة سطر الأوامر تلقائيًا الاستدعاءات غير التفاعلية (non-TTY) وتصدر مخرجات <code>toon</code> مضغوطة افتراضيًا — وهذا مناسب للنموذج. مرّر <code>--format json</code> إذا احتاجت خطوة إلى حقول منظَّمة.</p>
+<p>لاكتشاف الأوامر: <code>link-cli --llms-full</code>.
+للحصول على مخطط أمر قبل استدعائه: <code>link-cli &lt;command&gt; --schema</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-check--establish-auth">1. التحقق من المصادقة أو إنشاؤها</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا لم تكن هناك مصادقة، سجّل الدخول باسم عميل واضح (يظهر هذا الاسم في تطبيق Link الخاص بالمستخدم):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تستقصي صيغة <code>--interval</code>/<code>--timeout</code> بشكل مضمَّن بحيث لا يحتاج الوكيل إلى إدارة خطوة <code>_next</code>. اطبع رابط التحقق والعبارة للمستخدم وانتظر عودة أداة سطر الأوامر.</p>
+<p><strong>لا تتابع بعد هذه الخطوة إلا بعد أن يؤكد <code>auth status</code> تسجيل الدخول.</strong></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-evaluate-the-merchant-before-creating-a-spend-request">2. تقييم التاجر قبل إنشاء طلب إنفاق</h3>
+<p>حدّد نوع بيانات الاعتماد:</p>
+<table><thead><tr><th>واجهة التاجر</th><th><code>--credential-type</code></th></tr></thead><tbody><tr><td>نموذج دفع ويب قياسي / Stripe Elements</td><td><code>card</code> (الافتراضي)</td></tr><tr><td>يعيد HTTP 402 مع <code>method=&quot;stripe&quot;</code> في <code>www-authenticate</code></td><td><code>shared_payment_token</code></td></tr><tr><td>يعيد HTTP 402 بدون <code>method=&quot;stripe&quot;</code></td><td>غير مدعوم — توقّف</td></tr></tbody></table>
+<p>بالنسبة إلى استجابات 402، لا تفكّ ترميز التحدّي يدويًا. مرّر الترويسة الخام:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يتحقق هذا من صحة التحدّي ويستخرج معرّف الشبكة ومتن الطلب المفكوك الترميز.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-list-payment-methods--shipping">3. سرد طرق الدفع والشحن</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>استخدم أول مدخل ما لم يحدد المستخدم غير ذلك. يمثّل <code>id</code> من <code>payment-methods list</code> قيمة <code>--payment-method-id</code> في الخطوة التالية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-create-the-spend-request">4. إنشاء طلب الإنفاق</h3>
+<p>أكّد المجموع النهائي مع المستخدم قبل إصدار هذا الأمر. المبالغ بالسنتات.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لتجار MPP أضف <code>--credential-type shared_payment_token</code>.</p>
+<p>يرسل <code>--request-approval</code> إشعارًا إلى تطبيق Link الخاص بالمستخدم ويستقصي حتى يوافق أو يرفض. تخرج أداة سطر الأوامر برمز غير صفري عند الرفض أو انتهاء المهلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-retrieve-the-credential--securely">5. استرجاع بيانات الاعتماد — بأمان</h3>
+<p><strong>لا تطبع تفاصيل البطاقة إلى stdout.</strong> استخدم <code>--output-file</code> بحيث لا يدخل رقم البطاقة (PAN) أبدًا إلى نص محادثة الوكيل أو سجلاته:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يُكتب الملف بصلاحيات <code>0600</code>؛ ويعرض stdout فقط حقولًا مُخفاة جزئيًا (العلامة التجارية، آخر 4 أرقام، تاريخ الانتهاء) بالإضافة إلى مسار <code>card_output_file</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-use-the-credential">6. استخدام بيانات الاعتماد</h3>
+<ul>
+<li>
+<p>لعملية دفع عبر الويب: سلّم مسار الملف للمستخدم، أو مرّره إلى أداة تشغّل المتصفح تملأ النموذج مباشرةً من القرص. لا تستخدم أبدًا <code>read_file</code> أو <code>cat</code> على ملف البطاقة لإدخاله في سياق تفكير الوكيل.</p>
+</li>
+<li>
+<p>لتجار MPP:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-clean-up">7. التنظيف</h3>
+<p>احذف ملف البطاقة فور إتمام عملية الشراء:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-run-as-an-mcp-server-instead">اختياري: التشغيل كخادم MCP بدلًا من ذلك</h2>
+<p>يعرض <code>@stripe/link-cli --mcp</code> نفس الأوامر كأدوات MCP عبر stdio. لتسجيله مع MCP الأصلي لـ Hermes:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>بعدها يجب أن يعرض <code>hermes mcp list</code> اسم <code>stripe-link</code>. تنطبق نفس قواعد الموافقة — لا يتجاوز MCP خطوة موافقة تطبيق Link.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>مقتصر على الولايات المتحدة.</strong> خارج الولايات المتحدة، سيفشل <code>auth login</code>. أخبر المستخدم بذلك، ولا تستمر في إعادة المحاولة.</li>
+<li><strong>يجب ألا يدخل رقم البطاقة (PAN) أبدًا إلى سياق الوكيل.</strong> استخدم <code>--output-file</code> في كل مرة. إذا كنت قد استرجعتها بالفعل دون ذلك، فإن تنفيذ <code>link-cli auth logout</code> وحده لا يكفي — البطاقة لمرة استخدام واحدة، لكن نظافة التدوير لا تزال مهمة.</li>
+<li><strong>يحجب <code>--request-approval</code> حتى يتصرف المستخدم.</strong> إذا كان المستخدم نائمًا، ستصل أداة سطر الأوامر إلى مهلتها الزمنية. حدّد التوقعات مسبقًا.</li>
+<li><strong>أوامر <code>_next</code> متعددة الخطوات.</strong> تعيد بعض الأوامر <code>_next.command</code> الذي يجب تنفيذه للمتابعة. عند الشك، فضّل الخيارات ذات الاستقصاء المضمَّن (<code>--interval</code>/<code>--timeout</code>).</li>
+<li><strong>تفتَرِض صيغة المخرجات <code>toon</code></strong> افتراضيًا في وضع non-TTY. مناسبة للنص العادي، لكن إذا احتاجت خطوة لاحقة إلى تحليل حقل محدد، مرّر <code>--format json</code>.</li>
+<li><strong>لا تفترض <code>card</code> افتراضيًا.</strong> توجد خطوة تقييم التاجر (القسم 2) لأن اختيار نوع بيانات الاعتماد الخاطئ يُفشل الشراء بصمت أو يسرّب بيانات أكثر من اللازم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>رمز الخروج 0 يعني أن التثبيت تم وأن تسجيل الدخول ناجح.</p>

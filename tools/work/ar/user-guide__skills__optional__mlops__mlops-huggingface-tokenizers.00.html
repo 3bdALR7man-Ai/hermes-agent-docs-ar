@@ -1,0 +1,204 @@
+
+<header><h1>Huggingface Tokenizers</h1></header>
+<p>تقطيع نصي سريع بخوارزميتي BPE/WordPiece وتدريب مفردات (vocab) مخصّصة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/huggingface-tokenizers</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/huggingface-tokenizers</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>tokenizers</code>, <code>transformers</code>, <code>datasets</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Tokenization</code>, <code>HuggingFace</code>, <code>BPE</code>, <code>WordPiece</code>, <code>Unigram</code>, <code>Fast Tokenization</code>, <code>Rust</code>, <code>Custom Tokenizer</code>, <code>Alignment Tracking</code>, <code>Production</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>HuggingFace Tokenizers - تقطيع نصي سريع لمعالجة اللغة الطبيعية</h1>
+<p>tokenizers سريعة وجاهزة للإنتاج، تجمع بين أداء Rust وسهولة استخدام Python.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-huggingface-tokenizers">متى تستخدم HuggingFace Tokenizers</h2>
+<p><strong>استخدم HuggingFace Tokenizers عندما:</strong></p>
+<ul>
+<li>تحتاج إلى تقطيع نصي سريع جدًا (أقل من 20 ثانية لكل GB من النص)</li>
+<li>تدرّب tokenizers مخصّصة من الصفر</li>
+<li>تريد تتبّع المحاذاة (alignment) (من الـ token إلى موضعه في النص الأصلي)</li>
+<li>تبني خطوط أنابيب (pipelines) إنتاجية لمعالجة اللغة الطبيعية</li>
+<li>تحتاج إلى تقطيع مجموعات نصية ضخمة بكفاءة</li>
+</ul>
+<p><strong>الأداء</strong>:</p>
+<ul>
+<li><strong>السرعة</strong>: أقل من 20 ثانية لتقطيع 1 GB على المعالج (CPU)</li>
+<li><strong>التنفيذ</strong>: نواة Rust مع روابط (bindings) لـ Python/Node.js</li>
+<li><strong>الكفاءة</strong>: أسرع بـ 10-100 مرة من تنفيذات Python الخالصة</li>
+</ul>
+<p><strong>استخدم البدائل بدلًا من ذلك</strong>:</p>
+<ul>
+<li><strong>SentencePiece</strong>: مستقلّ عن اللغة، تستخدمه T5/ALBERT</li>
+<li><strong>tiktoken</strong>: tokenizer بخوارزمية BPE من OpenAI لنماذج GPT</li>
+<li><strong>transformers AutoTokenizer</strong>: لتحميل النماذج المدرَّبة مسبقًا فقط (يستخدم هذه المكتبة داخليًا)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="load-pretrained-tokenizer">تحميل tokenizer مدرَّب مسبقًا</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="train-custom-bpe-tokenizer">تدريب tokenizer مخصّص بخوارزمية BPE</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>زمن التدريب</strong>: نحو 1-2 دقيقة لمجموعة نصية بحجم 100 MB، ونحو 10-20 دقيقة لحجم 1 GB</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-encoding-with-padding">ترميز دفعي (batch) مع الحشو (padding)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokenization-algorithms">خوارزميات التقطيع النصي</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bpe-byte-pair-encoding">BPE (ترميز أزواج البايت)</h3>
+<p><strong>كيف تعمل</strong>:</p>
+<ol>
+<li>ابدأ بمفردات على مستوى الأحرف</li>
+<li>ابحث عن أكثر زوج أحرف تكرارًا</li>
+<li>ادمجه في token جديد، وأضفه إلى المفردات</li>
+<li>كرّر العملية حتى الوصول إلى حجم المفردات المطلوب</li>
+</ol>
+<p><strong>تستخدمها</strong>: GPT-2، GPT-3، RoBERTa، BART، DeBERTa</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>المزايا</strong>:</p>
+<ul>
+<li>تتعامل جيدًا مع الكلمات خارج المفردات (OOV) (تقسّمها إلى وحدات فرعية)</li>
+<li>حجم مفردات مرن</li>
+<li>جيدة للغات ذات البنية الصرفية الغنية</li>
+</ul>
+<p><strong>المقايضات</strong>:</p>
+<ul>
+<li>يعتمد التقطيع على ترتيب الدمج</li>
+<li>قد تُقسَّم كلمات شائعة بشكل غير متوقّع</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="wordpiece">WordPiece</h3>
+<p><strong>كيف تعمل</strong>:</p>
+<ol>
+<li>ابدأ بمفردات على مستوى الأحرف</li>
+<li>قيِّم أزواج الدمج المحتملة: <code>frequency(pair) / (frequency(first) × frequency(second))</code></li>
+<li>ادمج الزوج الأعلى تقييمًا</li>
+<li>كرّر العملية حتى الوصول إلى حجم المفردات المطلوب</li>
+</ol>
+<p><strong>تستخدمها</strong>: BERT، DistilBERT، MobileBERT</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>المزايا</strong>:</p>
+<ul>
+<li>تُعطي الأولوية لعمليات الدمج ذات المعنى (تقييم مرتفع = علاقة دلالية)</li>
+<li>استُخدمت بنجاح في BERT (نتائج على أحدث مستوى)</li>
+</ul>
+<p><strong>المقايضات</strong>:</p>
+<ul>
+<li>تصبح الكلمات غير المعروفة <code>[UNK]</code> إذا لم توجد وحدة فرعية مطابقة</li>
+<li>تُحفَظ المفردات فقط، لا قواعد الدمج (ملفات أكبر حجمًا)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unigram">Unigram</h3>
+<p><strong>كيف تعمل</strong>:</p>
+<ol>
+<li>ابدأ بمفردات كبيرة (كل السلاسل الفرعية)</li>
+<li>احسب دالة الخسارة (loss) للمجموعة النصية بالمفردات الحالية</li>
+<li>أزل الرموز (tokens) ذات الأثر الأقل على الخسارة</li>
+<li>كرّر العملية حتى الوصول إلى حجم المفردات المطلوب</li>
+</ol>
+<p><strong>تستخدمها</strong>: ALBERT، T5، mBART، XLNet (عبر SentencePiece)</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>المزايا</strong>:</p>
+<ul>
+<li>احتمالية (تجد التقطيع الأكثر ترجيحًا)</li>
+<li>تعمل جيدًا مع اللغات التي لا تفصل بين الكلمات بحدود واضحة</li>
+<li>تتعامل مع سياقات لغوية متنوّعة</li>
+</ul>
+<p><strong>المقايضات</strong>:</p>
+<ul>
+<li>مكلفة حسابيًا عند التدريب</li>
+<li>عدد أكبر من المعاملات الفائقة (hyperparameters) التي يجب ضبطها</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokenization-pipeline">خط أنابيب التقطيع النصي</h2>
+<p>خط الأنابيب الكامل: <strong>التسوية (Normalization) ← التقطيع المبدئي (Pre-tokenization) ← النموذج ← المعالجة اللاحقة (Post-processing)</strong></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="normalization">التسوية (Normalization)</h3>
+<p>تنظيف النص وتوحيد صيغته:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>أدوات تسوية شائعة</strong>:</p>
+<ul>
+<li><code>NFD</code>, <code>NFC</code>, <code>NFKD</code>, <code>NFKC</code> - صيغ تسوية Unicode</li>
+<li><code>Lowercase()</code> - التحويل إلى أحرف صغيرة</li>
+<li><code>StripAccents()</code> - إزالة علامات النطق (é → e)</li>
+<li><code>Strip()</code> - إزالة المسافات البيضاء</li>
+<li><code>Replace(pattern, content)</code> - استبدال عبر regex</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre-tokenization">التقطيع المبدئي (Pre-tokenization)</h3>
+<p>تقسيم النص إلى وحدات شبيهة بالكلمات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>أدوات تقطيع مبدئي شائعة</strong>:</p>
+<ul>
+<li><code>Whitespace()</code> - التقسيم عند المسافات وعلامات التبويب والأسطر الجديدة</li>
+<li><code>ByteLevel()</code> - تقسيم على مستوى البايت بأسلوب GPT-2</li>
+<li><code>Punctuation()</code> - عزل علامات الترقيم</li>
+<li><code>Digits(individual_digits=True)</code> - تقسيم الأرقام كلًا على حدة</li>
+<li><code>Metaspace()</code> - استبدال المسافات بالرمز ▁ (بأسلوب SentencePiece)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-processing">المعالجة اللاحقة (Post-processing)</h3>
+<p>إضافة رموز (tokens) خاصة لمدخل النموذج:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>أنماط شائعة</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="alignment-tracking">تتبّع المحاذاة (Alignment Tracking)</h2>
+<p>تتبّع مواضع الـ tokens في النص الأصلي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>حالات الاستخدام</strong>:</p>
+<ul>
+<li>التعرّف على الكيانات المسمّاة (ربط التنبّؤات مرة أخرى بالنص)</li>
+<li>الإجابة على الأسئلة (استخراج نطاقات الإجابة)</li>
+<li>تصنيف الـ tokens (محاذاة التصنيفات مع المواضع الأصلية)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-with-transformers">التكامل مع transformers</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="load-with-autotokenizer">التحميل عبر AutoTokenizer</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="convert-custom-tokenizer-to-transformers">تحويل tokenizer مخصّص إلى صيغة transformers</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="train-from-iterator-large-datasets">التدريب من مُكرِّر (iterator) (مجموعات بيانات كبيرة)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><strong>الأداء</strong>: يعالج 1 GB في نحو 10-20 دقيقة</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enable-truncation-and-padding">تفعيل الاقتطاع (truncation) والحشو (padding)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-processing">المعالجة متعددة العمليات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><strong>تسريع</strong>: 5-8× مع 8 أنوية</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-benchmarks">معايير الأداء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="training-speed">سرعة التدريب</h3>
+<table><thead><tr><th>حجم المجموعة النصية</th><th>BPE (مفردات 30 ألف)</th><th>WordPiece (30 ألف)</th><th>Unigram (8 آلاف)</th></tr></thead><tbody><tr><td>10 MB</td><td>15 ثانية</td><td>18 ثانية</td><td>25 ثانية</td></tr><tr><td>100 MB</td><td>1.5 دقيقة</td><td>2 دقيقة</td><td>4 دقائق</td></tr><tr><td>1 GB</td><td>15 دقيقة</td><td>20 دقيقة</td><td>40 دقيقة</td></tr></tbody></table>
+<p><strong>العتاد</strong>: معالج بـ 16 نواة، اختُبر على النسخة الإنجليزية من ويكيبيديا</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokenization-speed">سرعة التقطيع النصي</h3>
+<table><thead><tr><th>التنفيذ</th><th>مجموعة نصية 1 GB</th><th>الإنتاجية (throughput)</th></tr></thead><tbody><tr><td>Python خالص</td><td>~20 دقيقة</td><td>~50 MB/دقيقة</td></tr><tr><td>HF Tokenizers</td><td>~15 ثانية</td><td>~4 GB/دقيقة</td></tr><tr><td><strong>التسريع</strong></td><td><strong>80×</strong></td><td><strong>80×</strong></td></tr></tbody></table>
+<p><strong>الاختبار</strong>: نص إنجليزي، متوسط طول الجملة 20 كلمة</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-usage">استهلاك الذاكرة</h3>
+<table><thead><tr><th>المهمة</th><th>الذاكرة</th></tr></thead><tbody><tr><td>تحميل tokenizer</td><td>~10 MB</td></tr><tr><td>تدريب BPE (مفردات 30 ألف)</td><td>~200 MB</td></tr><tr><td>ترميز مليون جملة</td><td>~500 MB</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-models">النماذج المدعومة</h2>
+<p>tokenizers مدرَّبة مسبقًا متاحة عبر <code>from_pretrained()</code>:</p>
+<p><strong>عائلة BERT</strong>:</p>
+<ul>
+<li><code>bert-base-uncased</code>, <code>bert-large-cased</code></li>
+<li><code>distilbert-base-uncased</code></li>
+<li><code>roberta-base</code>, <code>roberta-large</code></li>
+</ul>
+<p><strong>عائلة GPT</strong>:</p>
+<ul>
+<li><code>gpt2</code>, <code>gpt2-medium</code>, <code>gpt2-large</code></li>
+<li><code>distilgpt2</code></li>
+</ul>
+<p><strong>عائلة T5</strong>:</p>
+<ul>
+<li><code>t5-small</code>, <code>t5-base</code>, <code>t5-large</code></li>
+<li><code>google/flan-t5-xxl</code></li>
+</ul>
+<p><strong>أخرى</strong>:</p>
+<ul>
+<li><code>facebook/bart-base</code>, <code>facebook/mbart-large-cc25</code></li>
+<li><code>albert-base-v2</code>, <code>albert-xlarge-v2</code></li>
+<li><code>xlm-roberta-base</code>, <code>xlm-roberta-large</code></li>
+</ul>
+<p>تصفّح الكل: <a href="https://huggingface.co/models?library=tokenizers" data-ext>https://huggingface.co/models?library=tokenizers</a></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/huggingface-tokenizers/references/training.md" data-ext>دليل التدريب</a></strong> - تدريب tokenizers مخصّصة، وضبط المدرِّبين (trainers)، والتعامل مع مجموعات البيانات الكبيرة</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/huggingface-tokenizers/references/algorithms.md" data-ext>شرح تفصيلي للخوارزميات</a></strong> - شرح مفصّل لـ BPE و WordPiece و Unigram</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/huggingface-tokenizers/references/pipeline.md" data-ext>مكوّنات خط الأنابيب</a></strong> - أدوات التسوية والتقطيع المبدئي والمعالجة اللاحقة وفكّ الترميز</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/huggingface-tokenizers/references/integration.md" data-ext>التكامل مع Transformers</a></strong> - AutoTokenizer، PreTrainedTokenizerFast، والرموز الخاصة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>التوثيق</strong>: <a href="https://huggingface.co/docs/tokenizers" data-ext>https://huggingface.co/docs/tokenizers</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/huggingface/tokenizers" data-ext>https://github.com/huggingface/tokenizers</a> ⭐ 9,000+</li>
+<li><strong>الإصدار</strong>: 0.20.0+</li>
+<li><strong>الدورة التعليمية</strong>: <a href="https://huggingface.co/learn/nlp-course/chapter6/1" data-ext>https://huggingface.co/learn/nlp-course/chapter6/1</a></li>
+<li><strong>الورقة البحثية</strong>: BPE (Sennrich et al., 2016), WordPiece (Schuster &amp; Nakajima, 2012)</li>
+</ul>

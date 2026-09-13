@@ -1,0 +1,54 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup-verification-fails-url-couldnt-be-validated-in-meta-dashboard">فشل التحقق من الإعداد (&quot;URL couldn&#x27;t be validated&quot;) في لوحة تحكم Meta</h3>
+<p>في الغالب يكون السبب واحدًا مما يلي:</p>
+<ul>
+<li><strong>URL النفق خاطئ أو قديم</strong> — تتغير عناوين الأنفاق السريعة في cloudflared. احصل على URL جديد وحدّث كلًّا من <code>.env</code> ولوحة تحكم Meta.</li>
+<li><strong>عدم تطابق Verify token</strong> — يجب أن يتطابق الـ token الموجود في ملف <code>~/.hermes/.env</code> ضمن المتغير <code>WHATSAPP_CLOUD_VERIFY_TOKEN</code> تمامًا مع ما كتبته في لوحة تحكم Meta. نفّذ فحص curl الوارد أعلاه للتأكد أولًا من أن مصافحة التحقق في الـ gateway تعمل محليًا.</li>
+<li><strong>الـ gateway لا يعمل</strong> — تحقّق من أن <code>hermes gateway</code> قيد التشغيل.</li>
+<li><strong>App Secret غير مضبوط</strong> — من دونه يرفض Hermes طلبات POST الواردة بالرمز 503، وتفسّر Meta ذلك على أنه &quot;can&#x27;t validate.&quot;</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="graph-error-100-object-with-id--does-not-exist"><code>graph error 100</code>: Object with ID &#x27;...&#x27; does not exist</h3>
+<p>لقد لصقت رقم هاتفك (10-11 خانة) في <code>WHATSAPP_CLOUD_PHONE_NUMBER_ID</code> بدلًا من Phone Number ID (المعرّف الداخلي لدى Meta المكوّن من 15-17 خانة). راجع صفحة API Setup مرة أخرى — إذ يظهر Phone Number ID <em>أسفل</em> القائمة المنسدلة &quot;From&quot;.</p>
+<p>يكتشف المعالج هذا الخطأ الآن عبر أداة تحقق، لكن من المفيد معرفته إذا كنت تُجري الإعداد يدويًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="graph-error-190-authentication-error"><code>graph error 190</code>: خطأ في المصادقة (Authentication Error)</h3>
+<p>الـ access token الخاص بك غير صالح. الرموز الفرعية:</p>
+<ul>
+<li><code>subcode 463</code> — انتهت صلاحية الـ token. الـ tokens المؤقتة تدوم 24 ساعة. أعد توليده، أو انتقل إلى token دائم لمستخدم نظام (System User) (راجع ما سبق).</li>
+<li><code>subcode 467</code> — أُبطل الـ token (أُلغي أو تغيّرت كلمة المرور).</li>
+<li>رموز 190 الأخرى — لم يُمنح الـ token الصلاحيات المطلوبة عند توليده. تأكد من تحديد الصلاحيات الثلاث جميعها (<code>business_management</code>، <code>whatsapp_business_messaging</code>، <code>whatsapp_business_management</code>).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="graph-error-131047-re-engagement-message"><code>graph error 131047</code>: Re-engagement message (رسالة إعادة التفاعل)</h3>
+<p>انتهت نافذة المحادثة ذات الـ 24 ساعة (راجع &quot;القيود المعروفة&quot;). ويمكنك إما:</p>
+<ul>
+<li>أن تطلب من المستخدم مراسلة البوت أولًا لإعادة فتح النافذة.</li>
+<li>أو أن تنتظر إضافة دعم القوالب إلى Hermes.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-message-media-metadata-fetch-failed-status401">رسالة واردة: <code>media metadata fetch failed (status=401)</code></h3>
+<p>أسباب الخطأ 401 هنا هي نفسها في الرسائل الصادرة (<code>graph error 190</code>) — فالـ access token غير صالح أو منتهي الصلاحية. أصلح الـ token.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-replies-appear-as-raw-json--tool-call-leakage">ظهور ردود البوت كـ JSON خام / تسرّب استدعاءات الأدوات</h3>
+<p>السبب الشائع: الـ toolset المُعدّ لـ <code>whatsapp_cloud</code> يفتقد الأدوات التي يريد الوكيل استدعاءها. تحقّق من <code>hermes tools list</code> وتأكد من أن المنصة تستخدم <code>hermes-whatsapp</code> (الـ toolset الافتراضي لمحوّل Cloud، وهو نفسه المستخدم مع Baileys).</p>
+<p>إذا أخرج النموذج نصًا على هيئة استدعاء أداة بدلًا من استدعاء منظّم، فهذا يعني عادةً أن الـ toolset كان فارغًا فعليًا. راجع <code>hermes_cli/platforms.py</code> لمعرفة الربط بين المنصة → الـ toolset الافتراضي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-voice-note-transcription-returns-empty--could-not-transcribe">STT (تفريغ الملاحظات الصوتية) يُرجع نتيجة فارغة / &quot;could not transcribe&quot;</h3>
+<p>يتطلب الإعداد الافتراضي <code>stt.provider: local</code> تنفيذ <code>pip install faster-whisper</code>. وإذا كنت مشتركًا في Nous، فيمكنك بدلًا من ذلك توجيه STT عبر الـ gateway المُدار — اختر <strong>Nous Subscription</strong> لتحويل الكلام إلى نص في <code>hermes tools</code>، أو اضبطه مباشرةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يستخدم هذا الـ access token الخاص بك في Nous Portal بدلًا من الحاجة إلى مفتاح OpenAI منفصل. (اقترحت الوثائق القديمة <code>stt.use_gateway true</code> — وهو خيار قديم (legacy)؛ إذ أصبح اختيار المزوّد وحده هو ما يتحكم في التوجيه الآن.)</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-notes">ملاحظات أمنية</h2>
+<ul>
+<li><strong>تعامل مع App Secret ككلمة مرور</strong> — فأي شخص يملكه يستطيع تزوير حمولات webhook يقبلها Hermes على أنها أصلية.</li>
+<li><strong>الـ verify token سرّ مشترك</strong> — تسريبه أقل خطورة (ففي أسوأ الأحوال قد يعيد شخص ما توجيه اشتراك webhook لدى Meta إلى URL آخر يملكه)، لكن تجنّب مع ذلك إضافته إلى أي commit.</li>
+<li><strong>الـ access token هو هوية بوتك</strong> — فـ tokens مستخدمي النظام (System User) تعادل مفاتيح API طويلة الأمد. بدّله فورًا إذا تعرضت عملية نشر للاختراق.</li>
+<li><strong>لا يقبل endpoint الخاص بـ webhook إلا الطلبات الموقّعة عند ضبط <code>WHATSAPP_CLOUD_APP_SECRET</code></strong> — أبقِه مضبوطًا حتى في بيئة التطوير. فمن دونه يرفض الـ gateway تسليم الرسائل الواردة بالرمز HTTP 503.</li>
+<li><strong>الـ endpoint <code>/health</code> لا يتطلب مصادقة</strong> — ومن الآمن كشفه لأنه لا يُبلغ إلا بقيم منطقية (booleans) تشير إلى وجود الإعدادات، لا بالقيم نفسها. لكن إن كنت تفضّل عدم إظهاره، فقيّد الوصول إليه على مستوى الـ reverse proxy / النفق.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-to-the-baileys-bridge">مقارنة مع جسر Baileys</h2>
+<table><thead><tr><th></th><th>Baileys (<code>hermes whatsapp</code>)</th><th>Cloud API (<code>hermes whatsapp-cloud</code>)</th></tr></thead><tbody><tr><td>نوع الحساب</td><td>شخصي</td><td>تجاري</td></tr><tr><td>الإعداد</td><td>مسح رمز QR</td><td>تطبيق Meta + WABA + token</td></tr><tr><td>الاعتماديات</td><td>Node.js + npm</td><td>Python خالص (httpx + aiohttp)</td></tr><tr><td>العملية</td><td>عملية Node فرعية مُدارة</td><td>خادم webhook مبني على aiohttp</td></tr><tr><td>هل يحتاج إلى URL عام؟</td><td>لا</td><td>نعم</td></tr><tr><td>خطر حظر الحساب</td><td>نعم (API غير رسمي)</td><td>لا (مدعوم رسميًا)</td></tr><tr><td>الرسائل الواردة</td><td>استطلاع (polling) جسر Node</td><td>Webhook POST من Meta</td></tr><tr><td>الرسائل الصادرة</td><td>جسر محلي → Baileys</td><td>HTTPS إلى graph.facebook.com</td></tr><tr><td>المجموعات</td><td>دعم كامل</td><td>الرسائل المباشرة فقط (v1)</td></tr><tr><td>نافذة الـ 24 ساعة</td><td>بلا قيود</td><td>قاعدة صارمة — تلزم القوالب بعد انقضائها</td></tr><tr><td>الملاحظات الصوتية (الصادرة)</td><td>أصلية</td><td>أصلية مع ffmpeg، وإلا فـ MP3 كبديل احتياطي</td></tr><tr><td>إشعارات القراءة</td><td>لا</td><td>نعم (علامتا الصح الزرقاوان)</td></tr><tr><td>مؤشر الكتابة</td><td>لا</td><td>نعم (يختفي تلقائيًا عند الرد)</td></tr><tr><td>الأزرار التفاعلية</td><td>بديل نصي فقط</td><td>أصلية (clarify، والموافقة، وتأكيد slash commands)</td></tr><tr><td>الاستخدام في الإنتاج</td><td>محفوف بالمخاطر (قد تحظر Meta الحساب)</td><td>مصمَّم لذلك</td></tr></tbody></table>
+<p>يفضّل معظم المستخدمين الذين يشغّلون Hermes لمشاريع شخصية جسر Baileys، بينما يفضّل معظم من يشغّلون بوتات موجهة للعملاء Cloud API.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">راجع أيضًا</h2>
+<ul>
+<li><a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/" data-ext>توثيق WhatsApp Business Cloud API الرسمي من Meta</a> — المرجع المعتمد للمنصة الأساسية، والتسعير، و App Review، وحدود المعدل (rate limits) من جهة Meta.</li>
+<li><a href="/docs/user-guide/messaging/whatsapp">إعداد WhatsApp (جسر Baileys)</a> — التكامل البديل للمشاريع الشخصية.</li>
+<li><a href="/docs/user-guide/messaging/">نظرة عامة على منصات المراسلة</a> — جميع تكاملات المراسلة في لمحة واحدة.</li>
+</ul>

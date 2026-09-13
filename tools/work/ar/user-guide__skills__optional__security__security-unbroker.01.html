@@ -1,0 +1,44 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>لا تُفصح أبدًا عن أكثر مما يعرضه السمسار بالفعل.</strong> قدّم فقط <code>disclosure_fields</code>. لا يتطوّع المحرّك
+أبدًا بأرقام الضمان الاجتماعي أو الهوية؛ يجب ألا تفعل أنت ذلك أيضًا.</li>
+<li><strong>بلا موافقة، لا إجراء.</strong> يفرض المحرّك هذا؛ لا تلتفّ حوله لـ &quot;بحث&quot; عن طرف ثالث.</li>
+<li><strong><code>send-email</code> ثابت النتيجة (idempotent) ومحدود المعدل.</strong> يرفض إعادة إرسال حالة سبق أن أصبحت <code>submitted</code>
+أو تجاوزتها (استخدم <code>--force</code> فقط عند الحاجة فعلًا لإعادة إرسال حقيقية)، وتُوقَّت رسائل SMTP وفق
+<code>email_min_interval_seconds</code> (الافتراضي 20 ثانية) مع إعادة محاولة وتراجع تدريجي (backoff). لا تُكرّر تنفيذه &quot;للتأكّد&quot; -
+فنجاح تسليم SMTP ليس دليلًا على التسليم؛ إعادة فحص طابور الاستحقاق هي التأكيد الحقيقي.</li>
+<li><strong>كتابات السجل (ledger) مُقفَلة.</strong> تُسلسَل التشغيلات المتزامنة (cron + يدوي) بأمان؛ إذا صادفت
+مهلة قفل، فهذا يعني أن تشغيلًا آخر قيد الكتابة - دعه ينتهي، ولا تحذف ملف <code>.lock</code> يدويًا.</li>
+<li><strong>الاستقلالية ≠ الارتجال.</strong> الاستقلالية الكاملة تعني عدم <em>السؤال</em> بين الخطوات؛ ولا تُخفّف أي
+حاجز. إذا طلب سمسار أكثر من <code>disclosure_fields</code> المخطَّط لها أثناء التدفّق، أوقف تلك الحالة
+وأضِفها للطابور (<code>human_task_queued --reason</code>) بدلًا من أن تقرّر بمفردك الإفصاح عن بيانات شخصية إضافية.</li>
+<li><strong>لا تقاطع التشغيل بالأسئلة.</strong> اختيارات الإعداد هي مهمّة <code>setup --auto</code>؛ والعمل الذي يتطلّب بشرًا فقط
+يذهب إلى الملخّص. السؤال الوحيد المشروع أثناء التشغيل هو حقيقة هوية مفقودة تعيق
+الفحص (مثل غياب المدينة تمامًا) - وكان ينبغي جمعها عند الاستقبال.</li>
+<li><strong>استخدم <code>terminal</code>، لا <code>execute_code</code></strong> لتشغيل <code>pdd.py</code> (فتنظيف الأسرار وحجب الإخراج يعطّلانه).</li>
+<li><strong>الملفات (dossiers) نصّية عادية افتراضيًا</strong> (JSON، بصلاحيات <code>0600</code> تحت <code>HERMES_HOME</code>). للتشفير أثناء
+التخزين، شغّل <code>$PDD setup --encryption age</code> - فهو يولّد مفتاح <code>age</code> محليًا ويشفّر الملفات والسجلات (يحتفظ
+سجل التدقيق بأسماء الحقول فقط ويبقى نصًا عاديًا). يحمي هذا من التعرّض العرَضي/عند
+النسخ الاحتياطي/الـ commit، لا من قراءة كامل <code>HERMES_HOME</code>؛ اضبط <code>PDD_AGE_IDENTITY</code> على وحدة تخزين منفصلة
+لفصل حقيقي للمفتاح. يُظهر <code>$PDD doctor</code> ما إذا كان التشفير <em>مفعّلًا فعليًا</em> (لا مجرّد تثبيت <code>age</code>).</li>
+<li><strong>&quot;مخفي عن البحث المجاني&quot; ≠ محذوف.</strong> لا تُعلِّم الحالة <code>confirmed_removed</code> إلا بعد التحقّق من أن السجل
+قد اختفى فعلًا؛ أشِر إلى الاحتفاظ بالبيانات في الفئات المدفوعة داخل التقرير.</li>
+<li><strong>تُجتاز CAPTCHA الخفيفة افتراضيًا؛ لا تصارع الصعبة منها.</strong> يجتاز المتصفح السحابي الافتراضي
+التحديات المُدارة/الخفيفة كعملية اعتيادية (تبقى تلك السماسرة عند T1). أما التحدي التفاعلي الصعب
+الذي لا يمكن اجتيازه فعلًا، فسجّل <code>blocked</code> ودَع جولة المتصفح الخفي/متصفح المشغّل تتولّاه - أبدًا
+خدمة حل من طرف ثالث أو انتحال بصمة جهاز.</li>
+<li><strong>صفحات السماسرة تتغيّر.</strong> إذا تعطّل تدفّق، نفّذ <code>$PDD record ... blocked</code> وضَع علامة على ملف السمسار في
+<code>references/brokers/</code> لإعادة التحقق بدلًا من التخمين.</li>
+<li><strong>تحقّق من السجلات غير المتحقَّق منها ميدانيًا قبل الإرسال.</strong> السجلات ذات <code>confidence: auto</code> جاءت من
+تحليل BADBOOL (اقرأ <code>optout.notes</code>/<code>optout.links</code>، وتأكّد من رابط إلغاء الاشتراك الحقيقي). سجلات
+<code>confidence: documented</code> (عدة مواقع بحث عن أشخاص) تحمل رابط إلغاء الاشتراك المنشور الصحيح لكنها
+<strong>لم</strong> تُتحقَّق منها ميدانيًا (فهي ترفض عناوين IP لمراكز البيانات بخطأ 403)، فتأكّد من التدفّق الفعلي عبر متصفح
+المشغّل السكني عند أول استخدام، ثم اضبط <code>last_verified</code>. أما السجلات المنسَّقة المتحقَّق منها ميدانيًا (بلا
+<code>confidence</code>، مثل الجهات الأم للمجموعات) فقد فُحصت آليّاتها وتحظى بالأولوية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li><code>scripts/run_tests.sh tests/skills/test_unbroker_skill.py</code> (معزول تمامًا؛ بلا شبكة)، أو المشغّل
+الخالي من الاعتماديات <code>python tests/skills/test_unbroker_skill.py</code>.</li>
+<li>تشغيل تجريبي: <code>$PDD setup --auto &amp;&amp; $PDD doctor &amp;&amp; SID=$($PDD intake --full-name &quot;Test Person&quot; --email t@example.com --consent | python -c &#x27;import sys,json;print(json.load(sys.stdin)[&quot;subject_id&quot;])&#x27;) &amp;&amp; $PDD next &quot;$SID&quot;</code> وتأكّد من ظهور ملخّص جاهزية وقائمة إجراءات مرتّبة.</li>
+</ul>

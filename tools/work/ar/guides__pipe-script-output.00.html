@@ -1,0 +1,104 @@
+<header><h1>تمرير مخرجات السكربتات إلى منصات المراسلة</h1></header>
+<p><code>hermes send</code> أداة CLI صغيرة وقابلة للبرمجة النصية تدفع رسالة إلى أي
+منصة مراسلة يكون Hermes معدًّا لها بالفعل. فكّر فيها كـ <code>curl</code>
+عابرة للمنصات للإشعارات — لا تحتاج إلى gateway قيد التشغيل،
+ولا تحتاج إلى LLM، ولا تحتاج إلى إعادة لصق رموز البوت
+في كل سكربت من سكربتاتك.</p>
+<p>استخدمها من أجل:</p>
+<ul>
+<li>مراقبة النظام (الذاكرة، القرص، حرارة GPU، انتهاء مهمة طويلة التشغيل)</li>
+<li>إشعارات CI/CD (اكتمال النشر، فشل الاختبار)</li>
+<li>سكربتات Cron التي تحتاج إلى إبلاغك بالنتائج</li>
+<li>رسائل سريعة لمرة واحدة من الطرفية</li>
+<li>تمرير مخرجات أي أداة إلى أي مكان (<code>make | hermes send --to slack:#builds</code>)</li>
+</ul>
+<p>يعيد الأمر استخدام بيانات الاعتماد ومحوّلات المنصات نفسها التي يستخدمها <code>hermes gateway</code> بالفعل، لذا لا توجد واجهة إعداد ثانية
+يلزم صيانتها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="argument-reference">مرجع المعطيات (Arguments)</h2>
+<table><thead><tr><th>الخيار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>-t, --to TARGET</code></td><td>الوجهة. راجع <a href="#target-formats">صيغ الوجهات</a>.</td></tr><tr><td><code>message</code> (موضعي)</td><td>نص الرسالة. اتركه لتُقرأ من <code>--file</code> أو stdin.</td></tr><tr><td><code>-f, --file PATH</code></td><td>اقرأ المتن من ملف. يفرض <code>--file -</code> القراءة من stdin.</td></tr><tr><td><code>-s, --subject LINE</code></td><td>أضف سطر عنوان/موضوع قبل المتن.</td></tr><tr><td><code>-l, --list</code></td><td>سرد الوجهات المتاحة. مع فلتر منصة موضعي اختياري.</td></tr><tr><td><code>-q, --quiet</code></td><td>بلا مخرجات عند النجاح (رمز الخروج فقط — مثالي للسكربتات).</td></tr><tr><td><code>--json</code></td><td>أخرج نتيجة JSON الخام للإرسال.</td></tr><tr><td><code>-h, --help</code></td><td>اعرض نص المساعدة المدمج.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="target-formats">صيغ الوجهات</h3>
+<table><thead><tr><th>الصيغة</th><th>مثال</th><th>المعنى</th></tr></thead><tbody><tr><td><code>platform</code></td><td><code>telegram</code></td><td>إرسال إلى القناة الرئيسية المُعدّة للمنصة</td></tr><tr><td><code>platform:chat_id</code></td><td><code>telegram:-1001234567890</code></td><td>محادثة / مجموعة / مستخدم رقمي محدّد</td></tr><tr><td><code>platform:chat_id:thread_id</code></td><td><code>telegram:-1001234567890:17585</code></td><td>خيط محدّد أو موضوع منتدى في Telegram</td></tr><tr><td><code>platform:#channel</code></td><td><code>discord:#ops</code></td><td>اسم قناة سهل القراءة (يُحلّ مقابل دليل القنوات)</td></tr><tr><td><code>platform:+E164</code></td><td><code>signal:+15551234567</code></td><td>منصات تُعنون بالهاتف: Signal، SMS، WhatsApp</td></tr></tbody></table>
+<p>تعمل كوجهة أي منصة يوفّر لها Hermes محوّلات:
+<code>telegram</code>، و<code>discord</code>، و<code>slack</code>، و<code>signal</code>، و<code>sms</code>، و<code>whatsapp</code>، و<code>matrix</code>،
+و<code>mattermost</code>، و<code>feishu</code>، و<code>dingtalk</code>، و<code>wecom</code>، و<code>weixin</code>، و<code>email</code>، و
+غيرها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exit-codes">رموز الخروج (Exit Codes)</h3>
+<table><thead><tr><th>الرمز</th><th>المعنى</th></tr></thead><tbody><tr><td><code>0</code></td><td>نجح الإرسال (أو السرد)</td></tr><tr><td><code>1</code></td><td>فشل التسليم على مستوى المنصة (المصادقة، الصلاحيات، الشبكة)</td></tr><tr><td><code>2</code></td><td>خطأ في الاستخدام / المعطيات / الإعدادات</td></tr></tbody></table>
+<p>تتّبع رموز الخروج اتفاقية Unix القياسية حتى تستطيع سكربتاتك
+التفرّع بناءً عليها كما تفعل مع <code>curl</code> أو <code>grep</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-body-resolution">تحديد متن الرسالة</h2>
+<p>يحدّد <code>hermes send</code> متن الرسالة بهذا الترتيب:</p>
+<ol>
+<li><strong>معطى موضعي</strong> — <code>hermes send --to telegram &quot;hi&quot;</code></li>
+<li><strong><code>--file PATH</code></strong> — <code>hermes send --to telegram --file msg.txt</code></li>
+<li><strong>stdin المُمرَّر عبر أنبوب (piped)</strong> — <code>echo hi | hermes send --to telegram</code></li>
+</ol>
+<p>عندما يكون stdin طرفية تفاعلية (TTY) (بلا أنبوب)، <strong>لا</strong> ينتظر Hermes
+الإدخال — بل ستحصل على خطأ استخدام واضح بدلًا من ذلك. هذا يمنع تعليق السكربتات إذا
+أغفلت المتن بالخطأ.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="real-world-examples">أمثلة من واقع الاستخدام</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="monitoring-memory--disk-alerts">المراقبة: تنبيهات الذاكرة / القرص</h3>
+<p>استبدل استدعاءات <code>curl https://api.telegram.org/...</code> المؤقتة في مراقباتك (watchdogs)
+بسطر واحد قابل للنقل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بما أن <code>hermes send</code> يعيد استخدام إعدادات Hermes لديك، يعمل السكربت نفسه على
+أي جهاز مضيف مثبَّت عليه Hermes — دون حاجة لتصدير رموز البوت يدويًا إلى
+بيئة كل جهاز.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>لا تنبّه الـ gateway بشأن نفسه</div><div class="admonitionContent_BuS1"><p>بالنسبة للمراقبات (watchdogs) التي قد تُطلَق عندما يعاني الـ gateway نفسه (تنبيهات
+نفاد الذاكرة (OOM)، تنبيهات امتلاء القرص)، واصل استخدام استدعاء <code>curl</code> بسيط بدلًا من
+<code>hermes send</code>. إذا تعذّر تحميل مفسّر Python لأن الجهاز
+مُثقَل، لا تزال تريد أن يخرج ذلك التنبيه.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ci--cd-build-and-test-results">CI / CD: نتائج البناء والاختبار</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-daily-report">Cron: تقرير يومي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-running-tasks-ping-when-done">المهام الطويلة التشغيل: إبلاغ عند الانتهاء</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scripting-with---json-and---quiet">البرمجة النصية باستخدام <code>--json</code> و<code>--quiet</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="does-hermes-send-need-the-gateway-running">هل يحتاج <code>hermes send</code> إلى تشغيل الـ Gateway؟</h2>
+<p><strong>عادةً لا.</strong> بالنسبة لأي منصة تعتمد على رمز بوت — Telegram، وDiscord، وSlack،
+وSignal، وSMS، وWhatsApp Cloud API، ومعظم غيرها — يستدعي <code>hermes send</code>
+نقطة نهاية REST الخاصة بالمنصة مباشرة باستخدام بيانات الاعتماد من
+<code>~/.hermes/.env</code> و<code>~/.hermes/config.yaml</code>. إنها عملية فرعية مستقلة
+تُنهي عملها فور تسليم الرسالة.</p>
+<p>لا يُطلب gateway حيّ إلا لـ<strong>منصات الإضافات (plugin platforms)</strong> التي تعتمد على
+اتصال محوّل دائم (مثلًا، إضافة مخصّصة تُبقي
+اتصال WebSocket مفتوحًا لفترة طويلة). في هذه الحالة ستحصل على خطأ واضح
+يشير إلى الـ gateway؛ شغّله بـ <code>hermes gateway start</code> وأعد المحاولة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="listing-and-discovering-targets">سرد الوجهات واكتشافها</h2>
+<p>قبل الإرسال إلى قناة محدّدة، يمكنك فحص ما هو متاح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يُبنى السرد من <code>~/.hermes/channel_directory.json</code>، الذي
+يحدّثه الـ gateway كل بضع دقائق أثناء تشغيله. إذا رأيت
+&quot;no channels discovered yet&quot;، شغّل الـ gateway مرة واحدة (<code>hermes gateway start</code>) حتى يملأ ذاكرته المؤقتة (cache).</p>
+<p>تُحلّ الأسماء سهلة القراءة (<code>discord:#ops</code>، <code>slack:#engineering</code>)
+مقابل هذه الذاكرة المؤقتة وقت الإرسال، لذا لست بحاجة إلى حفظ
+المعرّفات الرقمية.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-with-other-approaches">مقارنة مع مناهج أخرى</h2>
+<table><thead><tr><th>المنهج</th><th>متعدد المنصات</th><th>يعيد استخدام بيانات اعتماد Hermes</th><th>يحتاج gateway</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><code>hermes send</code></td><td>✅</td><td>✅</td><td>لا (رمز بوت)</td><td>كل ما يلي أدناه</td></tr><tr><td><code>curl</code> خام إلى كل منصة</td><td>مكتوبة بسكربت منفصل لكل منها</td><td>يدوي</td><td>لا</td><td>المراقبات الحرجة</td></tr><tr><td>مهمة <code>cron</code> بـ <code>--deliver</code></td><td>✅</td><td>✅</td><td>لا</td><td>مهام الوكيل المجدولة</td></tr></tbody></table>
+<p><code>hermes send</code> هو عمدًا أبسط واجهة ممكنة. إذا احتجت
+وكيلًا ليقرر ماذا يقول، جدول مهمة cron — تُسلَّم استجابة الوكيل
+النهائية تلقائيًا إلى وجهة <code>deliver:</code> المُعدّة (لم يعد
+الوكيل يطلق الرسائل بنفسه). إذا احتجت تشغيلًا مجدولًا بمحتوى مولَّد بواسطة LLM،
+استخدم <code>cronjob(action=&#x27;create&#x27;, prompt=...)</code> مع <code>deliver=&#x27;telegram:...&#x27;</code>.
+وإذا احتجت فقط تمرير نص خام عبر أنبوب، استخدم <code>hermes send</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">مواضيع ذات صلة</h2>
+<ul>
+<li><a href="/docs/guides/automate-with-cron">أتمتة أي شيء باستخدام Cron</a> —
+مهام مجدولة تُسلَّم مخرجاتها تلقائيًا إلى أي منصة.</li>
+<li><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a> —
+موجّه التسليم الذي يتشاركه <code>hermes send</code> مع تسليم cron.</li>
+<li><a href="/docs/user-guide/messaging/">إعداد منصات المراسلة</a> —
+إعداد لمرة واحدة لكل منصة.</li>
+</ul>

@@ -1,0 +1,111 @@
+<header><h1>توسيع لوحة التحكم</h1></header>
+<p>صُمّمت لوحة تحكم Hermes على الويب (<code>hermes dashboard</code>) بحيث يمكن تغيير مظهرها وتوسيعها دون الحاجة إلى عمل fork لقاعدة الكود. وهي تتيح ثلاث طبقات:</p>
+<ol>
+<li><strong>السمات (Themes)</strong> — ملفات YAML تعيد تلوين لوحة الألوان (palette) في لوحة التحكم، والخطوط (typography)، والتخطيط (layout)، والمظهر الخاص بكل مكوّن (chrome). ضع ملفًا في <code>~/.hermes/dashboard-themes/</code> وسيظهر في مُبدّل السمات.</li>
+<li><strong>إضافات الواجهة (UI plugins)</strong> — مجلد يحتوي على <code>manifest.json</code> مع حزمة JavaScript تسجّل تبويبًا، أو تستبدل صفحة مدمجة، أو تعزّز إحداها عبر slots على مستوى الصفحة، أو تحقن مكوّنات في slots مسمّاة داخل الـ shell.</li>
+<li><strong>إضافات الـ backend</strong> — ملف Python داخل مجلد الإضافة نفسه يوفّر <code>router</code> من FastAPI؛ تُركَّب المسارات تحت <code>/api/plugins/&lt;name&gt;/</code> وتُستدعى من واجهة الإضافة.</li>
+</ol>
+<p>الطبقات الثلاث كلها <strong>قابلة للإضافة المباشرة وقت التشغيل</strong>: لا حاجة لاستنساخ المستودع، ولا لتشغيل <code>npm run build</code>، ولا لتعديل الكود المصدري للوحة التحكم. هذه الصفحة هي المرجع المعتمد للطبقات الثلاث.</p>
+<p>إذا كنت تريد استخدام لوحة التحكم فقط، فراجع <a href="/docs/user-guide/features/web-dashboard">لوحة التحكم على الويب</a>. وإذا كنت تريد تغيير مظهر واجهة CLI في الطرفية (وليس لوحة التحكم على الويب)، فراجع <a href="/docs/user-guide/features/skins">المظاهر والسمات (Skins &amp; Themes)</a> — فنظام المظاهر في CLI لا علاقة له بسمات لوحة التحكم.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>ليس تطبيق سطح المكتب</div><div class="admonitionContent_BuS1"><p>تتناول هذه الصفحة نظام الإضافات في <strong>لوحة التحكم على الويب</strong> (<code>hermes dashboard</code>) — أي <code>window.__HERMES_PLUGIN_SDK__</code>، وملف <code>manifest.json</code>، وحزمة JS مبنيّة مسبقًا. أما <strong>تطبيق سطح المكتب الأصلي</strong> (<code>hermes desktop</code>) فله SDK خاص به ومستقل تمامًا — <code>@hermes/plugin-sdk</code>، وهو ملف ESM واحد بلا خطوة بناء — وهو موثّق في <a href="/docs/developer-guide/desktop-plugin-sdk">Desktop Plugin SDK</a>. والشيء الوحيد المشترك بينهما هو نطاق <code>plugin_api.py</code> الخاص بالـ backend (<code>/api/plugins/&lt;name&gt;</code>).</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>كيف تتكامل هذه الأجزاء</div><div class="admonitionContent_BuS1"><p>السمات والإضافات مستقلة عن بعضها لكنها تتكامل معًا. يمكن للسمة أن تعمل وحدها (مجرد ملف YAML)، ويمكن للإضافة أن تعمل وحدها (مجرد تبويب). ومعًا تتيحان لك بناء مظهر جديد كامل مع واجهات HUD مخصصة — وهذا بالضبط ما يفعله العرض التوضيحي <code>strike-freedom-cockpit</code> (الموجود في المستودع المرافق <code>hermes-example-plugins</code> — راجع <a href="#combined-theme--plugin-demo">عرض توضيحي يجمع السمة والإضافة</a> لخطوات التثبيت).</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="table-of-contents">جدول المحتويات</h2>
+<ul>
+<li><a href="#themes">السمات (Themes)</a>
+<ul>
+<li><a href="#quick-start--your-first-theme">البدء السريع — سمتك الأولى</a></li>
+<li><a href="#palette-typography-layout">لوحة الألوان والخطوط والتخطيط</a></li>
+<li><a href="#layout-variants">أنماط التخطيط</a></li>
+<li><a href="#theme-assets-images-as-css-vars">أصول السمة (الصور كمتغيرات CSS)</a></li>
+<li><a href="#component-chrome-overrides">تخصيص مظهر المكوّنات (Component chrome overrides)</a></li>
+<li><a href="#color-overrides">تجاوزات الألوان (Color overrides)</a></li>
+<li><a href="#raw-customcss">CSS الخام عبر <code>customCSS</code></a></li>
+<li><a href="#built-in-themes">السمات المدمجة</a></li>
+<li><a href="#full-theme-yaml-reference">المرجع الكامل لملف YAML الخاص بالسمة</a></li>
+</ul>
+</li>
+<li><a href="#plugins">الإضافات (Plugins)</a>
+<ul>
+<li><a href="#quick-start--your-first-plugin">البدء السريع — إضافتك الأولى</a></li>
+<li><a href="#directory-layout">بنية المجلد</a></li>
+<li><a href="#manifest-reference">مرجع ملف Manifest</a></li>
+<li><a href="#the-plugin-sdk">Plugin SDK</a></li>
+<li><a href="#shell-slots">فتحات الـ shell (Shell slots)</a></li>
+<li><a href="#replacing-built-in-pages-taboverride">استبدال الصفحات المدمجة (<code>tab.override</code>)</a></li>
+<li><a href="#augmenting-built-in-pages-page-scoped-slots">تعزيز الصفحات المدمجة (slots على مستوى الصفحة)</a></li>
+<li><a href="#slot-only-plugins-tabhidden">إضافات تعتمد على الـ slots فقط (<code>tab.hidden</code>)</a></li>
+<li><a href="#backend-api-routes">مسارات API في الـ backend</a></li>
+<li><a href="#custom-css-per-plugin">CSS مخصص لكل إضافة</a></li>
+<li><a href="#plugin-discovery--reload">اكتشاف الإضافات وإعادة تحميلها</a></li>
+</ul>
+</li>
+<li><a href="#combined-theme--plugin-demo">عرض توضيحي يجمع السمة والإضافة</a></li>
+<li><a href="#api-reference">مرجع API</a></li>
+<li><a href="#troubleshooting">استكشاف الأخطاء وإصلاحها</a></li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="themes">السمات (Themes)</h2>
+<p>السمات ملفات YAML مخزّنة في <code>~/.hermes/dashboard-themes/</code>. اسم الملف لا يهم (فالنظام يعتمد على حقل <code>name:</code> داخل السمة)، لكن العُرف المتّبع هو <code>&lt;name&gt;.yaml</code>. جميع الحقول اختيارية — والمفاتيح غير الموجودة تعود إلى السمة المدمجة <code>default</code>، لذا يمكن أن تكون السمة صغيرة بحجم لون واحد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--your-first-theme">البدء السريع — سمتك الأولى</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أعد تحميل لوحة التحكم. انقر أيقونة لوحة الألوان في الشريط العلوي واختر <strong>Neon</strong>. ستصبح الخلفية سوداء، والنصوص والألوان المميِّزة أرجوانية (magenta)، وسيُعاد حساب كل لون مشتق (البطاقة، والحدود، واللون الخافت، وحلقة التركيز، وغيرها) من هذه الطبقات بلونيها عبر <code>color-mix()</code> في CSS.</p>
+<p>هذا كل ما يلزم للبدء: ملف واحد ولونان. كل ما يلي تحسينات اختيارية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="palette-typography-layout">لوحة الألوان والخطوط والتخطيط</h3>
+<p>هذه الكتل الثلاث هي جوهر أي سمة. كل منها مستقلة عن الأخرى — يمكنك تخصيص إحداها وترك البقية.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="palette-3-layer">لوحة الألوان (3 طبقات)</h4>
+<p>لوحة الألوان عبارة عن ثلاث طبقات لونية، إضافةً إلى لون توهّج دافئ للتظليل الطرفي (vignette) ومُضاعِف لحبيبات التشويش (noise grain). يشتق التسلسل (cascade) الخاص بنظام التصميم في لوحة التحكم كل token متوافق مع shadcn (card، وpopover، وmuted، وborder، وprimary، وdestructive، وring، وغيرها) من هذه الطبقات الثلاث عبر <code>color-mix()</code> في CSS. أي أن تخصيص ثلاثة ألوان ينعكس على الواجهة بأكملها.</p>
+<table><thead><tr><th>المفتاح</th><th>الوصف</th></tr></thead><tbody><tr><td><code>palette.background</code></td><td>لون الخلفية الأعمق — عادةً قريب من الأسود. يحدّد خلفية الصفحة ولون تعبئة البطاقات.</td></tr><tr><td><code>palette.midground</code></td><td>لون النص الأساسي واللون المميِّز. تقرأ منه معظم عناصر الواجهة (نص المقدّمة، وحدود الأزرار، وحلقات التركيز).</td></tr><tr><td><code>palette.foreground</code></td><td>لون الإبراز في الطبقة العليا. تضبطه السمة الافتراضية على الأبيض بشفافية alpha 0 (غير مرئي)؛ ويمكن للسمات التي تريد لونًا مميِّزًا ساطعًا في الأعلى رفع قيمة alpha.</td></tr><tr><td><code>palette.warmGlow</code></td><td>سلسلة <code>rgba(...)</code> يستخدمها <code>&lt;Backdrop /&gt;</code> كلون للتظليل الطرفي.</td></tr><tr><td><code>palette.noiseOpacity</code></td><td>مُضاعِف من 0 إلى 1.2 لطبقة الحبيبات. القيمة الأقل = أنعم، والأعلى = أخشن.</td></tr></tbody></table>
+<p>تقبل كل طبقة إما <code>{hex: &quot;#RRGGBB&quot;, alpha: 0.0–1.0}</code> أو سلسلة hex مجرّدة (وتكون قيمة alpha الافتراضية 1.0).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="typography">الخطوط (Typography)</h4>
+<table><thead><tr><th>المفتاح</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>fontSans</code></td><td>string</td><td>مجموعة font-family في CSS لنص المحتوى (تُطبَّق على <code>html</code> و <code>body</code>).</td></tr><tr><td><code>fontMono</code></td><td>string</td><td>مجموعة font-family في CSS لكتل الكود، و <code>&lt;code&gt;</code>، وأدوات <code>.font-mono</code>.</td></tr><tr><td><code>fontDisplay</code></td><td>string</td><td>مجموعة خطوط اختيارية للعناوين/العرض. تعود إلى <code>fontSans</code> عند غيابها.</td></tr><tr><td><code>fontUrl</code></td><td>string</td><td>URL اختياري لورقة أنماط خارجية. يُحقن على شكل <code>&lt;link rel=&quot;stylesheet&quot;&gt;</code> في <code>&lt;head&gt;</code> عند تبديل السمة. لا يُحقن الـ URL نفسه مرتين أبدًا. يعمل مع Google Fonts و Bunny Fonts وأوراق <code>@font-face</code> المستضافة ذاتيًا — أي شيء يمكن ربطه.</td></tr><tr><td><code>baseSize</code></td><td>string</td><td>حجم الخط الجذري — يتحكم في مقياس rem. مثال: <code>&quot;14px&quot;</code>، <code>&quot;16px&quot;</code>.</td></tr><tr><td><code>lineHeight</code></td><td>string</td><td>ارتفاع السطر الافتراضي. مثال: <code>&quot;1.5&quot;</code>، <code>&quot;1.65&quot;</code>.</td></tr><tr><td><code>letterSpacing</code></td><td>string</td><td>تباعد الأحرف الافتراضي. مثال: <code>&quot;0&quot;</code>، <code>&quot;0.01em&quot;</code>، <code>&quot;-0.01em&quot;</code>.</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="changing-the-font-from-the-ui-no-yaml">تغيير الخط من الواجهة (دون YAML)</h5>
+<p>يحتوي منتقي السمات في الشريط العلوي للوحة التحكم على قسم <strong>Font</strong> أسفل قائمة السمات. اختر أي خط من هناك وسيحلّ محل خط النص في السمة النشطة أيًّا كانت — فهذا الاختيار مستقل عن السمة ويبقى محفوظًا عند التبديل بين السمات (ويُخزَّن في <code>config.yaml</code> تحت <code>dashboard.font</code>). اختر <strong>Theme default</strong> لإلغاء هذا التخصيص والعودة إلى الخط <code>fontSans</code> الخاص بالسمة النشطة.</p>
+<p>يعرض المنتقي كتالوجًا منتقى بعناية (مجموعات خطوط النظام إضافةً إلى مجموعة من عائلات Google Fonts تشمل sans و serif و mono). وهو <strong>لا</strong> يقبل عمدًا URL خط يُكتب نصًا حرًّا — إذ تُحقن ورقة أنماط الخط على شكل <code>&lt;link&gt;</code>، لذا يُبقي الكتالوج مصادر الحقن ثابتة. للحصول على خط مخصص بالكامل، اضبط <code>fontSans</code> مع <code>fontUrl</code> في ملف YAML للسمة كما هو موضّح أعلاه. أما <code>fontMono</code> الخاص بالسمة
+(كتل الكود، والطرفية) فلا يمسّه تخصيص الواجهة أبدًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="layout">التخطيط (Layout)</h4>
+<table><thead><tr><th>المفتاح</th><th>القيم</th><th>الوصف</th></tr></thead><tbody><tr><td><code>radius</code></td><td>أي طول CSS (<code>&quot;0&quot;</code>، <code>&quot;0.25rem&quot;</code>، <code>&quot;0.5rem&quot;</code>، <code>&quot;1rem&quot;</code>، ...)</td><td>token نصف قطر الزوايا. يرتبط بـ <code>--radius</code> وينعكس على <code>--radius-sm/md/lg/xl</code> — فتتغير كل العناصر ذات الزوايا المستديرة معًا.</td></tr><tr><td><code>density</code></td><td><code>compact</code> | <code>comfortable</code> | <code>spacious</code></td><td>مُضاعِف للتباعد يُطبَّق عبر متغير CSS المسمّى <code>--spacing-mul</code>. القيم: <code>compact = 0.85×</code>، و <code>comfortable = 1.0×</code> (الافتراضي)، و <code>spacious = 1.2×</code>. يغيّر مقياس التباعد الأساسي في Tailwind، فتتغير أدوات padding و gap و space-between كلها بالنسبة نفسها.</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="layout-variants">أنماط التخطيط</h3>
+<p>يحدّد <code>layoutVariant</code> التخطيط العام للـ shell. وتكون قيمته الافتراضية <code>&quot;standard&quot;</code> عند غيابه.</p>
+<table><thead><tr><th>النمط</th><th>السلوك</th></tr></thead><tbody><tr><td><code>standard</code></td><td>عمود واحد بعرض أقصى 1600px (الافتراضي).</td></tr><tr><td><code>cockpit</code></td><td>شريط جانبي أيسر (260px) مع المحتوى الرئيسي. تملؤه الإضافات عبر الـ slot المسمّى <code>sidebar</code> — راجع <a href="#shell-slots">فتحات الـ shell (Shell slots)</a>. وبدون إضافة يعرض الشريط عنصرًا نائبًا.</td></tr><tr><td><code>tiled</code></td><td>يلغي تقييد العرض الأقصى لتتمكن الصفحات من استخدام كامل عرض نافذة العرض.</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُتاح النمط الحالي عبر <code>document.documentElement.dataset.layoutVariant</code>، لذا يمكن لكود CSS الخام في <code>customCSS</code> استهدافه عبر <code>:root[data-layout-variant=&quot;cockpit&quot;] ...</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="theme-assets-images-as-css-vars">أصول السمة (الصور كمتغيرات CSS)</h3>
+<p>أرفق روابط URL للأعمال الفنية مع السمة. يتحول كل slot مسمّى إلى متغير CSS (<code>--theme-asset-&lt;name&gt;</code>) يمكن للـ shell المدمج ولأي إضافة قراءته. يُربط الـ slot المسمّى <code>bg</code> تلقائيًا بالخلفية (backdrop)؛ أما الـ slots الأخرى فمخصصة للإضافات.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تقبل القيم ما يلي:</p>
+<ul>
+<li>روابط URL مجرّدة — تُغلَّف تلقائيًا داخل <code>url(...)</code>.</li>
+<li>تعبيرات مغلّفة مسبقًا مثل <code>url(...)</code> و <code>linear-gradient(...)</code> و <code>radial-gradient(...)</code> — تُستخدم كما هي.</li>
+<li><code>&quot;none&quot;</code> — لإلغاء الأصل صراحةً.</li>
+</ul>
+<p>يُصدَر كل أصل أيضًا على شكل <code>--theme-asset-&lt;name&gt;-raw</code> (الـ URL غير المغلّف)، تحسّبًا لحاجة إضافة ما إلى تمريره إلى <code>&lt;img src&gt;</code> بدلًا من <code>background-image</code>.</p>
+<p>تقرأ الإضافات هذه القيم باستخدام CSS أو JS عادي:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="component-chrome-overrides">تخصيص مظهر المكوّنات (Component chrome overrides)</h3>
+<p>يعيد <code>componentStyles</code> تنسيق مكوّنات الـ shell كلٌّ على حدة دون كتابة محدِّدات CSS. تتحول مدخلات كل مجموعة (bucket) إلى متغيرات CSS (<code>--component-&lt;bucket&gt;-&lt;kebab-property&gt;</code>) تقرؤها المكوّنات المشتركة في الـ shell. وبالتالي تنطبق تخصيصات <code>card:</code> على كل <code>&lt;Card&gt;</code>، وتخصيصات <code>header:</code> على شريط التطبيق، وهكذا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>المجموعات المدعومة: <code>card</code>، و <code>header</code>، و <code>footer</code>، و <code>sidebar</code>، و <code>tab</code>، و <code>progress</code>، و <code>badge</code>، و <code>backdrop</code>، و <code>page</code>.</p>
+<p>تُكتب أسماء الخصائص بصيغة camelCase (<code>clipPath</code>) وتُصدَر بصيغة kebab (<code>clip-path</code>). القيم سلاسل CSS عادية — أي شيء يقبله CSS (<code>clip-path</code>، و <code>border-image</code>، و <code>background</code>، و <code>box-shadow</code>، و <code>animation</code>، ...).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="color-overrides">تجاوزات الألوان (Color overrides)</h3>
+<p>لن تحتاج معظم السمات إلى هذا — فلوحة الألوان ذات الطبقات الثلاث تشتق كل token من shadcn. استخدم <code>colorOverrides</code> عندما تريد لونًا مميِّزًا محددًا لا ينتجه الاشتقاق (مثل أحمر أنعم للون destructive في سمة بألوان الباستيل، أو أخضر محدد للون success يطابق هوية علامة تجارية).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>المفاتيح المدعومة: <code>card</code>، و <code>cardForeground</code>، و <code>popover</code>، و <code>popoverForeground</code>، و <code>primary</code>، و <code>primaryForeground</code>، و <code>secondary</code>، و <code>secondaryForeground</code>، و <code>muted</code>، و <code>mutedForeground</code>، و <code>accent</code>، و <code>accentForeground</code>، و <code>destructive</code>، و <code>destructiveForeground</code>، و <code>success</code>، و <code>warning</code>، و <code>border</code>، و <code>input</code>، و <code>ring</code>.</p>
+<p>يرتبط كل مفتاح ارتباطًا مباشرًا (1:1) بمتغير CSS المسمّى <code>--color-&lt;kebab&gt;</code> (مثلًا <code>primaryForeground</code> → <code>--color-primary-foreground</code>). وأي مفتاح يُضبط هنا تكون له الأولوية على تسلسل لوحة الألوان في السمة النشطة فقط — والتبديل إلى سمة أخرى يلغي هذه التجاوزات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="raw-customcss">CSS الخام عبر <code>customCSS</code></h3>
+<p>للتنسيقات على مستوى المحدِّدات التي لا يستطيع <code>componentStyles</code> التعبير عنها — كالعناصر الزائفة (pseudo-elements)، والحركات، واستعلامات الوسائط (media queries)، والتخصيصات المقيّدة بالسمة — ضع كود CSS خامًا في <code>customCSS</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يُحقن كود CSS على شكل وسم <code>&lt;style data-hermes-theme-css&gt;</code> واحد مقيّد النطاق عند تطبيق السمة، ويُزال عند تبديلها. <strong>الحد الأقصى 32 KiB لكل سمة.</strong></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="built-in-themes">السمات المدمجة</h3>
+<p>تأتي كل سمة مدمجة بلوحة ألوانها وخطوطها وتخطيطها الخاص — لذا ينتج عن التبديل تغييرات مرئية تتجاوز الألوان وحدها.</p>
+<table><thead><tr><th>السمة</th><th>لوحة الألوان</th><th>الخطوط</th><th>التخطيط</th></tr></thead><tbody><tr><td><strong>Hermes Teal</strong> (<code>default</code>)</td><td>أزرق مخضرّ داكن (teal) + كريمي</td><td>خطوط النظام، 15px</td><td>نصف قطر 0.5rem، comfortable</td></tr><tr><td><strong>Hermes Teal (Large)</strong> (<code>default-large</code>)</td><td>مثل السمة الافتراضية</td><td>خطوط النظام، 18px، ارتفاع السطر 1.65</td><td>نصف قطر 0.5rem، spacious</td></tr><tr><td><strong>Midnight</strong> (<code>midnight</code>)</td><td>أزرق بنفسجي عميق</td><td>Inter + JetBrains Mono، 14px</td><td>نصف قطر 0.75rem، comfortable</td></tr><tr><td><strong>Ember</strong> (<code>ember</code>)</td><td>قرمزي دافئ + برونزي</td><td>Spectral (serif) + IBM Plex Mono، 15px</td><td>نصف قطر 0.25rem، comfortable</td></tr><tr><td><strong>Mono</strong> (<code>mono</code>)</td><td>تدرّج رمادي</td><td>IBM Plex Sans + IBM Plex Mono، 13px</td><td>نصف قطر 0، compact</td></tr><tr><td><strong>Cyberpunk</strong> (<code>cyberpunk</code>)</td><td>أخضر نيون على أسود</td><td>Share Tech Mono في كل مكان، 14px</td><td>نصف قطر 0، compact</td></tr><tr><td><strong>Rosé</strong> (<code>rose</code>)</td><td>وردي + عاجي</td><td>Fraunces (serif) + DM Mono، 16px</td><td>نصف قطر 1rem، spacious</td></tr></tbody></table>
+<p>السمات التي تشير إلى Google Fonts (جميعها عدا Hermes Teal) تحمّل ورقة الأنماط عند الطلب — ففي أول مرة تبدّل فيها إلى إحداها يُحقن وسم <code>&lt;link&gt;</code> في <code>&lt;head&gt;</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-theme-yaml-reference">المرجع الكامل لملف YAML الخاص بالسمة</h3>
+<p>كل خيارات الضبط في ملف واحد — انسخه واحذف ما لا تحتاج إليه:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>أعد تحميل لوحة التحكم بعد إنشاء الملف. بدّل السمات مباشرةً من الشريط العلوي — انقر أيقونة لوحة الألوان. يُحفظ اختيارك في <code>config.yaml</code> تحت <code>dashboard.theme</code> ويُستعاد عند إعادة التحميل.</p>
+<hr>

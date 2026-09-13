@@ -1,0 +1,92 @@
+<header><h1>إعداد SMS (Twilio)</h1></header>
+<p>يتصل Hermes بخدمة SMS عبر API <a href="https://www.twilio.com/" data-ext>Twilio</a>. يرسل المستخدمون رسائل نصية إلى رقم هاتف Twilio الخاص بك ويتلقّون ردود الذكاء الاصطناعي — بتجربة المحادثة نفسها التي يوفّرها Telegram أو Discord، ولكن عبر الرسائل النصية القياسية.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>بيانات اعتماد مشتركة</div><div class="admonitionContent_BuS1"><p>يتشارك gateway الخاص بـ SMS بيانات الاعتماد مع <a href="/docs/reference/skills-catalog">مهارة الاتصالات الهاتفية (telephony)</a> الاختيارية. إذا كنت قد أعددت Twilio مسبقًا للمكالمات الصوتية أو لرسائل SMS الفردية، فسيعمل gateway بالقيم نفسها: <code>TWILIO_ACCOUNT_SID</code> و <code>TWILIO_AUTH_TOKEN</code> و <code>TWILIO_PHONE_NUMBER</code>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>حساب Twilio</strong> — <a href="https://www.twilio.com/try-twilio" data-ext>سجّل في twilio.com</a> (تتوفر نسخة تجريبية مجانية)</li>
+<li><strong>رقم هاتف Twilio</strong> يدعم خدمة SMS</li>
+<li><strong>خادم يمكن الوصول إليه علنًا</strong> — إذ يرسل Twilio طلبات webhook إلى خادمك عند وصول رسالة SMS</li>
+<li><strong>aiohttp</strong> — <code>cd ~/.hermes/hermes-agent &amp;&amp; uv pip install -e &quot;.[sms]&quot;</code></li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-get-your-twilio-credentials">الخطوة 1: احصل على بيانات اعتماد Twilio</h2>
+<ol>
+<li>انتقل إلى <a href="https://console.twilio.com/" data-ext>Twilio Console</a></li>
+<li>انسخ <strong>Account SID</strong> و <strong>Auth Token</strong> من لوحة التحكم</li>
+<li>انتقل إلى <strong>Phone Numbers → Manage → Active Numbers</strong> — ودوّن رقم هاتفك بصيغة E.164 (مثل <code>+15551234567</code>)</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-configure-hermes">الخطوة 2: اضبط Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-setup-recommended">الإعداد التفاعلي (موصى به)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اختر <strong>SMS (Twilio)</strong> من قائمة المنصات، وسيطلب منك المعالج بيانات الاعتماد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-setup">الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-twilio-webhook">الخطوة 3: اضبط Webhook في Twilio</h2>
+<p>يحتاج Twilio إلى معرفة الوجهة التي يرسل إليها الرسائل الواردة. في <a href="https://console.twilio.com/" data-ext>Twilio Console</a>:</p>
+<ol>
+<li>انتقل إلى <strong>Phone Numbers → Manage → Active Numbers</strong></li>
+<li>انقر على رقم هاتفك</li>
+<li>ضمن <strong>Messaging → A MESSAGE COMES IN</strong>، اضبط ما يلي:
+<ul>
+<li><strong>Webhook</strong>: <code>https://your-server:8080/webhooks/twilio</code></li>
+<li><strong>HTTP Method</strong>: <code>POST</code></li>
+</ul>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>إتاحة Webhook للوصول الخارجي</div><div class="admonitionContent_BuS1"><p>إذا كنت تشغّل Hermes محليًا، فاستخدم نفقًا (tunnel) لإتاحة webhook:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div><p>اضبط عنوان URL العام الناتج كـ webhook في Twilio.</p></div></div>
+<p><strong>اضبط <code>SMS_WEBHOOK_URL</code> على عنوان URL نفسه الذي ضبطته في Twilio.</strong> هذا مطلوب للتحقق من توقيع Twilio — وسيرفض المحوّل (adapter) بدء التشغيل بدونه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>منفذ webhook الافتراضي هو <code>8080</code>. يمكنك تغييره باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-start-the-gateway">الخطوة 4: شغّل Gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>من المفترض أن ترى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>إذا ظهرت لك الرسالة <code>Refusing to start: SMS_WEBHOOK_URL is required</code>، فاضبط <code>SMS_WEBHOOK_URL</code> على عنوان URL العام المضبوط في Twilio Console (راجع الخطوة 3).</p>
+<p>أرسل رسالة نصية إلى رقم Twilio الخاص بك — وسيردّ Hermes عبر SMS.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>TWILIO_ACCOUNT_SID</code></td><td>نعم</td><td>Account SID الخاص بـ Twilio (يبدأ بـ <code>AC</code>)</td></tr><tr><td><code>TWILIO_AUTH_TOKEN</code></td><td>نعم</td><td>Auth Token الخاص بـ Twilio (يُستخدم أيضًا للتحقق من توقيع webhook)</td></tr><tr><td><code>TWILIO_PHONE_NUMBER</code></td><td>نعم</td><td>رقم هاتف Twilio الخاص بك (بصيغة E.164)</td></tr><tr><td><code>SMS_WEBHOOK_URL</code></td><td>نعم</td><td>عنوان URL العام للتحقق من توقيع Twilio — يجب أن يطابق عنوان webhook في Twilio Console</td></tr><tr><td><code>SMS_WEBHOOK_PORT</code></td><td>لا</td><td>منفذ الاستماع لـ webhook (الافتراضي: <code>8080</code>)</td></tr><tr><td><code>SMS_WEBHOOK_HOST</code></td><td>لا</td><td>عنوان الربط (bind address) لـ webhook (الافتراضي: <code>127.0.0.1</code>)</td></tr><tr><td><code>SMS_INSECURE_NO_SIGNATURE</code></td><td>لا</td><td>اضبطه على <code>true</code> لتعطيل التحقق من التوقيع (للتطوير المحلي فقط — <strong>لا يُستخدم في بيئة الإنتاج</strong>)</td></tr><tr><td><code>SMS_ALLOWED_USERS</code></td><td>لا</td><td>أرقام الهواتف المسموح لها بالمحادثة بصيغة E.164، مفصولة بفواصل</td></tr><tr><td><code>SMS_ALLOW_ALL_USERS</code></td><td>لا</td><td>اضبطه على <code>true</code> للسماح لأي شخص (غير مستحسن)</td></tr><tr><td><code>SMS_HOME_CHANNEL</code></td><td>لا</td><td>رقم الهاتف الذي تُسلَّم إليه مخرجات مهام cron والإشعارات</td></tr><tr><td><code>SMS_HOME_CHANNEL_NAME</code></td><td>لا</td><td>الاسم المعروض للقناة الرئيسية (home channel) (الافتراضي: <code>Home</code>)</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sms-specific-behavior">سلوك خاص بـ SMS</h2>
+<ul>
+<li><strong>نص عادي فقط</strong> — تُزال صيغة Markdown تلقائيًا لأن SMS تعرضها كأحرف حرفية</li>
+<li><strong>حدّ 1600 حرف</strong> — تُقسَّم الردود الأطول على عدة رسائل عند حدود طبيعية (أسطر جديدة، ثم مسافات)</li>
+<li><strong>منع الصدى</strong> — تُتجاهَل الرسائل الواردة من رقم Twilio الخاص بك لمنع الحلقات المتكررة</li>
+<li><strong>إخفاء أرقام الهواتف</strong> — تُخفى أرقام الهواتف في السجلات حفاظًا على الخصوصية</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-signature-validation">التحقق من توقيع Webhook</h3>
+<p>يتحقق Hermes من أن طلبات webhook الواردة صادرة فعلًا من Twilio عبر التحقق من الترويسة <code>X-Twilio-Signature</code> (HMAC-SHA1). يمنع ذلك المهاجمين من حقن رسائل مزوّرة.</p>
+<p><strong><code>SMS_WEBHOOK_URL</code> مطلوب.</strong> اضبطه على عنوان URL العام المضبوط في Twilio Console. سيرفض المحوّل بدء التشغيل بدونه.</p>
+<p>للتطوير المحلي دون عنوان URL عام، يمكنك تعطيل التحقق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-allowlists">قوائم السماح للمستخدمين</h3>
+<p><strong>يرفض gateway جميع المستخدمين افتراضيًا.</strong> اضبط قائمة سماح (allowlist):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>لا توفّر SMS تشفيرًا مدمجًا. لا تستخدم SMS للعمليات الحساسة ما لم تكن تدرك تبعاتها الأمنية. في حالات الاستخدام الحساسة، فضّل Signal أو Telegram.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messages-not-arriving">الرسائل لا تصل</h3>
+<ol>
+<li>تحقّق من أن عنوان webhook في Twilio صحيح ويمكن الوصول إليه علنًا</li>
+<li>تحقّق من صحة <code>TWILIO_ACCOUNT_SID</code> و <code>TWILIO_AUTH_TOKEN</code></li>
+<li>راجع Twilio Console → <strong>Monitor → Logs → Messaging</strong> بحثًا عن أخطاء التسليم</li>
+<li>تأكد من أن رقم هاتفك مُدرَج في <code>SMS_ALLOWED_USERS</code> (أو أن <code>SMS_ALLOW_ALL_USERS=true</code>)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="replies-not-sending">الردود لا تُرسَل</h3>
+<ol>
+<li>تحقّق من ضبط <code>TWILIO_PHONE_NUMBER</code> بشكل صحيح (بصيغة E.164 مع <code>+</code>)</li>
+<li>تحقّق من أن حساب Twilio يملك أرقامًا تدعم SMS</li>
+<li>راجع سجلات gateway في Hermes بحثًا عن أخطاء Twilio API</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-port-conflicts">تعارض منفذ Webhook</h3>
+<p>إذا كان المنفذ 8080 مستخدمًا بالفعل، فغيّره:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>ثم حدّث عنوان webhook في Twilio Console ليطابقه.</p>

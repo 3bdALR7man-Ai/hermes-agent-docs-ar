@@ -1,0 +1,205 @@
+<header><h1>إعداد Matrix</h1></header>
+<p>يتكامل Hermes Agent مع Matrix، بروتوكول المراسلة المفتوح والاتحادي (federated). يتيح لك Matrix تشغيل homeserver خاص بك أو استخدام homeserver عام مثل matrix.org — في كلتا الحالتين، تحتفظ أنت بالسيطرة على اتصالاتك. يتصل البوت عبر SDK بايثون <code>mautrix</code>، ويعالج الرسائل عبر خط أنابيب Hermes Agent (بما في ذلك استخدام الأدوات، الذاكرة، والاستدلال)، ويستجيب في الوقت الفعلي. يدعم النصوص، مرفقات الملفات، الصور، الصوت، الفيديو، والتشفير التام بين الطرفين (E2EE) الاختياري.</p>
+<p>يعمل Hermes مع أي homeserver لـ Matrix — Synapse أو Conduit أو Dendrite أو matrix.org.</p>
+<p>قبل الإعداد، إليك الجزء الذي يريد معظم الناس معرفته: كيف يتصرف Hermes بمجرد اتصاله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-behaves">كيف يتصرف Hermes</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة (DMs)</strong></td><td>يستجيب Hermes لكل رسالة. لا حاجة إلى <code>@mention</code>. لكل DM جلسته الخاصة. اضبط <code>MATRIX_DM_MENTION_THREADS=true</code> لبدء thread عند الإشارة إلى البوت (<code>@mentioned</code>) في DM.</td></tr><tr><td><strong>الغرف (Rooms)</strong></td><td>افتراضيًا، يتطلب Hermes إشارة (<code>@mention</code>) للاستجابة. اضبط <code>MATRIX_REQUIRE_MENTION=false</code> أو أضف معرّفات الغرف إلى <code>MATRIX_FREE_RESPONSE_ROOMS</code> لغرف الاستجابة الحرة. تُقبل دعوات الغرف تلقائيًا.</td></tr><tr><td><strong>الـ Threads</strong></td><td>يدعم Hermes threads في Matrix (MSC3440). إذا رددت في thread، يُبقي Hermes سياق الـ thread معزولًا عن الخط الزمني الرئيسي للغرفة. الـ threads التي شارك فيها البوت مسبقًا لا تتطلب إشارة.</td></tr><tr><td><strong>الـ Threading التلقائي</strong></td><td>افتراضيًا، ينشئ Hermes تلقائيًا thread لكل رسالة يستجيب لها في غرفة. يحافظ هذا على عزل المحادثات. اضبط <code>MATRIX_AUTO_THREAD=false</code> لتعطيله. اضبط <code>MATRIX_DM_AUTO_THREAD=true</code> (الافتراضي false) لإنشاء threads تلقائيًا لرسائل DM أيضًا — وهذا مختلف عن <code>MATRIX_DM_MENTION_THREADS</code>، التي تبدأ thread فقط عند الإشارة إلى البوت (<code>@mentioned</code>) في DM.</td></tr><tr><td><strong>الأوامر</strong></td><td>يقبل Hermes أوامر <code>/commands</code> العادية عندما يرسلها عميل Matrix الخاص بك. إذا كان عميلك يحجز <code>/</code> للأوامر المحلية، استخدم <code>!commands</code> بدلًا من ذلك؛ يوحّد Hermes الأسماء البديلة المعروفة لـ <code>!command</code> إلى <code>/command</code>.</td></tr><tr><td><strong>عناصر التحكم التفاعلية</strong></td><td>يمكن أن تستخدم موافقة الأوامر الخطرة واختيار <code>/model</code> ردود أفعال (reactions) Matrix. يمكن تقييد ردود أفعال الموافقة بالمستخدم الذي طلب الإجراء.</td></tr><tr><td><strong>نشاط التفكير والأدوات</strong></td><td>يستخدم Matrix أجزاء thread قابلة للتحرير لعرض التفكير/نشاط الأدوات عند تفعيل تقدّم الـ gateway، بحيث لا تُغرق التحديثات الخط الزمني الرئيسي للغرفة.</td></tr><tr><td><strong>الغرف المشتركة بين عدة مستخدمين</strong></td><td>افتراضيًا، يعزل Hermes سجل الجلسة لكل مستخدم داخل الغرفة. لا يشترك شخصان يتحدثان في نفس الغرفة في نسخة واحدة من المحادثة إلا إذا عطّلت ذلك صراحةً.</td></tr><tr><td><strong>رموز LaTeX الرياضية</strong></td><td>تُرسَل <code>$...$</code> (ضمن السطر) و <code>$$...$$</code> (منفصلة) في الردود كترميز <code>data-mx-maths</code> الخاص بـ Element، لذا تنسّقها العملاء التي تفعّل <strong>Settings → Labs → Render LaTeX maths in messages</strong> باستخدام KaTeX. تبقى علامات الدولار غير المزدوجة (<code>$5 or $10</code>) كما هي حرفيًا، ويحتفظ نص <code>body</code> العادي بصيغة TeX الخام للعملاء الأخرى.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="44"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>ينضم البوت تلقائيًا إلى الغرف عند دعوته. فقط ادعُ مستخدم Matrix الخاص بالبوت إلى أي غرفة وسينضم إليها ويبدأ بالاستجابة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="capability-matrix">مصفوفة القدرات (Capability Matrix)</h2>
+<p>يستند هذا الجدول إلى تصريح قدرات محول Matrix (Matrix adapter) وتغطية اختبارات
+Matrix. E2EE قائم على وضع (mode) لأن عمليات النشر تختار ما إذا كانت الغرف المشفّرة
+معطّلة، أو انتهازية (opportunistic)، أو إلزامية.</p>
+<table><thead><tr><th>القدرة</th><th>Matrix</th></tr></thead><tbody><tr><td>النص</td><td>نعم</td></tr><tr><td>الـ threads</td><td>نعم</td></tr><tr><td>ردود الأفعال (reactions)</td><td>نعم</td></tr><tr><td>الموافقات</td><td>نعم</td></tr><tr><td>محدد النموذج (model picker)</td><td>نعم</td></tr><tr><td>أجزاء التفكير (thinking panes)</td><td>نعم</td></tr><tr><td>الصور</td><td>نعم</td></tr><tr><td>صور متعددة</td><td>نعم</td></tr><tr><td>الملفات</td><td>نعم</td></tr><tr><td>الصوت/الصوتيات</td><td>نعم</td></tr><tr><td>الفيديو</td><td>نعم</td></tr><tr><td>E2EE</td><td>معطّل / اختياري / إلزامي</td></tr><tr><td>التشخيصات</td><td>نعم</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-model-in-matrix">نموذج الجلسة في Matrix</h3>
+<p>افتراضيًا:</p>
+<ul>
+<li>لكل DM جلسته الخاصة</li>
+<li>لكل thread مساحة اسم جلسة خاصة به</li>
+<li>لكل مستخدم في غرفة مشتركة جلسته الخاصة داخل تلك الغرفة</li>
+</ul>
+<p>يُتحكم في هذا عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اضبطه على <code>false</code> فقط إذا كنت تريد صراحةً محادثة واحدة مشتركة للغرفة بأكملها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يمكن أن تكون الجلسات المشتركة مفيدة لغرفة تعاونية، لكنها تعني أيضًا:</p>
+<ul>
+<li>يشارك المستخدمون نمو السياق وتكاليف الـ token</li>
+<li>يمكن لمهمة طويلة تعتمد بكثرة على الأدوات لشخص واحد أن تُثقل سياق الجميع</li>
+<li>يمكن لتشغيل شخص واحد الجاري أن يقاطع متابعة شخص آخر في نفس الغرفة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mention-and-threading-configuration">إعداد الإشارات (Mentions) والـ Threading التلقائي</h3>
+<p>يمكنك ضبط سلوك الإشارات والـ threading التلقائي عبر متغيرات البيئة أو <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أو عبر متغيرات البيئة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="45"></x-keep></span>تعطيل ردود الأفعال</div><div class="admonitionContent_BuS1"><p>يؤدي <code>MATRIX_REACTIONS=false</code> إلى إيقاف ردود أفعال الإيموجي الخاصة بدورة حياة المعالجة (👀/✅/❌) التي ينشرها البوت على الرسائل الواردة. مفيد للغرف التي تكون فيها أحداث ردود الأفعال مزعجة أو غير مدعومة من جميع العملاء المشاركين.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="46"></x-keep></span>الإشارات على مستوى الغرفة</div><div class="admonitionContent_BuS1"><p>يرسل Hermes إشارات مستخدم Matrix منظّمة لمعرّفات Matrix الصريحة مثل <code>@alice:example.org</code>. إشعارات <code>@room</code> على مستوى الغرفة معطّلة افتراضيًا؛ اضبط <code>MATRIX_ALLOW_ROOM_MENTIONS=true</code> فقط في الغرف المسموح فيها للبوت بإشعار الجميع.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="47"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>إذا كنت تُرقّي من إصدار لم يكن يحتوي على <code>MATRIX_REQUIRE_MENTION</code>، فقد كان البوت يستجيب سابقًا لجميع الرسائل في الغرف. للحفاظ على ذلك السلوك، اضبط <code>MATRIX_REQUIRE_MENTION=false</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="project-room-isolation">عزل غرف المشاريع</h3>
+<p>إذا كنت تستخدم نفس بوت Matrix في عدة غرف مشاريع، اضبط جلسات
+ثابتة مرتبطة بالغرفة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يقبل <code>MATRIX_SESSION_SCOPE</code>:</p>
+<table><thead><tr><th>النطاق</th><th>السلوك</th></tr></thead><tbody><tr><td><code>auto</code></td><td>الافتراضي المتوافق مع الإصدارات السابقة. يتحكم سلوك <code>MATRIX_AUTO_THREAD</code> الحالي في الـ threads الاصطناعية.</td></tr><tr><td><code>room</code></td><td>تبقى رسائل الغرفة غير المسلسلة (unthreaded) في جلسة غرفة ثابتة واحدة. لا تزال threads Matrix الحقيقية تستخدم جذر الـ thread الخاص بها.</td></tr><tr><td><code>thread</code></td><td>تُركّب رسائل الغرفة غير المسلسلة thread/جلسة من معرّف الحدث المُطلِق.</td></tr></tbody></table>
+<p>يتضمن Hermes الآن اسم غرفة Matrix الحالية ومعرّفها وموضوعها ومعرّف الرسالة،
+وملاحظة حدود غرفة Matrix في prompt الوكيل. يعرض <code>/status</code> أيضًا
+نطاق غرفة/جلسة Matrix الحالي، ولن يستأنف <code>/resume</code> بصمت
+جلسة مسمّاة من غرفة Matrix أخرى ما لم تستخدم صراحةً
+<code>/resume --cross-room &lt;session name&gt;</code>.</p>
+<p>يتحكم <code>MATRIX_SESSION_SCOPE=room</code> في مسار الغرفة/الـ thread. لا يزال إعداد
+<code>group_sessions_per_user</code> الحالي يتحكم فيما إذا كان المستخدمون داخل تلك الغرفة
+يشتركون في المسار. مع <code>group_sessions_per_user: true</code> (الافتراضي)، يحصل Alice و Bob على
+جلستي Project B منفصلتين. مع <code>group_sessions_per_user: false</code>، تحصل الغرفة على
+محادثة Project B واحدة مشتركة.</p>
+<p>يرشدك هذا الدليل خلال عملية الإعداد الكاملة — من إنشاء حساب البوت الخاص بك إلى إرسال رسالتك الأولى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-bot-account">الخطوة 1: إنشاء حساب بوت</h2>
+<p>تحتاج إلى حساب مستخدم Matrix للبوت. هناك عدة طرق للقيام بذلك:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-register-on-your-homeserver-recommended">الخيار أ: التسجيل على homeserver الخاص بك (موصى به)</h3>
+<p>إذا كنت تشغّل homeserver خاصًا بك (Synapse أو Conduit أو Dendrite):</p>
+<ol>
+<li>استخدم admin API أو أداة التسجيل لإنشاء مستخدم جديد:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<ol start="2">
+<li>اختر اسم مستخدم مثل <code>hermes</code> — سيكون معرّف المستخدم الكامل <code>@hermes:your-server.org</code>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-use-matrixorg-or-another-public-homeserver">الخيار ب: استخدام matrix.org أو homeserver عام آخر</h3>
+<ol>
+<li>اذهب إلى <a href="https://app.element.io" data-ext>Element Web</a> وأنشئ حسابًا جديدًا.</li>
+<li>اختر اسم مستخدم لبوتك (مثلًا <code>hermes-bot</code>).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-c-use-your-own-account">الخيار ج: استخدام حسابك الخاص</h3>
+<p>يمكنك أيضًا تشغيل Hermes كمستخدمك الخاص. هذا يعني أن البوت ينشر باسمك — مفيد للمساعدين الشخصيين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-get-an-access-token">الخطوة 2: الحصول على رمز وصول (Access Token)</h2>
+<p>يحتاج Hermes إلى رمز وصول للمصادقة مع homeserver. لديك خياران:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-access-token-recommended">الخيار أ: رمز الوصول (موصى به)</h3>
+<p>الطريقة الأكثر موثوقية للحصول على رمز:</p>
+<p><strong>عبر Element:</strong></p>
+<ol>
+<li>سجّل الدخول إلى <a href="https://app.element.io" data-ext>Element</a> بحساب البوت.</li>
+<li>اذهب إلى <strong>Settings</strong> → <strong>Help &amp; About</strong>.</li>
+<li>مرّر إلى الأسفل ووسّع <strong>Advanced</strong> — يُعرض رمز الوصول هناك.</li>
+<li><strong>انسخه فورًا.</strong></li>
+</ol>
+<p><strong>عبر API:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تتضمن الاستجابة حقل <code>access_token</code> — انسخه.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="48"></x-keep></span>حافظ على أمان رمز الوصول الخاص بك</div><div class="admonitionContent_BuS1"><p>يمنح رمز الوصول وصولًا كاملًا إلى حساب Matrix الخاص بالبوت. لا تشاركه علنًا أبدًا ولا ترفعه إلى Git. إذا تعرّض للاختراق، ألغِه بتسجيل الخروج من جميع الجلسات لذلك المستخدم.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-password-login">الخيار ب: تسجيل الدخول بكلمة مرور</h3>
+<p>بدلًا من توفير رمز وصول، يمكنك إعطاء Hermes معرّف مستخدم البوت وكلمة مروره. سيسجل Hermes الدخول تلقائيًا عند بدء التشغيل. هذا أبسط لكنه يعني تخزين كلمة المرور في ملف <code>.env</code> الخاص بك.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-find-your-matrix-user-id">الخطوة 3: العثور على معرّف مستخدم Matrix الخاص بك</h2>
+<p>يستخدم Hermes Agent معرّف مستخدم Matrix الخاص بك للتحكم في من يمكنه التفاعل مع البوت. تتبع معرّفات مستخدمي Matrix الصيغة <code>@username:server</code>.</p>
+<p>للعثور على معرّفك:</p>
+<ol>
+<li>افتح <a href="https://app.element.io" data-ext>Element</a> (أو عميل Matrix المفضل لديك).</li>
+<li>انقر على صورتك الرمزية → <strong>Settings</strong>.</li>
+<li>يُعرض معرّف المستخدم الخاص بك في أعلى الملف الشخصي (مثلًا <code>@alice:matrix.org</code>).</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="49"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تبدأ معرّفات مستخدمي Matrix دائمًا بـ <code>@</code> وتحتوي على <code>:</code> متبوعة باسم الخادم. مثال: <code>@alice:matrix.org</code>، <code>@bob:your-server.com</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-configure-hermes-agent">الخطوة 4: إعداد Hermes Agent</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار أ: الإعداد التفاعلي (موصى به)</h3>
+<p>نفّذ أمر الإعداد الموجَّه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>اختر <strong>Matrix</strong> عند مطالبتك، ثم وفّر رابط homeserver، ورمز الوصول (أو معرّف المستخدم + كلمة المرور)، ومعرّفات المستخدمين المسموح بهم عند سؤالك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار ب: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى ملف <code>~/.hermes/.env</code>:</p>
+<p><strong>باستخدام رمز وصول:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>باستخدام تسجيل الدخول بكلمة مرور:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="private-deployment-hardening">تصليب النشر الخاص</h2>
+<p>لعمليات نشر Matrix الخاصة، اضبط قوائم السماح للمستخدمين والغرف معًا. إذا
+لم يُضبط <code>MATRIX_ALLOWED_USERS</code>، يمكن لأي مرسل يستطيع الوصول إلى البوت في
+غرفة انضم إليها أن يُطلق دورًا للوكيل. إذا لم يُضبط <code>MATRIX_ALLOWED_ROOMS</code>، يمكن لأي غرفة ينضم إليها
+البوت أن تُطلق دورًا للوكيل. يجب على النشر المُحكَم ضبط كليهما:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تحتاج عمليات نشر الجسر (bridge) و appservice إلى حماية إضافية من الحلقات (loop protection). يتجاهل Hermes دائمًا
+أحداثه الخاصة، ومستخدمي Matrix من نوع appservice الذين يبدأ الجزء المحلي من معرّفهم
+بـ <code>_</code>، ومعرّفات الأحداث المكررة، وأحداث بدء التشغيل القديمة، وأحداث استبدال التحرير، و
+أحداث <code>m.notice</code> افتراضيًا. أضف أنماط ghost خاصة بالجسر لعملية النشر عندما
+يستخدم جسرك اصطلاح تسمية مختلفًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>فعّل الإشعارات فقط عندما يرسل سير عمل بشري موثوق <code>m.notice</code> فعلًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>الإشعارات الصادرة لكامل الغرفة معطّلة افتراضيًا. أبقِ
+<code>MATRIX_ALLOW_ROOM_MENTIONS=false</code> ما لم يكن مسموحًا صراحةً للبوت بإيقاظ
+الغرفة بأكملها باستخدام <code>@room</code>.</p>
+<p>تُخفي التشخيصات وحمولات التصحيح رموز وصول Matrix ومفاتيح الاسترداد
+ومعرّفات الأجهزة ونصوص الرسائل. تُحدَّد تنزيلات الوسائط بروابط محتوى Matrix
+<code>mxc://</code> وتُرفض عندما تتجاوز <code>MATRIX_MAX_MEDIA_BYTES</code>.
+عامل الغرف الاتحادية (federated) و homeservers غير الموثوقة كمدخلات غير موثوقة: أبقِ
+قوائم السماح للغرف محكمة، وفضّل الرسائل المباشرة أو الغرف الخاصة للعمل الكثيف الاعتماد على الأدوات، وتجنّب
+تفويض ghosts الجسر أو دُمى appservice كمستخدمين مسموح بهم.</p>
+<p>إعدادات السلوك الاختيارية في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<ul>
+<li>يحافظ <code>group_sessions_per_user: true</code> على عزل سياق كل مشارك داخل الغرف المشتركة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل الـ Gateway</h3>
+<p>بمجرد الإعداد، شغّل gateway الخاص بـ Matrix:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يجب أن يتصل البوت بـ homeserver الخاص بك ويبدأ بالمزامنة (sync) خلال ثوانٍ قليلة. أرسل له رسالة — سواء DM أو في غرفة انضم إليها — لاختباره.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="50"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك تشغيل <code>hermes gateway</code> في الخلفية أو كخدمة systemd للتشغيل المستمر. راجع وثائق النشر (deployment) للتفاصيل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="end-to-end-encryption-e2ee">التشفير التام بين الطرفين (E2EE)</h2>
+<p>يدعم Hermes التشفير التام بين الطرفين في Matrix، لذا يمكنك الدردشة مع بوتك في الغرف المشفّرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="requirements">المتطلبات</h3>
+<p>يتطلب E2EE مكتبة <code>mautrix</code> مع إضافات (extras) التشفير ومكتبة <code>libolm</code> بلغة C:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>تحتاج أيضًا إلى تثبيت <code>libolm</code> على نظامك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enable-e2ee">تفعيل E2EE</h3>
+<p>أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>يقبل <code>MATRIX_E2EE_MODE</code>:</p>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>off</code></td><td>لا تُهيّئ E2EE في Matrix.</td></tr><tr><td><code>optional</code></td><td>حاول تفعيل E2EE عند توفر الاعتماديات، لكن أبقِ الغرف غير المشفّرة تعمل إذا تعذّرت تهيئة التشفير.</td></tr><tr><td><code>required</code></td><td>فشل بشكل مغلق (fail closed) إذا لم تكن اعتماديات E2EE أو إعداد التشفير متاحة.</td></tr></tbody></table>
+<p>قد يعود الوضع الاختياري إلى تشغيل بدون E2EE عندما يكون إعداد التشفير غير متاح. يفشل الوضع الإلزامي بشكل مغلق بدلًا من التراجع بصمت.</p>
+<p>للتوافق مع الإصدارات السابقة، لا يزال <code>MATRIX_ENCRYPTION=true</code> يُفعّل سلوك E2EE الإلزامي.</p>
+<p>عند تفعيل E2EE، يقوم Hermes بما يلي:</p>
+<ul>
+<li>تخزين مفاتيح التشفير في <code>~/.hermes/platforms/matrix/store/</code> (التثبيتات القديمة: <code>~/.hermes/matrix/store/</code>)</li>
+<li>رفع مفاتيح الجهاز عند أول اتصال</li>
+<li>فك تشفير الرسائل الواردة وتشفير الرسائل الصادرة تلقائيًا</li>
+<li>الانضمام التلقائي إلى الغرف المشفّرة عند الدعوة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="matrix-tools-and-controls">أدوات وعناصر تحكم Matrix</h3>
+<p>لا يعرض Hermes أدوات وكيل خاصة بـ Matrix (مثل إنشاء الغرف، الدعوات، أو الحذف/التنقيح (redaction)) — يتفاعل الوكيل مع Matrix عبر تسليم الرسائل العادي. يستخدم المحول (adapter) ردود الأفعال والحذف داخليًا لتشغيل مطالبات الموافقة والمنتقيات (pickers).</p>
+<p>إذا ضُبط <code>MATRIX_ALLOWED_ROOMS</code>، يستجيب Hermes فقط في تلك الغرف (الرسائل المباشرة معفاة).</p>
+<p>تستخدم عناصر تحكم ردود الأفعال:</p>
+<ul>
+<li>✅ موافقة لمرة واحدة</li>
+<li>♾️ موافقة دائمة</li>
+<li>❌ رفض</li>
+<li>ردود أفعال رقمية لاختيارات <code>/model</code></li>
+</ul>
+<p>اضبط <code>MATRIX_APPROVAL_REQUIRE_SENDER=false</code> إذا كنت تريد عن قصد أن يشغّل أي مستخدم Matrix مصرّح له في الغرفة مطالبة موافقة/اختيار نموذج. الإعداد الافتراضي مرتبط بالطالب عندما يعرف Hermes من طلب الإجراء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-limits">حدود الوسائط</h3>
+<p>يرفع Hermes وينزّل صور Matrix وملفاتها وصوتياتها وفيديوهاتها عبر واجهات برمجة وسائط Matrix. تُرسَل الصور المولّدة المتعددة كدفعة منطقية مرتّبة واحدة، مع الحفاظ على التسميات التوضيحية وسياق الـ thread عبر الدفعة.</p>
+<p>افتراضيًا، تُرفض وسائط Matrix التي تتجاوز 100 ميجابايت قبل الرفع/التنزيل. تجاوز ذلك بـ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>يجب أن تستخدم الوسائط الواردة روابط محتوى Matrix <code>mxc://</code>. يرفض Hermes
+روابط وسائط HTTP(S) العشوائية في أحداث Matrix لتجنب تحويل غرفة اتحادية إلى
+أداة تنزيل غير مقيّدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-signing-verification-recommended">التحقق بالتوقيع المتقاطع (Cross-Signing) (موصى به)</h3>
+<p>إذا كان حساب Matrix الخاص بك يفعّل التوقيع المتقاطع (الافتراضي في Element)، اضبط مفتاح الاسترداد حتى يتمكن البوت من توقيع جهازه ذاتيًا عند بدء التشغيل. بدون هذا، قد ترفض عملاء Matrix الأخرى مشاركة جلسات التشفير مع البوت بعد تدوير مفتاح الجهاز.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p><strong>أين تجده:</strong> في Element، اذهب إلى <strong>Settings</strong> → <strong>Security &amp; Privacy</strong> → <strong>Encryption</strong> → مفتاح الاسترداد الخاص بك (يُسمى أيضًا &quot;Security Key&quot;). هذا هو المفتاح الذي طُلب منك حفظه عند إعداد التوقيع المتقاطع لأول مرة.</p>
+<p>عند كل بدء تشغيل، إذا ضُبط <code>MATRIX_RECOVERY_KEY</code>، يستورد Hermes مفاتيح التوقيع المتقاطع من التخزين الآمن للأسرار الخاص بـ homeserver ويوقّع الجهاز الحالي. هذا العملية مُتحايثة (idempotent) وآمنة لتُترك مفعّلة بشكل دائم.</p>
+<p>إذا أنشأ Hermes مفتاح استرداد Matrix جديدًا، فلن يسجّل المفتاح الخام أبدًا في السجلات. اضبط
+<code>MATRIX_RECOVERY_KEY_OUTPUT_FILE=/secure/path/matrix-recovery-key.txt</code> قبل
+بدء التشغيل لكتابة مفتاح مولَّد مرة واحدة بصلاحيات ملف <code>0600</code>؛ لا يُستبدَل الملف
+إذا كان موجودًا بالفعل.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="51"></x-keep></span>حذف مخزن التشفير (crypto store)</div><div class="admonitionContent_BuS1"><p>إذا حذفت <code>~/.hermes/platforms/matrix/store/crypto.db</code>، يفقد البوت هوية التشفير الخاصة به. مجرد إعادة التشغيل بنفس معرّف الجهاز <strong>لن</strong> يُستعاد بالكامل — لا يزال homeserver يحتفظ بمفاتيح لمرة واحدة موقّعة بمفتاح الهوية القديم، ولا يمكن للأقران إنشاء جلسات Olm جديدة.</p><p>يكتشف Hermes هذه الحالة عند بدء التشغيل ويرفض تفعيل E2EE، مسجّلًا: <code>device XXXX has stale one-time keys on the server signed with a previous identity key</code>.</p><p><strong>أسهل تعافٍ: إنشاء رمز وصول جديد</strong> (الذي يحصل على معرّف جهاز جديد بدون سجل مفاتيح قديمة). راجع قسم &quot;الترقية من إصدار سابق مع E2EE&quot; أدناه. هذا هو المسار الأكثر موثوقية ويتجنب المساس بقاعدة بيانات homeserver.</p><p><strong>التعافي اليدوي</strong> (متقدم — يحافظ على نفس معرّف الجهاز):</p><ol>
+<li>
+<p>أوقف Synapse واحذف الجهاز القديم من قاعدة بياناته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>أو عبر admin API الخاص بـ Synapse (لاحظ معرّف المستخدم المُرمّز بترميز URL):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>ملاحظة: قد يؤدي حذف جهاز عبر admin API أيضًا إلى إبطال رمز الوصول المرتبط. قد تحتاج إلى إنشاء رمز جديد بعد ذلك.</p>
+</li>
+<li>
+<p>احذف مخزن التشفير المحلي وأعد تشغيل Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+</li>
+</ol><p>قد تخزّن عملاء Matrix أخرى (Element، matrix-commander) مؤقتًا مفاتيح الجهاز القديمة. بعد التعافي، اكتب <code>/discardsession</code> في Element لإجبار إنشاء جلسة تشفير جديدة مع البوت.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="52"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>إذا لم تكن حزمة <code>mautrix[encryption]</code> مثبّتة أو <code>libolm</code> مفقودة، يتراجع البوت تلقائيًا إلى عميل عادي (غير مشفّر). سترى تحذيرًا في السجلات.</p></div></div>

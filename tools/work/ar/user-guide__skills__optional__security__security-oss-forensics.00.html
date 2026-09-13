@@ -1,0 +1,279 @@
+
+<header><h1>Oss Forensics</h1></header>
+<p>تحليل جنائي لسلسلة التوريد على GitHub: الاسترداد، ومؤشرات الاختراق (IOCs)، والتقارير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/security/oss-forensics</code></td></tr><tr><td>المسار</td><td><code>optional-skills/security/oss-forensics</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1)، Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>Security</code>، <code>Forensics</code>، <code>GitHub</code>، <code>Supply-Chain</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة التحليل الجنائي لأمن المصادر المفتوحة</h1>
+<p>إطار عمل تحقيقي متعدد الوكلاء من 7 مراحل لبحث هجمات سلسلة توريد المصادر المفتوحة.
+مُقتبَس من نظام التحليل الجنائي في RAPTOR. يغطي GitHub Archive، وWayback Machine، وواجهة GitHub API،
+وتحليل git المحلي، واستخلاص مؤشرات الاختراق، وتكوين الفرضيات المدعومة بالأدلة والتحقق منها،
+وإنتاج التقرير الجنائي النهائي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="️-anti-hallucination-guardrails">⚠️ ضوابط منع الهلوسة</h2>
+<p>اقرأ هذه الضوابط قبل كل خطوة تحقيق. مخالفتها تُبطل التقرير.</p>
+<ol>
+<li><strong>قاعدة الأدلة أولًا</strong>: يجب أن يستشهد كل ادعاء في أي تقرير أو فرضية أو ملخص بمعرّف دليل واحد على الأقل (<code>EV-XXXX</code>). الادعاءات بلا استشهادات ممنوعة.</li>
+<li><strong>التزم بنطاقك</strong>: لكل وكيل فرعي (محقق) مصدر بيانات واحد. لا تخلط المصادر. محقق GH Archive لا يستعلم واجهة GitHub API، والعكس صحيح. حدود الأدوار صارمة.</li>
+<li><strong>الفصل بين الحقيقة والفرضية</strong>: ضع علامة <code>[HYPOTHESIS]</code> على كل استنتاج غير مُتحقَّق منه. لا تُذكر كحقائق إلا العبارات التي تم التحقق منها من المصادر الأصلية.</li>
+<li><strong>لا افتعال للأدلة</strong>: يجب أن يتحقق مدقق الفرضيات آليًا من أن كل معرّف دليل مستشهد به موجود فعليًا في مخزن الأدلة قبل قبول أي فرضية.</li>
+<li><strong>يتطلب الدحض إثباتًا</strong>: لا يمكن رفض فرضية دون حجة مضادة محددة ومدعومة بالأدلة. عبارة &quot;لم يُعثر على دليل&quot; لا تكفي للدحض — فهي فقط تجعل الفرضية غير حاسمة.</li>
+<li><strong>التحقق المزدوج من SHA/الروابط</strong>: يجب تأكيد أي commit SHA أو رابط أو معرّف خارجي مستشهد به كدليل من مصدرين مستقلين على الأقل قبل تصنيفه كمتحقَّق منه.</li>
+<li><strong>قاعدة الكود المشبوه</strong>: لا تُشغّل أبدًا كودًا موجودًا داخل المستودع قيد التحقيق محليًا. حلّله بشكل ساكن فقط، أو استخدم <code>execute_code</code> في بيئة معزولة (sandbox).</li>
+<li><strong>حجب الأسرار</strong>: يجب حجب أي مفاتيح API أو رموز أو بيانات اعتماد تُكتشف أثناء التحقيق في التقرير النهائي. سجّلها داخليًا فقط.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-scenarios">سيناريوهات توضيحية</h2>
+<ul>
+<li><strong>السيناريو أ: التباس التبعيات (Dependency Confusion)</strong>: تُرفَع حزمة خبيثة باسم <code>internal-lib-v2</code> إلى NPM بإصدار أعلى من النسخة الداخلية. يجب أن يتتبّع المحقق متى شُوهدت هذه الحزمة أول مرة وما إذا حدّث أي PushEvent في المستودع المستهدف ملف <code>package.json</code> إلى هذا الإصدار.</li>
+<li><strong>السيناريو ب: الاستيلاء على حساب مشرف</strong>: يُستخدَم حساب مساهم قديم لدفع ملف <code>.github/workflows/build.yml</code> يحتوي باب خلفي (backdoor). يبحث المحقق عن PushEvents من هذا المستخدم بعد فترة خمول طويلة أو من IP/موقع جديد (إن أمكن اكتشافه عبر BigQuery).</li>
+<li><strong>السيناريو ج: إخفاء عبر Force-Push</strong>: يرتكب مطوّر خطأً بدفع سرّ إنتاجي، ثم يقوم بـ force-push &quot;لإصلاحه&quot;. يستخدم المحقق <code>git fsck</code> وGH Archive لاسترداد commit SHA الأصلي والتحقق مما تسرّب.</li>
+</ul>
+<hr>
+<blockquote>
+<p><strong>اصطلاح المسارات</strong>: في هذه المهارة، يشير <code>SKILL_DIR</code> إلى جذر دليل تثبيت
+هذه المهارة (المجلد الذي يحتوي ملف <code>SKILL.md</code> هذا). عند تحميل المهارة،
+حلّ <code>SKILL_DIR</code> إلى المسار الفعلي — مثلًا <code>~/.hermes/skills/security/oss-forensics/</code>
+أو ما يعادله ضمن <code>optional-skills/</code>. كل مراجع السكربتات والقوالب نسبية إليه.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-0-initialization">المرحلة 0: التهيئة</h2>
+<ol>
+<li>أنشئ دليل عمل التحقيق:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li>هيّئ مخزن الأدلة:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+</li>
+<li>انسخ قالب التقرير الجنائي:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+<li>أنشئ ملف <code>iocs.md</code> لتتبّع مؤشرات الاختراق (Indicators of Compromise) عند اكتشافها.</li>
+<li>سجّل وقت بدء التحقيق، والمستودع المستهدف، وهدف التحقيق المُعلَن.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-1-prompt-parsing-and-ioc-extraction">المرحلة 1: تحليل الطلب واستخلاص مؤشرات الاختراق</h2>
+<p><strong>الهدف</strong>: استخلاص جميع الأهداف التحقيقية المنظَّمة من طلب المستخدم.</p>
+<p><strong>الإجراءات</strong>:</p>
+<ul>
+<li>حلّل طلب المستخدم واستخلص:
+<ul>
+<li>المستودع المستهدف (<code>owner/repo</code>)</li>
+<li>الجهات الفاعلة المستهدفة (معرّفات GitHub، عناوين البريد الإلكتروني)</li>
+<li>الإطار الزمني محل الاهتمام (نطاقات تواريخ الالتزامات (commits)، طوابع زمنية لطلبات السحب)</li>
+<li>مؤشرات الاختراق المُقدَّمة: commit SHAs، مسارات الملفات، أسماء الحزم، عناوين IP، النطاقات، مفاتيح/رموز API، الروابط الخبيثة</li>
+<li>أي تقارير أمنية من موردين أو منشورات مدونات مرتبطة</li>
+</ul>
+</li>
+</ul>
+<p><strong>الأدوات</strong>: الاستدلال فقط، أو <code>execute_code</code> لاستخلاص التعابير النمطية (regex) من كتل نصية كبيرة.</p>
+<p><strong>الناتج</strong>: املأ <code>iocs.md</code> بمؤشرات الاختراق المستخلَصة. يجب أن يحتوي كل مؤشر على:</p>
+<ul>
+<li>النوع (من: COMMIT_SHA، FILE_PATH، API_KEY، SECRET، IP_ADDRESS، DOMAIN، PACKAGE_NAME، ACTOR_USERNAME، MALICIOUS_URL، OTHER)</li>
+<li>القيمة</li>
+<li>المصدر (من المستخدم، أو مُستنتَج)</li>
+</ul>
+<p><strong>المرجع</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/evidence-types.md" data-ext>evidence-types.md</a> لتصنيف مؤشرات الاختراق.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-2-parallel-evidence-collection">المرحلة 2: جمع الأدلة بالتوازي</h2>
+<p>أطلق حتى 5 وكلاء فرعيين متخصصين (محققين) باستخدام <code>delegate_task</code> (وضع دفعي، بحد أقصى 3 متزامنين). لكل محقق <strong>مصدر بيانات واحد</strong> ولا يجوز له خلط المصادر.</p>
+<blockquote>
+<p><strong>ملاحظة للمنسّق</strong>: مرّر قائمة مؤشرات الاختراق من المرحلة 1 والإطار الزمني للتحقيق في حقل <code>context</code> لكل مهمة مفوَّضة.</p>
+</blockquote>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="investigator-1-local-git-investigator">المحقق 1: محقق git المحلي</h3>
+<p><strong>حدود الدور</strong>: تستعلم مستودع GIT المحلي فقط. لا تستدعِ أي واجهات برمجية خارجية.</p>
+<p><strong>الإجراءات</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الأدلة التي يجب جمعها</strong> (أضفها عبر <code>python SKILL_DIR/scripts/evidence-store.py add</code>):</p>
+<ul>
+<li>كل commit SHA معلَّق (dangling) ← النوع: <code>git</code></li>
+<li>دليل force-push (سجل reflog يُظهر إعادة كتابة التاريخ) ← النوع: <code>git</code></li>
+<li>التزامات غير موقَّعة من مساهمين موثَّقين ← النوع: <code>git</code></li>
+<li>إضافات ملفات ثنائية مشبوهة ← النوع: <code>git</code></li>
+</ul>
+<p><strong>المرجع</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/recovery-techniques.md" data-ext>recovery-techniques.md</a> للوصول إلى الالتزامات التي طُبِّق عليها force-push.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="investigator-2-github-api-investigator">المحقق 2: محقق واجهة GitHub API</h3>
+<p><strong>حدود الدور</strong>: تستعلم واجهة GITHUB REST API فقط. لا تشغّل أوامر git محليًا.</p>
+<p><strong>الإجراءات</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>أهداف المقارنة المرجعية</strong> (ضع علامة على التباينات كأدلة):</p>
+<ul>
+<li>طلب سحب موجود في الأرشيف لكنه غائب عن الواجهة البرمجية ← دليل على الحذف</li>
+<li>مساهم موجود في أحداث الأرشيف لكنه غائب عن قائمة المساهمين ← دليل على إلغاء الصلاحيات</li>
+<li>التزام موجود في PushEvents بالأرشيف لكنه غائب عن قائمة الالتزامات في الواجهة البرمجية ← دليل على force-push/حذف</li>
+</ul>
+<p><strong>المرجع</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/evidence-types.md" data-ext>evidence-types.md</a> لأنواع أحداث GH.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="investigator-3-wayback-machine-investigator">المحقق 3: محقق Wayback Machine</h3>
+<p><strong>حدود الدور</strong>: تستعلم واجهة WAYBACK MACHINE CDX API فقط. لا تستخدم واجهة GitHub API.</p>
+<p><strong>الهدف</strong>: استرداد صفحات GitHub المحذوفة (ملفات README، والمشكلات (issues)، وطلبات السحب، والإصدارات، وصفحات الويكي).</p>
+<p><strong>الإجراءات</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>الأدلة التي يجب جمعها</strong>:</p>
+<ul>
+<li>لقطات (snapshots) مؤرشفة للمشكلات/طلبات السحب المحذوفة مع محتواها</li>
+<li>نسخ سابقة من ملف README تُظهر التغييرات</li>
+<li>دليل على وجود محتوى في الأرشيف وغيابه عن حالة GitHub الحالية</li>
+</ul>
+<p><strong>المرجع</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/github-archive-guide.md" data-ext>github-archive-guide.md</a> لمعاملات واجهة CDX API.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="investigator-4-gh-archive--bigquery-investigator">المحقق 4: محقق GH Archive / BigQuery</h3>
+<p><strong>حدود الدور</strong>: تستعلم GITHUB ARCHIVE عبر BIGQUERY فقط. هذا سجل غير قابل للعبث بكل أحداث GitHub العامة.</p>
+<blockquote>
+<p><strong>المتطلبات المسبقة</strong>: يتطلب بيانات اعتماد Google Cloud بصلاحية وصول إلى BigQuery (<code>gcloud auth application-default login</code>). إذا كانت غير متاحة، تجاوز هذا المحقق ودوّن ذلك في التقرير.</p>
+</blockquote>
+<p><strong>قواعد تحسين التكلفة</strong> (إلزامية):</p>
+<ol>
+<li>شغّل دائمًا <code>--dry_run</code> قبل كل استعلام لتقدير التكلفة.</li>
+<li>استخدم <code>_TABLE_SUFFIX</code> للتصفية حسب النطاق الزمني وتقليل البيانات الممسوحة.</li>
+<li>اختر (SELECT) الأعمدة التي تحتاجها فقط.</li>
+<li>أضف LIMIT ما لم تكن تُجري تجميعًا.</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>الأدلة التي يجب جمعها</strong>:</p>
+<ul>
+<li>أحداث force-push (payload.size &gt; 0، payload.distinct_size = 0)</li>
+<li>أحداث الحذف (DeleteEvents) للفروع/الوسوم</li>
+<li>أحداث تشغيل سير العمل (WorkflowRunEvents) لأتمتة CI/CD مشبوهة</li>
+<li>أحداث PushEvents تسبق &quot;فجوة&quot; في سجل git (دليل على إعادة كتابة التاريخ)</li>
+</ul>
+<p><strong>المرجع</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/github-archive-guide.md" data-ext>github-archive-guide.md</a> لكل أنواع الأحداث الـ12 وأنماط الاستعلام.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="investigator-5-ioc-enrichment-investigator">المحقق 5: محقق إثراء مؤشرات الاختراق</h3>
+<p><strong>حدود الدور</strong>: تُثري مؤشرات الاختراق الموجودة من المرحلة 1 باستخدام مصادر عامة سلبية فقط. لا تُنفّذ أي كود من المستودع المستهدف.</p>
+<p><strong>الإجراءات</strong>:</p>
+<ul>
+<li>لكل commit SHA: حاول الاسترداد عبر رابط GitHub المباشر (<code>github.com/OWNER/REPO/commit/SHA.patch</code>)</li>
+<li>لكل نطاق/IP: تحقق من DNS السلبي وسجلات WHOIS (عبر <code>web_extract</code> على خدمات WHOIS العامة)</li>
+<li>لكل اسم حزمة: تحقق من npm/PyPI بحثًا عن تقارير حزم خبيثة مطابقة</li>
+<li>لكل اسم مستخدم فاعل: تحقق من ملف GitHub الشخصي، وسجل المساهمات، وعمر الحساب</li>
+<li>استرد الالتزامات التي طُبِّق عليها force-push بثلاث طرق (راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/recovery-techniques.md" data-ext>recovery-techniques.md</a>)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-3-evidence-consolidation">المرحلة 3: دمج الأدلة</h2>
+<p>بعد أن ينهي جميع المحققين عملهم:</p>
+<ol>
+<li>شغّل <code>python SKILL_DIR/scripts/evidence-store.py --store evidence.json list</code> لرؤية كل الأدلة المجمَّعة.</li>
+<li>لكل قطعة دليل، تحقق من تطابق تجزئة <code>content_sha256</code> مع المصدر الأصلي.</li>
+<li>جمّع الأدلة حسب:
+<ul>
+<li><strong>الجدول الزمني</strong>: رتّب جميع الأدلة ذات الطابع الزمني ترتيبًا زمنيًا</li>
+<li><strong>الجهة الفاعلة</strong>: جمّع حسب معرّف GitHub أو البريد الإلكتروني</li>
+<li><strong>مؤشر الاختراق</strong>: اربط الدليل بمؤشر الاختراق الذي يخصّه</li>
+</ul>
+</li>
+<li>حدّد <strong>التباينات</strong>: العناصر الموجودة في مصدر والغائبة عن آخر (مؤشرات رئيسية على الحذف).</li>
+<li>ضع على الدليل علامة <code>[VERIFIED]</code> (مؤكَّد من مصدرين مستقلين أو أكثر) أو <code>[UNVERIFIED]</code> (مصدر واحد فقط).</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-4-hypothesis-formation">المرحلة 4: تكوين الفرضيات</h2>
+<p>يجب أن تفعل الفرضية ما يلي:</p>
+<ul>
+<li>تذكر ادعاءً محددًا (مثل &quot;قام الفاعل X بـ force-push إلى BRANCH في DATE لمحو commit SHA&quot;)</li>
+<li>تستشهد بمعرّفي دليل على الأقل يدعمانها (<code>EV-XXXX</code>، <code>EV-YYYY</code>)</li>
+<li>تحدد ما الدليل الذي يمكن أن يدحضها</li>
+<li>تُصنَّف بعلامة <code>[HYPOTHESIS]</code> إلى أن يتم التحقق منها</li>
+</ul>
+<p><strong>قوالب الفرضيات الشائعة</strong> (راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/investigation-templates.md" data-ext>investigation-templates.md</a>):</p>
+<ul>
+<li>اختراق المشرف: استخدام حساب شرعي بعد الاستيلاء عليه لحقن كود خبيث</li>
+<li>التباس التبعيات: احتلال أسماء حزم لاعتراض عمليات التثبيت</li>
+<li>حقن CI/CD: تعديلات خبيثة في سير العمل لتشغيل كود أثناء عمليات البناء</li>
+<li>الانتحال بأسماء متشابهة (Typosquatting): اسم حزمة يكاد يطابق اسمًا آخر يستهدف الأخطاء الإملائية</li>
+<li>تسرّب بيانات الاعتماد: رمز/مفتاح ارتُكب بالخطأ ثم مُحي عبر force-push</li>
+</ul>
+<p>لكل فرضية، أطلق وكيلًا فرعيًا عبر <code>delegate_task</code> لمحاولة إيجاد دليل مضادّ قبل التأكيد.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-5-hypothesis-validation">المرحلة 5: التحقق من الفرضيات</h2>
+<p>يجب أن يتحقق الوكيل الفرعي المدقّق آليًا مما يلي:</p>
+<ol>
+<li>لكل فرضية، استخلص كل معرّفات الأدلة المستشهد بها.</li>
+<li>تحقق من وجود كل معرّف في <code>evidence.json</code> (فشل صارم إذا كان أي معرّف مفقودًا ← تُرفض الفرضية باعتبارها مُفتعَلة محتملًا).</li>
+<li>تحقق من أن كل قطعة دليل موسومة بـ<code>[VERIFIED]</code> قد تأكدت من مصدرين أو أكثر.</li>
+<li>تحقق من الاتساق المنطقي: هل يدعم الجدول الزمني الذي تصفه الأدلة الفرضية؟</li>
+<li>تحقق من التفسيرات البديلة: هل يمكن أن ينشأ نمط الأدلة نفسه من سبب حميد؟</li>
+</ol>
+<p><strong>الناتج</strong>:</p>
+<ul>
+<li><code>VALIDATED</code>: كل الأدلة مستشهد بها ومتحقَّق منها ومتسقة منطقيًا، ولا تفسير بديل معقول.</li>
+<li><code>INCONCLUSIVE</code>: الأدلة تدعم الفرضية لكن توجد تفسيرات بديلة أو الأدلة غير كافية.</li>
+<li><code>REJECTED</code>: معرّفات أدلة مفقودة، أو استُشهد بدليل غير متحقَّق منه كحقيقة، أو اكتُشف تناقض منطقي.</li>
+</ul>
+<p>تعود الفرضيات المرفوضة إلى المرحلة 4 للتنقيح (بحد أقصى 3 تكرارات).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-6-final-report-generation">المرحلة 6: إعداد التقرير النهائي</h2>
+<p>املأ <code>investigation-report.md</code> باستخدام القالب في <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/templates/forensic-report.md" data-ext>forensic-report.md</a>.</p>
+<p><strong>الأقسام الإلزامية</strong>:</p>
+<ul>
+<li>الملخص التنفيذي: حكم في فقرة واحدة (مُخترَق / نظيف / غير حاسم) مع مستوى الثقة</li>
+<li>الجدول الزمني: إعادة بناء زمنية لكل الأحداث المهمة مع استشهادات الأدلة</li>
+<li>الفرضيات المتحقَّق منها: كل واحدة مع حالتها والأدلة الداعمة</li>
+<li>سجل الأدلة: جدول لكل مدخلات <code>EV-XXXX</code> مع المصدر والنوع وحالة التحقق</li>
+<li>قائمة مؤشرات الاختراق: كل مؤشرات الاختراق المستخلَصة والمُثراة</li>
+<li>سلسلة الحيازة (Chain of Custody): كيف جُمعت الأدلة، ومن أي مصادر، وفي أي أوقات</li>
+<li>التوصيات: إجراءات تخفيف فورية إذا اكتُشف اختراق؛ توصيات مراقبة</li>
+</ul>
+<p><strong>قواعد التقرير</strong>:</p>
+<ul>
+<li>يجب أن يحمل كل ادعاء واقعي استشهادًا واحدًا على الأقل بصيغة <code>[EV-XXXX]</code></li>
+<li>يجب أن يذكر الملخص التنفيذي مستوى الثقة (عالٍ / متوسط / منخفض)</li>
+<li>يجب حجب كل الأسرار/بيانات الاعتماد إلى <code>[REDACTED]</code></li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-7-completion">المرحلة 7: الإتمام</h2>
+<ol>
+<li>شغّل العدّ النهائي للأدلة: <code>python SKILL_DIR/scripts/evidence-store.py --store evidence.json list</code></li>
+<li>أرشِف دليل التحقيق كاملًا.</li>
+<li>إذا تأكّد الاختراق:
+<ul>
+<li>اذكر إجراءات التخفيف الفورية (تدوير بيانات الاعتماد، وتثبيت تجزئات (hashes) التبعيات، وإخطار المستخدمين المتأثرين)</li>
+<li>حدّد الإصدارات/الحزم المتأثرة</li>
+<li>دوّن التزامات الإفصاح (إذا كانت حزمة عامة: نسّق مع سجل الحزم)</li>
+</ul>
+</li>
+<li>اعرض <code>investigation-report.md</code> النهائي على المستخدم.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ethical-use-guidelines">إرشادات الاستخدام الأخلاقي</h2>
+<p>صُمِّمت هذه المهارة من أجل <strong>التحقيق الأمني الدفاعي</strong> — حماية برمجيات المصادر المفتوحة من هجمات سلسلة التوريد. يجب ألّا تُستخدم لـ:</p>
+<ul>
+<li><strong>المضايقة أو المطاردة</strong> للمساهمين أو المشرفين</li>
+<li><strong>كشف الهوية (Doxing)</strong> — ربط نشاط GitHub بهويات حقيقية لأغراض خبيثة</li>
+<li><strong>الاستخبارات التنافسية</strong> — التحقيق في مستودعات خاصة أو داخلية دون تفويض</li>
+<li><strong>الاتهامات الباطلة</strong> — نشر نتائج تحقيق دون أدلة متحقَّق منها (راجع ضوابط منع الهلوسة)</li>
+</ul>
+<p>ينبغي إجراء التحقيقات وفق مبدأ <strong>الحد الأدنى من التدخل</strong>: اجمع فقط الأدلة اللازمة لإثبات الفرضية أو نفيها. عند نشر النتائج، اتّبع ممارسات الإفصاح المسؤول وتنسّق مع المشرفين المتأثرين قبل الإفصاح العلني.</p>
+<p>إذا كشف التحقيق عن اختراق حقيقي، اتّبع عملية الإفصاح المنسّق عن الثغرات:</p>
+<ol>
+<li>أخطر مشرفي المستودع خاصةً أولًا</li>
+<li>امنح وقتًا معقولًا للمعالجة (عادةً 90 يومًا)</li>
+<li>نسّق مع سجلات الحزم (npm وPyPI وغيرها) إذا كانت حزم منشورة متأثرة</li>
+<li>سجّل CVE إذا كان ذلك مناسبًا</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-rate-limiting">تحديد معدل الواجهة البرمجية</h2>
+<p>تفرض واجهة GitHub REST API حدود معدل قد تعطّل التحقيقات الكبيرة إن لم تُدَر بعناية.</p>
+<p><strong>الطلبات المصادَق عليها</strong>: 5000 في الساعة (يتطلب متغير بيئة <code>GITHUB_TOKEN</code> أو مصادقة عبر <code>gh</code> CLI)
+<strong>الطلبات غير المصادَق عليها</strong>: 60 في الساعة (غير قابلة للاستخدام في التحقيقات)</p>
+<p><strong>أفضل الممارسات</strong>:</p>
+<ul>
+<li>صادق دائمًا: <code>export GITHUB_TOKEN=ghp_...</code> أو استخدم <code>gh</code> CLI (يُصادق تلقائيًا)</li>
+<li>استخدم الطلبات الشرطية (ترويسات <code>If-None-Match</code> / <code>If-Modified-Since</code>) لتجنّب استهلاك الحصة على بيانات لم تتغيّر</li>
+<li>لنقاط النهاية المُرقَّمة (paginated)، اجلب كل الصفحات بالتسلسل — لا توازِ الطلبات على نفس نقطة النهاية</li>
+<li>تحقق من ترويسة <code>X-RateLimit-Remaining</code>؛ إذا كانت أقل من 100، أوقف العمل حتى طابع <code>X-RateLimit-Reset</code> الزمني</li>
+<li>لدى BigQuery حصصه الخاصة (10 تيرابايت/يوم في الفئة المجانية) — شغّل dry-run دائمًا أولًا</li>
+<li>واجهة Wayback Machine CDX API: لا حدّ معدل رسمي، لكن كن معتدلًا (بحد أقصى 1-2 طلب/ثانية)</li>
+</ul>
+<p>إذا تعرّضت لتحديد المعدل في منتصف التحقيق، سجّل النتائج الجزئية في مخزن الأدلة ودوّن القيد في التقرير.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-materials">مواد مرجعية</h2>
+<ul>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/github-archive-guide.md" data-ext>github-archive-guide.md</a> — استعلامات BigQuery، وواجهة CDX API، و12 نوع حدث</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/evidence-types.md" data-ext>evidence-types.md</a> — تصنيف مؤشرات الاختراق، وأنواع مصادر الأدلة، وأنواع الملاحظات</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/recovery-techniques.md" data-ext>recovery-techniques.md</a> — استرداد الالتزامات وطلبات السحب والمشكلات المحذوفة</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/references/investigation-templates.md" data-ext>investigation-templates.md</a> — قوالب فرضيات جاهزة لكل نوع هجوم</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/scripts/evidence-store.py" data-ext>evidence-store.py</a> — أداة CLI لإدارة مخزن أدلة JSON</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/security/oss-forensics/templates/forensic-report.md" data-ext>forensic-report.md</a> — قالب تقرير منظَّم</li>
+</ul>

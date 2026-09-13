@@ -1,0 +1,141 @@
+
+<header><h1>Llama Cpp</h1></header>
+<p>استدلال محلي بصيغة GGUF عبر llama.cpp + اكتشاف نماذج من HF Hub.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/llama-cpp</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/inference/llama-cpp</code></td></tr><tr><td>الإصدار</td><td><code>2.1.2</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>llama-cpp-python&gt;=0.2.0</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>llama.cpp</code>, <code>GGUF</code>, <code>Quantization</code>, <code>Hugging Face Hub</code>, <code>CPU Inference</code>, <code>Apple Silicon</code>, <code>Edge Deployment</code>, <code>AMD GPUs</code>, <code>Intel GPUs</code>, <code>NVIDIA</code>, <code>URL-first</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>llama.cpp + GGUF</h1>
+<p>استخدم هذه المهارة للاستدلال المحلي بصيغة GGUF، واختيار الـ quant، أو اكتشاف مستودعات Hugging Face المتوافقة مع llama.cpp.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>تشغيل نماذج محلية على المعالج (CPU) أو Apple Silicon أو CUDA أو ROCm أو وحدات GPU من Intel</li>
+<li>إيجاد ملف GGUF المناسب لمستودع Hugging Face محدَّد</li>
+<li>بناء أمر <code>llama-server</code> أو <code>llama-cli</code> انطلاقًا من الـ Hub</li>
+<li>البحث في الـ Hub عن نماذج تدعم llama.cpp بالفعل</li>
+<li>سرد ملفات <code>.gguf</code> المتاحة وأحجامها لمستودع معيّن</li>
+<li>الاختيار بين نسخ Q4/Q5/Q6/IQ بحسب ذاكرة RAM أو VRAM لدى المستخدم</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-discovery-workflow">سير عمل اكتشاف النماذج</h2>
+<p>فضّل سير العمل القائم على الروابط (URL) قبل اللجوء إلى <code>hf</code> أو Python أو سكربتات مخصّصة.</p>
+<ol>
+<li>ابحث عن مستودعات مرشَّحة على الـ Hub:
+<ul>
+<li>الأساس: <code>https://huggingface.co/models?apps=llama.cpp&amp;sort=trending</code></li>
+<li>أضف <code>search=&lt;term&gt;</code> لعائلة نماذج معيّنة</li>
+<li>أضف <code>num_parameters=min:0,max:24B</code> أو ما شابه عندما يكون لدى المستخدم قيود على الحجم</li>
+</ul>
+</li>
+<li>افتح المستودع بواجهة تطبيق llama.cpp المحلي:
+<ul>
+<li><code>https://huggingface.co/&lt;repo&gt;?local-app=llama.cpp</code></li>
+</ul>
+</li>
+<li>اعتمد مقتطف local-app كمرجع أساسي متى كان ظاهرًا:
+<ul>
+<li>انسخ أمر <code>llama-server</code> أو <code>llama-cli</code> كما هو تمامًا</li>
+<li>اذكر نسخة الـ quant الموصى بها تمامًا كما تعرضها HF</li>
+</ul>
+</li>
+<li>اقرأ رابط <code>?local-app=llama.cpp</code> نفسه كنص أو HTML للصفحة واستخرج القسم الموجود تحت <code>Hardware compatibility</code>:
+<ul>
+<li>فضّل تسميات الـ quant وأحجامها الدقيقة الواردة فيه على الجداول العامة</li>
+<li>احتفظ بالتسميات الخاصة بالمستودع مثل <code>UD-Q4_K_M</code> أو <code>IQ4_NL_XL</code></li>
+<li>إذا لم يكن هذا القسم ظاهرًا في مصدر الصفحة المجلوبة، اذكر ذلك واستخدم بدلًا منه واجهة tree API مع إرشادات عامة عن الـ quant</li>
+</ul>
+</li>
+<li>استعلم واجهة tree API للتأكد ممّا هو موجود فعليًا:
+<ul>
+<li><code>https://huggingface.co/api/models/&lt;repo&gt;/tree/main?recursive=true</code></li>
+<li>احتفظ بالمُدخلات التي يكون فيها <code>type</code> مساويًا لـ <code>file</code> وينتهي <code>path</code> بـ <code>.gguf</code></li>
+<li>استخدم <code>path</code> و<code>size</code> كمرجع أساسي لأسماء الملفات وأحجامها بالبايت</li>
+<li>افصل نقاط التفتيش المُكمَّمة (quantized) عن ملفات الإسقاط (projector) <code>mmproj-*.gguf</code> وملفات الأجزاء (shard) <code>BF16/</code></li>
+<li>استخدم <code>https://huggingface.co/&lt;repo&gt;/tree/main</code> فقط كبديل يقرؤه البشر</li>
+</ul>
+</li>
+<li>إذا لم يكن مقتطف local-app ظاهرًا كنص، أعِد بناء الأمر من المستودع والـ quant المختار:
+<ul>
+<li>اختيار مختصر للـ quant: <code>llama-server -hf &lt;repo&gt;:&lt;QUANT&gt;</code></li>
+<li>بديل باسم الملف الدقيق: <code>llama-server --hf-repo &lt;repo&gt; --hf-file &lt;filename.gguf&gt;</code></li>
+</ul>
+</li>
+<li>اقترح التحويل من أوزان Transformers فقط إذا لم يكن المستودع يعرض ملفات GGUF بالفعل.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-llamacpp">تثبيت llama.cpp</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-directly-from-the-hugging-face-hub">التشغيل مباشرة من Hugging Face Hub</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-an-exact-gguf-file-from-the-hub">تشغيل ملف GGUF محدَّد من الـ Hub</h3>
+<p>استخدم هذا عندما تُظهر واجهة tree API تسمية ملفات مخصّصة أو عند غياب مقتطف HF الدقيق.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-compatible-server-check">التحقق من خادم متوافق مع OpenAI</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-bindings-llama-cpp-python">روابط Python (llama-cpp-python)</h2>
+<p><code>pip install llama-cpp-python</code> (لـ CUDA: <code>CMAKE_ARGS=&quot;-DGGML_CUDA=on&quot; pip install llama-cpp-python --force-reinstall --no-cache-dir</code>؛ ولـ Metal: <code>CMAKE_ARGS=&quot;-DGGML_METAL=on&quot; ...</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-generation">توليد أساسي</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat--streaming">المحادثة + البث</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="embeddings">Embeddings</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يمكنك أيضًا تحميل ملف GGUF مباشرة من الـ Hub:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-a-quant">اختيار الـ quant</h2>
+<p>استخدم صفحة الـ Hub أولًا، والقواعد العامة (heuristics) ثانيًا.</p>
+<ul>
+<li>فضّل الـ quant الدقيق الذي تحدّده HF كمتوافق مع ملف عتاد المستخدم.</li>
+<li>للمحادثة العامة، ابدأ بـ <code>Q4_K_M</code>.</li>
+<li>للأعمال البرمجية أو التقنية، فضّل <code>Q5_K_M</code> أو <code>Q6_K</code> إن سمحت الذاكرة.</li>
+<li>لميزانيات RAM محدودة جدًا، فكّر في <code>Q3_K_M</code> أو نسخ <code>IQ</code>، أو نسخ <code>Q2</code> فقط إذا أعطى المستخدم صراحةً الأولوية للمساحة على الجودة.</li>
+<li>بالنسبة للمستودعات متعددة الوسائط (multimodal)، اذكر <code>mmproj-*.gguf</code> بشكل منفصل. فملف الإسقاط (projector) ليس ملف النموذج الرئيسي.</li>
+<li>لا توحّد التسميات الخاصة بالمستودع. إذا كانت الصفحة تذكر <code>UD-Q4_K_M</code>، فاذكر <code>UD-Q4_K_M</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="extracting-available-ggufs-from-a-repo">استخراج ملفات GGUF المتاحة من مستودع</h2>
+<p>عندما يسأل المستخدم عن ملفات GGUF الموجودة، أرجع:</p>
+<ul>
+<li>اسم الملف</li>
+<li>حجم الملف</li>
+<li>تسمية الـ quant</li>
+<li>ما إذا كان نموذجًا رئيسيًا أم ملف إسقاط (projector) مساعدًا</li>
+</ul>
+<p>تجاهل ما يلي إلا إذا طُلب:</p>
+<ul>
+<li>README</li>
+<li>ملفات أجزاء (shard) BF16</li>
+<li>كتل imatrix أو عناصر المعايرة (calibration)</li>
+</ul>
+<p>استخدم واجهة tree API لهذه الخطوة:</p>
+<ul>
+<li><code>https://huggingface.co/api/models/&lt;repo&gt;/tree/main?recursive=true</code></li>
+</ul>
+<p>بالنسبة لمستودع مثل <code>unsloth/Qwen3.6-35B-A3B-GGUF</code>، قد تعرض صفحة local-app شرائح quant مثل <code>UD-Q4_K_M</code> و<code>UD-Q5_K_M</code> و<code>UD-Q6_K</code> و<code>Q8_0</code>، بينما تعرض واجهة tree API مسارات ملفات دقيقة مثل <code>Qwen3.6-35B-A3B-UD-Q4_K_M.gguf</code> و<code>Qwen3.6-35B-A3B-Q8_0.gguf</code> مع أحجامها بالبايت. استخدم واجهة tree API لتحويل تسمية quant إلى اسم ملف دقيق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-patterns">أنماط البحث</h2>
+<p>استخدم أشكال الروابط (URL) التالية مباشرة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-format">صيغة المخرَج</h2>
+<p>عند الإجابة عن طلبات الاكتشاف، فضّل نتيجة منظّمة ومختصرة مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/hub-discovery.md" data-ext>hub-discovery.md</a></strong> - سير عمل Hugging Face عبر الروابط فقط، وأنماط البحث، واستخراج GGUF، وإعادة بناء الأوامر</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/advanced-usage.md" data-ext>advanced-usage.md</a></strong> — فك الترميز التخميني (speculative decoding)، الاستدلال الدفعي (batched)، التوليد المقيّد بـ grammar، LoRA، تعدد GPU، بُنى مخصّصة، سكربتات قياس الأداء</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/quantization.md" data-ext>quantization.md</a></strong> — مقايضات جودة الـ quant، متى تستخدم Q4/Q5/Q6/IQ، تحجيم حجم النموذج، imatrix</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/server.md" data-ext>server.md</a></strong> — تشغيل الخادم مباشرة من الـ Hub، endpoints متوافقة مع OpenAI API، النشر عبر Docker، موازنة الأحمال بـ NGINX، المراقبة</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/optimization.md" data-ext>optimization.md</a></strong> — خيوط المعالج (CPU threading)، BLAS، قواعد إسناد العمل إلى GPU، ضبط الدفعات (batch)، قياسات الأداء</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/inference/llama-cpp/references/troubleshooting.md" data-ext>troubleshooting.md</a></strong> — مشاكل التثبيت/التحويل/التكميم/الاستدلال/الخادم، Apple Silicon، تصحيح الأخطاء</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/ggml-org/llama.cpp" data-ext>https://github.com/ggml-org/llama.cpp</a></li>
+<li><strong>توثيق Hugging Face لـ GGUF وllama.cpp</strong>: <a href="https://huggingface.co/docs/hub/gguf-llamacpp" data-ext>https://huggingface.co/docs/hub/gguf-llamacpp</a></li>
+<li><strong>توثيق Hugging Face لـ Local Apps</strong>: <a href="https://huggingface.co/docs/hub/main/local-apps" data-ext>https://huggingface.co/docs/hub/main/local-apps</a></li>
+<li><strong>توثيق Hugging Face لـ Local Agents</strong>: <a href="https://huggingface.co/docs/hub/agents-local" data-ext>https://huggingface.co/docs/hub/agents-local</a></li>
+<li><strong>مثال صفحة local-app</strong>: <a href="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF?local-app=llama.cpp" data-ext>https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF?local-app=llama.cpp</a></li>
+<li><strong>مثال tree API</strong>: <a href="https://huggingface.co/api/models/unsloth/Qwen3.6-35B-A3B-GGUF/tree/main?recursive=true" data-ext>https://huggingface.co/api/models/unsloth/Qwen3.6-35B-A3B-GGUF/tree/main?recursive=true</a></li>
+<li><strong>مثال بحث llama.cpp</strong>: <a href="https://huggingface.co/models?num_parameters=min:0,max:24B&amp;apps=llama.cpp&amp;sort=trending" data-ext>https://huggingface.co/models?num_parameters=min:0,max:24B&amp;apps=llama.cpp&amp;sort=trending</a></li>
+<li><strong>الترخيص</strong>: MIT</li>
+</ul>

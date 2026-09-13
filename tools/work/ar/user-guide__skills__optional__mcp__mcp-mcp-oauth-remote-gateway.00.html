@@ -1,0 +1,188 @@
+
+<header><h1>Mcp Oauth Remote Gateway</h1></header>
+<p>OAuth يدوي لخوادم MCP البعيدة على gateways بلا واجهة تفاعلية (headless).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mcp/mcp-oauth-remote-gateway</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mcp/mcp-oauth-remote-gateway</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Ben Barclay (benbarclay)، Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos</td></tr><tr><td>الوسوم</td><td><code>MCP</code>، <code>OAuth</code>، <code>PKCE</code>، <code>Remote-Deployment</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a>، <a href="/docs/user-guide/skills/optional/mcp/mcp-mcporter"><code>mcporter</code></a>، <a href="/docs/user-guide/skills/optional/mcp/mcp-fastmcp"><code>fastmcp</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>OAuth لـ MCP على Hermes Gateway بعيد</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>عميل OAuth المدمج لـ MCP في Hermes يشغّل مستمع HTTP لمرة واحدة على <code>127.0.0.1:&lt;port&gt;</code>
+داخل عملية Hermes نفسها ويسجّل عنوان loopback هذا بوصفه
+<code>redirect_uri</code> الخاص بـ OAuth. يعمل هذا بشكل ممتاز مع CLI محلي على جهاز المستخدم نفسه.
+لكنه يتعطّل تمامًا حين يعمل Hermes بوصفه gateway بعيدًا (حاوية، VPS،
+بوت مراسلة)، لأن متصفح المستخدم يحلّ <code>127.0.0.1</code> إلى جهاز المستخدم
+المحمول نفسه، لا إلى الحاوية البعيدة — فلا يصل رمز التفويض إلى Hermes أبدًا.</p>
+<p>تُنفّذ هذه المهارة خطوات OAuth يدويًا وتكتب الرموز (tokens) الناتجة في نفس
+الملفات التي يتوقعها تخزين الرموز في Hermes، بحيث يجد أمر <code>/reload-mcp</code>
+اللاحق رموزًا مخزّنة مسبقًا (cached) ويتخطى تدفق المتصفح كليًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>استخدم هذه المهارة عندما تتحقق <strong>كل</strong> الشروط التالية:</p>
+<ol>
+<li>يريد المستخدم إضافة خادم MCP بعيد عبر HTTP يتطلّب OAuth (لا مجرد رمز Bearer ثابت).</li>
+<li>يعمل Hermes بوصفه <strong>gateway بعيدًا</strong> (حاوية، VPS، Docker، خدمة مُدارة) — وليس CLI محليًا على جهاز المستخدم المحمول.</li>
+<li>يدعم الخادم OAuth 2.1 مع PKCE و RFC 7591 الخاص بالتسجيل الديناميكي للعميل (Dynamic Client Registration)، وهو ما تدعمه معظم خوادم MCP الحديثة — مثل Better Stack و Linear و Cloudflare و Datadog. إذا لم يدعم الخادم DCR (وGitHub الاستثناء الأبرز)، فلا تنطبق هذه المهارة — استخدم بدلًا منها تطبيق OAuth مُسجّلًا مسبقًا أو رمز وصول شخصي (Personal Access Token).</li>
+</ol>
+<p>لا تستخدمها فيما يلي:</p>
+<ul>
+<li><strong>Hermes كـ CLI محلي</strong> — فقط اضبط <code>auth: oauth</code> في <code>mcp_servers.&lt;name&gt;</code> ونفّذ <code>/reload-mcp</code>. يفتح التدفق المدمج متصفحًا ويلتقط الاستدعاء (callback) على localhost. يعمل بشكل ممتاز.</li>
+<li><strong>الخوادم التي تقبل رمز Bearer ثابت (مفتاح API)</strong> — فضّل دائمًا <code>headers.Authorization: &quot;Bearer &lt;token&gt;&quot;</code> إذا كان المستخدم موافقًا. أبسط، ولا حاجة لدورة تحديث (refresh).</li>
+<li><strong>GitHub Copilot MCP</strong> (<code>api.githubcopilot.com/mcp/</code>) — لا يوفّر GitHub آلية DCR. استخدم PAT أو تطبيق OAuth مُسجّلًا مسبقًا (انظر النقطة الحرجة 12).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-the-built-in-oauth-flow-fails-on-a-remote-gateway">لماذا يفشل تدفق OAuth المدمج على gateway بعيد</h2>
+<p>عميل OAuth الأصلي لـ MCP في Hermes (<code>tools/mcp_oauth.py</code>):</p>
+<ol>
+<li>يختار منفذًا (port) محليًا حرًا <code>P</code>.</li>
+<li>يسجّل عميل OAuth ديناميكيًا لدى خادم التفويض (AS)، مرسلًا <code>redirect_uri = http://127.0.0.1:P/callback</code>.</li>
+<li>يشغّل خادم HTTP على <code>127.0.0.1:P</code> <strong>داخل عملية Hermes نفسها</strong>.</li>
+<li>يطبع رابط التفويض وينتظر وصول الرمز عند نقطته المحلية.</li>
+</ol>
+<p>عندما يعمل Hermes بعيدًا، فإن <code>127.0.0.1</code> في <code>redirect_uri</code> يشير إلى
+loopback الحاوية البعيدة، لا إلى جهاز المستخدم. فبعد التفويض، يُعاد توجيه
+متصفح المستخدم (302) إلى <code>http://127.0.0.1:P/callback?code=...</code>، وهو ما يحلّ إلى
+جهاز المستخدم نفسه ويفشل في الاتصال. لا يصل الاستدعاء إلى عملية Hermes أبدًا،
+وينتهي مهلة التدفق (timeout)، ويعيد <code>/reload-mcp</code> رسالة &quot;No MCP tools available&quot; بلا أي تفاصيل.</p>
+<p>الأعراض التي تدل على ذلك: عمليات <code>[xdg-open] &lt;defunct&gt;</code> تحت مستخدم hermes، ومجلد
+رموز فارغ أو غير موجود (<code>$HERMES_HOME/mcp-tokens/</code>)، وإعادة تحميل تستجيب دون أي سطر
+&quot;Added/Reconnected: X&quot; في <code>change_detail</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cheap-first-fallbacks-the-built-in-flows-own-escape-hatches">الحلول الاحتياطية الأولى الرخيصة: مخارج التدفق المدمج نفسه</h2>
+<p>قبل أي عملية يدوية على الرموز، تحقق ما إذا كانت الحلول الاحتياطية الخاصة
+بالتدفق المدمج تغطي بالفعل طريقة النشر. عندما يكتشف Hermes جلسة بعيدة، يطبع
+خيارين إلى جانب رابط التفويض (<code>tools/mcp_oauth.py</code>):</p>
+<ol>
+<li><strong>اللصق اليدوي (Paste-back)</strong> — على طرفية تفاعلية (TTY)، تتسابق قراءة من stdin مع
+مستمع HTTP. يُفوّض المستخدم، يفشل المتصفح في الاتصال بـ
+<code>127.0.0.1:&lt;port&gt;</code>، فيلصق عنوان شريط العناوين الكامل
+(<code>?code=...&amp;state=...</code>) عند المُوجّه (prompt). يعمل مع جلسات CLI عبر SSH.</li>
+<li><strong>إعادة توجيه منفذ عبر SSH</strong> — <code>ssh -N -L &lt;port&gt;:127.0.0.1:&lt;port&gt; &lt;user&gt;@&lt;host&gt;</code>
+يجعل إعادة التوجيه تصل إلى المستمع البعيد بشكل طبيعي.</li>
+</ol>
+<p>يتطلّب كلا الخيارين طرفية تفاعلية متصلة بمضيف Hermes. أما بقية هذه المهارة
+فهي للحالة التي لا توجد فيها TTY تفاعلية إطلاقًا — عندما يعمل Hermes كمجرد
+gateway/بوت مراسلة يُشغّل فيها <code>/reload-mcp</code> التدفق دون وجود أحد أمام موجّه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="preferred-front-door-the-hermes-dashboard-try-this-before-manual-token-surgery">الباب الأمامي المفضّل: لوحة تحكم Hermes (جرّب هذا قبل التعديل اليدوي على الرموز)</h2>
+<p>غالبًا ما يشغّل Hermes gateway البعيد أيضًا واجهة الويب <strong>dashboard</strong> بوصفها عملية
+منفصلة (مثلًا <code>hermes dashboard --host 0.0.0.0 --port &lt;port&gt;</code>؛ تحقق بـ
+<code>ps aux | grep &#x27;hermes dashboard&#x27;</code>). تعرض لوحة التحكم وحدة تحكم للموصلات (connectors)/MCP —
+نقاط نهاية مثل <code>/api/mcp/servers</code> و <code>/api/mcp/status</code> و <code>/connectors</code> (كلها
+محمية بتسجيل الدخول؛ يؤكد وجودها استرجاع curl بلا ملفات تعريف ارتباط يُعيد 401/302).</p>
+<p><strong>لماذا تحلّ لوحة التحكم المشكلة الجوهرية:</strong> عندما يُجري المستخدم OAuth من
+لوحة التحكم <em>في متصفحه الخاص</em>، تصل إعادة التوجيه إلى سياق تستطيع لوحة
+التحكم التقاطه — متجاوزةً فشل الاستدعاء عبر <code>127.0.0.1</code> الذي يعطّل تدفق
+CLI/التدفق اليدوي. لذا فإن ترتيب التصعيد الصحيح لـ &quot;إضافة خادم MCP بـ OAuth
+أو إعادة مصادقته على gateway بعيد&quot; هو:</p>
+<ol>
+<li><strong>لوحة التحكم، في متصفح المستخدم</strong> — هذا هو الباب الأمامي المقصود. أضف الخوادم، شغّل OAuth، أعد التحميل، كل ذلك بمصادقة المستخدم نفسه. لا حاجة إلى لعبة نسخ ولصق الاستدعاء، ولا كتابة ملفات الرموز يدويًا.</li>
+<li><strong>التعديل اليدوي على الرموز (بقية هذه المهارة)</strong> — هو الحل الاحتياطي عندما لا توجد جلسة متصفح إلى لوحة التحكم (سياق دردشة/headless بحت).</li>
+</ol>
+<p><strong>إيجاد الرابط العام (PUBLIC URL) للوحة التحكم.</strong> ترتبط لوحة التحكم داخليًا بـ
+<code>0.0.0.0:&lt;port&gt;</code>، لكن المستخدم يحتاج إلى الرابط الظاهر خارجيًا (externally-reachable). تحقن معظم
+منصات النشر هذا الرابط في بيئة التشغيل — ابحث عنه بـ grep بدل أن تجعل
+المستخدم يبحث عنه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>HERMES_DASHBOARD_PUBLIC_URL</code> هو المرجع الموثوق عند وجوده. على Railway تحقق أيضًا من
+<code>RAILWAY_PUBLIC_DOMAIN</code> / <code>RAILWAY_STATIC_URL</code> (المضيف <code>*.up.railway.app</code>) و
+<code>RAILWAY_SERVICE_*_URL</code>، التي تحمل أحيانًا نطاقًا مخصّصًا أكثر ودّية.
+سلّم المستخدم الرابط الكامل بـ <code>https://</code> ووجّهه إلى قسم Connectors/MCP.
+مرّر دائمًا عبر إخفاء (redaction) <code>sed</code> أعلاه — فقيم البيئة هذه تجاور
+متغيرات <code>*_TOKEN</code>/<code>*_SECRET</code>.</p>
+<p><strong>ما لا تُصلحه لوحة التحكم (يبقى من جهة المضيف/الـ shell):</strong> خوادم stdio التي
+تحتاج حالة مصادقة على مستوى الـ shell (أمر <code>login</code> في CLI قد لا تبقى بيانات
+اعتماده بعد إعادة التشغيل) وأي شيء يقرأ بيانات الاعتماد من <code>$HERMES_HOME/.env</code>. هذه
+خارج نطاق لوحة التحكم في كل الأحوال.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-workaround">الحل البديل (Workaround)</h2>
+<p>نفّذ خطوات OAuth يدويًا، ثم اكتب الرموز الناتجة في نفس الملفات التي كانت
+<code>HermesTokenStorage</code> في Hermes ستكتبها، بحيث يجد Hermes عند <code>/reload-mcp</code>
+رموزًا مخزّنة مسبقًا ويتخطى تدفق المتصفح كليًا.</p>
+<p>نفّذ أوامر الـ shell أدناه عبر أداة <code>terminal</code> على مضيف gateway، ونفّذ
+خطوات Python (توليد PKCE، تبادل الرموز، كتابة الملفات) عبر
+<code>execute_code</code> أو استدعاء python3 من <code>terminal</code> — يجب أن تحدث كتابة الملفات في
+نفس كتلة الكود التي تنفّذ فيها تبادل الرمز (انظر النقطة الحرجة 16).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-confirm-its-a-remote-gateway">1. تأكّد أنه gateway بعيد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>عدم وجود شاشة عرض + مؤشر بُعد = gateway بعيد. تستخدم الدالة <code>tools/mcp_oauth.py::_can_open_browser()</code>
+نفس متغيرات البيئة هذه، فإذا قال الكشف التلقائي لـ Hermes نفسه إنه &quot;headless&quot;،
+فلن يعمل التدفق المدمج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-find-hermes_home-and-the-config-path">2. حدّد HERMES_HOME ومسار الإعدادات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-discover-oauth-metadata-from-the-mcp-server">3. اكتشف بيانات OAuth الوصفية من خادم MCP</h3>
+<p>تُعلن خوادم MCP عن إعداد OAuth الخاص بها عبر RFC 9728 (بيانات وصفية لموارد
+OAuth 2.0 المحمية). يخبرك ترويسة <code>WWW-Authenticate</code> على استجابة 401 بأين تبحث:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>لا تُعيد كل الخوادم <code>WWW-Authenticate</code>.</strong> بعضها يُعيد فقط استجابة 401
+بصيغة <code>{&quot;errors&quot;:[&quot;Unauthorized&quot;]}</code> دون أي تلميح لاكتشاف المصادقة. في هذه الحالة،
+افحص المسارات المعروفة (well-known) مباشرةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اجلب البيانات الوصفية للمورد للحصول على <code>authorization_servers</code>، ثم اجلب من خادم
+التفويض (AS) مسار <code>/.well-known/oauth-authorization-server</code> للحصول على
+<code>authorization_endpoint</code> و <code>token_endpoint</code> و <code>registration_endpoint</code>.</p>
+<p>نقطة حرجة: تقف كثير من الخوادم خلف Cloudflare وتُعيد 403 لوكلاء مستخدم <code>urllib</code>
+الافتراضيين. اضبط دائمًا <code>User-Agent: python-httpx/0.27</code> (أو مشابهًا) في طلبات هذا التدفق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-dynamic-client-registration-rfc-7591">4. التسجيل الديناميكي للعميل (RFC 7591)</h3>
+<p>أرسل POST إلى <code>registration_endpoint</code> بما يلي:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>احذف <code>scope</code> كليًا إذا كانت <code>scopes_supported</code> لدى خادم التفويض فارغة — انظر
+النقطة الحرجة في الخطوة 5. استخدم المنفذ <code>8765</code> (أو أي منفذ — فلن يستمع إليه أحد).
+تعني <code>token_endpoint_auth_method: none</code> أن هذا عميل PKCE عام. احفظ
+<code>client_id</code> الذي يُعاد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-build-the-authorize-url-with-pkce">5. ابنِ رابط التفويض مع PKCE</h3>
+<p>ولّد:</p>
+<ul>
+<li><code>code_verifier</code>: <code>secrets.token_urlsafe(64)[:128]</code></li>
+<li><code>code_challenge</code>: <code>base64url(sha256(code_verifier))</code> (بلا حشو padding)</li>
+<li><code>state</code>: <code>secrets.token_urlsafe(24)</code></li>
+</ul>
+<p>معاملات الاستعلام: <code>response_type=code</code>، <code>client_id</code>، <code>redirect_uri</code>، <code>code_challenge</code>،
+<code>code_challenge_method=S256</code>، <code>state</code>، إضافة إلى <code>resource=&lt;mcp_server_url&gt;</code> (RFC 8707 —
+تتطلّب كثير من الخوادم ذلك لربط الرمز بمورد MCP المحدد). أدرج
+<code>scope=&lt;space-separated&gt;</code> فقط إذا كانت <code>scopes_supported</code> في البيانات الوصفية لخادم
+التفويض مصفوفة غير فارغة و/أو أعلنت البيانات الوصفية للمورد صلاحيات محددة. إذا كانت
+<code>scopes_supported: []</code>، فاحذف معامل <code>scope</code> — يمنح الخادم مجموعته
+الافتراضية الكاملة من تلقاء نفسه. اختلاق سلاسل صلاحيات مقابل
+<code>scopes_supported</code> فارغة قد يسبب أخطاء <code>invalid_scope</code> على بعض خوادم التفويض.</p>
+<p><strong>خزّن <code>code_verifier</code> و <code>state</code> على القرص</strong> (مثلًا <code>/tmp/.mcp-oauth-work/&lt;server&gt;.json</code>،
+بصلاحيات 0600). ستحتاج إليهما في الخطوة 7، وربما عبر عدة أدوار محادثة (turns).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-give-the-user-the-authorize-url">6. أعطِ المستخدم رابط التفويض</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-exchange-the-code-for-tokens">7. بادل الرمز (code) بالرموز (tokens)</h3>
+<p>عندما يلصق المستخدم رابط الاستدعاء:</p>
+<ol>
+<li>حلّل <code>code</code> و <code>state</code> من سلسلة الاستعلام.</li>
+<li><strong>تحقق أن <code>state</code> يطابق القيمة المخزّنة</strong> (فحص CSRF — لا تتخطَّه).</li>
+<li>أرسل POST بصيغة <code>application/x-www-form-urlencoded</code> إلى <code>token_endpoint</code>:
+<ul>
+<li><code>grant_type=authorization_code</code></li>
+<li><code>code=&lt;from callback&gt;</code></li>
+<li><code>redirect_uri=&lt;same as step 4&gt;</code></li>
+<li><code>client_id=&lt;from step 4&gt;</code></li>
+<li><code>code_verifier=&lt;stashed&gt;</code></li>
+<li><code>resource=&lt;mcp_server_url&gt;</code> (إذا اشترطه خادم التفويض في الخطوة 5، أدرجه هنا أيضًا)</li>
+</ul>
+</li>
+<li>تحتوي الاستجابة على <code>access_token</code> و <code>refresh_token</code> و <code>token_type</code> و <code>expires_in</code> و <code>scope</code>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-write-tokens-in-hermes-exact-schema">8. اكتب الرموز بصيغة Hermes بالضبط</h3>
+<p>تتوقّع <code>tools/mcp_oauth.py::HermesTokenStorage</code> ملفين تحت
+<code>$HERMES_HOME/mcp-tokens/</code> (أنشئ المجلد بصلاحيات <code>0o700</code>، والملفات بصلاحيات <code>0o600</code>):</p>
+<p><strong><code>&lt;server_name&gt;.json</code></strong> — نموذج pydantic الخاص بـ <code>OAuthToken</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong><code>&lt;server_name&gt;.client.json</code></strong> — نموذج <code>OAuthClientInformationFull</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>اكتب كل ملف عبر <code>json.dumps(..., indent=2)</code>. طهّر اسم الملف بـ
+<code>re.sub(r&#x27;[^\w\-]&#x27;, &#x27;_&#x27;, server_name)[:128]</code> — يطابق هذا الدالة <code>_safe_filename()</code> في
+تخزين الرموز في Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-add-the-server-to-configyaml">9. أضف الخادم إلى config.yaml</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="10-smoke-test-the-token-before-asking-the-user-to-reload">10. اختبر الرمز اختبارًا سريعًا (smoke test) قبل أن تطلب من المستخدم إعادة التحميل</h3>
+<p>أرسل يدويًا طلب <code>initialize</code> الخاص بـ MCP للتأكد من أن الرمز يعمل من طرف
+إلى طرف — يكتشف هذا مشكلات ضبط الصلاحيات، وقيم <code>resource</code> الخاطئة، وحجب
+Cloudflare قبل أن يشعر المستخدم بالحيرة من رسالة &quot;No MCP tools available&quot; أخرى:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يُتوقّع HTTP 200 مع <code>Content-Type: text/event-stream</code> ونتيجة JSON-RPC
+تحتوي على <code>serverInfo</code> و <code>capabilities</code>. <strong>لا تستخدم <code>urllib</code> بوكيله
+الافتراضي</strong> — سيرفض Cloudflare طلبك بـ 403 حتى وإن كان Hermes (الذي يستخدم httpx) سينجح.
+يُشغّل <code>scripts/diagnose-oauth-mcp.py</code> هذا الاختبار السريع تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="11-tell-the-user-to-run-reload-mcp">11. اطلب من المستخدم تنفيذ <code>/reload-mcp</code></h3>
+<p>عند إعادة التحميل، يرى Hermes <code>auth: oauth</code>، ويستدعي <code>HermesTokenStorage.get_tokens()</code>،
+ويجد رموزك المخزّنة مسبقًا، ويتخطى تدفق المتصفح، ويسجّل أدوات
+<code>mcp_&lt;name&gt;_*</code>. يحدث التحديث (refresh) تلقائيًا قبل انقضاء <code>expires_in</code>.</p>

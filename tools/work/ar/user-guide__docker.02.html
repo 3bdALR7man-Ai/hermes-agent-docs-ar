@@ -1,0 +1,27 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="container-exits-immediately">الحاوية تتوقف فور تشغيلها</h3>
+<p>راجع السجلات: <code>docker logs hermes</code>. الأسباب الشائعة:</p>
+<ul>
+<li>ملف <code>.env</code> مفقود أو غير صالح — شغّل الحاوية تفاعليًا أولًا لإكمال الإعداد</li>
+<li>تعارض المنافذ (ports) إذا كنت تشغّلها مع منافذ مكشوفة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-denied-errors">أخطاء &quot;Permission denied&quot;</h3>
+<p>يُسقط hook المرحلة stage2 في الحاوية الامتيازات إلى المستخدم غير الجذري <code>hermes</code> (UID 10000) عبر <code>s6-setuidgid</code> داخل كل خدمة خاضعة للإشراف. إذا كان المجلد <code>~/.hermes/</code> على المضيف مملوكًا لـ UID مختلف، فاضبط <code>HERMES_UID</code>/<code>HERMES_GID</code> — أو الاسمين البديلين <code>PUID</code>/<code>PGID</code>، للتوافق مع صور LinuxServer.io و NAS — ليطابقا مستخدم المضيف، أو تأكد من أن مجلد البيانات قابل للكتابة:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>على أجهزة NAS (UGOS و Synology و unRAID) يكون مجلد البيانات عادةً <strong>bind mount</strong> مملوكًا لـ UID على المضيف لا تستطيع الحاوية تنفيذ <code>chown</code> عليه. اضبط <code>PUID</code>/<code>PGID</code> (أو <code>HERMES_UID</code>/<code>HERMES_GID</code>) على مستخدم المضيف هذا حتى تعمل بيئة التشغيل باسم مالك نقطة الربط بدلًا من UID 10000:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>ينتقل الأمر <code>docker exec hermes &lt;cmd&gt;</code> تلقائيًا إلى UID 10000 أيضًا — راجع قسم <a href="#docker-exec-automatically-drops-to-the-hermes-user"><code>docker exec</code> ينتقل تلقائيًا إلى المستخدم <code>hermes</code></a> للاطلاع على التفاصيل وطريقة إلغاء ذلك لكل استدعاء على حدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shared-data-directory-keeps-resetting-to-0700">مجلد البيانات المشترك يعود باستمرار إلى <code>0700</code></h3>
+<p>خارج الحاوية، يقفل Hermes المجلد <code>HERMES_HOME</code> (ومجلداته الفرعية <code>cron/</code> و <code>sessions/</code> و <code>logs/</code> و <code>memories/</code>) على الوضع <code>0700</code> الخاص بالمالك فقط عند كل تشغيل. أما داخل الحاوية فيترك أوضاع المجلدات كما هي، لذا فإن bind mount المشترك مع حاوية شقيقة تعمل بـ UID مختلف (مثل واجهة ويب أو أداة لإصلاح الصلاحيات) يحتفظ بأي وضع وقوائم ACL تضبطها على المضيف. إذا أردت فرض وضع محدد للمجلد رغم ذلك، فاضبط <code>HERMES_HOME_MODE</code> (بالصيغة الثمانية، مثل <code>HERMES_HOME_MODE=0755</code>)؛ ويُطبَّق هذا داخل الحاويات أيضًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-denied-on-every-docker-exec-install-dir-locked-to-0700">خطأ &quot;Permission denied&quot; مع كل <code>docker exec</code> (مجلد التثبيت مقفل على 0700)</h3>
+<p>كانت الصور المبنية قبل أواخر أغسطس 2026 تعاني من خلل: عند كتابة ملف بيانات اعتماد مباشرةً تحت <code>/opt/hermes</code> كان هذا المجلد يُقيَّد بالوضع <code>0700</code>، فيُمنع المستخدم <code>hermes</code> (UID 10000) من الوصول إلى شجرة التثبيت. ونتيجةً لذلك يفشل كل أمر <code>docker exec</code> جديد مع الخطأ <code>Permission denied</code>.</p>
+<p>يُصلح سحب صورة أحدث وإعادة إنشاء الحاوية هذه المشكلة نهائيًا (إذ يُشحن مجلد التثبيت بالوضع <code>0755</code> ولم تعد الإصدارات الحالية تقيّده). وإذا احتجت إلى استعادة حاوية قيد التشغيل في مكانها دون إعادة إنشائها:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-tools-not-working">أدوات المتصفح لا تعمل</h3>
+<p>يحتاج Playwright إلى ذاكرة مشتركة. أضف <code>--shm-size=1g</code> إلى أمر تشغيل Docker:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-not-reconnecting-after-network-issues">الـ gateway لا يعيد الاتصال بعد مشكلات الشبكة</h3>
+<p>يتعامل الخيار <code>--restart unless-stopped</code> مع معظم الأعطال العابرة. إذا علق الـ gateway، فأعد تشغيل الحاوية:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checking-container-health">التحقق من سلامة الحاوية</h3>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>

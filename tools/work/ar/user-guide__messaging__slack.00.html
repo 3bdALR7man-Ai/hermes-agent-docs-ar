@@ -1,0 +1,232 @@
+<header><h1>إعداد Slack</h1></header>
+<p>اربط Hermes Agent بـ Slack كبوت باستخدام Socket Mode. يستخدم Socket Mode اتصالات WebSocket بدلًا من
+نقاط نهاية HTTP عامة، لذا لا تحتاج نسخة Hermes لديك إلى أن تكون متاحة للعموم — فهي تعمل
+خلف جدران الحماية، وعلى حاسوبك المحمول، أو على خادم خاص.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>تطبيقات Slack الكلاسيكية أصبحت مُهملة</div><div class="admonitionContent_BuS1"><p>تطبيقات Slack الكلاسيكية (التي تستخدم RTM API) أصبحت <strong>مُهملة بالكامل في مارس 2025</strong>. يستخدم Hermes
+حزمة Bolt SDK الحديثة مع Socket Mode. إذا كان لديك تطبيق كلاسيكي قديم، فيجب عليك إنشاء تطبيق جديد باتباع
+الخطوات أدناه.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<table><thead><tr><th>المكوّن</th><th>القيمة</th></tr></thead><tbody><tr><td><strong>المكتبة</strong></td><td><code>slack-bolt</code> / <code>slack_sdk</code> لـ Python (Socket Mode)</td></tr><tr><td><strong>الاتصال</strong></td><td>WebSocket — لا حاجة إلى عنوان URL عام</td></tr><tr><td><strong>tokens المصادقة المطلوبة</strong></td><td>Bot Token (<code>xoxb-</code>) + App-Level Token (<code>xapp-</code>)</td></tr><tr><td><strong>تعريف المستخدم</strong></td><td>معرّفات أعضاء Slack (Member IDs) (مثل <code>U01ABC2DEF3</code>)</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-slack-app">الخطوة 1: إنشاء تطبيق Slack</h2>
+<p>أسرع طريقة هي لصق manifest يولّده Hermes لك. فهو
+يعرّف كل slash command مدمج (<code>/btw</code>، <code>/stop</code>، <code>/model</code>، ...)،
+وكل نطاق (scope) OAuth مطلوب، وكل اشتراك بالأحداث (event subscription)، ويفعّل Socket
+Mode — كل ذلك دفعة واحدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-from-a-hermes-generated-manifest-recommended">الخيار أ: من manifest مولَّد بواسطة Hermes (موصى به)</h3>
+<ol>
+<li>
+<p>ولّد الـ manifest. يجب أن تستخدم تطبيقات Slack الجديدة عرض Agent:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يكتب هذا الأمر الملف <code>~/.hermes/slack-manifest.json</code> ويطبع
+تعليمات اللصق. أما التطبيقات القائمة التي لا تزال تستخدم عرض Assistant القديم من Slack
+فيمكنها تجاهل <code>--agent-view</code> إلى أن تصبح جاهزة للانتقال.</p>
+<p>لملء وصف التطبيق الطويل في Slack من ملف نصي أو Markdown موجود بترميز UTF-8،
+أضف <code>--long-description-file</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُحفظ محتوى الملف كما هو تمامًا ضمن نطاق Slack المسموح به من 175 إلى 4000 حرف.
+استخدم <code>--long-description &quot;...&quot;</code> للنص المضمّن بدلًا من ذلك؛ الخياران المضمّن
+والملف متعارضان ولا يمكن الجمع بينهما ولا مع
+<code>--slashes-only</code>.</p>
+</li>
+<li>
+<p>اذهب إلى <a href="https://api.slack.com/apps" data-ext>https://api.slack.com/apps</a> →
+<strong>Create New App</strong> → <strong>From an app manifest</strong></p>
+</li>
+<li>
+<p>اختر مساحة العمل (workspace) الخاصة بك، الصق محتوى JSON، راجعه، ثم انقر على <strong>Next</strong>
+→ <strong>Create</strong></p>
+</li>
+<li>
+<p>تخطَّ مباشرة إلى <strong>الخطوة 6: تثبيت التطبيق في مساحة العمل</strong>. تكفّل الـ manifest
+بالنطاقات (scopes) والأحداث و slash commands نيابةً عنك.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-from-scratch-manual">الخيار ب: من الصفر (يدويًا)</h3>
+<ol>
+<li>اذهب إلى <a href="https://api.slack.com/apps" data-ext>https://api.slack.com/apps</a></li>
+<li>انقر على <strong>Create New App</strong></li>
+<li>اختر <strong>From scratch</strong></li>
+<li>أدخل اسم تطبيق (مثل &quot;Hermes Agent&quot;) واختر مساحة العمل الخاصة بك</li>
+<li>انقر على <strong>Create App</strong></li>
+</ol>
+<p>ستصل إلى صفحة <strong>Basic Information</strong> الخاصة بالتطبيق. تابع مع
+الخطوات 2 إلى 6 أدناه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-configure-bot-token-scopes">الخطوة 2: إعداد نطاقات Bot Token</h2>
+<p>انتقل إلى <strong>Features → OAuth &amp; Permissions</strong> في الشريط الجانبي. مرّر إلى <strong>Scopes → Bot Token Scopes</strong> وأضف التالي:</p>
+<table><thead><tr><th>النطاق (Scope)</th><th>الغرض</th></tr></thead><tbody><tr><td><code>chat:write</code></td><td>إرسال الرسائل كبوت</td></tr><tr><td><code>app_mentions:read</code></td><td>اكتشاف الإشارة إلى البوت (@mention) في القنوات</td></tr><tr><td><code>channels:history</code></td><td>قراءة الرسائل في القنوات العامة التي ينتمي إليها البوت</td></tr><tr><td><code>channels:read</code></td><td>عرض القنوات العامة والحصول على معلومات عنها</td></tr><tr><td><code>groups:history</code></td><td>قراءة الرسائل في القنوات الخاصة المدعو إليها البوت</td></tr><tr><td><code>im:history</code></td><td>قراءة سجل الرسائل المباشرة</td></tr><tr><td><code>im:read</code></td><td>عرض المعلومات الأساسية للرسائل المباشرة</td></tr><tr><td><code>im:write</code></td><td>فتح الرسائل المباشرة وإدارتها</td></tr><tr><td><code>mpim:history</code></td><td>قراءة سجل الرسائل المباشرة الجماعية (multi-person DM)</td></tr><tr><td><code>mpim:read</code></td><td>عرض المعلومات الأساسية للرسائل المباشرة الجماعية</td></tr><tr><td><code>users:read</code></td><td>البحث عن معلومات المستخدمين</td></tr><tr><td><code>files:read</code></td><td>قراءة الملفات المُرفقة وتنزيلها، بما في ذلك الملاحظات الصوتية/الصوت</td></tr><tr><td><code>files:write</code></td><td>رفع الملفات (الصور والصوت والمستندات)</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>غياب النطاقات = غياب الميزات</div><div class="admonitionContent_BuS1"><p>بدون <code>channels:history</code> و <code>groups:history</code>، فإن البوت <strong>لن يستقبل الرسائل في القنوات</strong> —
+وسيعمل فقط في الرسائل المباشرة. وبدون <code>files:read</code>، يمكن لـ Hermes التحدث لكن <strong>لا يمكنه قراءة المرفقات التي يرفعها المستخدمون بشكل موثوق</strong>.
+هذه هي النطاقات الأكثر شيوعًا في النسيان.</p></div></div>
+<p><strong>نطاقات اختيارية:</strong></p>
+<table><thead><tr><th>النطاق (Scope)</th><th>الغرض</th></tr></thead><tbody><tr><td><code>groups:read</code></td><td>عرض القنوات الخاصة والحصول على معلومات عنها</td></tr><tr><td><code>assistant:write</code></td><td>عرض سطر حالة العمل (&quot;is thinking…&quot;) بجانب اسم البوت أثناء معالجته لرسالة. بدون هذا النطاق يفشل استدعاء الحالة (<code>agents.sessions.setStatus</code> في slack-sdk 3.44 فما فوق، أو <code>assistant.threads.setStatus</code> في الإصدارات الأقدم) بصمت ويعرض Slack عوضًا عنه عناصره النائبة العامة الدوّارة الخاصة به (&quot;Finding answers…&quot;، &quot;Reviewing findings…&quot;، ...) — فلا يتحكم Hermes في النص أبدًا. هذا النطاق مطلوب حتى يكون لإعداد <code>typing_status_text</code> أي تأثير مرئي.</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-enable-socket-mode">الخطوة 3: تفعيل Socket Mode</h2>
+<p>يتيح Socket Mode للبوت الاتصال عبر WebSocket بدلًا من الحاجة إلى عنوان URL عام.</p>
+<ol>
+<li>في الشريط الجانبي، اذهب إلى <strong>Settings → Socket Mode</strong></li>
+<li>فعّل خيار <strong>Enable Socket Mode</strong></li>
+<li>ستُطالَب بإنشاء <strong>App-Level Token</strong>:
+<ul>
+<li>سمّه شيئًا مثل <code>hermes-socket</code> (الاسم لا يهم)</li>
+<li>أضف النطاق <strong><code>connections:write</code></strong></li>
+<li>انقر على <strong>Generate</strong></li>
+</ul>
+</li>
+<li><strong>انسخ الـ token</strong> — يبدأ بـ <code>xapp-</code>. هذا هو <code>SLACK_APP_TOKEN</code> الخاص بك</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="36"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك دائمًا العثور على App-Level Tokens أو إعادة توليدها من <strong>Settings → Basic Information → App-Level Tokens</strong>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-subscribe-to-events">الخطوة 4: الاشتراك في الأحداث</h2>
+<p>هذه الخطوة حاسمة — فهي تتحكم في الرسائل التي يمكن للبوت رؤيتها.</p>
+<ol>
+<li>في الشريط الجانبي، اذهب إلى <strong>Features → Event Subscriptions</strong></li>
+<li>فعّل خيار <strong>Enable Events</strong></li>
+<li>وسّع قسم <strong>Subscribe to bot events</strong> وأضف:</li>
+</ol>
+<table><thead><tr><th>الحدث</th><th>مطلوب؟</th><th>الغرض</th></tr></thead><tbody><tr><td><code>message.im</code></td><td><strong>نعم</strong></td><td>يستقبل البوت الرسائل المباشرة</td></tr><tr><td><code>message.mpim</code></td><td><strong>نعم</strong></td><td>يستقبل البوت الرسائل في <strong>الرسائل المباشرة الجماعية</strong> (multi-person DMs) التي أُضيف إليها</td></tr><tr><td><code>message.channels</code></td><td><strong>نعم</strong></td><td>يستقبل البوت الرسائل في القنوات <strong>العامة</strong> التي أُضيف إليها</td></tr><tr><td><code>message.groups</code></td><td><strong>موصى به</strong></td><td>يستقبل البوت الرسائل في القنوات <strong>الخاصة</strong> المدعو إليها</td></tr><tr><td><code>app_mention</code></td><td><strong>نعم</strong></td><td>يمنع أخطاء Bolt SDK عند الإشارة إلى البوت (@mention)</td></tr></tbody></table>
+<ol start="4">
+<li>انقر على <strong>Save Changes</strong> في أسفل الصفحة</li>
+</ol>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="37"></x-keep></span>نسيان الاشتراك في الأحداث هو المشكلة الأكثر شيوعًا رقم 1 في الإعداد</div><div class="admonitionContent_BuS1"><p>إذا كان البوت يعمل في الرسائل المباشرة لكن <strong>ليس في القنوات</strong>، فمن شبه المؤكد أنك نسيت إضافة
+<code>message.channels</code> (للقنوات العامة) و/أو <code>message.groups</code> (للقنوات الخاصة).
+فبدون هذه الأحداث، لا يُرسل Slack رسائل القنوات إلى البوت إطلاقًا.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-enable-the-messages-tab">الخطوة 5: تفعيل تبويب Messages</h2>
+<p>تفعّل هذه الخطوة الرسائل المباشرة إلى البوت. وبدونها، يرى المستخدمون رسالة <strong>&quot;Sending messages to this app has been turned off&quot;</strong> عند محاولة إرسال رسالة مباشرة إلى البوت.</p>
+<ol>
+<li>في الشريط الجانبي، اذهب إلى <strong>Features → App Home</strong></li>
+<li>مرّر إلى <strong>Show Tabs</strong></li>
+<li>فعّل خيار <strong>Messages Tab</strong></li>
+<li>فعّل خيار <strong>&quot;Allow users to send Slash commands and messages from the messages tab&quot;</strong></li>
+</ol>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="38"></x-keep></span>بدون هذه الخطوة، تُحظر الرسائل المباشرة تمامًا</div><div class="admonitionContent_BuS1"><p>حتى مع كل النطاقات والاشتراكات بالأحداث الصحيحة، لن يسمح Slack للمستخدمين بإرسال رسائل مباشرة إلى البوت ما لم يكن تبويب Messages مفعّلًا. هذا متطلب من منصة Slack نفسها، وليس مشكلة في إعدادات Hermes.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-install-app-to-workspace">الخطوة 6: تثبيت التطبيق في مساحة العمل</h2>
+<ol>
+<li>في الشريط الجانبي، اذهب إلى <strong>Settings → Install App</strong></li>
+<li>انقر على <strong>Install to Workspace</strong></li>
+<li>راجع الصلاحيات ثم انقر على <strong>Allow</strong></li>
+<li>بعد التفويض، سترى <strong>Bot User OAuth Token</strong> يبدأ بـ <code>xoxb-</code></li>
+<li><strong>انسخ هذا الـ token</strong> — هذا هو <code>SLACK_BOT_TOKEN</code> الخاص بك</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="39"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا غيّرت النطاقات أو الاشتراكات بالأحداث لاحقًا، يجب عليك <strong>إعادة تثبيت التطبيق</strong> حتى
+تسري التغييرات. ستعرض صفحة Install App شريطًا يطالبك بذلك.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-find-user-ids-for-the-allowlist">الخطوة 7: العثور على معرّفات المستخدمين للقائمة المسموح بها</h2>
+<p>يستخدم Hermes <strong>معرّفات الأعضاء (Member IDs)</strong> في Slack (وليس أسماء المستخدمين أو أسماء العرض) للقائمة المسموح بها.</p>
+<p>للعثور على معرّف عضو:</p>
+<ol>
+<li>في Slack، انقر على اسم المستخدم أو صورته الرمزية</li>
+<li>انقر على <strong>View full profile</strong></li>
+<li>انقر على زر <strong>⋮</strong> (المزيد)</li>
+<li>اختر <strong>Copy member ID</strong></li>
+</ol>
+<p>تبدو معرّفات الأعضاء كما يلي: <code>U01ABC2DEF3</code>. تحتاج معرّف عضويتك الخاص على الأقل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8-configure-hermes">الخطوة 8: إعداد Hermes</h2>
+<p>أضف ما يلي إلى ملف <code>~/.hermes/.env</code> الخاص بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أو نفّذ الإعداد التفاعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثم شغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="40"></x-keep></span>سلامة reasoning-effort في Codex</div><div class="admonitionContent_BuS1"><p>لقنوات Slack بين الوكلاء النظراء (peer-agent) المبنية على Codex، يُفضَّل استخدام <code>agent.reasoning_effort: high</code> أو أقل. يمكن لقيمة <code>xhigh</code>
+أن تستهلك الدور بأكمله في تفكير مخفي (hidden reasoning) دون إنتاج أي نص مرئي من المساعد؛ أصبح Hermes الآن
+يُخفي تحذيرات الدور غير المكتمل هذه من الـ thread ويحتفظ بالتشخيصات في سجلات الـ gateway.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-9-invite-the-bot-to-channels">الخطوة 9: دعوة البوت إلى القنوات</h2>
+<p>بعد تشغيل الـ gateway، عليك <strong>دعوة البوت</strong> إلى أي قناة تريده أن يستجيب فيها:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>لن</strong> ينضم البوت تلقائيًا إلى القنوات. يجب عليك دعوته إلى كل قناة على حدة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-commands">Slash Commands</h2>
+<p>كل أمر من أوامر Hermes (<code>/btw</code>، <code>/stop</code>، <code>/new</code>، <code>/model</code>، <code>/help</code>، ...)
+هو slash command أصيل في Slack — تمامًا بنفس الطريقة التي تعمل بها في Telegram
+وDiscord. اكتب <code>/</code> في Slack وستسرد قائمة الإكمال التلقائي كل
+أوامر Hermes مع وصفها.</p>
+<p>خلف الكواليس: يأتي Hermes مع manifest تطبيق Slack مولَّد (انظر
+الخطوة 1، الخيار أ) يعرّف كل أمر موجود في
+<a href="https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/commands.py" data-ext><code>COMMAND_REGISTRY</code></a>
+كـ slash command. وفي Socket Mode، يوجّه Slack حدث الأمر
+عبر الـ WebSocket بغض النظر عن حقل <code>url</code> في الـ manifest.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-messaging-experience">تجربة المراسلة الخاصة بـ Agent</h3>
+<p>تستخدم تطبيقات Slack الجديدة تجربة المراسلة <strong>Agent</strong> من Slack. يمكن لتطبيقات Hermes
+Assistant القائمة الانتقال بإعادة توليد الـ manifest مع <code>--agent-view</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>حدّث الـ manifest في <strong>Features → App Manifest</strong>، ثم أعد تثبيت التطبيق إذا
+طلب Slack ذلك. لا يمكن التراجع عن عرض Agent إلى عرض Assistant، وقد يحتاج المستخدمون
+إلى تحديث Slack يدويًا (hard-refresh) بعد التبديل. يشترك manifest Agent المولَّد
+في <code>message.im</code> و <code>app_home_opened</code> و <code>app_context_changed</code>، بحيث يمكن لـ Hermes
+تمييز رسالة مباشرة من تبويب Messages واستقبال سياق Slack النشط للمستخدم مع
+كل دور. يقدّم Hermes هذا السياق فقط كتصنيف (label)؛ فهو لا يقرأ سجل القناة
+المعروضة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="refreshing-slash-commands-after-updates">تحديث Slash Commands بعد التحديثات</h3>
+<p>عندما يضيف Hermes أوامر جديدة (مثلًا بعد <code>hermes update</code>)، أعد توليد
+الـ manifest وحدّث تطبيق Slack الخاص بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>ثم في Slack:</p>
+<ol>
+<li>افتح <a href="https://api.slack.com/apps" data-ext>https://api.slack.com/apps</a> →
+تطبيق Hermes الخاص بك</li>
+<li><strong>Features → App Manifest → Edit</strong></li>
+<li>الصق المحتوى الجديد لملف <code>~/.hermes/slack-manifest.json</code></li>
+<li><strong>Save</strong>. سيطلب Slack إعادة تثبيت التطبيق إذا تغيّرت النطاقات أو
+slash commands.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="legacy-hermes-subcommand-still-works">الأمر القديم <code>/hermes &lt;subcommand&gt;</code> لا يزال يعمل</h3>
+<p>للتوافق مع الإصدارات السابقة من الـ manifest، لا يزال بإمكانك كتابة
+<code>/hermes bg run the tests</code> — يوجّهه Hermes بنفس طريقة <code>/bg run the tests</code>. تعمل الأسئلة الحرة أيضًا: تُعامَل <code>/hermes what&#x27;s the weather?</code> كرسالة عادية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-commands-inside-threads-the-cmd-prefix">استخدام الأوامر داخل الـ threads (بادئة <code>!cmd</code>)</h3>
+<p>يحظر Slack نفسه slash commands الأصيلة داخل ردود الـ thread — جرّب
+<code>/queue</code> في thread وسيرد Slack برسالة <em>&quot;/queue is not supported
+in threads. Sorry!&quot;</em> لا يوجد إعداد على مستوى التطبيق يعيد تفعيلها؛
+فـ Slack لا يوصّلها إلى Hermes إطلاقًا.</p>
+<p>كحل بديل، يتعرّف Hermes على علامة <code>!</code> في البداية كبادئة أمر
+بديلة تعمل داخل الـ threads (وفي أي مكان آخر). اكتب
+<code>!queue</code>، <code>!stop</code>، <code>!model gpt-5.4</code>، إلخ، كرد thread عادي —
+يعاملها Hermes بنفس طريقة صيغة الـ slash ويرد في نفس
+الـ thread.</p>
+<p>يُفحص الرمز الأول فقط مقابل قائمة الأوامر المعروفة، لذا
+تمر الرسائل العادية مثل <code>!nice work</code> إلى الوكيل دون تغيير.
+تعمل صيغة العلامة أيضًا خلف الإشارة (<code>@Hermes !stop</code>) ومع
+المسافات البيضاء البادئة — كلاهما يُرسل كأوامر داخل الـ threads.</p>
+<p>عادةً ما تُعرض مطالبات الموافقة (موافقة الأوامر الخطرة / <code>execute_code</code>)
+كأزرار تفاعلية. عندما يتعذّر توصيل الأزرار ويلجأ
+Hermes إلى مطالبة نصية، تطلب منك المطالبة الرد
+بـ <code>!approve</code> / <code>!deny</code> — الصيغة التي تعمل داخل الـ threads.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-replies-are-ephemeral">ردود الـ slash عابرة (ephemeral)</h3>
+<p>تُسلَّم الردود على slash command أصيل (مثل <code>/status</code>، <code>/help</code>)
+بشكل <strong>عابر</strong> — &quot;Only visible to you&quot; — بحيث لا تُغرق مخرجات الأوامر
+القناة أبدًا. يُستبدَل العنصر النائب &quot;Running /cmd…&quot; بالرد الفعلي؛ وتُقسَّم الردود
+الطويلة إلى رسائل عابرة متتالية. يحدّ Slack تدفق الرد
+عند 5 منشورات، لذا تُختتم المخرجات الطويلة جدًا بإشعار اقتطاع صريح
+بدلًا من إسقاطها بصمت. إذا فشل المسار العابر الأساسي،
+يعيد Hermes المحاولة عبر مسار API عابر ثانٍ — لا يُنشر رد الـ slash أبدًا
+علنًا في القناة كحل بديل. (الأوامر المكتوبة كرسائل
+عادية — <code>!cmd</code> في الـ threads، <code>@Hermes /cmd</code> — تُرَد عليها كرسائل
+مرئية عادية بدلًا من ذلك.)</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clarify-prompts-one-tap-buttons">مطالبات التوضيح (clarify) (أزرار بنقرة واحدة)</h3>
+<p>عندما يحتاج الوكيل إلى طرح سؤال متعدد الخيارات عليك (أداة <code>clarify</code>)،
+يعرضه Slack كأزرار <strong>Block Kit</strong> — نقرة واحدة لكل خيار، بالإضافة إلى زر
+&quot;✏️ Other…&quot; الذي يبدّل إلى وضع النص الحر (تصبح رسالتك المكتوبة التالية
+هي الإجابة). بعد النقر، تُحدَّث الرسالة في مكانها لتُظهر مَن
+أجاب وما الذي اختاره؛ وتُتجاهل النقرات اللاحقة على نفس المطالبة.
+تخضع نقرات الأزرار لنفس تفويض المستخدم الذي تخضع له الرسائل، والمطالبات
+منتهية الصلاحية (إعادة تشغيل الـ gateway، انتهاء المهلة) تطلب منك إعادة السؤال بدلًا من ابتلاع
+النقرة بصمت. تُعرَض أسئلة clarify المفتوحة كسؤال عادي
+وتقبل ردك المكتوب التالي. لا حاجة لأي إعداد — يعمل هذا بغض النظر
+عن ضبط <code>rich_blocks</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-emit-only-the-slash-commands-array">متقدّم: إصدار مصفوفة slash commands فقط</h3>
+<p>إذا كنت تُدير manifest Slack الخاص بك يدويًا وتريد فقط قائمة
+slash command:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>الصق تلك المصفوفة في مفتاح <code>features.slash_commands</code> ضمن
+manifest الحالي لديك.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-the-bot-responds">كيف يستجيب البوت</h2>
+<p>فهم كيفية تصرّف Hermes في السياقات المختلفة:</p>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة</strong></td><td>يستجيب البوت لكل رسالة — دون الحاجة إلى @mention</td></tr><tr><td><strong>القنوات</strong></td><td>يستجيب البوت <strong>فقط عند الإشارة إليه (@mention)</strong> (مثل <code>@Hermes Agent what time is it?</code>). وفي القنوات، يرد Hermes في thread مرتبط بتلك الرسالة.</td></tr><tr><td><strong>الـ Threads</strong></td><td>إذا أشرت إلى Hermes (@mention) داخل thread قائم، فسيرد في نفس الـ thread. وبمجرد أن تكون للبوت جلسة نشطة في thread، فإن <strong>الردود اللاحقة في ذلك الـ thread لا تحتاج إلى @mention</strong> — يتابع البوت المحادثة بشكل طبيعي.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="41"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>في القنوات، أشِر دائمًا إلى البوت (@mention) لبدء محادثة. وبمجرد أن يكون البوت نشطًا في thread، يمكنك الرد في ذلك الـ thread دون الإشارة إليه. أما خارج الـ threads، فتُتجاهَل الرسائل التي لا تتضمن @mention لمنع الضجيج في القنوات المزدحمة.</p></div></div>
+<hr>

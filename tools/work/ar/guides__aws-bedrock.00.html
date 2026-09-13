@@ -1,0 +1,92 @@
+<header><h1>AWS Bedrock</h1></header>
+<p>يدعم Hermes Agent خدمة Amazon Bedrock بوصفها مزوّدًا (provider) أصيلًا. ويمنحك ذلك وصولًا كاملًا إلى منظومة Bedrock: مصادقة IAM، و Guardrails، و inference profiles العابرة للمناطق، وجميع النماذج الأساسية (foundation models).</p>
+<p>يوجّه Hermes كل عائلة نماذج عبر الـ API الأنسب لخدمتها:</p>
+<table><thead><tr><th>عائلة النماذج</th><th>مسار الـ API</th><th>السبب</th></tr></thead><tbody><tr><td>Anthropic Claude</td><td>Anthropic SDK (<code>AnthropicBedrock</code>)</td><td>التخزين المؤقت للـ prompt (Prompt caching)، وميزانيات التفكير (thinking budgets)، والتفكير التكيّفي (adaptive thinking) — وهي ميزات غير متاحة عبر Converse</td></tr><tr><td>OpenAI GPT-5.5 / GPT-5.6 (Sol, Terra, Luna)</td><td>endpoint <strong>OpenAI Responses</strong> في Bedrock Mantle (<code>bedrock-mantle.&lt;region&gt;.api.aws/openai/v1</code>)</td><td>هذه النماذج متاحة عبر Mantle فقط — إذ تشير بطاقات نماذجها إلى أن bedrock-runtime/Converse غير مدعوم</td></tr><tr><td>كل ما عدا ذلك (Nova، و DeepSeek، و Llama، و GPT-OSS، …)</td><td><strong>Converse API</strong> الأصيل (<code>bedrock-runtime</code>)</td><td>مجموعة ميزات Bedrock الكاملة: Guardrails، و inference profiles، والبث (streaming)</td></tr></tbody></table>
+<p>تتشارك المسارات الثلاثة سلسلة بيانات اعتماد AWS نفسها وآلية تحديد المنطقة نفسها — فلا حاجة إلى أي إعداد منفصل. تُصادَق الطلبات الموجّهة إلى endpoint الخاص بـ Mantle باستخدام <code>AWS_BEARER_TOKEN_BEDROCK</code> عند ضبطه، وإلا فتُوقَّع بـ SigV4 عبر سلسلة بيانات الاعتماد القياسية في boto3.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>بيانات اعتماد AWS</strong> — أي مصدر تدعمه <a href="https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html" data-ext>سلسلة بيانات الاعتماد في boto3</a>:
+<ul>
+<li>دور IAM للمثيل (EC2، و ECS، و Lambda — دون أي إعداد)</li>
+<li>متغيرا البيئة <code>AWS_ACCESS_KEY_ID</code> + <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li><code>AWS_PROFILE</code> لـ SSO أو الـ profiles المسمّاة</li>
+<li><code>aws configure</code> للتطوير المحلي</li>
+</ul>
+</li>
+<li><strong>boto3</strong> — ثبّته باستخدام <code>cd ~/.hermes/hermes-agent &amp;&amp; uv pip install -e &quot;.[bedrock]&quot;</code></li>
+<li><strong>صلاحيات IAM</strong> — كحد أدنى:
+<ul>
+<li><code>bedrock:InvokeModel</code> و <code>bedrock:InvokeModelWithResponseStream</code> (للـ inference)</li>
+<li><code>bedrock:ListFoundationModels</code> و <code>bedrock:ListInferenceProfiles</code> (لاكتشاف النماذج)</li>
+</ul>
+</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>EC2 / ECS / Lambda</div><div class="admonitionContent_BuS1"><p>على موارد الحوسبة في AWS، أرفق دور IAM يحمل <code>AmazonBedrockFullAccess</code> وانتهى الأمر. لا مفاتيح API، ولا إعدادات <code>.env</code> — إذ يكتشف Hermes دور المثيل تلقائيًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>بعد تشغيل <code>hermes model</code>، سيحتوي الملف <code>~/.hermes/config.yaml</code> على ما يلي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="region">المنطقة (Region)</h3>
+<p>اضبط منطقة AWS بأي من الطرق التالية (الأعلى أولوية أولًا):</p>
+<ol>
+<li><code>bedrock.region</code> في <code>config.yaml</code></li>
+<li>متغير البيئة <code>AWS_REGION</code></li>
+<li>متغير البيئة <code>AWS_DEFAULT_REGION</code></li>
+<li>الافتراضي: <code>us-east-1</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guardrails">Guardrails</h3>
+<p>لتطبيق <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html" data-ext>Amazon Bedrock Guardrails</a> على جميع استدعاءات النماذج:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُرفق الـ guardrail على مسار Converse (<code>guardrailConfig</code>) وعلى مسار Claude (عبر ترويسات InvokeModel من خلال Anthropic Bedrock SDK، بحيث يُحافظ على التخزين المؤقت للـ prompt والتفكير). ويظهر الطلب المحظور على شكل رفض من مرشّح المحتوى بدلًا من نص صادر عن النموذج. ولا ينطبق <code>stream_processing_mode</code> إلا على Converse.</p>
+<p>لا تطبّق AWS الـ Guardrails على endpoint Mantle Responses الذي تستخدمه نماذج <code>openai.gpt-5.x</code> (<a href="https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html" data-ext>وثائق AWS</a>)؛ لذا استخدم نموذجًا يُخدَّم عبر Converse عندما يكون الـ guardrail مطلوبًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-discovery">اكتشاف النماذج</h3>
+<p>يكتشف Hermes النماذج المتاحة تلقائيًا عبر مستوى التحكم (control plane) في Bedrock. ويمكنك تخصيص الاكتشاف:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching-cachepoint">التخزين المؤقت للـ Prompt (cachePoint)</h3>
+<p>يطبّق Hermes التخزين المؤقت للـ prompt تلقائيًا على مسار <strong>Converse API</strong> في Bedrock عبر إدراج علامات <code>cachePoint</code> بعد الـ system prompt، وتعريفات الأدوات، وآخر رسالة. ولأن إرسال كتلة <code>cachePoint</code> إلى نموذج لا يدعمها يُطلق <code>ValidationException</code>، فلا تُضاف العلامات إلا للنماذج الموجودة في قائمة سماح معروفة السلامة (معرّفات نماذج Anthropic Claude و Amazon Nova)؛ أما النماذج غير المعروفة فلا تُضاف لها علامات cache افتراضيًا. تستخدم نماذج Claude عادةً مسار AnthropicBedrock SDK الذي يمتلك تخزينه المؤقت الخاص للـ prompt — ويغطي مسار <code>cachePoint</code> في Converse نماذج Nova والمسار الاحتياطي لـ Claude القائم على bearer token. لا حاجة إلى أي إعداد؛ وتظهر عمليات القراءة/الكتابة في الـ cache ضمن حساب الاستخدام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-window-probing">استكشاف حجم الـ Context window</h3>
+<p>بالنسبة إلى النماذج التي لا يوجد حجم context window الخاص بها في الجدول الثابت لدى Hermes، يستطيع Hermes استكشاف الحد الفعلي بإرسال طلبات كبيرة الحجم عمدًا على مستويات ثابتة (~1.3M و ~2.2M token) وتحليل قيمة <code>maximum</code> المذكورة في خطأ التحقق من الطول الصادر عن Bedrock. تُغذّي القيم المستكشَفة الـ cache نفسه الخاص بالبيانات الوصفية الذي يستخدمه الجدول الثابت؛ وتُحذف تلقائيًا الإدخالات المخزّنة القديمة التي تُقلّل من حجم نافذة النموذج (مثل الإدخالات المُعبّأة قبل الإتاحة العامة لنافذة 1M الخاصة بنموذج ما) لصالح القيمة المعروفة الأكبر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-models">النماذج المتاحة</h2>
+<p>تستخدم نماذج Bedrock <strong>معرّفات inference profile</strong> للاستدعاء عند الطلب (on-demand). ويعرضها منتقي <code>hermes model</code> تلقائيًا، مع النماذج الموصى بها في الأعلى:</p>
+<table><thead><tr><th>النموذج</th><th>المعرّف</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Claude Sonnet 4.6</td><td><code>us.anthropic.claude-sonnet-4-6</code></td><td>موصى به — أفضل توازن بين السرعة والقدرة</td></tr><tr><td>Claude Opus 4.6</td><td><code>us.anthropic.claude-opus-4-6-v1</code></td><td>الأكثر قدرة</td></tr><tr><td>Claude Haiku 4.5</td><td><code>us.anthropic.claude-haiku-4-5-20251001-v1:0</code></td><td>أسرع نماذج Claude</td></tr><tr><td>OpenAI GPT-5.6 Sol</td><td><code>openai.gpt-5.6-sol</code></td><td>نموذج OpenAI الأحدث والأقوى (عبر Bedrock Mantle)</td></tr><tr><td>OpenAI GPT-5.6 Terra</td><td><code>openai.gpt-5.6-terra</code></td><td>متوازن (عبر Bedrock Mantle)</td></tr><tr><td>OpenAI GPT-5.6 Luna</td><td><code>openai.gpt-5.6-luna</code></td><td>سريع ومنخفض التكلفة (عبر Bedrock Mantle)</td></tr><tr><td>OpenAI GPT-5.5</td><td><code>openai.gpt-5.5</code></td><td>النموذج الرائد السابق من OpenAI (عبر Bedrock Mantle)</td></tr><tr><td>Amazon Nova Pro</td><td><code>us.amazon.nova-pro-v1:0</code></td><td>النموذج الرائد من Amazon</td></tr><tr><td>Amazon Nova Micro</td><td><code>us.amazon.nova-micro-v1:0</code></td><td>الأسرع والأرخص</td></tr><tr><td>DeepSeek V3.2</td><td><code>deepseek.v3.2</code></td><td>نموذج مفتوح قوي</td></tr><tr><td>Llama 4 Scout 17B</td><td><code>us.meta.llama4-scout-17b-instruct-v1:0</code></td><td>أحدث نماذج Meta</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>Inference عابر للمناطق (Cross-Region)</div><div class="admonitionContent_BuS1"><p>تستخدم النماذج التي تبدأ بالبادئة <code>us.</code> ملفات inference profiles العابرة للمناطق، والتي توفّر سعة أفضل وتحويلًا تلقائيًا عند الأعطال (failover) بين مناطق AWS. أما النماذج التي تبدأ بالبادئة <code>global.</code> فتُوجَّه عبر جميع المناطق المتاحة حول العالم. وتُخدَّم معرّفات نماذج OpenAI <code>openai.*</code> عبر Bedrock Mantle في المنطقة المضبوطة، ولا تستخدم بادئات inference profile.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models-mid-session">تبديل النماذج أثناء الجلسة</h2>
+<p>استخدم الأمر <code>/model</code> أثناء المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostics">التشخيص</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يتحقق أمر doctor مما يلي:</p>
+<ul>
+<li>ما إذا كانت بيانات اعتماد AWS متاحة (متغيرات البيئة، أو دور IAM، أو SSO)</li>
+<li>ما إذا كان <code>boto3</code> مثبّتًا</li>
+<li>ما إذا كان من الممكن الوصول إلى Bedrock API (ListFoundationModels)</li>
+<li>عدد النماذج المتاحة في منطقتك</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-messaging-platforms">الـ Gateway (منصات المراسلة)</h2>
+<p>يعمل Bedrock مع جميع منصات الـ gateway في Hermes (Telegram، و Discord، و Slack، و Feishu، وغيرها). اضبط Bedrock كمزوّد لديك، ثم شغّل الـ gateway كالمعتاد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يقرأ الـ gateway الملف <code>config.yaml</code> ويستخدم إعدادات مزوّد Bedrock نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-api-key-found--no-aws-credentials">&quot;No API key found&quot; / &quot;No AWS credentials&quot;</h3>
+<p>يبحث Hermes عن بيانات الاعتماد بالترتيب التالي:</p>
+<ol>
+<li><code>AWS_BEARER_TOKEN_BEDROCK</code></li>
+<li><code>AWS_ACCESS_KEY_ID</code> + <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li><code>AWS_PROFILE</code></li>
+<li>البيانات الوصفية لمثيل EC2 (IMDS)</li>
+<li>بيانات اعتماد حاوية ECS</li>
+<li>دور التنفيذ في Lambda</li>
+</ol>
+<p>إذا لم يُعثر على أيٍّ منها، فشغّل <code>aws configure</code> أو أرفق دور IAM بمثيل الحوسبة لديك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="invocation-of-model-id--with-on-demand-throughput-isnt-supported">&quot;Invocation of model ID ... with on-demand throughput isn&#x27;t supported&quot;</h3>
+<p>استخدم <strong>معرّف inference profile</strong> (يبدأ بالبادئة <code>us.</code> أو <code>global.</code>) بدلًا من معرّف النموذج الأساسي المجرّد. على سبيل المثال:</p>
+<ul>
+<li>❌ <code>anthropic.claude-sonnet-4-6</code></li>
+<li>✅ <code>us.anthropic.claude-sonnet-4-6</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="throttlingexception">&quot;ThrottlingException&quot;</h3>
+<p>لقد بلغت حدّ المعدل (rate limit) الخاص بكل نموذج في Bedrock. يعيد Hermes المحاولة تلقائيًا مع تأخير متزايد (backoff). ولزيادة الحدود، اطلب رفع الحصة من <a href="https://console.aws.amazon.com/servicequotas/" data-ext>وحدة تحكم AWS Service Quotas</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-click-aws-deployment">النشر على AWS بنقرة واحدة</h2>
+<p>للحصول على نشر مؤتمت بالكامل على EC2 باستخدام CloudFormation:</p>
+<p><strong><a href="https://github.com/JiaDe-Wu/sample-hermes-agent-on-aws-with-bedrock" data-ext>sample-hermes-agent-on-aws-with-bedrock</a></strong> — ينشئ VPC، ودور IAM، ومثيل EC2، ويضبط Bedrock تلقائيًا. انشره في أي منطقة بنقرة واحدة.</p>

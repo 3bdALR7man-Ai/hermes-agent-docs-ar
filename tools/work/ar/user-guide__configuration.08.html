@@ -1,0 +1,145 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="streaming">البث (Streaming)</h2>
+<p>ابثّ الـ tokens إلى الطرفية أو منصات المراسلة أولًا بأول، بدلًا من انتظار الاستجابة كاملة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-streaming">بث CLI</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="111"></x-keep></div></div>
+<p>عند التفعيل، تظهر الاستجابات token بعد token داخل صندوق بث. تظل استدعاءات الأدوات مُلتقَطة بصمت. إذا لم يدعم المزوّد البث، يعود النظام تلقائيًا إلى العرض العادي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-streaming-telegram-discord-slack">بث Gateway (Telegram، Discord، Slack)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="112"></x-keep></div></div>
+<p>عند التفعيل، يرسل البوت رسالة عند وصول أول token، ثم يعدّلها تدريجيًا كلما وصلت المزيد من الـ tokens. المنصات التي لا تدعم تعديل الرسائل (Signal، Email، Home Assistant) يُكتشف ذلك تلقائيًا عند أول محاولة — يُعطَّل البث بسلاسة لتلك الجلسة دون إغراق برسائل متعددة.</p>
+<p>للحصول على تحديثات منتصف الدور الطبيعية بشكل منفصل دون تعديل تدريجي للـ tokens، اضبط <code>display.interim_assistant_messages: true</code>.</p>
+<p><strong>معالجة التجاوز:</strong> إذا تجاوز النص المبثوث حد طول رسالة المنصة (~4096 حرفًا)، تُنهى الرسالة الحالية وتبدأ رسالة جديدة تلقائيًا.</p>
+<p><strong>النهاية الحديثة (Telegram):</strong> تحافظ <code>editMessageText</code> في Telegram على الطابع الزمني الأصلي للرسالة، لذا فإن ردًا مبثوثًا طويل الأمد سيحتفظ بطابع أول token الزمني حتى بعد الانتهاء. اضبط <code>fresh_final_after_seconds &gt; 0</code> للاشتراك في تسليم المعاينات القديمة كرسائل نهائية جديدة تمامًا مع حذف المعاينة على أساس أفضل جهد. القيمة الافتراضية هي <code>0</code>، والتي تُنهي دائمًا الردود المبثوثة في مكانها وتتجنب تسلسل الرسالة المكررة/الحذف اللحظي على العملاء الذين يُظهرون العمليتين معًا.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="161"></x-keep></span>الإعدادات الافتراضية للبث لكل منصة</div><div class="admonitionContent_BuS1"><p>المفتاح الرئيسي <code>streaming.enabled</code> قيمته <code>false</code> افتراضيًا — لا شيء يُبث حتى تُفعّله. بعد التفعيل، يُحدَّد البث <strong>لكل منصة</strong> على حدة: يأتي Telegram بـ <code>display.platforms.telegram.streaming: true</code> (يبث) بينما Discord بـ <code>display.platforms.discord.streaming: false</code> (لا يبث). لذا بعد تفعيل البث، يبث Telegram مباشرة بينما يبقى Discord على الردود بالرسالة الكاملة حتى تغيّر مفتاحه. يمكنك ضبط مفاتيح كل منصة هذه من مفاتيح <strong>Channels</strong> في لوحة التحكم أو مباشرة في <code>~/.hermes/config.yaml</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-chat-session-isolation">عزل جلسات المحادثة الجماعية</h2>
+<p>حدّد عدد جلسات المحادثة التي يمكن أن تكون مفتوحة فعليًا في آن واحد عبر CLI وTUI/لوحة التحكم
+وgateway المراسلة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="113"></x-keep></div></div>
+<p>تُشغَل الخانة (slot) عندما تنفّذ الجلسة <strong>دورها الأول</strong>، لا عند فتح نافذة محادثة.
+فتح محادثة أو استئنافها أو إعادة الاتصال بها لا يكلّف شيئًا حتى ترسل رسالة، لذا فإن
+تبويبات Desktop الخاملة (وإعادة الاتصال في الخلفية التي يطلقها websocket متقطع)
+لا يمكنها استنزاف gateway المراسلة الذي يشارك هذا الحد.</p>
+<p>عند بلوغ الحد، يُعيد Hermes رسالة حد مباشرة تسمّي الواجهات التي تشغل الخانات. تحتفظ
+الجلسات النشطة الحالية بسلوكها المعتاد.
+شغّل <code>hermes status</code> لرؤية استخدام الخانات الحالي وكل من يشغلها.</p>
+<p>المفتاح الأساسي هو <code>max_concurrent_sessions</code> على المستوى الأعلى. يقبل Hermes أيضًا
+<code>gateway.max_concurrent_sessions</code> كخيار احتياطي، لكن المفتاح على المستوى الأعلى يفوز عند
+ضبط الاثنين معًا.</p>
+<p>يُفرض الحد عبر ملف إيجار (lease) محلي وقت التشغيل وهو بأفضل جهد: يفشل Hermes بأمان (fails open) إذا
+تعذّرت قراءة السجل أو قفله حتى لا يُترك المستخدمون معلّقين.
+وهو مُصمّم لبيئة تشغيل مضيف/profile واحد، وليس لـ <code>$HERMES_HOME</code> مشترك
+مُحمّل عبر عدة أجهزة.</p>
+<p>حدّد ما إذا كانت المحادثات المشتركة تحتفظ بمحادثة واحدة لكل غرفة أو محادثة واحدة لكل مشارك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="114"></x-keep></div></div>
+<ul>
+<li><code>true</code> هي القيمة الافتراضية والموصى بها. في قنوات Discord ومجموعات Telegram وقنوات Slack والسياقات المشتركة المماثلة، يحصل كل مُرسِل على جلسته الخاصة عندما توفّر المنصة معرّف مستخدم.</li>
+<li><code>false</code> يعيد سلوك الغرفة المشتركة القديم. قد يكون هذا مفيدًا إذا أردت صراحة أن يعامل Hermes قناة ما كمحادثة تعاونية واحدة، لكنه يعني أيضًا أن المستخدمين يتشاركون السياق وتكاليف الـ tokens وحالة المقاطعة.</li>
+<li>الرسائل المباشرة (DM) لا تتأثر. لا يزال Hermes يفهرس الـ DMs حسب معرّف المحادثة/DM كالمعتاد.</li>
+<li>تظل الخيوط (Threads) معزولة عن قناتها الأصل في كلتا الحالتين؛ ومع <code>true</code>، يحصل كل مشارك أيضًا على جلسته الخاصة داخل الخيط.</li>
+</ul>
+<p>لتفاصيل السلوك والأمثلة، راجع <a href="/docs/user-guide/sessions">الجلسات (Sessions)</a> و<a href="/docs/user-guide/messaging/discord">دليل Discord</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="unauthorized-dm-behavior">سلوك الرسائل المباشرة غير المصرَّح بها</h2>
+<p>حدّد ما يفعله Hermes عندما يرسل مستخدم مجهول رسالة مباشرة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="115"></x-keep></div></div>
+<ul>
+<li><code>pair</code> هي القيمة الافتراضية لمنصات المحادثة المباشرة المشابهة للدردشة. يرفض Hermes الوصول، لكنه يردّ برمز إقران لمرة واحدة في الرسائل المباشرة.</li>
+<li><code>ignore</code> يُسقط الرسائل المباشرة غير المصرَّح بها بصمت.</li>
+<li>يفترض البريد الإلكتروني القيمة <code>ignore</code> ما لم يُضبط <code>platforms.email.unauthorized_dm_behavior: pair</code>، لأن صناديق الوارد قد تحتوي على بريد غير مقروء لا علاقة له بالموضوع.</li>
+<li>تتجاوز أقسام المنصات القيمة الافتراضية العامة، لذا يمكنك إبقاء الإقران مفعّلًا على نطاق واسع مع جعل منصة واحدة أكثر هدوءًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-commands">الأوامر السريعة</h2>
+<p>عرّف أوامر مخصّصة تُنفّذ إما أوامر shell دون استدعاء LLM، أو تُسمِّي slash command بديلًا لآخر. أوامر Exec السريعة لا تستهلك tokens ومفيدة من منصات المراسلة (Telegram، Discord، إلخ) لفحوصات الخادم أو السكربتات المساعدة السريعة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="116"></x-keep></div></div>
+<p>الاستخدام: اكتب <code>/status</code> أو <code>/disk</code> أو <code>/update</code> أو <code>/gpu</code> أو <code>/restart</code> في CLI أو أي منصة مراسلة. تُنفَّذ أوامر <code>exec</code> محليًا على المضيف وتُعيد المخرجات مباشرة — دون استدعاء LLM ودون استهلاك tokens. أوامر <code>alias</code> تُعيد التوجيه إلى slash command المُهيَّأ كهدف.</p>
+<ul>
+<li><strong>مهلة 30 ثانية</strong> — تُنهى الأوامر طويلة التشغيل مع رسالة خطأ</li>
+<li><strong>الأولوية</strong> — تُفحص الأوامر السريعة قبل أوامر المهارات، لذا يمكنك تجاوز أسماء المهارات</li>
+<li><strong>الإكمال التلقائي</strong> — تُحلّ الأوامر السريعة وقت الإرسال ولا تظهر في جداول الإكمال التلقائي المدمجة لـ slash commands</li>
+<li><strong>النوع</strong> — الأنواع المدعومة هي <code>exec</code> و<code>alias</code>؛ الأنواع الأخرى تُظهر خطأ</li>
+<li><strong>يعمل في كل مكان</strong> — CLI وTelegram وDiscord وSlack وWhatsApp وSignal والبريد الإلكتروني وHome Assistant</li>
+</ul>
+<p>اختصارات الـ prompt النصية فقط ليست أوامر سريعة صالحة. لسير عمل prompt قابل لإعادة الاستخدام، أنشئ مهارة أو alias لـ slash command موجود.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="human-delay">تأخير بشري</h2>
+<p>محاكِ إيقاع استجابة يشبه البشر في منصات المراسلة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="117"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="code-execution">تنفيذ الكود</h2>
+<p>اضبط أداة <code>execute_code</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="118"></x-keep></div></div>
+<p><strong><code>mode</code></strong> يتحكم في دليل العمل ومفسّر Python للسكربتات:</p>
+<ul>
+<li><strong><code>project</code></strong> (الافتراضي) — تعمل السكربتات في دليل عمل الجلسة باستخدام python الخاص بـ virtualenv/conda النشط. تُحلّ اعتماديات المشروع (<code>pandas</code>، <code>torch</code>، حزم المشروع) والمسارات النسبية (<code>.env</code>، <code>./data.csv</code>) بشكل طبيعي، مطابِقةً ما تراه <code>terminal()</code>.</li>
+<li><strong><code>strict</code></strong> — تعمل السكربتات في دليل تجهيز مؤقت باستخدام <code>sys.executable</code> (بايثون Hermes الخاص). أقصى قابلية لإعادة الإنتاج، لكن اعتماديات المشروع والمسارات النسبية لن تُحلّ.</li>
+</ul>
+<p>تنظيف متغيرات البيئة (يزيل <code>*_API_KEY</code> و<code>*_TOKEN</code> و<code>*_SECRET</code> و<code>*_PASSWORD</code> و<code>*_CREDENTIAL</code> و<code>*_PASSWD</code> و<code>*_AUTH</code>) وقائمة السماح للأدوات تنطبقان بالتساوي في كلا الوضعين — تغيير الوضع لا يغيّر الوضع الأمني.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="web-search-backends">خلفيات البحث في الويب</h2>
+<p>تدعم أداتا <code>web_search</code> و<code>web_extract</code> خمسة مزوّدي خلفية. اضبط الخلفية في <code>config.yaml</code> أو عبر <code>hermes tools</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="119"></x-keep></div></div>
+<table><thead><tr><th>الخلفية</th><th>متغير البيئة</th><th>البحث</th><th>الاستخراج</th></tr></thead><tbody><tr><td><strong>Firecrawl</strong> (الافتراضي)</td><td><code>FIRECRAWL_API_KEY</code></td><td>✔</td><td>✔</td></tr><tr><td><strong>SearXNG</strong></td><td><code>SEARXNG_URL</code></td><td>✔</td><td>—</td></tr><tr><td><strong>Parallel</strong></td><td><code>PARALLEL_API_KEY</code> (اختياري — مستوى مجاني بلا مفتاح)</td><td>✔</td><td>✔</td></tr><tr><td><strong>Tavily</strong></td><td><code>TAVILY_API_KEY</code> (اختياري — بلا مفتاح عند اختياره)</td><td>✔</td><td>✔</td></tr><tr><td><strong>Perplexity</strong></td><td><code>PERPLEXITY_API_KEY</code></td><td>✔</td><td>✔ (مقتطفات ذات صلة بالاستعلام)</td></tr><tr><td><strong>Exa</strong></td><td><code>EXA_API_KEY</code> (اختياري — مستوى مجاني بلا مفتاح)</td><td>✔</td><td>✔</td></tr></tbody></table>
+<p><strong>اختيار الخلفية:</strong> يستخدم وقت التشغيل دائمًا اختيار <code>web.backend</code> المخزَّن (يُضبط عبر <code>hermes tools</code>؛ يوجّه <code>nous</code> عبر Tool Gateway المُدار). فقط إذا لم يُختَر أي خلفية ويب من قبل، يُكتشف واحد تلقائيًا من مفاتيح API المتاحة: إذا كان <code>SEARXNG_URL</code> فقط مضبوطًا، يُستخدم SearXNG؛ وإذا كان <code>EXA_API_KEY</code> فقط، يُستخدم Exa؛ وإذا كان <code>TAVILY_API_KEY</code> فقط، يُستخدم Tavily؛ وإذا كان <code>PERPLEXITY_API_KEY</code> فقط، يُستخدم Perplexity؛ وإذا كان <code>PARALLEL_API_KEY</code> فقط، يُستخدم Parallel؛ وإذا كان <code>KEENABLE_API_KEY</code> فقط، يُستخدم Keenable. مع <strong>عدم وجود اختيار وعدم وجود أي بيانات اعتماد على الإطلاق</strong>، تتناوب الطلبات بنظام round-robin عبر حلقة المستوى المجاني بلا مفتاح (Exa / Parallel / Firecrawl / Keenable) مع تجاوز تلقائي إلى التالي في الطابور عند بلوغ حدود المعدل — راجع <a href="/docs/user-guide/features/web-search">دليل البحث في الويب</a> للتفاصيل. بمجرد وجود اختيار، لا تغيّر إضافة مفتاح إلى <code>.env</code> المسار. اختيار Tavily أو Firecrawl أو Keenable في <code>hermes tools</code> يعمل أيضًا دون مفتاح.</p>
+<p><strong>SearXNG</strong> محرك بحث تلوي (metasearch) مجاني ومستضاف ذاتيًا ويحترم الخصوصية يستعلم أكثر من 70 محرك بحث. لا حاجة إلى مفتاح API — فقط اضبط <code>SEARXNG_URL</code> على نُسختك (مثلًا <code>http://localhost:8080</code>). SearXNG للبحث فقط؛ تتطلب <code>web_extract</code> مزوّد استخراج منفصلًا (اضبط <code>web.extract_backend</code>). راجع <a href="/docs/user-guide/features/web-search">دليل إعداد البحث في الويب</a> لتعليمات إعداد Docker.</p>
+<p><strong>Firecrawl المستضاف ذاتيًا:</strong> اضبط <code>FIRECRAWL_API_URL</code> ليشير إلى نسختك الخاصة. عند ضبط رابط مخصّص، يصبح مفتاح API اختياريًا (اضبط `USE_DB_AUTHENTICATION=*** على الخادم لتعطيل المصادقة).</p>
+<p><strong>أوضاع بحث Parallel:</strong> اضبط <code>PARALLEL_SEARCH_MODE</code> للتحكم في سلوك البحث — <code>fast</code> أو <code>one-shot</code> أو <code>agentic</code> (الافتراضي: <code>agentic</code>).</p>
+<p><strong>Exa:</strong> اضبط <code>EXA_API_KEY</code> في <code>~/.hermes/.env</code>. يدعم التصفية حسب <code>category</code> (<code>company</code>، <code>research paper</code>، <code>news</code>، <code>people</code>، <code>personal site</code>، <code>pdf</code>) وفلاتر النطاق والتاريخ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser">المتصفح</h2>
+<p>اضبط سلوك أتمتة المتصفح:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="120"></x-keep></div></div>
+<p><strong>سياسات مربعات الحوار:</strong></p>
+<ul>
+<li><code>must_respond</code> (الافتراضي) — التقط مربع الحوار، اعرضه في <code>browser_snapshot.pending_dialogs</code>، وانتظر استدعاء الوكيل لـ <code>browser_dialog(action=...)</code>. بعد <code>dialog_timeout_s</code> ثانية دون رد، يُرفض مربع الحوار تلقائيًا لمنع تعليق خيط JS في الصفحة إلى الأبد.</li>
+<li><code>auto_dismiss</code> — التقط، وارفض فورًا. لا يزال الوكيل يرى سجل مربع الحوار في <code>browser_snapshot.recent_dialogs</code> مع <code>closed_by=&quot;auto_policy&quot;</code> بعد الحدث.</li>
+<li><code>auto_accept</code> — التقط، واقبل فورًا. مفيد للصفحات ذات مطالبات <code>beforeunload</code> العدوانية.</li>
+</ul>
+<p>راجع <a href="/docs/user-guide/features/browser#browser_dialog">صفحة ميزة المتصفح</a> لسير عمل مربع الحوار الكامل.</p>
+<p>يدعم toolset المتصفح عدة مزوّدين. راجع <a href="/docs/user-guide/features/browser">صفحة ميزة المتصفح</a> لتفاصيل Browserbase وBrowser Use وإعداد CDP لعائلة Chromium المحلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="timezone">المنطقة الزمنية</h2>
+<p>تجاوز المنطقة الزمنية المحلية للخادم بسلسلة منطقة زمنية IANA. يؤثر في الطوابع الزمنية في السجلات، وجدولة cron، وحقن الوقت في system prompt.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="121"></x-keep></div></div>
+<p>القيم المدعومة: أي معرّف منطقة زمنية IANA (مثل <code>America/New_York</code>، <code>Europe/London</code>، <code>Asia/Kolkata</code>، <code>UTC</code>). اتركه فارغًا أو احذفه لاستخدام الوقت المحلي للخادم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord">Discord</h2>
+<p>اضبط سلوكيات Discord الخاصة بـ gateway المراسلة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="122"></x-keep></div></div>
+<ul>
+<li><code>require_mention</code> — عندما تكون <code>true</code> (الافتراضي)، يستجيب البوت في قنوات الخادم فقط عند الإشارة إليه بـ <code>@BotName</code>. الرسائل المباشرة تعمل دائمًا دون إشارة.</li>
+<li><code>free_response_channels</code> — قائمة معرّفات قنوات مفصولة بفواصل يستجيب فيها البوت لكل رسالة دون الحاجة إلى إشارة.</li>
+<li><code>auto_thread</code> — عندما تكون <code>true</code> (الافتراضي)، تُنشئ الإشارات في القنوات خيطًا تلقائيًا للمحادثة، مما يبقي القنوات نظيفة (مماثل لخيوط Slack).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<p>الفحص الأمني قبل التنفيذ وتعتيم الأسرار:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="123"></x-keep></div></div>
+<ul>
+<li><code>redact_secrets</code> — عندما تكون <code>true</code>، يكتشف النظام تلقائيًا الأنماط الشبيهة بمفاتيح API والـ tokens وكلمات المرور ويعتّمها في مخرجات الأدوات قبل دخولها سياق المحادثة والسجلات. <strong>مفعّلة افتراضيًا</strong>. اضبطها على <code>false</code> صراحة فقط عندما تحتاج إلى سلاسل شبيهة ببيانات اعتماد خام لأغراض التصحيح أو تطوير المُعتِّم.</li>
+<li><code>tirith_enabled</code> — عندما تكون <code>true</code>، تُفحص أوامر الطرفية بواسطة <a href="https://github.com/sheeki03/tirith" data-ext>Tirith</a> قبل التنفيذ للكشف عن العمليات الخطرة المحتملة.</li>
+<li><code>tirith_path</code> — مسار ملف tirith التنفيذي. اضبط هذا إذا كان tirith مثبَّتًا في موقع غير قياسي.</li>
+<li><code>tirith_timeout</code> — أقصى عدد من الثواني لانتظار فحص tirith. تتابع الأوامر تنفيذها إذا انتهت مهلة الفحص.</li>
+<li><code>tirith_fail_open</code> — عندما تكون <code>true</code> (الافتراضي)، يُسمح بتنفيذ الأوامر إذا كان tirith غير متاح أو فشل. اضبطها على <code>false</code> لمنع الأوامر عندما لا يستطيع tirith التحقق منها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="website-blocklist">قائمة حظر المواقع</h2>
+<p>احظر نطاقات معيّنة من الوصول إليها بواسطة أدوات الويب والمتصفح الخاصة بالوكيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="124"></x-keep></div></div>
+<p>عند التفعيل، يُرفض أي رابط يطابق نمط نطاق محظور قبل تنفيذ أداة الويب أو المتصفح. ينطبق هذا على <code>web_search</code> و<code>web_extract</code> و<code>browser_navigate</code> وأي أداة تصل إلى الروابط.</p>
+<p>تدعم قواعد النطاق:</p>
+<ul>
+<li>نطاقات دقيقة: <code>admin.example.com</code></li>
+<li>نطاقات فرعية عامة (wildcard): <code>*.internal.company.com</code> (تحظر كل النطاقات الفرعية)</li>
+<li>نطاقات TLD عامة: <code>*.local</code></li>
+</ul>
+<p>تحتوي الملفات المشتركة على قاعدة نطاق واحدة في كل سطر (يُتجاهل السطر الفارغ وتعليقات <code>#</code>). الملفات المفقودة أو غير القابلة للقراءة تسجّل تحذيرًا لكنها لا تعطّل أدوات الويب الأخرى.</p>
+<p>تُخزَّن السياسة مؤقتًا لمدة 30 ثانية، لذا تسري تغييرات الإعدادات بسرعة دون إعادة تشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="smart-approvals">الموافقات الذكية</h2>
+<p>تحكّم في كيفية تعامل Hermes مع الأوامر الخطرة المحتملة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="125"></x-keep></div></div>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>smart</code> (الافتراضي)</td><td>استخدم LLM مساعدًا لتقييم ما إذا كان الأمر المُعلَّم خطيرًا فعلًا. الأوامر منخفضة الخطورة تُوافَق تلقائيًا لذلك الأمر فقط. الأوامر الخطرة فعلًا تُرفض، والقرارات غير المؤكدة تُصعَّد إلى المستخدم.</td></tr><tr><td><code>manual</code></td><td>اطلب موافقة المستخدم قبل تنفيذ أي أمر مُعلَّم. في CLI، تظهر نافذة موافقة تفاعلية. في المراسلة، تُصفّ طلب موافقة معلّق.</td></tr><tr><td><code>off</code></td><td>تخطَّ كل فحوصات الموافقة. مكافئ لـ <code>HERMES_YOLO_MODE=true</code>. <strong>استخدمها بحذر.</strong></td></tr></tbody></table>
+<p>الوضع الذكي مفيد بوجه خاص لتقليل إرهاق الموافقات — فهو يتيح للوكيل العمل بشكل أكثر استقلالية على العمليات الآمنة مع الاستمرار في رصد الأوامر المدمّرة فعلًا.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="162"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>ضبط <code>approvals.mode: off</code> يعطّل كل فحوصات الأمان لأوامر الطرفية. استخدم هذا فقط في بيئات موثوقة ومعزولة (sandboxed).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="denial-circuit-breaker">قاطع دائرة الرفض</h3>
+<p><code>approvals.denial_breaker_threshold</code> (الافتراضي <code>3</code>) يحمي من إعادة محاولة الوكيل لتنويعات من أمر يستمر مراجع الموافقة الذكية في رفضه — كل إعادة محاولة تستهلك استدعاء LLM حارس آخر. بعد هذا العدد من الرفضات المتتالية في جلسة واحدة، تتصاعد رسالة الرفض إلى تعليمة توقف صارمة تخبر الوكيل بالتوقف والإبلاغ عن العملية المحظورة وطلب تشغيلها يدويًا منك أو عبر <code>/approve</code>. أي موافقة تعيد ضبط العدّاد؛ اضبط <code>0</code> للتعطيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="126"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="deny-rules">قواعد الرفض</h3>
+<p><code>approvals.deny</code> هي قائمة بأنماط glob تحظر أوامر الطرفية المطابقة دون قيد أو شرط — حتى تحت <code>--yolo</code> أو <code>/yolo</code> أو <code>mode: off</code>. إنها النظير القابل للتحرير من قِبل المستخدم لقائمة الحظر الصارمة المدمجة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="127"></x-keep></div></div>
+<p>الأنماط عبارة عن أنماط fnmatch غير حساسة لحالة الأحرف ويجب وضعها بين علامتي اقتباس في YAML (نجمة <code>*</code> في البداية دون اقتباس تسبب خطأ تحليل). راجع <a href="/docs/user-guide/security#user-defined-deny-rules-approvalsdeny">الأمان — قواعد الرفض المُعرَّفة من المستخدم</a> للتفاصيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-smart-approval-policy">سياسة موافقة ذكية مخصّصة</h3>
+<p><code>approvals.smart_policy</code> تتيح لك إضافة قواعدك الخاصة إلى تعليمات مراجع الموافقة الذكية. عند ضبطه، يُضاف النص إلى system prompt لـ LLM الحارس (القناة الموثوقة — لا يُدمج أبدًا مع نص الأمر غير الموثوق)، لذا يمكنك تشديد حكمه أو تخفيفه لبيئتك دون تعديل الكود:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="128"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checkpoints">نقاط الحفظ (Checkpoints)</h2>
+<p>لقطات تلقائية لنظام الملفات قبل عمليات الملفات المدمّرة. راجع <a href="/docs/user-guide/checkpoints-and-rollback">نقاط الحفظ والتراجع</a> للتفاصيل.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="129"></x-keep></div></div>

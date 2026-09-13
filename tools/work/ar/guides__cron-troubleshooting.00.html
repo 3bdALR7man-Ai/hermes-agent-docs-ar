@@ -1,0 +1,113 @@
+<header><h1>استكشاف أخطاء Cron وإصلاحها</h1></header>
+<p>عندما لا تعمل مهمة cron كما هو متوقّع، مرّ على عمليات التحقق التالية بالترتيب. تندرج معظم المشكلات ضمن إحدى أربع فئات: التوقيت، أو التسليم، أو الصلاحيات، أو تحميل المهارات.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jobs-not-firing">المهام لا تنطلق</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-1-verify-the-job-exists-and-is-active">التحقق 1: تأكّد من أن المهمة موجودة ونشطة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ابحث عن المهمة وتأكّد من أن حالتها <code>[active]</code> (وليست <code>[paused]</code> أو <code>[completed]</code>). إذا ظهرت بحالة <code>[completed]</code>، فقد يكون عدد مرات التكرار قد استُنفد، فعدّل المهمة لإعادة ضبطه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-2-confirm-the-schedule-is-correct">التحقق 2: تأكّد من صحة الجدول الزمني</h3>
+<p>الجدول الزمني ذو الصيغة الخاطئة إما أن يتحوّل بصمت إلى تنفيذ لمرة واحدة، وإما أن يُرفض كليًا. اختبر تعبيرك:</p>
+<table><thead><tr><th>تعبيرك</th><th>يجب أن يُفسَّر على أنه</th></tr></thead><tbody><tr><td><code>0 9 * * *</code></td><td>الساعة 9:00 صباحًا كل يوم</td></tr><tr><td><code>0 9 * * 1</code></td><td>الساعة 9:00 صباحًا كل يوم اثنين</td></tr><tr><td><code>every 2h</code></td><td>كل ساعتين بدءًا من الآن</td></tr><tr><td><code>30m</code></td><td>بعد 30 دقيقة من الآن</td></tr><tr><td><code>2025-06-01T09:00:00</code></td><td>1 يونيو 2025 الساعة 9:00 صباحًا بتوقيت UTC</td></tr></tbody></table>
+<p>إذا انطلقت المهمة مرة واحدة ثم اختفت من القائمة، فهي ذات جدول لمرة واحدة (<code>30m</code> أو <code>1d</code> أو طابع زمني بصيغة ISO)، وهذا سلوك متوقّع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-3-is-the-gateway-running">التحقق 3: هل الـ gateway قيد التشغيل؟</h3>
+<p>تُطلَق مهام cron بواسطة خيط المؤقّت (ticker) الذي يعمل في خلفية الـ gateway، وينبض كل 60 ثانية. جلسة المحادثة العادية في CLI <strong>لا</strong> تُطلق مهام cron تلقائيًا.</p>
+<p>إذا كنت تتوقّع أن تنطلق المهام تلقائيًا، فأنت بحاجة إلى gateway قيد التشغيل (<code>hermes gateway</code> للتشغيل في الواجهة الأمامية، أو <code>hermes gateway start</code> للخدمة المثبّتة). ولأغراض تصحيح الأخطاء لمرة واحدة، يمكنك إطلاق نبضة يدويًا باستخدام <code>hermes cron tick</code>.</p>
+<p><strong>تطبيق سطح المكتب:</strong> يشغّل الـ backend الأساسي لتطبيق سطح المكتب مؤقّته الخاص، وينبض على مخازن cron الخاصة بـ <strong>كل profile محلي</strong>، لذا تستمر المهام الخاصة بـ profile ثانوي في الانطلاق حتى أثناء سُبات الـ backend الخاص بذلك الـ profile (يُدخل تطبيق سطح المكتب الـ backends الخاملة للـ profiles في وضع السُبات بعد نحو 10 دقائق). لست بحاجة إلى إبقاء الـ profile مفتوحًا كي تعمل مهامه المجدولة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-4-check-the-system-clock-and-timezone">التحقق 4: افحص ساعة النظام والمنطقة الزمنية</h3>
+<p>تستخدم المهام المنطقة الزمنية المحلية. إذا كانت ساعة جهازك خاطئة أو مضبوطة على منطقة زمنية غير المتوقّعة، فستنطلق المهام في أوقات خاطئة. تحقّق من ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-failures">إخفاقات التسليم</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-1-verify-the-deliver-target-is-correct">التحقق 1: تأكّد من صحة هدف التسليم</h3>
+<p>أهداف التسليم حسّاسة لحالة الأحرف، وتتطلّب أن تكون المنصة الصحيحة مُعدّة. والهدف المُعدّ بشكل خاطئ يُسقط الاستجابة بصمت.</p>
+<table><thead><tr><th>الهدف</th><th>المتطلّبات</th></tr></thead><tbody><tr><td><code>telegram</code></td><td><code>TELEGRAM_BOT_TOKEN</code> في <code>~/.hermes/.env</code></td></tr><tr><td><code>discord</code></td><td><code>DISCORD_BOT_TOKEN</code> في <code>~/.hermes/.env</code></td></tr><tr><td><code>slack</code></td><td><code>SLACK_BOT_TOKEN</code> في <code>~/.hermes/.env</code></td></tr><tr><td><code>whatsapp</code></td><td>gateway مُعدّ لـ WhatsApp</td></tr><tr><td><code>signal</code></td><td>gateway مُعدّ لـ Signal</td></tr><tr><td><code>matrix</code></td><td>homeserver مُعدّ لـ Matrix</td></tr><tr><td><code>email</code></td><td>SMTP مُعدّ في <code>config.yaml</code></td></tr><tr><td><code>sms</code></td><td>مزوّد SMS مُعدّ</td></tr><tr><td><code>local</code></td><td>صلاحية الكتابة على <code>~/.hermes/cron/output/</code></td></tr><tr><td><code>origin</code></td><td>يُسلِّم إلى المحادثة التي أُنشئت فيها المهمة</td></tr></tbody></table>
+<p>تشمل المنصات المدعومة الأخرى <code>mattermost</code> و<code>homeassistant</code> و<code>dingtalk</code> و<code>feishu</code> و<code>wecom</code> و<code>weixin</code> و<code>bluebubbles</code> و<code>qqbot</code> و<code>webhook</code>. ويمكنك أيضًا استهداف محادثة محددة باستخدام الصياغة <code>platform:chat_id</code> (مثل <code>telegram:-1001234567890</code>).</p>
+<p>إذا فشل التسليم، تظل المهمة تعمل، لكنها لن ترسل إلى أي مكان. افحص <code>hermes cron list</code> بحثًا عن الحقل <code>last_error</code> المحدَّث (إن كان متاحًا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-2-check-silent-usage">التحقق 2: افحص استخدام <code>[SILENT]</code></h3>
+<p>إذا لم تُنتج مهمة cron أي مخرجات، يُلغى التسليم. وإذا تضمّنت استجابة الوكيل علامة الصمت الخاصة بـ cron وهي <code>[SILENT]</code>، يُلغى التسليم أيضًا. هذا مقصود في مهام المراقبة، لكن تأكّد من أن الـ prompt لديك لا يُلغي كل شيء عن غير قصد.</p>
+<p>استخدم prompts مثل &quot;ردّ بـ [SILENT] فقط إذا لم يتغيّر شيء.&quot; وتجنّب مطالبة الوكيل بتضمين <code>[SILENT]</code> داخل شرح أطول، لأن cron يتعامل مع تلك العلامة على أنها إشارة إلغاء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-3-platform-token-permissions">التحقق 3: صلاحيات token المنصة</h3>
+<p>يحتاج بوت كل منصة مراسلة إلى صلاحيات محددة لاستقبال الرسائل. إذا فشل التسليم بصمت:</p>
+<ul>
+<li><strong>Telegram</strong>: يجب أن يكون البوت مشرفًا (admin) في المجموعة أو القناة المستهدفة</li>
+<li><strong>Discord</strong>: يجب أن يملك البوت صلاحية الإرسال في القناة المستهدفة</li>
+<li><strong>Slack</strong>: يجب إضافة البوت إلى مساحة العمل (workspace) وأن يملك النطاق <code>chat:write</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-4-response-wrapping">التحقق 4: تغليف الاستجابة</h3>
+<p>افتراضيًا، تُغلَّف استجابات cron بترويسة وتذييل (<code>cron.wrap_response: true</code> في <code>config.yaml</code>). وقد لا تتعامل بعض المنصات أو التكاملات مع ذلك بشكل جيد. لتعطيله:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-5-relay-fronted-platforms-hermes-cloud--team-gateway">التحقق 5: المنصات التي تمرّ عبر relay (Hermes Cloud / Team Gateway)</h3>
+<p>عندما تكون بيانات اعتماد المنصة موجودة في موصّل الـ relay (مثل Slack أو Discord عبر Team Gateway) بدلًا من ملف <code>.env</code> المحلي لديك، يكون <strong>محوّل الـ relay الحي في الـ gateway قيد التشغيل هو المُرسِل الوحيد</strong>، ولا يوجد مسار تسليم مستقل.</p>
+<ul>
+<li>تعمل عمليات الإطلاق المجدولة ما دام الـ gateway قيد التشغيل، لأن مؤقّته هو المسؤول عن التسليم عبر الـ relay.</li>
+<li>يؤدي تنفيذ <code>hermes cron run &lt;id&gt;</code> بشكل مستقل إلى <strong>تمرير عملية التشغيل إلى الـ gateway</strong> تلقائيًا عبر api_server (<code>POST /api/jobs/{id}/run</code>). ويتطلّب ذلك تفعيل المنصة <code>api_server</code> مع <code>API_SERVER_KEY</code> (من 16 حرفًا فأكثر). ويُمرَّر معه أي سياق من <code>--prompt</code> / <code>cronjob(action=&#x27;run&#x27;, prompt=...)</code>، وينطبق على عملية الإطلاق تلك وحدها.</li>
+<li>إذا تعذّر الوصول إلى الـ gateway، تفشل عملية التشغيل بخطأ &quot;relay-fronted … start the gateway&quot; بدلًا من الخطأ المضلّل <code>platform &#x27;slack&#x27; not configured/enabled</code>. شغّل الـ gateway وأعد المحاولة.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-loading-failures">إخفاقات تحميل المهارات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-1-verify-skills-are-installed">التحقق 1: تأكّد من أن المهارات مثبّتة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يجب تثبيت المهارات قبل إمكانية إرفاقها بمهام cron. إذا كانت مهارة ما مفقودة، فثبّتها أولًا باستخدام <code>hermes skills install &lt;skill-name&gt;</code> أو عبر <code>/skills</code> في CLI.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-2-check-skill-name-vs-skill-folder-name">التحقق 2: قارن اسم المهارة باسم مجلدها</h3>
+<p>أسماء المهارات حسّاسة لحالة الأحرف، ويجب أن تطابق اسم مجلد المهارة المثبّتة. إذا كانت مهمتك تحدّد <code>ai-funding-report</code> بينما مجلد المهارة هو <code>ai-funding-daily-report</code>، فتأكّد من الاسم الدقيق عبر <code>hermes skills list</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-3-skills-that-require-interactive-tools">التحقق 3: المهارات التي تتطلّب أدوات تفاعلية</h3>
+<p>تعمل مهام cron مع تعطيل الـ toolsets التالية: <code>cronjob</code> و<code>messaging</code> و<code>clarify</code>. ويمنع ذلك إنشاء مهام cron بشكل تكراري، وإرسال الرسائل مباشرةً (فالمُجدوِل هو من يتولّى التسليم)، والمطالبات التفاعلية. إذا كانت مهارة ما تعتمد على هذه الـ toolsets، فلن تعمل في سياق cron.</p>
+<p>راجع توثيق المهارة للتأكد من أنها تعمل في الوضع غير التفاعلي (headless).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-4-multi-skill-ordering">التحقق 4: ترتيب المهارات المتعددة</h3>
+<p>عند استخدام عدة مهارات، تُحمَّل بالترتيب. إذا كانت المهارة A تعتمد على سياق من المهارة B، فتأكّد من أن B تُحمَّل أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>في هذا المثال، تُحمَّل <code>context-skill</code> قبل <code>target-skill</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="job-errors-and-failures">أخطاء المهام وإخفاقاتها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-1-review-recent-job-output">التحقق 1: راجع مخرجات المهمة الأخيرة</h3>
+<p>إذا عملت مهمة ما وفشلت، فقد تجد سياق الخطأ في:</p>
+<ol>
+<li>المحادثة التي تُسلِّم إليها المهمة (إذا نجح التسليم)</li>
+<li><code>~/.hermes/logs/agent.log</code> لرسائل المُجدوِل (أو <code>errors.log</code> للتحذيرات)</li>
+<li>البيانات الوصفية <code>last_run</code> الخاصة بالمهمة عبر <code>hermes cron list</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-2-common-error-patterns">التحقق 2: أنماط الأخطاء الشائعة</h3>
+<p><strong>الخطأ &quot;No such file or directory&quot; مع السكربتات</strong>
+يجب أن يكون مسار <code>script</code> مسارًا مطلقًا (أو نسبيًا إلى مجلد إعدادات Hermes). تحقّق من ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>الخطأ &quot;Skill not found&quot; عند تنفيذ المهمة</strong>
+يجب أن تكون المهارة مثبّتة على الجهاز الذي يشغّل المُجدوِل. إذا انتقلت بين الأجهزة، فلن تتزامن المهارات تلقائيًا، لذا أعد تثبيتها باستخدام <code>hermes skills install &lt;skill-name&gt;</code>.</p>
+<p><strong>المهمة تعمل لكنها لا تُسلِّم شيئًا</strong>
+على الأرجح هناك مشكلة في هدف التسليم (راجع قسم إخفاقات التسليم أعلاه)، أو لا توجد مخرجات، أو أن الاستجابة تحتوي على علامة الصمت الخاصة بـ cron وهي <code>[SILENT]</code>.</p>
+<p><strong>المهمة تتوقّف عن الاستجابة أو تنتهي مهلتها</strong>
+يستخدم المُجدوِل مهلة قائمة على عدم النشاط (القيمة الافتراضية 600s، ويمكن ضبطها عبر متغير البيئة <code>HERMES_CRON_TIMEOUT</code>، و<code>0</code> لمهلة غير محدودة). يمكن للوكيل أن يعمل طالما ظل يستدعي الأدوات بنشاط، إذ لا ينطلق المؤقّت إلا بعد فترة متواصلة من عدم النشاط. وينبغي أن تستخدم المهام الطويلة سكربتات لتتولّى جمع البيانات، وأن تُسلِّم النتيجة فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-3-lock-contention">التحقق 3: التنازع على القفل</h3>
+<p>يستخدم المُجدوِل قفلًا قائمًا على الملفات لمنع تداخل النبضات. إذا كانت هناك نسختان من الـ gateway قيد التشغيل (أو تعارضت جلسة CLI مع gateway)، فقد تتأخّر المهام أو تُتخطّى.</p>
+<p>أنهِ عمليات الـ gateway المكرّرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-4-permissions-on-jobsjson">التحقق 4: صلاحيات jobs.json</h3>
+<p>تُخزَّن المهام في <code>~/.hermes/cron/jobs.json</code>. إذا لم يكن هذا الملف قابلًا للقراءة والكتابة من قِبل مستخدمك، فسيفشل المُجدوِل بصمت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-issues">مشكلات الأداء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="slow-job-startup">بطء بدء المهام</h3>
+<p>تُنشئ كل مهمة cron جلسة AIAgent جديدة، وقد يتضمّن ذلك المصادقة لدى المزوّد وتحميل النموذج. في الجداول الحسّاسة للوقت، أضف وقتًا احتياطيًا (مثل <code>0 8 * * *</code> بدلًا من <code>0 9 * * *</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="too-many-overlapping-jobs">كثرة المهام المتداخلة</h3>
+<p>ينفّذ المُجدوِل المهام بالتتابع ضمن كل نبضة. إذا حان موعد عدة مهام في الوقت نفسه، فإنها تعمل واحدة تلو الأخرى. فكّر في توزيع الجداول الزمنية (مثل <code>0 9 * * *</code> و<code>5 9 * * *</code> بدلًا من جعل كلتيهما عند <code>0 9 * * *</code>) لتجنّب التأخير.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="large-script-output">مخرجات السكربتات الكبيرة</h3>
+<p>السكربتات التي تُخرج ميغابايتات من البيانات تُبطئ الوكيل وقد تصل إلى حدود الـ tokens. رشّح المخرجات أو لخّصها على مستوى السكربت، وأخرِج فقط ما يحتاج الوكيل إلى الاستدلال عليه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostic-commands">أوامر التشخيص</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="getting-more-help">الحصول على مزيد من المساعدة</h2>
+<p>إذا اتبعت هذا الدليل وما زالت المشكلة قائمة:</p>
+<ol>
+<li>شغّل المهمة باستخدام <code>hermes cron run &lt;job_id&gt;</code> (تنطلق عند النبضة التالية للـ gateway) وراقب الأخطاء في مخرجات المحادثة</li>
+<li>افحص <code>~/.hermes/logs/agent.log</code> بحثًا عن رسائل المُجدوِل، و<code>~/.hermes/logs/errors.log</code> بحثًا عن التحذيرات</li>
+<li>افتح issue على <a href="https://github.com/NousResearch/hermes-agent" data-ext>github.com/NousResearch/hermes-agent</a> مع ذكر:
+<ul>
+<li>معرّف المهمة وجدولها الزمني</li>
+<li>هدف التسليم</li>
+<li>ما كنت تتوقّعه مقابل ما حدث فعلًا</li>
+<li>رسائل الخطأ ذات الصلة من السجلات</li>
+</ul>
+</li>
+</ol>
+<hr>
+<p><em>للاطلاع على مرجع cron الكامل، راجع <a href="/docs/guides/automate-with-cron">أتمتة أي شيء باستخدام Cron</a> و<a href="/docs/user-guide/features/cron">المهام المجدولة (Cron)</a>.</em></p>

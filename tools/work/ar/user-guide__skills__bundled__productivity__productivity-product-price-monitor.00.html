@@ -1,0 +1,50 @@
+
+<header><h1>Product Price Monitor</h1></header>
+<p>راقب أسعار المنتجات أو الرحلات أو الإعلانات، وتلقَّ تنبيهًا عند بلوغ الهدف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/productivity/product-price-monitor</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Ben Barclay (benbarclay), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Prices</code>, <code>Availability</code>, <code>Shopping</code>, <code>Travel</code>, <code>Alerts</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/productivity/productivity-maps"><code>maps</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="1"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Product Price Monitor</h1>
+<p>راقب عنصرًا قابلًا للشراء بشكل محدد، وأصدر تنبيهًا عند بلوغ سعر إجمالي موحّد أو شرط توفر معيّن. تعامل صراحةً مع الأنواع المختلفة، والضرائب، والرسوم، والعملات، والمخزون، وشروط الإلغاء، والتنبيهات المكررة. يعمل الإعداد مرة واحدة في المقدمة؛ بينما يعمل الفحص المتكرر كنبضة <code>cronjob</code> (يهيّئ ذلك مخطط الأتمتة <code>price-watch</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>"نبّهني عندما ينخفض سعر هذا الحاسوب المحمول عن 1,000 دولار."</li>
+<li>"راقب هذه الرحلات بحثًا عن تذكرة أقل من 500 دولار."</li>
+<li>"أخبرني عندما يتوفر في هذا الفندق غرفة قابلة للاسترداد."</li>
+<li>"تتبّع توفر التذكرة/الإعلان."</li>
+<li>عندما تطلق نبضة cron لمراقبة سعر قائمة بالفعل (الخطوات 4-6).</li>
+</ul>
+<p>لا تستخدمها من أجل: عمليات البحث لمرة واحدة عن "كم يكلّف هذا الآن" (استخدم <code>web_search</code>/<code>web_extract</code> مباشرة).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--setup-foreground-once">الإجراء — الإعداد (في المقدمة، مرة واحدة)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-define-the-exact-item">1. حدّد العنصر بدقة</h3>
+<p>سجّل عنوان URL المصدر/المزوّد، ومعرّف المنتج/الإعلان إن توفر، والنوع، والكمية، والموقع، والتواريخ، وعدد المسافرين/الضيوف، وافتراضات العضوية/تسجيل الدخول، والحالة، والبائع، والبدائل المقبولة. تكون المهمة منجزة عندما يستحيل الخلط بين نوعين مختلفين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-define-the-alert-condition">2. حدّد شرط التنبيه</h3>
+<p>حدّد العملة، والسعر الإجمالي مقابل السعر قبل الضريبة، والحد الأقصى للسعر، وقاعدة التوفر/المخزون، والشحن، وقابلية الاسترداد، ودرجة المقصورة/الغرفة/التذكرة، وفترة التهدئة (cooldown)، ووجهة الإشعار. تكون المهمة منجزة عندما تعطي الأمثلة الاصطناعية قرارات تنبيه حتمية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-establish-a-live-baseline-then-schedule">3. أنشئ خط أساس حي، ثم جدوِل</h3>
+<p>اجلب نتيجة حية محدودة باستخدام <code>web_extract</code> أو <code>browser_navigate</code>، وسجّل وقت الجلب، وسعر المصدر، والرسوم/الضرائب، والتوفر، والشروط. لا تجدول قبل نجاح عملية جلب واحدة في المقدمة. اكتب عقد المراقبة (العنصر، الشرط، الملاحظة الأساسية) إلى ملف حالة ضمن <code>~/.hermes/price-watches/&lt;watch-slug&gt;.json</code>، ثم أنشئ المهمة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اختر وتيرة تراعي حدود المعدل وشروط الموقع. تكون المهمة منجزة عندما يطابق خط الأساس عقد العنصر بدقة وتكون المهمة قد أُنشئت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--tick-each-scheduled-run">الإجراء — النبضة (كل تشغيل مجدول)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-fetch-and-normalize">4. الجلب والتوحيد</h3>
+<p>أعد جلب المصدر. حوّل العملة فقط باستخدام سعر صرف مُطابع بالوقت مع الاحتفاظ بعملة المصدر. افصل بين السعر الأساسي، والرسوم الإلزامية، والشحن/الضرائب، والإجمالي، والتوفر. استبعد بيانات الصفحة الوصفية المتقلبة. فشل الجلب يعني حالة غير معروفة: أبلغ عنها أو تجاوزها، لكن لا تستبدل أبدًا آخر ملاحظة سليمة بصفحة خطأ. تكون المهمة منجزة عندما تكون الملاحظة قابلة للمقارنة بخط الأساس أو مُعلَّمة صراحةً كفاشلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-compare-and-suppress-duplicates">5. المقارنة وقمع التكرار</h3>
+<p>أصدر تنبيهًا عند تجاوز الحد، أو توفر مؤهّل، أو انخفاض جوهري في السعر، أو استعادة الشرط حسبما طُلب. خزّن آخر ملاحظة سليمة وبصمة آخر تنبيه في ملف الحالة. يجب ألا يؤدي تكرار العرض نفسه إلى إرسال تنبيه ثانٍ؛ راعِ فترة التهدئة. تكون المهمة منجزة عندما يكون قرار التنبيه حتميًا استنادًا إلى الحالة المخزّنة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-deliver-or-stay-silent">6. الإرسال أو البقاء صامتًا</h3>
+<p>عند تحقق الشرط، يتضمن التنبيه: العنصر/النوع الدقيق، والسعر الإجمالي المُلاحَظ وعملة المصدر، والتوفر/الشروط، والحد المستهدف، وطابع وقت الجلب، ورابط المصدر، وأي عدم يقين مهم. لا تدّعِ أبدًا أن المخزون محجوز. عندما لا يتحقق أي شرط، ابقَ صامتًا — لا ضجيج من نوع "ما زلت أراقب" ما لم يُطلب تحديث دوري بعدم وجود جديد. تكون المهمة منجزة عندما يعكس ملف الحالة نتيجة هذا التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">الأخطاء الشائعة</h2>
+<ul>
+<li>مقارنة السعر الأساسي بحد إجمالي.</li>
+<li>إصدار تنبيه لمقاس أو بائع أو مقصورة أو تواريخ أو شروط غرفة خاطئة.</li>
+<li>استبدال آخر قيمة سليمة معروفة بصفحة خطأ.</li>
+<li>الاستطلاع بوتيرة عدوانية بما يكفي لإثارة الحظر أو مخالفة شروط الموقع.</li>
+<li>الجدولة قبل نجاح عملية جلب واحدة في المقدمة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="2"></x-keep> عقد المراقبة يحدّد العنصر بدقة بحيث يستحيل الخلط بين نوعين مختلفين.</li>
+<li class="task-list-item"><x-keep id="3"></x-keep> نجحت عملية جلب واحدة في المقدمة قبل إنشاء أي مهمة.</li>
+<li class="task-list-item"><x-keep id="4"></x-keep> قرارات التنبيه تُعاد حتميًا من ملف الحالة؛ والتكرار مقموع.</li>
+<li class="task-list-item"><x-keep id="5"></x-keep> عمليات الجلب الفاشلة لم تستبدل أبدًا آخر حالة سليمة معروفة.</li>
+<li class="task-list-item"><x-keep id="6"></x-keep> التنبيهات تحمل السعر الإجمالي، وعملة المصدر، والطابع الزمني، ورابط المصدر.</li>
+</ul>

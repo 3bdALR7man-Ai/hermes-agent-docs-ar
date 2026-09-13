@@ -1,0 +1,55 @@
+<header><h1>A2A (Agent-to-Agent)</h1></header>
+<p><a href="https://a2a-protocol.org" data-ext>A2A</a> هو بروتوكول Agent2Agent المفتوح (الإصدار v1.0، وتشرف عليه Linux Foundation) للتواصل بين وكلاء الذكاء الاصطناعي المستقلين. تعمل إضافة (plugin) A2A في Hermes <strong>في الاتجاهين</strong>: إذ يمكن لوكيلك استدعاء وكلاء A2A آخرين كأدوات، ويمكن للوكلاء الآخرين إرسال مهام إلى Hermes الخاص بك عبر HTTP.</p>
+<p>وهي قابلة للتشغيل البيني مع أي نظير متوافق مع A2A — سواء كان Hermes آخر، أو LangChain، أو CrewAI، أو وكلاء Google ADK، أو أي شيء مبني على <code>a2a-sdk</code> الرسمي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-a2a">متى تستخدم A2A</h2>
+<ul>
+<li><strong>Hermes ↔ Hermes عبر أجهزة مختلفة</strong> — دع وكيلك على سطح المكتب يسلّم المهام إلى Hermes على خادم، أو العكس، ولكلٍّ منهما ذاكرته وأدواته وبيانات اعتماده الخاصة.</li>
+<li><strong>التفويض إلى وكلاء متخصصين</strong> — يمكن اكتشاف النظير الذي يعلن عن مهارات <code>web_search</code>/<code>research</code>/<code>coding</code> في Agent Card الخاصة به واستدعاؤه في منتصف المحادثة.</li>
+<li><strong>أن تكون خدمة قابلة للاستدعاء</strong> — اعرض Hermes الخاص بك ليتمكن وكلاء أطر العمل الأخرى من إرسال المهام إليه.</li>
+</ul>
+<p>عندما تريد تشغيل عدة وكلاء على <strong>الجهاز نفسه</strong>، فالأفضل استخدام <a href="/docs/user-guide/features/delegation">التفويض</a> (subagents داخل العملية نفسها) أو <a href="/docs/user-guide/features/kanban">لوحة kanban</a> (طابور عمل دائم متعدد الـ profiles) — فـ A2A مخصّص لعبور حدود العمليات والأجهزة وأطر العمل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enable">التفعيل</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أو في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تأتي أدوات العميل الصادرة ضمن الـ toolset <code>a2a</code>، وهي <strong>معطّلة افتراضيًا</strong> — فعّلها لكل منصة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تتوفر الأدوات في كل أنواع العمليات — CLI و TUI و gateway و cron — دون الحاجة إلى تفعيل المنصة الواردة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-calling-other-agents">الصادر: استدعاء وكلاء آخرين</h2>
+<p>عند تفعيل الـ toolset <code>a2a</code>، يحصل الوكيل على الأدوات التالية:</p>
+<table><thead><tr><th>الأداة</th><th>ما تفعله</th></tr></thead><tbody><tr><td><code>a2a_discover(url)</code></td><td>جلب Agent Card الخاصة بنظير وتلخيصها</td></tr><tr><td><code>a2a_call(agent, message, context_id?)</code></td><td>إرسال مهمة وتلقي الرد؛ مع دعم تعدد الأدوار عبر <code>context_id</code></td></tr><tr><td><code>a2a_list()</code></td><td>النظراء المُعدّون، والمحادثات المحفوظة، والمقاييس</td></tr><tr><td><code>a2a_history(context_id)</code></td><td>استرجاع محادثة A2A محفوظة</td></tr><tr><td><code>a2a_orchestrate(capability, message, mode?)</code></td><td>توزيع مهمة على كل نظير يعلن عن قدرة معيّنة (<code>all</code> / <code>first</code> / <code>best</code>)</td></tr></tbody></table>
+<p>اضبط النظراء المعروفين في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثم اطلب ببساطة: <em>&quot;اطلب من الوكيل researcher تلخيص منشورات arXiv اليوم.&quot;</em> تعمل عناوين URL المباشرة أيضًا — إذ تقبل <code>a2a_call</code> أي A2A endpoint.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-being-callable">الوارد: أن تكون قابلًا للاستدعاء</h2>
+<p>عند تفعيل المنصة، يقدّم Hermes ما يلي:</p>
+<ul>
+<li><strong>Agent Card</strong> على <code>GET /.well-known/agent-card.json</code> (المسار المعتمد في v1.0؛ ويستجيب المسار القديم <code>agent.json</code> أيضًا) — تعلن عن اسم وكيلك، ومهاراته (المشتقة من الـ toolsets المفعّلة)، ومتطلبات المصادقة.</li>
+<li><strong>JSON-RPC 2.0</strong> على <code>POST /</code> — الدوال المعتمدة في v1.0 (<code>SendMessage</code>، <code>SendStreamingMessage</code>، <code>GetTask</code>، <code>ListTasks</code>، <code>CancelTask</code>، <code>SubscribeToTask</code>، وعمليات CRUD لإعدادات الإشعارات الفورية) إضافةً إلى الأسماء البديلة بنمط المسارات من الإصدارات السابقة لـ 1.0 (<code>message/send</code>، …).</li>
+<li><strong>بث SSE</strong> لـ <code>SendStreamingMessage</code>، مع إطارات مغلّفة بـ JSON-RPC مطابقة للمواصفة.</li>
+<li><strong>الإشعارات الفورية (Push notifications)</strong> (عبر webhooks) للمهام طويلة التشغيل، وموقّعة بـ HMAC-SHA256.</li>
+</ul>
+<p>تُحقن المهام الواردة في <strong>جلسة gateway حية</strong> — أي الوكيل والذاكرة والأدوات نفسها التي تخدم قنواتك الأخرى — ويُعاد الرد النهائي إلى المستدعي كنتيجة للمهمة. تُفهرس المحادثات حسب <code>contextId</code> الخاص بـ A2A، بحيث يستطيع النظير إجراء تبادل متعدد الأدوار.</p>
+<p>جرى التحقق من قابلية التشغيل البيني مقابل <code>a2a-sdk</code> الرسمي لـ Python (تحليل البطاقة، و <code>SendMessage</code>، والبث).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">نموذج الأمان</h2>
+<p>آمن افتراضيًا؛ وكل خطوة توسّع نطاق الوصول تكون صريحة:</p>
+<ul>
+<li><strong>بدون token ⇒ localhost فقط.</strong> يرتبط الخادم بـ <code>127.0.0.1</code>. ويتطلب العرض عن بُعد bearer token <strong>و</strong> قيمة صريحة لـ <code>A2A_HOST</code>.</li>
+<li><strong>tokens لكل نظير</strong> — يمنح <code>A2A_PEER_TOKENS=&quot;alice:tok1,bob:tok2&quot;</code> كل نظير بيانات اعتماد خاصة به؛ ويُستخدم الاسم المُصادَق عليه لتحديد حدّ المعدل (rate limit) والثقة والتدقيق.</li>
+<li><strong>تصفية حقن الـ prompt</strong> — يُصفّى النص الوارد ويُؤطَّر كمدخلات غير موثوقة من نظير. ولا يستطيع النظراء البعيدون استدعاء slash commands الخاصة بالمشغّل.</li>
+<li><strong>التنقيح في الصادر</strong> — تُحذف من الردود السلاسل التي تشبه بيانات الاعتماد (مفاتيح API، و JWTs، والـ tokens).</li>
+<li><strong>سجل التدقيق</strong> — يُضاف كل تبادل إلى <code>~/.hermes/a2a_audit.jsonl</code>.</li>
+<li><strong>منع الحلقات</strong> — تمنع حدود الأدوار لكل سياق وكيلين من تبادل الرسائل ذهابًا وإيابًا إلى ما لا نهاية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<table><thead><tr><th>متغير البيئة</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>A2A_PEER_TOKENS</code></td><td><em>(غير مضبوط)</em></td><td>بيانات اعتماد لكل نظير <code>name:token,…</code> (الخيار المفضّل)</td></tr><tr><td><code>A2A_BEARER_TOKEN</code></td><td><em>(غير مضبوط)</em></td><td>token مشترك؛ وتُحدَّد الهوية احتياطيًا بعنوان IP للمستدعي</td></tr><tr><td><code>A2A_HOST</code></td><td><code>127.0.0.1</code></td><td>مضيف الربط (bind) — لا يتوسّع إلا عند ضبط token</td></tr><tr><td><code>A2A_PORT</code></td><td><code>9900</code></td><td>المنفذ الوارد</td></tr><tr><td><code>A2A_AGENT_NAME</code></td><td>مشتق من اسم المضيف</td><td>الاسم المعروض على Agent Card</td></tr><tr><td><code>A2A_PUBLIC_URL</code></td><td><em>(غير مضبوط)</em></td><td>URL قابل للتوجيه يُعلَن عنه في البطاقة (مع reverse proxies / k8s)</td></tr><tr><td><code>A2A_TRUSTED_PEERS</code></td><td><em>(غير مضبوط)</em></td><td>قائمة سماح (allowlist) بالهويات المُصادَق عليها</td></tr><tr><td><code>A2A_ALLOW_ALL_USERS</code></td><td><code>false</code></td><td>السماح لأي نظير مُصادَق عليه (للتطوير فقط)</td></tr><tr><td><code>A2A_RATE_LIMIT</code></td><td><code>60</code></td><td>عدد الطلبات في الدقيقة لكل هوية</td></tr><tr><td><code>A2A_MAX_PINGPONG_TURNS</code></td><td><code>5</code></td><td>الحد الأقصى للأدوار لكل سياق لمنع الحلقات (بحد أقصى 20)</td></tr><tr><td><code>A2A_REPLY_TIMEOUT</code></td><td><code>300</code></td><td>عدد ثواني انتظار رد الوكيل</td></tr><tr><td><code>A2A_PUSH_SECRET</code></td><td>قيمة bearer token</td><td>سر HMAC لتوقيع الإشعارات الفورية</td></tr><tr><td><code>A2A_ADVERTISED_TOOLSETS</code></td><td>جميع المسجّلة</td><td>تقييد المهارات التي تظهر على Agent Card</td></tr></tbody></table>
+<p>خلف reverse proxy أو Kubernetes Service، اضبط <code>A2A_PUBLIC_URL</code> (أو اعتمد على <code>X-Forwarded-Host</code>/<code>X-Forwarded-Proto</code>) حتى تعلن Agent Card عن URL يستطيع النظراء فعلًا معاودة الاتصال به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-test">اختبار سريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<ul>
+<li><strong>النظراء لا يستطيعون الوصول إلى URL البطاقة</strong> — كانت البطاقة تعلن عن عنوان الربط لديك؛ اضبط <code>A2A_PUBLIC_URL</code> على URL قابل للتوجيه من الخارج.</li>
+<li><strong><code>401 Unauthorized</code></strong> — عدم تطابق الـ token؛ تحقق من <code>A2A_PEER_TOKENS</code>/<code>A2A_BEARER_TOKEN</code> على الخادم ومن كتلة <code>auth:</code> لدى النظير.</li>
+<li><strong>الخادم لا يرتبط بعنوان غير localhost</strong> — هذا مقصود في التصميم: اضبط bearer token أولًا، ثم <code>A2A_HOST=0.0.0.0</code>.</li>
+<li><strong>انتهاء مهلة الردود في المهام الطويلة</strong> — ارفع قيمة <code>A2A_REPLY_TIMEOUT</code>، أو اجعل المستدعي يسجّل إعدادات للإشعارات الفورية ويستطلع <code>GetTask</code>.</li>
+</ul>

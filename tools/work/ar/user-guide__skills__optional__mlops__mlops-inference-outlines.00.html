@@ -1,0 +1,163 @@
+
+<header><h1>Outlines</h1></header>
+<p>Outlines: توليد نصوص LLM مُقيَّد بصيغة JSON/regex/Pydantic.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/outlines</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/inference/outlines</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>outlines</code>, <code>transformers</code>, <code>vllm</code>, <code>pydantic</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Prompt Engineering</code>, <code>Outlines</code>, <code>Structured Generation</code>, <code>JSON Schema</code>, <code>Pydantic</code>, <code>Local Models</code>, <code>Grammar-Based Generation</code>, <code>vLLM</code>, <code>Transformers</code>, <code>Type Safety</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Outlines: التوليد المُقيَّد للنص</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this-skill">متى تستخدم هذه المهارة</h2>
+<p>استخدم Outlines عندما تحتاج إلى:</p>
+<ul>
+<li><strong>ضمان صحة بنية</strong> JSON/XML/الكود أثناء التوليد</li>
+<li><strong>استخدام نماذج Pydantic</strong> لمخرجات آمنة النوع (type-safe)</li>
+<li><strong>دعم النماذج المحلية</strong> (Transformers، llama.cpp، vLLM)</li>
+<li><strong>تعظيم سرعة الـ inference</strong> بتوليد مُقيَّد بلا أي تكلفة إضافية</li>
+<li><strong>التوليد وفق مخططات JSON</strong> تلقائيًا</li>
+<li><strong>التحكم في أخذ عينات token</strong> على مستوى القواعد النحوية (grammar)</li>
+</ul>
+<p><strong>نجوم GitHub</strong>: أكثر من 12,000 | <strong>من</strong>: dottxt.ai (المعروفة سابقًا باسم .txt)</p>
+<blockquote>
+<p><strong>ملاحظة حول الواجهة (Outlines 1.x):</strong> تستهدف هذه المهارة واجهة الإصدار v1 الحالية.
+المساعدات السابقة للإصدار 1.0 (<code>outlines.models.transformers(...)</code>،
+<code>outlines.generate.json/choice/regex/...</code>) قد <strong>أُزيلت</strong>. في الإصدار v1
+تُنشئ النموذج باستخدام <code>outlines.from_transformers(...)</code> (أو <code>from_vllm</code>،
+<code>from_llamacpp</code>، <code>from_openai</code>) ثم <strong>تستدعي النموذج مباشرةً</strong> مع
+نوع مخرجات: <code>model(prompt, output_type)</code>. تُعاد مخرجات JSON/Pydantic
+كـ <strong>سلسلة JSON نصية</strong> — تحقق منها باستخدام <code>YourModel.model_validate_json(result)</code>.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-example-classification">مثال أساسي: التصنيف</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-pydantic-models">مع نماذج Pydantic</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-concepts">المفاهيم الأساسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-constrained-token-sampling">1. أخذ عينات token مُقيَّد</h3>
+<p>يقيّد Outlines توليد الـ token على مستوى logit باستخدام آلة حالات (automaton)
+مُصرَّفة (compiled) من نوع مخرجاتك.</p>
+<p><strong>كيف يعمل:</strong></p>
+<ol>
+<li>تحويل نوع المخرجات (JSON/Pydantic/regex/<code>Literal</code>) إلى مخطط (schema) أو قواعد نحوية (grammar)</li>
+<li>تصريف (compile) القواعد النحوية إلى آلة حالات على مستوى الـ token</li>
+<li>تصفية الـ tokens غير الصالحة في كل خطوة أثناء التوليد</li>
+<li>التقديم السريع (fast-forward) عندما يوجد token صالح واحد فقط</li>
+</ol>
+<p><strong>الفوائد:</strong></p>
+<ul>
+<li><strong>بلا أي تكلفة إضافية</strong>: تجري التصفية على مستوى الـ token</li>
+<li><strong>تحسين السرعة</strong>: تقديم سريع عبر المسارات الحتمية</li>
+<li><strong>صلاحية مضمونة</strong>: يستحيل صدور مخرجات غير صالحة</li>
+</ul>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-output-types">2. أنواع المخرجات</h3>
+<p>في الإصدار v1، تمرّر <strong>نوع المخرجات</strong> المطلوب مباشرةً كوسيط ثانٍ.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-choice-literal">الاختيار المتعدد (<code>Literal</code>)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="json-via-pydantic">JSON عبر Pydantic</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="regex-pass-a-regex-string">Regex (مرّر سلسلة regex)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="numeric-types">الأنواع الرقمية</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-model-backends">3. Backends النماذج</h3>
+<p>يدعم Outlines عدة backends محلية وأخرى قائمة على API عبر دوال <code>from_*</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="transformers-hugging-face">Transformers (من Hugging Face)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="llamacpp">llama.cpp</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="vllm-high-throughput">vLLM (إنتاجية عالية)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-server-side-constrained-json">OpenAI (JSON مُقيَّد من جانب الخادم)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-pydantic-integration">4. التكامل مع Pydantic</h3>
+<p>يوفّر Outlines دعمًا أصيلًا لـ Pydantic مع ترجمة تلقائية للمخططات (schema).
+يُعاد التوليد كسلسلة JSON نصية؛ استدعِ <code>model_validate_json</code> للحصول على نسخة (instance).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-models">نماذج أساسية</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="nested-models">نماذج متداخلة</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="enums-and-literals">Enums و Literals</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-1-data-extraction">النمط 1: استخراج البيانات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-2-classification">النمط 2: التصنيف</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-3-structured-forms">النمط 3: النماذج المُبنية (Forms)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-4-multi-entity-extraction">النمط 4: استخراج كيانات متعددة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-5-code-generation">النمط 5: توليد الكود</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-6-batch-processing">النمط 6: المعالجة الدفعية</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="backend-configuration">إعداد الـ Backend</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="transformers">Transformers</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="llamacpp-1">llama.cpp</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vllm-production">vLLM (إنتاج)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-use-specific-types">1. استخدم أنواعًا محددة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-add-constraints">2. أضِف قيودًا</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-use-enums-for-categories">3. استخدم Enums للفئات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-provide-context-in-prompts">4. قدّم سياقًا ضمن الـ prompts</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-handle-optional-fields">5. تعامل مع الحقول الاختيارية</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-always-validate-json-output">6. تحقّق دائمًا من مخرجات JSON</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-to-alternatives">مقارنة بالبدائل</h2>
+<table><thead><tr><th>الميزة</th><th>Outlines</th><th>Instructor</th><th>Guidance</th><th>LMQL</th></tr></thead><tbody><tr><td>دعم Pydantic</td><td>✅ أصيل</td><td>✅ أصيل</td><td>✅ نعم</td><td>❌ لا</td></tr><tr><td>مخطط JSON (Schema)</td><td>✅ نعم</td><td>✅ نعم</td><td>✅ نعم</td><td>✅ نعم</td></tr><tr><td>قيود Regex</td><td>✅ نعم</td><td>❌ لا</td><td>✅ نعم</td><td>✅ نعم</td></tr><tr><td>النماذج المحلية</td><td>✅ كامل</td><td>⚠️ محدود</td><td>✅ كامل</td><td>✅ كامل</td></tr><tr><td>نماذج API</td><td>✅ نعم</td><td>✅ كامل</td><td>✅ نعم</td><td>✅ كامل</td></tr><tr><td>بلا أي تكلفة إضافية</td><td>✅ نعم</td><td>❌ لا</td><td>⚠️ جزئي</td><td>✅ نعم</td></tr><tr><td>إعادة المحاولة التلقائية</td><td>❌ لا</td><td>✅ نعم</td><td>❌ لا</td><td>❌ لا</td></tr><tr><td>منحنى التعلّم</td><td>منخفض</td><td>منخفض</td><td>منخفض</td><td>مرتفع</td></tr></tbody></table>
+<p><strong>متى تختار Outlines:</strong></p>
+<ul>
+<li>عند استخدام نماذج محلية (Transformers، llama.cpp، vLLM)</li>
+<li>عند الحاجة إلى أقصى سرعة inference</li>
+<li>عند الرغبة في دعم نماذج Pydantic</li>
+<li>عند الحاجة إلى توليد مُقيَّد بلا أي تكلفة إضافية</li>
+<li>عند الحاجة إلى التحكم في عملية أخذ عينات token</li>
+</ul>
+<p><strong>متى تختار بدائل أخرى:</strong></p>
+<ul>
+<li>Instructor: عند الحاجة إلى نماذج API مع إعادة محاولة تلقائية</li>
+<li>Guidance: عند الحاجة إلى token healing وسير عمل معقّد</li>
+<li>LMQL: عند تفضيل صياغة استعلام تصريحية (declarative)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-characteristics">خصائص الأداء</h2>
+<p><strong>السرعة:</strong></p>
+<ul>
+<li><strong>بلا أي تكلفة إضافية</strong>: التوليد المُقيَّد بسرعة التوليد غير المُقيَّد نفسها</li>
+<li><strong>تحسين التقديم السريع (Fast-forward)</strong>: يتخطى الـ tokens الحتمية</li>
+<li><strong>أسرع بمقدار 1.2 إلى 2 مرة</strong> من أساليب التحقق بعد التوليد</li>
+</ul>
+<p><strong>الذاكرة:</strong></p>
+<ul>
+<li>تُصرَّف آلة الحالات مرة واحدة لكل نوع مخرجات (وتُخزَّن مؤقتًا)</li>
+<li>تكلفة إضافية طفيفة أثناء التشغيل</li>
+<li>كفاءة عالية مع vLLM للإنتاجية المرتفعة</li>
+</ul>
+<p><strong>الدقة:</strong></p>
+<ul>
+<li><strong>100% مخرجات صالحة</strong> (مضمونة عبر آلة الحالات المُقيَّدة)</li>
+<li>لا حاجة لحلقات إعادة المحاولة</li>
+<li>تصفية حتمية للـ tokens</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>التوثيق</strong>: <a href="https://dottxt-ai.github.io/outlines/" data-ext>https://dottxt-ai.github.io/outlines/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/dottxt-ai/outlines" data-ext>https://github.com/dottxt-ai/outlines</a> (أكثر من 12 ألف نجمة)</li>
+<li><strong>Discord</strong>: <a href="https://discord.gg/R9DSu34mGd" data-ext>https://discord.gg/R9DSu34mGd</a></li>
+<li><strong>المدونة</strong>: <a href="https://blog.dottxt.co" data-ext>https://blog.dottxt.co</a></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">اطّلع أيضًا على</h2>
+<ul>
+<li><code>references/json_generation.md</code> - أنماط شاملة لـ JSON وPydantic</li>
+<li><code>references/backends.md</code> - إعداد خاص بكل backend</li>
+<li><code>references/examples.md</code> - أمثلة جاهزة للإنتاج</li>
+</ul>

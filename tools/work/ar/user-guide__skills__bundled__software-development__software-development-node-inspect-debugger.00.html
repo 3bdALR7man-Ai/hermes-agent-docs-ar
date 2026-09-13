@@ -1,0 +1,109 @@
+
+<header><h1>Node Inspect Debugger</h1></header>
+<p>صحّح أخطاء Node.js عبر --inspect و واجهة Chrome DevTools Protocol من CLI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/software-development/node-inspect-debugger</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>debugging</code>, <code>nodejs</code>, <code>node-inspect</code>, <code>cdp</code>, <code>breakpoints</code>, <code>ui-tui</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging"><code>systematic-debugging</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-python-debugpy"><code>python-debugpy</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Node.js Inspect Debugger</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>عندما لا يكفي <code>console.log</code>، شغّل مفحّص V8 المدمج في Node برمجيًا من الطرفية. تحصل على نقاط توقف حقيقية، وخطو Step In/Over/Out، وتتبّع مكدس الاستدعاءات (call stack)، وعرض النطاقات المحلية/الإغلاق (closure)، وتقييم أي تعبير في الإطار المتوقف.</p>
+<p>أداتان، اختر واحدة:</p>
+<ul>
+<li><strong><code>node inspect</code></strong> — مدمجة، بلا تثبيت، REPL عبر CLI. الأفضل للفحص السريع.</li>
+<li><strong><code>ndb</code> / CDP عبر <code>chrome-remote-interface</code></strong> — قابلة للبرمجة من Node/Python؛ الأفضل عندما تريد أتمتة عدد كبير من نقاط التوقف، أو تجميع الحالة عبر عدة تشغيلات، أو التصحيح دون تفاعل من حلقة وكيل (agent loop).</li>
+</ul>
+<p><strong>فضّل <code>node inspect</code> أولًا.</strong> فهي متاحة دائمًا و REPL سريع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>يفشل اختبار Node وتحتاج إلى رؤية حالة وسيطة</li>
+<li>تتعطل ui-tui أو تتصرف بشكل خاطئ وتريد فحص حالة React/Ink قبل العرض (pre-render)</li>
+<li>تسيء العمليات الفرعية لـ tui_gateway (<code>_SlashWorker</code>، عمّال جسر PTY) التصرف</li>
+<li>تحتاج إلى فحص قيمة في closure لا يستطيع <code>console.log</code> الوصول إليها دون تعديل الكود</li>
+<li>الأداء: الاتصال بعملية قيد التشغيل لالتقاط ملف تعريف CPU أو لقطة heap</li>
+</ul>
+<p><strong>لا تستخدمها في:</strong> ما يحلّه <code>console.log</code> في أقل من دقيقة. التصحيح المعتمد على نقاط التوقف أثقل؛ استخدمه عندما تكون الفائدة حقيقية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference-node-inspect-repl">مرجع سريع: REPL الخاص بـ <code>node inspect</code></h2>
+<p>شغّله متوقفًا عند أول سطر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يقبل الموجّه <code>debug&gt;</code>:</p>
+<table><thead><tr><th>الأمر</th><th>الإجراء</th></tr></thead><tbody><tr><td><code>c</code> أو <code>cont</code></td><td>المتابعة (continue)</td></tr><tr><td><code>n</code> أو <code>next</code></td><td>خطو فوق (step over)</td></tr><tr><td><code>s</code> أو <code>step</code></td><td>خطو داخل (step into)</td></tr><tr><td><code>o</code> أو <code>out</code></td><td>خطو خارج (step out)</td></tr><tr><td><code>pause</code></td><td>إيقاف الكود قيد التشغيل مؤقتًا</td></tr><tr><td><code>sb(&#x27;file.js&#x27;, 42)</code></td><td>تعيين نقطة توقف عند السطر 42 من file.js</td></tr><tr><td><code>sb(42)</code></td><td>تعيين نقطة توقف عند السطر 42 من الملف الحالي</td></tr><tr><td><code>sb(&#x27;functionName&#x27;)</code></td><td>التوقف عند استدعاء الدالة</td></tr><tr><td><code>cb(&#x27;file.js&#x27;, 42)</code></td><td>حذف نقطة التوقف</td></tr><tr><td><code>breakpoints</code></td><td>عرض جميع نقاط التوقف</td></tr><tr><td><code>bt</code></td><td>تتبّع الرجوع (backtrace) — مكدس الاستدعاءات</td></tr><tr><td><code>list(5)</code></td><td>عرض 5 أسطر من الكود المصدري حول الموضع الحالي</td></tr><tr><td><code>watch(&#x27;expr&#x27;)</code></td><td>تقييم التعبير في كل توقف</td></tr><tr><td><code>watchers</code></td><td>عرض التعبيرات المراقَبة</td></tr><tr><td><code>repl</code></td><td>الدخول إلى REPL في النطاق الحالي (Ctrl+C للخروج من REPL)</td></tr><tr><td><code>exec expr</code></td><td>تقييم التعبير مرة واحدة</td></tr><tr><td><code>restart</code></td><td>إعادة تشغيل السكربت</td></tr><tr><td><code>kill</code></td><td>إنهاء السكربت</td></tr><tr><td><code>.exit</code></td><td>الخروج من المصحّح</td></tr></tbody></table>
+<p><strong>في نمط <code>repl</code> الفرعي:</strong> اكتب أي تعبير JS، بما في ذلك الوصول إلى المتغيرات المحلية/متغيرات الـ closure. يُخرجك <code>Ctrl+C</code> إلى <code>debug&gt;</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="attaching-to-a-running-process">الاتصال بعملية قيد التشغيل</h2>
+<p>عندما تكون العملية قيد التشغيل فعلًا (مثل خادم تطوير طويل الأمد أو TUI gateway):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>لبدء عملية بالمفحّص منذ البداية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لـ TypeScript عبر tsx:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="programmatic-cdp-scripting-from-terminal">CDP برمجيًا (سكربتة من الطرفية)</h2>
+<p>عندما تريد الأتمتة — تعيين عدد كبير من نقاط التوقف، أو التقاط حالة النطاق، أو كتابة سكربت لإعادة إنتاج المشكلة — استخدم <code>chrome-remote-interface</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>سكربت التشغيل (احفظه باسم <code>/tmp/cdp-debug.js</code>):</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>شغّله:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ملاحظة خاصة بـ Hermes: <code>chrome-remote-interface</code> غير موجود في <code>ui-tui/package.json</code>. ثبّته في موقع مؤقت إذا كنت لا تريد تعديل المشروع:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-hermes-ui-tui">تصحيح أخطاء Hermes ui-tui</h2>
+<p>واجهة TUI مبنية بـ Ink و tsx. سيناريوهان شائعان:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-a-single-ink-component-under-dev">تصحيح مكوّن Ink واحد أثناء التطوير</h3>
+<p>يحتوي <code>ui-tui/package.json</code> على <code>npm run dev</code> (tsx --watch). أضف <code>--inspect-brk</code> بتشغيل tsx مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ثم داخل <code>debug&gt;</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>عند توقفه، استخدم <code>repl</code> ← افحص <code>props</code>، ومراجع الحالة، وقيم معالج <code>useInput</code>، وما إلى ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-a-running-hermes---tui">تصحيح <code>hermes --tui</code> قيد التشغيل</h3>
+<p>تنشئ TUI عملية Node من واجهة سطر أوامر Python. أسهل طريقة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يستمر التفاعل مع TUI (الكتابة في نافذتها) في تقديم التنفيذ؛ ويمكن لمصحّحك إيقافها عند أي نقطة توقف بـ <code>sb(...)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-_slashworker--pty-child-processes">تصحيح العمليات الفرعية <code>_SlashWorker</code> / PTY</h3>
+<p>تلك عمليات Python، وليست Node — استخدم مهارة <code>python-debugpy</code> لها. تستخدم هذه المهارة فقط في أجزاء Node (واجهة Ink، عميل tui_gateway، اختبارات tsx-run تحت <code>ui-tui/</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-vitest-tests-under-the-debugger">تشغيل اختبارات Vitest تحت المصحّح</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>في طرفية أخرى: <code>node inspect -p &lt;pid&gt;</code>، ثم <code>sb(&#x27;src/app/foo.tsx&#x27;, 42)</code>، ثم <code>cont</code>.</p>
+<p>استخدم <code>--no-file-parallelism</code> (في vitest) أو <code>--runInBand</code> (في jest) بحيث يوجد عامل (worker) واحد فقط — تصحيح تجمّع من العمّال (pool) أمر مؤلم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="heap-snapshots--cpu-profiles-non-interactive">لقطات Heap وملفات تعريف CPU (دون تفاعل)</h2>
+<p>من سكربت CDP أعلاه، استبدل Debugger بـ <code>HeapProfiler</code> / <code>Profiler</code>:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">مزالق شائعة</h2>
+<ol>
+<li>
+<p><strong>أرقام أسطر خاطئة في مصدر TS.</strong> تصيب نقاط التوقف كود JS المُصدَر، لا ملف <code>.ts</code>. إما (أ) التوقف في <code>dist/*.js</code> المبني، أو (ب) تفعيل خرائط المصدر (sourcemaps) عبر (<code>node --enable-source-maps</code>) واستخدام <code>sb(&#x27;src/app.tsx&#x27;, N)</code> — لكن فقط مع عملاء CDP الذين يتّبعون خرائط المصدر. لا تفعل ذلك واجهة <code>node inspect</code> عبر CLI.</p>
+</li>
+<li>
+<p><strong><code>--inspect</code> مقابل <code>--inspect-brk</code>.</strong> يبدأ <code>--inspect</code> المفحّص لكن لا يوقفه؛ فيتجاوز سكربتك أول نقطة توقف إن اتصلت متأخرًا جدًا. استخدم <code>--inspect-brk</code> عندما تحتاج إلى تعيين نقاط التوقف قبل تشغيل أي كود.</p>
+</li>
+<li>
+<p><strong>تعارض المنافذ (ports).</strong> الافتراضي هو <code>9229</code>. إذا كانت عدة عمليات Node قيد الفحص، مرّر <code>--inspect=0</code> (منفذ عشوائي) واقرأ الرابط الفعلي من <code>/json/list</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+</li>
+<li>
+<p><strong>العمليات الفرعية.</strong> لا يفحص <code>--inspect</code> على عملية أب عملياتها الفرعية. استخدم <code>NODE_OPTIONS=&#x27;--inspect-brk&#x27; node parent.js</code> لينتقل ذلك إلى كل عملية فرعية؛ وانتبه أنها جميعًا تحتاج منافذ فريدة (يزيد Node المنفذ تلقائيًا عند وراثة <code>NODE_OPTIONS=&#x27;--inspect&#x27;</code>).</p>
+</li>
+<li>
+<p><strong>إنهاء في الخلفية.</strong> إذا ضغطت <code>Ctrl+C</code> للخروج من <code>node inspect</code> بينما الهدف متوقف، يبقى الهدف متوقفًا. إما نفّذ <code>cont</code> أولًا، أو أنهِ الهدف صراحةً بـ <code>kill</code>.</p>
+</li>
+<li>
+<p><strong>تشغيل <code>node inspect</code> عبر طرفية وكيل.</strong> إنه REPL متوافق مع PTY. في Hermes، شغّله بـ <code>terminal(pty=true)</code> أو <code>background=true</code> مع <code>process(action=&#x27;submit&#x27;, data=&#x27;...&#x27;)</code>. يعمل نمط المقدمة غير PTY للأوامر المفردة لكن ليس للخطو التفاعلي.</p>
+</li>
+<li>
+<p><strong>الأمان.</strong> يعرّض <code>--inspect=0.0.0.0:9229</code> تنفيذ كود تعسفي. اربط دائمًا بـ <code>127.0.0.1</code> (الافتراضي) إلا إذا كانت لديك شبكة معزولة.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة التحقق</h2>
+<p>بعد إعداد جلسة تصحيح، تحقّق من:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="19"></x-keep> يعيد <code>curl -s http://127.0.0.1:9229/json/list</code> الهدف الذي تتوقعه بالضبط</li>
+<li class="task-list-item"><x-keep id="20"></x-keep> نقطة التوقف الأولى تُصاب فعليًا (إن لم تُصب، فمن المرجّح أنك فوّت <code>--inspect-brk</code> أو اتصلت بعد اكتمال التنفيذ)</li>
+<li class="task-list-item"><x-keep id="21"></x-keep> عرض المصدر عند التوقف يُظهر الملف الصحيح (عدم التطابق = مشكلة في خرائط المصدر، انظر المزلق 1)</li>
+<li class="task-list-item"><x-keep id="22"></x-keep> يعيد <code>exec process.pid</code> في <code>repl</code> رقم العملية (PID) الذي قصدت الاتصال به</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-recipes">وصفات لمرة واحدة</h2>
+<p><strong>«لماذا هذا المتغير غير معرّف (undefined) عند السطر X؟»</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>«ما مسار الاستدعاء إلى هذه الدالة؟»</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><strong>«هذه السلسلة غير المتزامنة (async) عالقة — أين؟»</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>

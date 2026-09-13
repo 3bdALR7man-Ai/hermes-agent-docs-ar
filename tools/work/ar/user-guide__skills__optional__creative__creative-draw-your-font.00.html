@@ -1,0 +1,101 @@
+
+<header><h1>Draw Your Font</h1></header>
+<p>حوّل صورة لخط يدك إلى خط (font) قابل للتثبيت بصيغة TTF.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/creative/draw-your-font</code></td></tr><tr><td>المسار</td><td><code>optional-skills/creative/draw-your-font</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Danilo Znamerovszkij (<a href="https://github.com/danilo-znamerovszkij/draw-your-font" data-ext>https://github.com/danilo-znamerovszkij/draw-your-font</a>)، تم نقلها بواسطة Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>font</code>, <code>handwriting</code>, <code>typography</code>, <code>ttf</code>, <code>woff</code>, <code>vision</code>, <code>creative</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/creative/creative-pixel-art"><code>pixel-art</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>draw-your-font</h1>
+<p>صورة لأحرف مكتوبة بخط اليد تدخل → خط قابل للتثبيت يخرج. أنت تتولى الرؤية
+(إيجاد الأحرف وتصنيفها، والحكم على الجودة)؛ بينما تتولى CLI كل الهندسة (التتبّع،
+القياسات، تجميع الخط). لا تُعدّل مسارات SVG أو الإحداثيات بنفسك مطلقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup-in-hermes-once-per-session">الإعداد في Hermes (مرة واحدة لكل جلسة)</h2>
+<p>الـ CLI هو حزمة npm المثبّتة بإصدار محدد <code>draw-your-font@0.1.0</code> — شغّلها عبر npx (يتطلّب Node ≥ 18، دون حاجة لتثبيت عام):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أينما ظهر <code>$DYF</code> في الأمثلة أدناه، استخدم <code>npx -y draw-your-font@0.1.0</code>. متغيرات الـ shell لا تبقى بين استدعاءات الأدوات، لذا الصق الأمر كاملًا في كل مرة. كل شيء يعمل محليًا؛ خط يد المستخدم لا يغادر الجهاز أبدًا.</p>
+<p>تصل الصور إلى Hermes إما كمسار ملف في الرسالة أو عبر ذاكرة الصور المؤقتة الخاصة بالـ gateway — استخدم مسار الملف الفعلي مع CLI. عندما تصل صورة إلى المحادثة دون مسار، اطلب من المستخدم الملف (تحتاج CLI ملفًا حقيقيًا، لا ذاكرتك عن الصورة).</p>
+<p>نفّذ الخطوات المرئية (أوراق التلامس، المعاينات، أوراق الحروف) بتحميل ملفات PNG باستخدام <code>vision_analyze</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decide-the-flow">حدّد سير العمل</h2>
+<ul>
+<li><strong>لا يملك المستخدم صورة بعد</strong> ← اعرض القالب: اطبع، اكتب، صوّر.</li>
+<li><strong>يشارك المستخدم صورة (صورًا) لخط اليد</strong> ← سير العمل الرئيسي أدناه.</li>
+<li><strong>لصق المستخدم صورة لكن لا يوجد مسار ملف</strong> ← يمكنك رؤيتها، لكن
+CLI يحتاج ملفًا. اطلب منه سحب ملف الصورة إلى الطرفية (هذا
+يُدرج مساره) أو إعطاء المسار مباشرة. لا تُكمل اعتمادًا على الذاكرة.</li>
+<li><strong>يريد المستخدم تعديلات على خط بُني في هذه الجلسة</strong> ← قسم التحسين.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="template-flow-best-quality">سير عمل القالب (أفضل جودة)</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أخبر المستخدم: اطبعه، واكتب حرفًا واحدًا في كل مربع بقلم داكن
+(0.5 ملم أو أكثر)، مع إبقاء الحرف جالسًا على الخط الصلب، ثم صوّر كل
+صفحة من الأعلى في إضاءة جيدة وشارك مسارات الملفات. تُطبع الشبكة
+بلون رمادي فاتح وتختفي أثناء المعالجة - يبقى حبره فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="main-flow-photos--font">سير العمل الرئيسي: صورة (صور) ← خط</h2>
+<p><strong>1. التقسيم (Segment).</strong> يعمل مع صفحات القالب والصور الحرة على حد سواء:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>2. انظر، ثم صنّف.</strong> حمّل <code>work/contact-1.png</code> باستخدام <code>vision_analyze</code> (واحدة لكل صورة): كل
+كتلة (blob) مكتشَفة تحمل رقمًا. هذه هي الخطوة التي تهمّ فيها عيناك - تحقّق من:</p>
+<ul>
+<li>هل حصل كل حرف مكتوب على مربع واحد بالضبط؟ قد يظهر حرف مرسوم بضربات
+منفصلة كمربّعين (يتولّى إعادة التصنيف الأمر: أعطِ المربّع الرئيسي الحرف
+وضع علامة على الجزء المتبقي بـ <code>&quot;&quot;</code>)، وقد يتشارك حرفان متلامسان مربّعًا واحدًا
+(اطلب من المستخدم إعادة تصوير هذين فقط، أو تقبّل الفجوة).</li>
+<li>المربعات الزائدة (ظلال، خطوط مسطّرة، بقع، حواف الصفحة) ← ضع لها علامة <code>&quot;&quot;</code>.</li>
+</ul>
+<p>ثم اكتب <code>work/labels.json</code> بربط معرّف الكتلة ← الحرف، مثلًا
+<code>{&quot;0&quot;: &quot;A&quot;, &quot;1&quot;: &quot;B&quot;, &quot;7&quot;: &quot;&quot;, &quot;8&quot;: &quot;a&quot;}</code>:</p>
+<ul>
+<li>صفحة القالب: الترتيب هو ترتيب مجموعة الأحرف المطبوعة على القالب - تحقّق
+من الورقة بدل الثقة بها عشوائيًا. الترتيب الأدنى: A–Z، a–z،
+0–9، ثم <code>.,;:!?&#x27;&quot;-()@#&amp;+/$</code>؛ وتضيف الإسبانية <code>ÑñÁÉÍÓÚáéíóúü¿¡</code>.</li>
+<li>حرّة الشكل: حدّد كل حرف من ورقة التلامس. تحديد الحالة الكبيرة مقابل
+الصغيرة للأشكال المتماثلة (S/s، O/o، C/c، X/x…) يتم بمقارنة الحجم
+والموضع النسبيين - قارن بالمجاورات التي أنت متأكد منها.</li>
+<li>أخبرك المستخدم بما كتبه (مثل &quot;ABC ثم abc&quot;)؟ ثق بذلك، واربطه حسب
+ترتيب القراءة (الصف العلوي أولًا، من اليسار لليمين)، وتحقّق بصريًا.</li>
+<li>ظهر نفس الحرف مرتين ← صنّف الأفضل رسمًا، وضع <code>&quot;&quot;</code> للآخر.</li>
+</ul>
+<p><strong>3. البناء.</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>سمِّ الخط باسم المستخدم (اسأل إن لم يكن واضحًا - سؤال قصير واحد كحدّ أقصى).</p>
+<p><strong>4. احكم قبل التسليم.</strong> حمّل <code>work/preview.png</code> و <code>work/glyphs.png</code> باستخدام <code>vision_analyze</code>
+وانتقد كمدير فني:</p>
+<ul>
+<li>أحرف مكسورة أو ملطّخة (تتبّع سيّئ) ← غالبًا ضربة قلم خافتة؛ جرّب
+<code>--weight 1</code>، أو اطلب إعادة تصوير ذلك الحرف فقط.</li>
+<li>كل شيء رفيع/سميك جدًا ← أعد البناء بـ <code>--weight 1</code> / <code>--weight -1</code>.</li>
+<li>حواف متعرّجة ← أعد البناء بـ <code>--smooth 1.5</code> (حتى 2).</li>
+<li>حرف موضوع بشكل خاطئ (مثل <code>g</code> لا ينزل تحت السطر) ← عادة تصنيف خاطئ؛
+أصلح labels.json وأعد البناء.</li>
+<li>بطون ممتلئة (b، o، g تبدو مصمتة): لا يجب أن يحدث هذا أبدًا - إن حدث،
+فالقصّ ملطّخ؛ اطلب إعادة تصوير.</li>
+</ul>
+<p>إعادة البناء رخيصة وآمنة للتكرار. أصلح ما تستطيع بنفسك أولًا؛
+ولا تزعج المستخدم بطلب إعادة تصوير إلا عندما تكون المشكلة في الحبر المصدر.</p>
+<p><strong>5. التسليم.</strong> يصل الخط إلى <code>&lt;workdir&gt;/&lt;NameWithoutSpaces&gt;.ttf</code> (تطبع
+مخرجات البناء المسار الدقيق). أعطِ ذلك المسار وطريقة التثبيت:
+macOS - نقر مزدوج ← &quot;Install Font&quot;؛ Windows - نقر بزر الفأرة الأيمن ← &quot;Install&quot;.
+اذكر ما هو ناقص (تطبع عملية البناء الأحرف غير المغطّاة) واعرض،
+دون إلحاح:</p>
+<ul>
+<li>صيغ الويب + CSS: أعد البناء بـ <code>--formats ttf,woff,woff2,css</code>.</li>
+<li>قراءة لوضوح الخط (legibility) (أدناه).</li>
+<li>صورتهم التالية لملء الأحرف الناقصة: أعد تشغيل segment مع كل
+الصور (القديمة والجديدة) في مجلد عمل جديد - <code>$DYF segment p1.jpg p2.jpg -d work2</code> - ثم أعد التصنيف من أوراق التلامس الجديدة (تُعاد ترقيم معرّفات
+الكتل؛ ملف labels.json القديم لا ينتقل) وابنِ من مجلد العمل الجديد.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="refine-conversational-iteration">التحسين (تكرار حواري)</h2>
+<table><thead><tr><th>يقول المستخدم</th><th>افعل</th></tr></thead><tbody><tr><td>&quot;smoother / rounder&quot;</td><td><code>build … --smooth 1.5</code> (بحد أقصى 2)</td></tr><tr><td>&quot;thicker / bolder&quot;</td><td><code>build … --weight 1</code> (بحد أقصى 2)</td></tr><tr><td>&quot;thinner / lighter&quot;</td><td><code>build … --weight=-1</code> (السالب يحتاج صيغة <code>=</code>)</td></tr><tr><td>&quot;the g looks bad&quot;</td><td>أرِه <code>work/crops/&lt;id&gt;.png</code> لذلك الحرف؛ اعرض إعادة تصوير أو تنعيم</td></tr><tr><td>&quot;wrong letter&quot; / تبديل</td><td>عدّل labels.json، وأعد البناء</td></tr><tr><td>&quot;give me woff2 / web&quot;</td><td><code>build … --formats ttf,woff,woff2,css</code></td></tr><tr><td>نص معاينة مخصّص</td><td><code>$DYF preview -d work --text &quot;…&quot;</code> (بعد البناء)</td></tr></tbody></table>
+<p>كل أوامر التحسين تعيد البناء من القصاصات المحفوظة - دون حاجة
+لإعادة التصوير إلا إذا كانت المشكلة في الحبر نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="legibility-report-offer-after-delivering">تقرير وضوح القراءة (اعرضه بعد التسليم)</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اقرأه وقدّم رأيًا صادقًا ولطيفًا: درجة من 10 لاستخدام نص الفقرات،
+وأزواج الحروف الـ 2-3 الأكثر عرضة للالتباس (rn→m، cl→d، I/l/1، O/0)، وإصلاحًا
+ملموسًا أو اثنين (أعد رسم تلك الحروف بحجم أكبر، تباعد أكثر). لاحظ أن
+الاستخدام العرضي (العناوين، الملاحظات) أكثر تسامحًا من الفقرات. لا تجعل
+التسليم مشروطًا بهذا أبدًا - إنها نصيحة، لا عائق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p>وجد التقسيم كتلًا أكثر أو أقل من اللازم بكثير، أو بقيت خطوط الدليل الرمادية،
+أو ظهرت كتل ظل، أو ضربات قلم حبر جاف خافتة ← انظر
+<code>references/troubleshooting.md</code>.</p>

@@ -1,0 +1,178 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluggable-interfaces--where-to-go-for-each">الواجهات القابلة للتوصيل — إلى أين تذهب لكل منها</h2>
+<p>يوضح الجدول أعلاه فئات الإضافات الأربع، لكن ضمن &quot;الإضافات العامة&quot; يعرض <code>PluginContext</code> عدة نقاط توسّع مختلفة — كما يقبل Hermes أيضًا امتدادات خارج نظام إضافات Python (باكندات معتمدة على الإعدادات، أوامر مربوطة بـ shell، خواديم خارجية، إلخ). استخدم هذا الجدول لتجد الوثيقة الصحيحة لما تريد بناءه:</p>
+<table><thead><tr><th>تريد إضافة…</th><th>كيف</th><th>دليل التأليف</th></tr></thead><tbody><tr><td><strong>أداة</strong> يمكن للـ LLM استدعاءها</td><td>إضافة Python — <code>ctx.register_tool()</code></td><td><a href="/docs/developer-guide/plugins">Build a Hermes Plugin</a> · <a href="/docs/developer-guide/adding-tools">Adding Tools</a></td></tr><tr><td><strong>hook لدورة الحياة</strong> (قبل/بعد LLM، بداية/نهاية الجلسة، ترشيح الأدوات)</td><td>إضافة Python — <code>ctx.register_hook()</code></td><td><a href="/docs/user-guide/features/hooks">مرجع Hooks</a> · <a href="/docs/developer-guide/plugins">Build a Hermes Plugin</a></td></tr><tr><td><strong>slash command</strong> للـ CLI / gateway</td><td>إضافة Python — <code>ctx.register_command()</code></td><td><a href="/docs/developer-guide/plugins">Build a Hermes Plugin</a> · <a href="/docs/developer-guide/extending-the-cli">Extending the CLI</a></td></tr><tr><td><strong>أمر فرعي</strong> لـ <code>hermes &lt;thing&gt;</code></td><td>إضافة Python — <code>ctx.register_cli_command()</code></td><td><a href="/docs/developer-guide/extending-the-cli">Extending the CLI</a></td></tr><tr><td><strong>مهارة</strong> مضمَّنة تشحنها إضافتك</td><td>إضافة Python — <code>ctx.register_skill()</code></td><td><a href="/docs/developer-guide/creating-skills">Creating Skills</a></td></tr><tr><td><strong>باكند inference</strong> (مزوّد LLM: OpenAI-compat، Codex، Anthropic-Messages، Bedrock)</td><td>إضافة مزوّد — <code>register_provider(ProviderProfile(...))</code> في <code>plugins/model-providers/&lt;name&gt;/</code></td><td><strong><a href="/docs/developer-guide/model-provider-plugin">إضافات مزوّدي النماذج</a></strong> · <a href="/docs/developer-guide/adding-providers">Adding Providers</a></td></tr><tr><td><strong>قناة gateway</strong> (Discord / Telegram / IRC / Teams / إلخ)</td><td>إضافة منصة — <code>ctx.register_platform()</code> في <code>plugins/platforms/&lt;name&gt;/</code></td><td><a href="/docs/developer-guide/adding-platform-adapters">Adding Platform Adapters</a></td></tr><tr><td><strong>باكند ذاكرة</strong> (Honcho، Mem0، Supermemory، …)</td><td>إضافة ذاكرة — اشتقاق فئة فرعية من <code>MemoryProvider</code> في <code>plugins/memory/&lt;name&gt;/</code></td><td><a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a></td></tr><tr><td><strong>استراتيجية ضغط سياق</strong></td><td>إضافة محرّك سياق — <code>ctx.register_context_engine()</code></td><td><a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a></td></tr><tr><td><strong>باكند توليد صور</strong> (DALL·E، SDXL، …)</td><td>إضافة باكند — <code>ctx.register_image_gen_provider()</code></td><td><a href="/docs/developer-guide/image-gen-provider-plugin">إضافات مزوّدي توليد الصور</a></td></tr><tr><td><strong>باكند توليد فيديو</strong> (Veo، Kling، Pixverse، Grok-Imagine، Runway، …)</td><td>إضافة باكند — <code>ctx.register_video_gen_provider()</code></td><td><a href="/docs/developer-guide/video-gen-provider-plugin">إضافات مزوّدي توليد الفيديو</a></td></tr><tr><td><strong>باكند TTS</strong> (أي CLI — Piper، VoxCPM، Kokoro، xtts، سكربتات استنساخ الصوت، …)</td><td>معتمد على الإعدادات (موصى به) — أعلن عنه تحت <code>tts.providers.&lt;name&gt;</code> بـ <code>type: command</code> في <code>config.yaml</code>. أو إضافة باكند Python — <code>ctx.register_tts_provider()</code> لمحركات Python-SDK / البث التي تحتاج أكثر من قالب shell.</td><td><a href="/docs/user-guide/features/tts#custom-command-providers">إعداد TTS</a> · <a href="/docs/user-guide/features/tts#python-plugin-providers">دليل إضافة Python</a></td></tr><tr><td><strong>باكند STT</strong> (أي CLI — whisper.cpp، ملف whisper مخصص، CLI محلي لـ ASR)</td><td>معتمد على الإعدادات (موصى به) — أعلن عنه تحت <code>stt.providers.&lt;name&gt;</code> بـ <code>type: command</code> في <code>config.yaml</code>، أو اضبط <code>HERMES_LOCAL_STT_COMMAND</code> كحل بديل قديم بأمر واحد. أو إضافة باكند Python — <code>ctx.register_transcription_provider()</code> لمحركات Python-SDK (OpenRouter، SenseAudio، Gemini-STT، إلخ).</td><td><a href="/docs/user-guide/features/tts#stt-custom-command-providers">إعداد STT</a> · <a href="/docs/user-guide/features/tts#python-plugin-providers-stt">دليل إضافة Python</a></td></tr><tr><td><strong>أدوات خارجية عبر MCP</strong> (نظام الملفات، GitHub، Linear، Notion، أي خادم MCP)</td><td>معتمد على الإعدادات — أعلن عن <code>mcp_servers.&lt;name&gt;</code> بـ <code>command:</code> / <code>url:</code> في <code>config.yaml</code>. يكتشف Hermes أدوات الخادم تلقائيًا ويسجّلها جنبًا إلى جنب مع الأدوات المدمجة.</td><td><a href="/docs/user-guide/features/mcp">MCP</a></td></tr><tr><td><strong>مصادر مهارات إضافية</strong> (مستودعات GitHub مخصصة، فهارس مهارات خاصة)</td><td>CLI — <code>hermes skills tap add &lt;repo&gt;</code></td><td><a href="/docs/user-guide/features/skills#skills-hub">Skills Hub</a> · <a href="/docs/user-guide/features/skills#publishing-a-custom-skill-tap">نشر tap مخصص</a></td></tr><tr><td><strong>hooks لأحداث gateway</strong> (تُطلق عند <code>gateway:startup</code>، <code>session:start</code>، <code>agent:end</code>، <code>command:*</code>)</td><td>ضع <code>HOOK.yaml</code> + <code>handler.py</code> في <code>~/.hermes/hooks/&lt;name&gt;/</code></td><td><a href="/docs/user-guide/features/hooks#gateway-event-hooks">Event Hooks</a></td></tr><tr><td><strong>hooks لـ shell</strong> (تشغيل أمر shell عند الأحداث — إشعارات، سجلات تدقيق، تنبيهات سطح المكتب)</td><td>معتمد على الإعدادات — أعلن عنه تحت <code>hooks:</code> في <code>config.yaml</code></td><td><a href="/docs/user-guide/features/hooks#shell-hooks">Shell Hooks</a></td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>ليس كل شيء إضافة Python. بعض أسطح التوسّع تستخدم عمدًا <strong>أوامر shell معتمدة على الإعدادات</strong> (TTS، STT، shell hooks) بحيث تصبح أي أداة CLI لديك بالفعل إضافةً دون كتابة Python. أخرى هي <strong>خواديم خارجية</strong> (MCP) يتصل بها الوكيل ويسجّل أدواتها تلقائيًا. وبعضها <strong>مجلدات جاهزة للإسقاط</strong> (gateway hooks) بصيغة manifest خاصة بها. اختر السطح المناسب لأسلوب التكامل الذي يلائم حالتك؛ أدلة التأليف في الجدول أعلاه يغطي كل منها placeholders، والاكتشاف، والأمثلة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="nixos-declarative-plugins">إضافات NixOS التصريحية</h2>
+<p>على NixOS، يمكن تثبيت الإضافات تصريحيًا عبر خيارات الوحدة — دون الحاجة إلى <code>hermes plugins install</code>. راجع <strong><a href="/docs/getting-started/nix-setup#plugins">دليل إعداد Nix</a></strong> لكل التفاصيل.</p>
+<div class="language-nix codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>الإضافات التصريحية تُربَط برابط رمزي مسبوق بـ <code>nix-managed-</code> — تتعايش مع الإضافات المثبَّتة يدويًا وتُزال تلقائيًا عند حذفها من إعداد Nix.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-plugins">إدارة الإضافات</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-click-install-links-desktop">روابط تثبيت بنقرة واحدة (Desktop)</h3>
+<p>يسجّل Hermes Desktop مخطط رابط <code>hermes://</code>، بحيث يمكن لموقع، أو ملف README، أو
+رسالة محادثة أن ترتبط مباشرةً بتثبيت إضافة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>النقر على أحدها يفتح Hermes ويعرض <strong>مربع حوار تأكيد</strong> — معرّف المستودع،
+وملاحظة &quot;قبل أن تثبّت&quot;، وروابط تصفّح واستنساخ GitHub — ثم
+يستنسخ المستودع استنساخًا سطحيًا لاكتشاف ما يشحنه (<strong>إضافة وكيل</strong> —
+Python الخلفي، أو <strong>إضافة سطح مكتب</strong> — واجهة تطبيق، أو كلاهما). تختار
+المكوّنات عبر مربعات اختيار ثم تؤكّد. لا يُثبَّت شيء حتى تفعل ذلك؛
+الروابط العميقة لا تثبّت تلقائيًا أبدًا، وتثبيتات إضافات الوكيل تمر عبر نفس
+<a href="#install-time-security-scanning">فحص الأمان وقت التثبيت</a> كما في
+<code>hermes plugins install</code>.</p>
+<p>المستودعات الهجينة (نصفا وكيل + سطح مكتب في مستودع واحد) تستخدم رابطًا واحدًا ومربع
+حوار واحد. يمكن الوصول إلى نفس النافذة المنبثقة دون رابط عبر <strong>Capabilities →
+Plugins → Install from Git</strong>. روابط <code>hermes://plugin-agent/…</code> و
+<code>hermes://plugin-desktop/…</code> القديمة تُوجَّه إلى نفس مربع الحوار. في إصدارات التطوير
+(<code>npm run dev</code>) المخطط هو <code>hermes-dev://</code>.</p>
+<p>لا تحتاج المواقع إلى أي SDK — تكفي وصلة عادية:</p>
+<div class="language-html codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>لخواديم MCP صيغة رابط مماثلة — راجع
+<a href="/docs/reference/mcp-config-reference#add-to-hermes-link">رابط Add to Hermes</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-capabilities-and-consent">إمكانيات الإضافات والموافقة</h3>
+<p>يمكن للإضافات الإعلان عن أسطح المضيف المميّزة التي تريدها في
+<code>plugin.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>عندما تعلن إضافة عن إمكانيات، يعرض <code>hermes plugins install</code> (و
+<code>hermes plugins enable</code>) القائمة مع أوصاف مخاطر من سطر واحد و
+يسأل مرة واحدة. الموافقة تسجّل المنح تحت
+<code>plugins.entries.&lt;id&gt;.granted_capabilities</code> مع بصمة موافقة
+وطابع زمني. الرفض يترك الإضافة مفعَّلة مع تعطيل تلك الإمكانيات —
+الإضافة المصمَّمة جيدًا تستكشف الحال بـ <code>ctx.has_capability()</code> وتتراجع
+بسلاسة.</p>
+<p><strong>إعادة الموافقة عند التحديث:</strong> إذا أعلن تحديث لإضافة عن إمكانيات لم
+تمنحها، يعرض <code>hermes plugins update</code> الإضافات ويسأل مجددًا. تبقى
+الإمكانيات الجديدة مُعطَّلة حتى توافق — تحديث إضافة لا يمكن أبدًا أن
+يوسّع صلاحياتها بصمت.</p>
+<p><strong>الجلسات غير التفاعلية تفشل بأمان:</strong> تثبيت أو تحديث دون
+TTY يكمل التثبيت، لكن الإمكانيات المُعلَنة <em>لا</em> تُمنَح. شغّل
+<code>hermes plugins enable &lt;id&gt;</code> تفاعليًا لمنحها لاحقًا.</p>
+<p>افحص الحالة في أي وقت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>معرّفات الإمكانيات تُطابق واحدًا لواحد بوابات الإعدادات القديمة لكل ميزة، والتي تظل
+تعمل لكنها <strong>مُهملة (deprecated)</strong> لصالح تدفق الموافقة:</p>
+<table><thead><tr><th>الإمكانية</th><th>المفتاح القديم (<code>plugins.entries.&lt;id&gt;.…</code>)</th></tr></thead><tbody><tr><td><code>tools.override</code></td><td><code>allow_tool_override</code></td></tr><tr><td><code>llm.provider_override</code></td><td><code>llm.allow_provider_override</code></td></tr><tr><td><code>llm.model_override</code></td><td><code>llm.allow_model_override</code></td></tr><tr><td><code>llm.agent_id_override</code></td><td><code>llm.allow_agent_id_override</code></td></tr><tr><td><code>llm.profile_override</code></td><td><code>llm.allow_profile_override</code></td></tr><tr><td><code>llm.task_override</code></td><td><code>llm.allow_task_override</code></td></tr><tr><td><code>gateway.platform_actions</code></td><td><code>allow_platform_actions</code></td></tr></tbody></table>
+<p>تكون البوابة مفتوحة عندما <em>إما</em> تُمنَح الإمكانية <em>أو</em> يُضبَط المفتاح القديم —
+تستمر الإعدادات الحالية بالعمل دون تغيير.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>ليست sandbox</div><div class="admonitionContent_BuS1"><p>الإمكانيات هي <strong>طبقة موافقة وتدقيق</strong>، وليست عزلًا. الإضافات تعمل ككود
+Python عادي داخل العملية نفسها: إضافة خبيثة يمكن أن تتجاهل كل بوابة هنا.
+منح إمكانية هو إعلان ثقة بمؤلف الإضافة — وليس
+تدقيقًا للكود، ولم يراجع Hermes كود الإضافة. ثبّت فقط
+إضافات من مصادر تثق بها.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-actions">إجراءات المنصة</h3>
+<p><code>ctx.platform_actions</code> يمنح الإضافة مجموعة أفعال صغرى مقيَّدة بالإمكانيات للتصرف على
+منصات دردشة متصلة عبر سجلّ محوّلات gateway الحي —
+البديل المعتمد لتصحيح محوّل بشكل غير رسمي (monkeypatching). <strong>مُعطَّل
+افتراضيًا</strong>: كل استدعاء يعيد فحص إمكانية <code>gateway.platform_actions</code>
+(المفتاح القديم <code>plugins.entries.&lt;id&gt;.allow_platform_actions</code>)، وأي استدعاء غير
+ممنوح يعيد خطأً منظَّمًا بدلًا من التصرف.</p>
+<p>أفعال v1 (كلاهما <code>async</code>، وكلاهما يعيد قاموسًا عاديًا، ولا يرفعان استثناءً أبدًا في
+تنفيذ الـ hooks):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>النجاح هو <code>{&quot;ok&quot;: True, &quot;action&quot;: &lt;verb&gt;}</code>. الإخفاقات هي
+<code>{&quot;ok&quot;: False, &quot;error&quot;: &lt;code&gt;, &quot;detail&quot;: &lt;str&gt;}</code> برموز خطأ ثابتة:
+<code>capability_not_granted</code>، <code>invalid_argument</code>، <code>gateway_unavailable</code>،
+<code>unknown_platform</code>، <code>adapter_not_registered</code>، <code>adapter_disconnected</code>،
+<code>unsupported_platform_action</code>، <code>action_failed</code>. الأفعال تتحقق من أن
+المحوّل الهدف موجود ومتصل قبل التصرف؛ المحوّل غير المتصل أو
+المفقود يتدهور إلى خطأ منظَّم، وليس استثناءً أبدًا.</p>
+<p>المنصات المدعومة في v1: Telegram وDiscord. <code>add_reaction</code> في Telegram
+<em>يضبط</em> تفاعل البوت (Bot API يستبدل تفاعل بوت سابق بدلًا من
+تكديسه). كل إجراء — مسموح أو مرفوض — يُكتَب في السجل مع
+معرّف الإضافة، والفعل، والمنصة، والنتيجة.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>ملاحظة أمنية</div><div class="admonitionContent_BuS1"><p>إجراءات المنصة هي <strong>صلاحية إرسال رسائل باسم البوت</strong>: إضافة ممنوحة
+يمكنها التفاعل وإعادة تسمية سلاسل المحادثات في أي محادثة يستطيع بوت gateway الوصول إليها، وليس فقط
+المحادثة التي شغّلت الـ hook. امنح <code>gateway.platform_actions</code> فقط للإضافات
+التي تثق بها، وفضّل الإضافات التي توثّق بدقة الإجراءات التي تتخذها.
+الوصول الخام إلى حمولة/مقبض SDK المنصة <strong>ليس</strong> عمدًا جزءًا من هذا
+السطح — بحسب تصحيح التصميم من الجولة الثانية #64176، فهو يحتاج إمكانية خاصة به
+(<code>gateway.raw_events</code>) بوسم &quot;لا ضمان استقرار&quot; وتصميمًا
+منفصلًا، ولم يُشحَن بعد.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovering-plugins--the-hermes-plugin-catalog">اكتشاف الإضافات — كتالوج إضافات Hermes</h3>
+<p><code>hermes plugins search &lt;term&gt;</code> يبحث في <strong>كتالوج إضافات Hermes</strong> — الكتالوج
+المنسَّق والمثبَّت بـ SHA، والمُدار في مستودع hermes-agent
+(<code>plugin-catalog/</code>). يشمل التطابق أسماء المدخلات، والأوصاف، والأدوات
+المُعلَنة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>بمجرد أن تجد إضافة، ثبّتها بالاسم المجرد — يُحلّ الاسم إلى
+مستودع المدخلة عند <strong>الـ SHA المثبَّت</strong>، وتُسجَّل نشأة الكتالوج بحيث يمكن لـ
+<code>hermes plugins update</code> إعادة التثبيت عندما يتحرك الكتالوج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>معرّفات <code>owner/repo</code> أو روابط Git الصريحة لا تلامس الكتالوج أبدًا وتُوسَم
+كمصادر مخصصة (غير مراجَعة). <code>--ref &lt;40-char commit SHA&gt;</code> صريح
+يثبّت تثبيتًا مخصصًا.</p>
+<p>راجع <a href="/docs/user-guide/features/plugin-catalog">كتالوج الإضافات</a> لنموذج الثقة الكامل، وCI
+القبول، وسير عمل التقديم.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>مُدرَج في الكتالوج ≠ مُدقَّق</div><div class="admonitionContent_BuS1"><p>وجود مدخلة في الكتالوج يعني أن بيانات المدخلة الوصفية والإمكانيات
+المُعلَنة رُوجِعَت عند القبول — <strong>وهذا ليس تدقيقًا للكود</strong>. التثبيت
+لا يزال يمر عبر تدفق الموافقة العادي (تثبيت الإضافات مُعطَّل افتراضيًا،
+والتفعيل خطوة صريحة، وحقوق تجاوز الأداة تتطلب منحًا
+منفصلًا). راجع مصدر الإضافة قبل تفعيلها.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-packs">حزم الإضافات</h3>
+<p><strong>حزمة الإضافات (plugin pack)</strong> هي ملف YAML تصريحي قابل للمشاركة (<code>hermes-pack.yaml</code>)
+يثبّت مجموعة من الإضافات — مثل مشاركة modpack. تثبيت حزمة
+يتفرّع إلى تثبيتات ثابتة عادية؛ لا شيء جديد يوجد في وقت التشغيل.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>وضعية سلسلة التوريد.</strong> يجب أن يكون <code>ref</code> لكل مدخلة SHA كامل
+مكوَّن من 40 حرفًا — تُرفَض الوسوم tags وأسماء الفروع بخطأ يسمّي
+المدخلة، وهي نفس القاعدة المطبَّقة على كتالوج الإضافات. تسلك تثبيتات
+الحزمة نفس مسار التثبيت الثابت تمامًا مثل <code>hermes plugins install --ref &lt;sha&gt;</code> وتسجّل
+نفس النشأة في <code>plugins/.install-metadata.json</code>، بحيث يُحلّ تثبيتان
+لنفس الحزمة إلى الشيء نفسه. تُبنى الحزم على
+<a href="/docs/developer-guide/plugins">حقول manifest v2</a> (<code>manifest_version</code>،
+<code>api_version</code>، <code>requires_plugins</code>) — كل manifest خاص بإضافة
+لا يزال يُتحقَّق منه عبر مسار التثبيت العادي.</p>
+<p><strong>الموافقة لا تُمنَح جماعيًا أبدًا.</strong> تعرض <code>pack install</code> شاشة مراجعة
+إلزامية (كل إضافة، ومصدرها، وrefها المثبَّت، والإمكانيات التي تعلن عنها)،
+ثم تطلب تأكيدًا <strong>واحدًا</strong> لمحتويات الحزمة. بعد ذلك، تمر
+إمكانيات كل إضافة المُعلَنة عبر طلب موافقة الإمكانيات
+القياسي لكل إضافة — مطابق لـ <code>hermes plugins install</code> منفردة.
+لا وجود لـ <code>--yes</code>، ولا يمكن للجلسات غير التفاعلية تثبيت الحزم.</p>
+<p><strong>الأسرار لا تنتقل أبدًا في الحزم.</strong> تقتصر بذور <code>config:</code> على
+مفاتيح <code>plugins.entries.&lt;id&gt;</code> غير السرية — أسماء المفاتيح ذات الشكل السري
+(<code>*token*</code>، <code>*key*</code>، <code>*password*</code>، …)، ومنح الإمكانيات، وبوابات الثقة
+<code>allow_*</code> المُهملة، تُرفَض عند التثبيت وتُحذَف عند التصدير.
+الإضافات التي تحتاج أسرارًا تعلن عنها في <code>requires_env</code> الخاص بها، والتي
+تُطلَب أثناء التثبيت كالمعتاد. القيم الموجودة أصلًا لدى المستخدم في
+<code>plugins.entries.&lt;id&gt;</code> تفوز دائمًا على بذور الحزمة.</p>
+<p><strong>الفشل الجزئي.</strong> تُثبَّت كل إضافة باستقلالية؛ تُبلَّغ الإخفاقات
+لكل إضافة، وتستمر البقية، ويخرج الأمر برمز غير صفري إذا
+فشلت أي إضافة.</p>
+<p><strong>تحفظات التصدير.</strong> يشمل <code>pack export</code> فقط الإضافات ذات نشأة Git
+معروفة (المثبَّتة عبر <code>hermes plugins install</code>). الإضافات المحلية فقط
+تُدرَج كتعليقات تحذير في YAML المُصدَر، وليست كمدخلات قابلة للتثبيت.</p>
+<p>قائمة <code>skills:</code> تُحلَّل وتُعرَض عند التثبيت لكنها لا تُثبَّت تلقائيًا
+بعد — ثبّت تلك يدويًا في الوقت الحالي (<code>hermes skills</code>). ربط معرّفات
+skill-hub في تثبيت الحزم هو مسار تتمة موثَّق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-time-security-scanning">فحص الأمان وقت التثبيت</h3>
+<p>كل <code>hermes plugins install</code> و<code>hermes plugins update</code> يشغّل فحصًا
+أمنيًا ثابتًا على شجرة الإضافة قبل تفعيلها (مستوحى من
+فحص أمان المهارات والإضافات في Claude Cowork). يعيد الفاحص استخدام
+نفس محرّك أنماط التهديد الخاص بـ <a href="/docs/user-guide/features/skills">حارس Skills Hub</a>
+— تسريب مخازن بيانات الاعتماد، وقذائف عكسية، وأوامر مدمِّرة،
+وآليات استمرارية، وتنفيذ مبهم، وحقن prompt في
+ملفات التوثيق — مع استثناءات واعية بالإضافات: إضافة مزوّد
+تقرأ مفتاح API <strong>الخاص بها</strong> من البيئة (نمط
+<code>requires_env</code> الموثَّق) لا تُوسَم.</p>
+<p>ثلاثة أحكام، مطابقة لـ pass/warn/fail الخاصة بـ Cowork:</p>
+<table><thead><tr><th>الحكم</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>آمن (safe)</strong></td><td>يثبَّت عاديًا، دون مخرجات إضافية</td></tr><tr><td><strong>احتراس (caution)</strong></td><td>تُعرَض النتائج؛ تؤكّد <code>Install anyway? [y/N]</code> (أو تمرّر <code>--force</code>)</td></tr><tr><td><strong>خطر (dangerous)</strong></td><td>محظور. <code>--force</code> <strong>لا</strong> يتجاوزه</td></tr></tbody></table>
+<p>في <code>hermes plugins update</code>، حكم خطر على الشجرة المحدَّثة
+يعطّل الإضافة حتى تراجع النتائج وتعيد تفعيلها.</p>
+<p>الفحص مفعَّل افتراضيًا؛ عطّله في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-ui">واجهة تفاعلية</h3>
+<p>تشغيل <code>hermes plugins</code> دون وسائط يفتح شاشة تفاعلية مركّبة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<ul>
+<li><strong>قسم الإضافات العامة</strong> — مربعات اختيار، بدّل بمفتاح SPACE. محدَّد = في <code>plugins.enabled</code>، غير محدَّد = في <code>plugins.disabled</code> (تعطيل صريح).</li>
+<li><strong>قسم إضافات المزوّد</strong> — يعرض الاختيار الحالي. اضغط ENTER للدخول إلى منتقٍ راديو حيث تختار مزوّدًا فعّالًا واحدًا.</li>
+<li>الإضافات المدمجة تظهر في نفس القائمة بوسم <code>[bundled]</code>.</li>
+</ul>
+<p>اختيارات إضافة المزوّد تُحفَظ في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabled-vs-disabled-vs-neither">مفعَّل مقابل معطَّل مقابل لا هذا ولا ذاك</h3>
+<p>تشغل الإضافات إحدى ثلاث حالات:</p>
+<table><thead><tr><th>الحالة</th><th>المعنى</th><th>في <code>plugins.enabled</code>؟</th><th>في <code>plugins.disabled</code>؟</th></tr></thead><tbody><tr><td><code>enabled</code></td><td>يُحمَّل في الجلسة التالية</td><td>نعم</td><td>لا</td></tr><tr><td><code>disabled</code></td><td>معطَّل صراحةً — لن يُحمَّل حتى لو كان أيضًا في <code>enabled</code></td><td>(غير ذي صلة)</td><td>نعم</td></tr><tr><td><code>not enabled</code></td><td>مكتشَف لكن لم يُوافَق عليه أبدًا</td><td>لا</td><td>لا</td></tr></tbody></table>
+<p>الافتراضي لإضافة مثبَّتة حديثًا أو مدمجة هو <code>not enabled</code>. يعرض <code>hermes plugins list</code> الحالات الثلاث المختلفة لتعرف ما عُطِّل صراحةً مقابل ما ينتظر التفعيل فقط.</p>
+<p>في جلسة قيد التشغيل، يعرض <code>/plugins</code> الإضافات المحمَّلة حاليًا.</p>

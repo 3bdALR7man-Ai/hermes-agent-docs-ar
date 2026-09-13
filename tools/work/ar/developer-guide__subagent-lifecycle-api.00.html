@@ -1,0 +1,33 @@
+<header><h1>API دورة حياة Subagent العامة</h1></header>
+<p>يمكن للإضافات إطلاق جلسات Hermes فرعية جديدة والإشراف عليها دون استيراد
+<code>tools.delegate_tool</code>، أو آليات gateway الداخلية، أو حالة TUI، أو حقول <code>AIAgent</code>.
+تحل الخدمة والد العملية من دور الوكيل الحالي، لذا تعمل في
+جلسات CLI، وgateway، وغير التفاعلية، وعامل kanban. إطلاق الخدمة خارج
+دور وكيل نشط يفشل بأمان (fail closed) برسالة <code>No active Hermes parent session</code>.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>SubagentHandle</code> قابل للتسلسل (serializable) ويحمل صلاحية مبهمة ذات إصدار.
+مرّره إلى <code>status</code> أو <code>wait</code> أو <code>cancel</code> أو <code>result</code> أو <code>reconnect</code>؛ أي مقبض
+مشوَّه أو مزوَّر يُعيد <code>UNKNOWN</code>/<code>UNKNOWN_HANDLE</code> ولا يمكنه الوصول إلى العملية الفرعية.</p>
+<p>الحالات المستقرة هي <code>PENDING</code>، و<code>STARTING</code>، و<code>RUNNING</code>، و<code>SUCCEEDED</code>، و<code>FAILED</code>،
+و<code>INTERRUPTED</code>، و<code>CANCEL_REQUESTED</code>، و<code>CANCELLED</code>، و<code>UNKNOWN</code>.</p>
+<p><code>cancel(handle, reason=...)</code> تعاونية بطبيعتها: تطلب من الوكيل الفرعي
+مقاطعة العمل عند أقرب نقطة آمنة له وتعيد <code>CANCEL_REQUESTED</code>؛ ولا
+تدّعي أبدًا الاكتمال حتى تلاحظ <code>wait</code> أو <code>result</code> حالة نهائية. النتائج
+النهائية غير قابلة للتغيير، ومتماثلة القوة (idempotent)، ومحدودة بـ 32 ألف حرف، وتحذف النصوص الكاملة
+والتفكير المخفي، وتتضمن تجزئة (hash) نتيجة مستقرة.</p>
+<p>هذه الواجهة تنفيذ غير متزامن (asynchronous) مُدار بدورة حياة. يستخدم إنشاء العملية الفرعية وإكمالها
+نفس المسار المملوك للمضيف الذي يستخدمه <code>delegate_task</code>، بما في ذلك استعادة
+حل الأداة الخاص بالوالد، وإشعار الذاكرة، وhooks <code>subagent_stop</code> المُسلسَلة،
+وتنظيف الموارد، وتجميع تكلفة العملية الفرعية. وهي لا تغيّر
+أداة <code>delegate_task</code> المتزامنة، ولا التفويض الدفعي، ولا عرضها في gateway/TUI.
+يحتفظ التنفيذ الأولي بالبيانات الوصفية والنتائج النهائية داخل العملية
+لمدة ساعة واحدة.
+بعد إعادة تشغيل العملية، تعيد <code>reconnect</code> <code>RECONNECT_UNAVAILABLE</code> ولا
+تُطلق أبدًا عملية فرعية بديلة. كما لا يمكن لخيوط Python (threads) قيد التشغيل النجاة من
+خروج العملية؛ يجب على المستدعين معاملة تلك المقابض على أنها مقاطعة
+بسبب خروج العملية.</p>
+<p>الطلبات تفشل بأمان (fail-closed): أحجام الهدف/السياق/البيانات الوصفية محدودة، وتُرفض
+مجموعات الأدوات (toolsets) غير المعروفة أو التي توسّع نطاق الوالد، وتُرفض صراحةً
+حظر الأدوات الفردية، وتجاوزات دليل العمل، ومهلات الإطلاق الفردية حتى يستطيع Hermes
+دعمها دون إضعاف العزل. استخدم <code>allowed_toolsets</code> لتضييق نطاق
+العملية الفرعية؛ ويظل حظر الأدوات غير الآمنة الموجود مسبقًا في Hermes مفروضًا.</p>

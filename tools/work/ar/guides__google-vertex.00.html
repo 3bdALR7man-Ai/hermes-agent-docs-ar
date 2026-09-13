@@ -1,0 +1,64 @@
+<header><h1>Google Vertex AI</h1></header>
+<p>يدعم Hermes Agent <strong>نماذج Gemini على Google Cloud Vertex AI</strong> عبر endpoint المتوافق مع OpenAI في Vertex. وعلى خلاف <a href="/docs/guides/google-gemini">مزوّد Google AI Studio</a> (الذي يستخدم مفتاح API ثابتًا مع <code>generativelanguage.googleapis.com</code>)، يمنحك Vertex <strong>حدود معدل على مستوى المؤسسات وفوترة/أرصدة GCP</strong>، وهو الخيار المناسب عندما تريد أن يُحتسب استخدام Gemini على حساب Google Cloud الخاص بك بدلًا من مفتاح AI Studio.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>يصادق Vertex عبر OAuth2، وليس بمفتاح API</div><div class="admonitionContent_BuS1"><p>لا يوفّر Vertex <strong>أي مفتاح API ثابت</strong> للـ endpoint القياسي. إذ يحتاج كل طلب إلى <strong>OAuth2 access token</strong> قصير الأجل (مدة صلاحية TTL ≈ ساعة واحدة) يُصدَر إما من ملف JSON لحساب خدمة (service account) أو من Application Default Credentials (ADC). يُصدر Hermes هذه الـ tokens و<strong>يجدّدها تلقائيًا</strong> نيابةً عنك — فلن تحتاج أبدًا إلى لصق token يدويًا. ولهذا السبب لا ينجح لصق token مؤقت في حقل <code>api_key</code> الخاص بمزوّد مخصص: إذ تنتهي صلاحيته في منتصف الجلسة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>مشروع على Google Cloud</strong> مع <strong>تفعيل Vertex AI API</strong> وتفعيل الفوترة.</li>
+<li><strong>بيانات الاعتماد</strong>، وتكون أحد الخيارين:
+<ul>
+<li>ملف مفتاح <strong>JSON لحساب خدمة</strong> يملك الدور <code>roles/aiplatform.user</code>، أو</li>
+<li><strong>Application Default Credentials</strong> عبر <code>gcloud auth application-default login</code> (أو خادم البيانات الوصفية عند التشغيل على VM في GCP).</li>
+</ul>
+</li>
+<li><strong><code>google-auth</code></strong> — يُثبَّت تلقائيًا في أول مرة تختار فيها Vertex (تثبيت عند الحاجة). وإذا فشل ذلك، فشغّل <code>hermes setup</code> لإصلاح التثبيت المُدار.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>يفصل Vertex إعداداته بحسب درجة حساسيتها:</p>
+<ul>
+<li><strong>مسار بيانات الاعتماد</strong> مؤشّر إلى سرّ، ولذلك يُحفظ في <code>~/.hermes/.env</code>.</li>
+<li><strong>معرّف المشروع والمنطقة</strong> إعدادات توجيه غير سرّية، وتُحفظ في <code>~/.hermes/config.yaml</code>.</li>
+</ul>
+<p><code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>متغيرات البيئة لها الأولوية على config.yaml</div><div class="admonitionContent_BuS1"><p>يتجاوز <code>VERTEX_PROJECT_ID</code> و <code>VERTEX_REGION</code> القيمتين <code>vertex.project_id</code> / <code>vertex.region</code> في <code>config.yaml</code>. استخدمهما للتجاوز على مستوى كل shell، واحتفظ بالإعدادات الدائمة في <code>config.yaml</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-authentication-works">كيف تعمل المصادقة</h3>
+<ol>
+<li>يحدّد Hermes بيانات الاعتماد بالترتيب التالي: <code>VERTEX_CREDENTIALS_PATH</code> → <code>GOOGLE_APPLICATION_CREDENTIALS</code> → ADC.</li>
+<li>يُصدر OAuth2 access token (بنطاق <code>cloud-platform</code>) ويخزّنه مؤقتًا، ثم يجدّده عندما يتبقى على انتهاء صلاحيته 5 دقائق أو أقل.</li>
+<li>يُسلَّم الـ token إلى عميل OpenAI قياسي موجّه إلى endpoint الخاص بـ Vertex:
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+أما المواقع الإقليمية فتستخدم مضيفًا بالشكل <code>{region}-aiplatform.googleapis.com</code> بدلًا من ذلك.</li>
+<li>إذا استمرت الجلسة أطول من عمر الـ token وأعاد أحد الطلبات <code>401</code>، يُصدر Hermes الـ token من جديد ويعيد المحاولة تلقائيًا. وفي حالة gateway يعمل لفترة طويلة، إذا انتهت صلاحية refresh token الخاص بـ ADC نفسه، يلجأ Hermes إلى ملف JSON لحساب الخدمة إن كان مضبوطًا.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-models">النماذج المتاحة</h2>
+<p>يتطلب Vertex البادئة <code>google/</code> الخاصة بالمورّد في معرّفات النماذج. ويعرض منتقي <code>hermes model</code> ما يلي:</p>
+<table><thead><tr><th>النموذج</th><th>المعرّف</th></tr></thead><tbody><tr><td>Gemini 3.8 Flash</td><td><code>google/gemini-3.8-flash</code></td></tr><tr><td>Gemini 3.7 Flash</td><td><code>google/gemini-3.7-flash</code></td></tr><tr><td>Gemini 3.1 Pro Preview</td><td><code>google/gemini-3.1-pro-preview</code></td></tr><tr><td>Gemini 3 Pro Preview</td><td><code>google/gemini-3-pro-preview</code></td></tr><tr><td>Gemini 3 Flash Preview</td><td><code>google/gemini-3-flash-preview</code></td></tr><tr><td>Gemini 3.1 Flash Lite Preview</td><td><code>google/gemini-3.1-flash-lite-preview</code></td></tr><tr><td>Gemini 2.5 Pro</td><td><code>google/gemini-2.5-pro</code></td></tr><tr><td>Gemini 2.5 Flash</td><td><code>google/gemini-2.5-flash</code></td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>المنطقة <code>global</code> لنماذج Gemini 3.x</div><div class="admonitionContent_BuS1"><p>تُخدَّم نماذج المعاينة Gemini 3.x عبر endpoint <code>global</code>. وقد تُعيد الـ endpoints الإقليمية (<code>us-central1</code>، وغيرها) الخطأ 404 لهذه النماذج. اترك <code>region: global</code> كما هو ما لم يكن لديك سبب محدد لتثبيت منطقة بعينها.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models-mid-session">تبديل النماذج أثناء الجلسة</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يبدّل <code>/model</code> بين المزوّدين والنماذج المضبوطة مسبقًا؛ ولا يجمع بيانات اعتماد جديدة. لذا اضبط Vertex أولًا باستخدام <code>hermes model</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reasoning--thinking">الاستدلال / التفكير</h2>
+<p>يتيح Vertex ميزانية التفكير (thinking budget) الخاصة بـ Gemini عبر الواجهة المتوافقة مع OpenAI. ويعيّن Hermes إعداد مستوى الاستدلال (reasoning effort) الخاص به إلى <code>extra_body.google.thinking_config</code> تلقائيًا، بحيث يعمل <code>reasoning_effort</code> بالطريقة نفسها التي يعمل بها على واجهات Gemini الأخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostics">التشخيص</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُبلغ أمر doctor عمّا إذا كان من الممكن تحديد بيانات اعتماد Vertex (مسار حساب الخدمة أو ADC) وعمّا إذا كان المزوّد مضبوطًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vertex-ai-credentials-could-not-be-resolved">&quot;Vertex AI credentials could not be resolved&quot;</h3>
+<p>لم يعثر Hermes على ملف JSON لحساب خدمة ولا على ADC صالحة للعمل. إما أن تضبط <code>VERTEX_CREDENTIALS_PATH</code> في <code>~/.hermes/.env</code>، أو تشغّل <code>gcloud auth application-default login</code>. وإذا لم يكن مشروعك مضمّنًا في بيانات الاعتماد، فاضبط <code>vertex.project_id</code> في <code>config.yaml</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="google-auth-not-installed"><code>google-auth</code> غير مثبّت</h3>
+<p>يثبّته Hermes عند الحاجة في أول مرة تختار فيها مزوّد Vertex. وإذا فشل ذلك، فشغّل <code>hermes setup</code> لإصلاح التثبيت المُدار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="404-on-gemini-3x-models">الخطأ 404 مع نماذج Gemini 3.x</h3>
+<p>على الأرجح أنك تستخدم endpoint إقليميًا. اضبط <code>region: global</code> في قسم <code>vertex:</code> من <code>config.yaml</code> (أو ألغِ ضبط <code>VERTEX_REGION</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="403--permission-denied">403 / رفض الصلاحية</h3>
+<p>يحتاج حساب الخدمة (أو هوية ADC الخاصة بك) إلى الدور <code>roles/aiplatform.user</code> على المشروع، ويجب أن تكون Vertex AI API مفعّلة لذلك المشروع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><a href="/docs/guides/google-gemini">Google Gemini (AI Studio)</a> — Gemini بمفتاح API ثابت دون GCP</li>
+<li><a href="/docs/guides/aws-bedrock">AWS Bedrock</a> — تكامل أصيل آخر مع مزوّد سحابي</li>
+<li><a href="/docs/integrations/providers">مزوّدو الذكاء الاصطناعي (AI Providers)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+</ul>

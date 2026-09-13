@@ -1,0 +1,65 @@
+
+<header><h1>Mpp Agent</h1></header>
+<p>ادفع لواجهات برمجة HTTP 402 عبر Machine Payments Protocol (MPP).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/payments/mpp-agent</code></td></tr><tr><td>المسار</td><td><code>optional-skills/payments/mpp-agent</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Payments</code>, <code>MPP</code>, <code>HTTP-402</code>, <code>Tempo</code>, <code>Stripe</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/payments/payments-stripe-link-cli"><code>stripe-link-cli</code></a>, <a href="/docs/user-guide/skills/optional/payments/payments-stripe-projects"><code>stripe-projects</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة MPP Agent</h1>
+<p>تُغلّف هذه المهارة عملاء Machine Payments Protocol (MPP، <a href="https://mpp.dev" data-ext>https://mpp.dev</a>) بحيث يستطيع Hermes الدفع مقابل الوصول لكل طلب إلى واجهات برمجية على خوادم تستجيب بـ <code>HTTP 402 Payment Required</code>.</p>
+<p>ثلاثة خيارات عملاء، جميعها موزَّعة عبر npm. اختر الأخف الذي يلبّي حاجة المستخدم. مقيَّدة بـ <code>[linux, macos]</code> إلى أن تنضج أدوات الدفع الأوسع على Windows.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>عندما تعيد واجهة برمجية تابعة لتاجر <code>HTTP 402</code> مع ترويسة <code>www-authenticate</code> — ويريد المستخدم دفع المبلغ فعليًا لا مجرد تسجيل الاستجابة.</li>
+<li>عندما يطلب المستخدم &quot;الدفع لكل طلب&quot;، أو &quot;إعداد محفظة وكيل&quot;، أو &quot;استخدام Tempo / Privy / AgentCash&quot;، أو يريد اكتشاف خدمات مسعّرة عبر MPP.</li>
+<li>عندما ينتج عن إنفاق عبر Stripe Link رمز دفع مشترك (SPT) ويحتاج الوكيل إلى إرفاقه بتحدّي 402 — في هذا التدفق، يُفضَّل استخدام <code>link-cli mpp pay</code> (راجع مهارة <code>stripe-link-cli</code>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-a-client">اختيار العميل</h2>
+<table><thead><tr><th>الأداة</th><th>متى</th><th>الإعداد</th></tr></thead><tbody><tr><td><code>link-cli</code></td><td>المستخدم لديه Stripe Link مُعدّ مسبقًا، أو يعلن تحدّي 402 عن <code>method=&quot;stripe&quot;</code></td><td>راجع مهارة <code>stripe-link-cli</code></td></tr><tr><td>Tempo Wallet</td><td>خدمات MPP مع ضوابط إنفاق واكتشاف خدمات</td><td><code>tempo wallet login</code></td></tr><tr><td>Privy Agent CLI</td><td>محافظ متعددة السلاسل، تمويل عبر المتصفح</td><td><code>privy-agent-wallets login</code></td></tr><tr><td>AgentCash</td><td>أكثر من 300 واجهة برمجية مسعّرة مسبقًا عبر رصيد USDC.e واحد</td><td><code>npx agentcash onboard</code></td></tr><tr><td><code>mppx</code></td><td>للتطوير والتصحيح، أصغر سطح اعتماديات</td><td><code>npm install -g mppx</code> ثم <code>mppx account create</code></td></tr></tbody></table>
+<p>الافتراضي: إذا كان لدى المستخدم بالفعل Stripe Link مُعدًّا أو حدّد تحدّي 402 <code>method=&quot;stripe&quot;</code>، استخدم <code>link-cli mpp pay</code> (مهارة <code>stripe-link-cli</code>). وإلا فاستخدم <code>mppx</code> للطلبات المدفوعة لمرة واحدة وللتصحيح، و Tempo Wallet عندما يريد المستخدم ضوابط إنفاق دائمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li>Node.js 20+ ضمن <code>PATH</code></li>
+<li>محفظة ممولة (Tempo / Privy / AgentCash) أو حساب <code>mppx</code></li>
+<li>بالنسبة إلى Tempo / Privy / AgentCash: اتبع مهارات الإعداد الخاصة بكل منها:
+<ul>
+<li><code>https://tempo.xyz/SKILL.md</code></li>
+<li><code>https://agents.privy.io/skill.md</code></li>
+<li><code>https://agentcash.dev/skill.md</code></li>
+</ul>
+</li>
+</ul>
+<p>استخدم <code>web_extract</code> لجلب أي من ملفات SKILL.md هذه إذا اختار المستخدم واحدًا منها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure-mppx-fastest-path">الإجراء (mppx، المسار الأسرع)</h2>
+<p>نفّذ كل الأوامر عبر أداة <code>terminal</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-install--create-an-account">1. التثبيت وإنشاء حساب</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>خزّن بيانات اعتماد الحساب الناتجة في المكان الذي تحدده أداة سطر الأوامر (فهي تكتبها ضمن إعداداتها الخاصة — لا تُدرجها في نص محادثة الوكيل).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-inspect-the-merchants-402-challenge">2. فحص تحدّي 402 الخاص بالتاجر</h3>
+<p>إذا أعطاك المستخدم رابطًا، افحصه أولًا للتأكد من أنه يتحدث MPP فعلًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يبدو تحدّي MPP 402 الحقيقي كالتالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-pay-the-request">3. دفع مبلغ الطلب</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لطرق غير GET أو الطلبات التي تحتوي على متن:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تتعامل <code>mppx</code> مع تحدّي 402 وتبادل بيانات الاعتماد تلقائيًا، وتطبع استجابة التاجر الفعلية عند النجاح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-verify-the-receipt">4. التحقق من الإيصال</h3>
+<p>تُرفق <code>mppx</code> ترويسة الإيصال تلقائيًا. للفحص:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure-tempo-wallet">الإجراء (Tempo Wallet)</h2>
+<p>مهارة Tempo Wallet على <a href="https://tempo.xyz/SKILL.md" data-ext>https://tempo.xyz/SKILL.md</a> هي المرجع الرسمي؛ اجلبها بـ <code>web_extract</code> واتبعها. الخلاصة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تعيش ضوابط الإنفاق واكتشاف الخدمات في واجهة المحفظة على <a href="https://wallet.tempo.xyz" data-ext>https://wallet.tempo.xyz</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>لا يمكن دفع <code>HTTP 402</code> بلا <code>method=&quot;stripe&quot;</code> عبر Stripe Link.</strong> إذا أعلن التحدّي عن Tempo أو طرق أخرى فقط، استخدم <code>mppx</code> (أو أي محفظة مطابقة) — إذ سيرفضه Link. وبالعكس، إذا أعلن عن <code>method=&quot;stripe&quot;</code>، يُفضَّل استخدام Link عبر مهارة <code>stripe-link-cli</code> بحيث يمرّ الإنفاق عبر بطاقة المستخدم المعتمدة.</li>
+<li><strong>عدة تحدّيات في ترويسة واحدة.</strong> قد تُدرج <code>www-authenticate</code> عدة طرق (مثل <code>tempo, stripe</code>). سيختار أمر <code>mpp decode</code> في Link CLI طريقة Stripe؛ بينما تختار <code>mppx</code> طريقة Tempo. لا يوجد عميل &quot;صحيح&quot; واحد — اختر بحسب المحفظة التي مَوَّلها المستخدم.</li>
+<li><strong>تحدّيات بقيمة صفرية.</strong> بعض نقاط نهاية MPP تفرض <code>$0.00</code> وتريد فقط بيانات اعتماد إثبات. تعمل هذه دون محفظة ممولة. لا ترفضها باعتبارها &quot;معطّلة&quot;.</li>
+<li><strong>مفاتيح المحفظة لا تدخل سياق الوكيل أبدًا.</strong> تخزّن العملاء الأربعة جميعًا المفاتيح ضمن أدلة إعداداتها الخاصة (أو تولّد أزواج مفاتيح مؤقتة لكل جلسة، في حالة Privy). لا تستخدم <code>cat</code>/<code>read_file</code> عليها.</li>
+<li><strong>الجانب الخادمي لـ MPP مهارة مختلفة.</strong> إذا أراد المستخدم إضافة 402 إلى واجهته البرمجية الخاصة، فهذه المهارة ليست المناسبة — وجّهه إلى <a href="https://mpp.dev/quickstart/server" data-ext>https://mpp.dev/quickstart/server</a> وطبقات middleware الخاصة بـ <code>mppx/nextjs</code> و<code>mppx/hono</code> و<code>mppx/express</code> و<code>mppx/elysia</code>. قد تصدر لاحقًا مهارة <code>mpp-server</code> مخصصة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>رمز الخروج 0 يعني أن التثبيت تم وأن الحساب موجود.</p>

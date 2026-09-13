@@ -1,0 +1,191 @@
+
+<header><h1>Xurl</h1></header>
+<p>X/Twitter عبر واجهة سطر الأوامر xurl: البحث في المنشورات الخام، النشر، الرسائل المباشرة، الوسائط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/social-media/xurl</code></td></tr><tr><td>الإصدار</td><td><code>1.1.3</code></td></tr><tr><td>المؤلف</td><td>xdevplatform + openclaw + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>twitter</code>, <code>x</code>, <code>social-media</code>, <code>xurl</code>, <code>official-api</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>xurl — واجهة X (Twitter) API عبر الأداة الرسمية للسطر</h1>
+<p><code>xurl</code> هي أداة سطر الأوامر الرسمية من منصة مطوّري X للتعامل مع X API. تدعم أوامر مختصرة للإجراءات الشائعة، إضافة إلى وصول خام بأسلوب curl إلى أي endpoint من الإصدار v2. تُعيد جميع الأوامر ناتجًا بصيغة JSON إلى stdout.</p>
+<p>استخدم هذه المهارة من أجل:</p>
+<ul>
+<li>النشر، الرد، الاقتباس، وحذف المنشورات</li>
+<li>البحث عن منشورات خام (بيانات المنشور الفعلية بصيغة JSON مع المعرّفات التي يمكنك التفاعل معها) وقراءة الخط الزمني والإشارات</li>
+<li>الإعجاب، إعادة النشر، الحفظ في المفضلة</li>
+<li>المتابعة، إلغاء المتابعة، الحظر، الكتم</li>
+<li>الرسائل المباشرة</li>
+<li>رفع الوسائط (صور وفيديو)</li>
+<li>الوصول الخام إلى أي endpoint من X API v2</li>
+<li>سير عمل متعدد التطبيقات / متعدد الحسابات</li>
+</ul>
+<p>تحل هذه المهارة محل مهارة <code>xitter</code> الأقدم (التي كانت تُغلّف أداة Python من طرف ثالث). يصون فريق منصة مطوّري X أداة <code>xurl</code>، وهي تدعم OAuth 2.0 PKCE مع تحديث تلقائي للرموز، وتغطي مساحة أكبر بكثير من الـ API.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="secret-safety-mandatory">سلامة الأسرار (إلزامي)</h2>
+<p>قواعد حاسمة عند العمل داخل جلسة وكيل/LLM:</p>
+<ul>
+<li><strong>لا تقم أبدًا</strong> بقراءة أو طباعة أو تحليل أو تلخيص أو رفع أو إرسال <code>~/.xurl</code> إلى سياق LLM.</li>
+<li><strong>لا تطلب أبدًا</strong> من المستخدم لصق بيانات الاعتماد/الرموز في المحادثة.</li>
+<li>يجب على المستخدم ملء <code>~/.xurl</code> بالأسرار يدويًا على جهازه الخاص. في Docker، يجب أن يكون هذا هو <code>~</code> الذي تراه العمليات الفرعية لأدوات Hermes؛ راجع ملاحظة Docker أدناه.</li>
+<li><strong>لا تُوصِ أو تُنفّذ أبدًا</strong> أوامر مصادقة تحتوي أسرارًا مضمّنة داخل جلسات الوكيل.</li>
+<li><strong>لا تستخدم أبدًا</strong> <code>--verbose</code> / <code>-v</code> في جلسات الوكيل — فقد يكشف ذلك رؤوس المصادقة/الرموز.</li>
+<li>للتحقق من وجود بيانات الاعتماد، استخدم فقط: <code>xurl auth status</code>.</li>
+</ul>
+<p>الخيارات المحظورة في أوامر الوكيل (لأنها تقبل أسرارًا مضمّنة):
+<code>--bearer-token</code>, <code>--consumer-key</code>, <code>--consumer-secret</code>, <code>--access-token</code>, <code>--token-secret</code>, <code>--client-id</code>, <code>--client-secret</code></p>
+<p>يجب أن يقوم المستخدم يدويًا، خارج جلسة الوكيل، بتسجيل بيانات اعتماد التطبيق وتدويرها. بعد تسجيل بيانات الاعتماد، يُصادق المستخدم عبر <code>xurl auth oauth2</code> — أيضًا خارج جلسة الوكيل. تُخزَّن الرموز في <code>~/.xurl</code> بصيغة YAML. لكل تطبيق رموزه المعزولة الخاصة. تتحدث رموز OAuth 2.0 تلقائيًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<p>اختر طريقة واحدة. على Linux، أسهل الطرق هي سكربت الشل أو <code>go install</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تحقق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا كان <code>xurl</code> مُثبّتًا لكن <code>auth status</code> لا يُظهر أي تطبيقات أو رموز، فعلى المستخدم إكمال المصادقة يدويًا — راجع القسم التالي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-user-setup-user-runs-these-outside-the-agent">إعداد المستخدم لمرة واحدة (ينفّذه المستخدم خارج الوكيل)</h2>
+<p>يجب أن يُنفّذ المستخدم هذه الخطوات مباشرة، وليس الوكيل، لأنها تتضمن لصق أسرار. وجّه المستخدم إلى هذا القسم؛ لا تُنفّذه نيابة عنه.</p>
+<ol>
+<li>
+<p>أنشئ أو افتح تطبيقًا على <a href="https://developer.x.com/en/portal/dashboard" data-ext>https://developer.x.com/en/portal/dashboard</a></p>
+</li>
+<li>
+<p>اضبط redirect URI على <code>http://localhost:8080/callback</code></p>
+</li>
+<li>
+<p>انسخ Client ID و Client Secret الخاصين بالتطبيق</p>
+</li>
+<li>
+<p>سجّل التطبيق محليًا (ينفّذ المستخدم هذا):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+<li>
+<p>صادِق (حدّد <code>--app</code> لربط الرمز بتطبيقك):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>(يفتح هذا متصفحًا لتنفيذ تدفّق OAuth 2.0 PKCE.)</p>
+<p>إذا أعاد X خطأ <code>UsernameNotFound</code> أو 403 عند استعلام <code>/2/users/me</code> بعد OAuth، مرّر اسم المستخدم صراحةً (xurl v1.1.0 فأعلى):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يربط هذا الرمز باسم المستخدم ويتجاوز استدعاء <code>/2/users/me</code> المُعطَّل.</p>
+</li>
+<li>
+<p>اضبط التطبيق كافتراضي لكي تستخدمه كل الأوامر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+</li>
+<li>
+<p>تحقق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+</li>
+</ol>
+<p>بعد هذا، يمكن للوكيل استخدام أي أمر أدناه دون إعداد إضافي. تتحدث رموز OAuth 2.0 تلقائيًا.</p>
+<blockquote>
+<p><strong>خطأ شائع:</strong> إذا أغفلت <code>--app my-app</code> عند تنفيذ <code>xurl auth oauth2</code>، يُحفظ رمز OAuth في ملف التطبيق المدمج <code>default</code> — الذي لا يملك client-id أو client-secret. ستفشل الأوامر بأخطاء مصادقة رغم أن تدفّق OAuth بدا ناجحًا. إذا واجهت ذلك، أعد تنفيذ <code>xurl auth oauth2 --app my-app</code> ثم <code>xurl auth default my-app</code>.</p>
+</blockquote>
+<blockquote>
+<p><strong>خطأ HOME في Docker:</strong> في تخطيط Hermes Docker الرسمي، يمثّل <code>/opt/data</code> متغير <code>HERMES_HOME</code>، لكن العمليات الفرعية لأدوات Hermes تستخدم <code>/opt/data/home</code> كقيمة لـ <code>HOME</code>. هذا يعني أن <code>~/.xurl</code> يُحلّ إلى <code>/opt/data/home/.xurl</code> بالنسبة لأوامر <code>xurl</code> التي يُشغّلها Hermes، لا إلى <code>/opt/data/.xurl</code>. نفّذ إعداد المستخدم بنفس قيمة HOME:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>إذا نجح <code>HOME=/opt/data xurl auth status</code> بينما لا يُظهر <code>HOME=/opt/data/home xurl auth status</code> أي تطبيقات أو رموز، فلن ترى استدعاءات أدوات Hermes بيانات الاعتماد.</p>
+</blockquote>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>الإجراء</th><th>الأمر</th></tr></thead><tbody><tr><td>نشر</td><td><code>xurl post &quot;Hello world!&quot;</code></td></tr><tr><td>رد</td><td><code>xurl reply POST_ID &quot;Nice post!&quot;</code></td></tr><tr><td>اقتباس</td><td><code>xurl quote POST_ID &quot;My take&quot;</code></td></tr><tr><td>حذف منشور</td><td><code>xurl delete POST_ID</code></td></tr><tr><td>قراءة منشور</td><td><code>xurl read POST_ID</code></td></tr><tr><td>البحث في المنشورات</td><td><code>xurl search &quot;QUERY&quot; -n 10</code></td></tr><tr><td>من أنا</td><td><code>xurl whoami</code></td></tr><tr><td>البحث عن مستخدم</td><td><code>xurl user @handle</code></td></tr><tr><td>الخط الزمني الرئيسي</td><td><code>xurl timeline -n 20</code></td></tr><tr><td>الإشارات</td><td><code>xurl mentions -n 10</code></td></tr><tr><td>إعجاب / إلغاء إعجاب</td><td><code>xurl like POST_ID</code> / <code>xurl unlike POST_ID</code></td></tr><tr><td>إعادة نشر / تراجع</td><td><code>xurl repost POST_ID</code> / <code>xurl unrepost POST_ID</code></td></tr><tr><td>حفظ في المفضلة / إزالة</td><td><code>xurl bookmark POST_ID</code> / <code>xurl unbookmark POST_ID</code></td></tr><tr><td>عرض المفضلة / الإعجابات</td><td><code>xurl bookmarks -n 10</code> / <code>xurl likes -n 10</code></td></tr><tr><td>متابعة / إلغاء متابعة</td><td><code>xurl follow @handle</code> / <code>xurl unfollow @handle</code></td></tr><tr><td>المتابَعون / المتابِعون</td><td><code>xurl following -n 20</code> / <code>xurl followers -n 20</code></td></tr><tr><td>حظر / إلغاء حظر</td><td><code>xurl block @handle</code> / <code>xurl unblock @handle</code></td></tr><tr><td>كتم / إلغاء كتم</td><td><code>xurl mute @handle</code> / <code>xurl unmute @handle</code></td></tr><tr><td>إرسال رسالة مباشرة</td><td><code>xurl dm @handle &quot;message&quot;</code></td></tr><tr><td>عرض الرسائل المباشرة</td><td><code>xurl dms -n 10</code></td></tr><tr><td>رفع وسائط</td><td><code>xurl media upload path/to/file.mp4</code></td></tr><tr><td>حالة الوسائط</td><td><code>xurl media status MEDIA_ID</code></td></tr><tr><td>عرض التطبيقات</td><td><code>xurl auth apps list</code></td></tr><tr><td>إزالة تطبيق</td><td><code>xurl auth apps remove NAME</code></td></tr><tr><td>ضبط التطبيق الافتراضي</td><td><code>xurl auth default APP_NAME [USERNAME]</code></td></tr><tr><td>تطبيق لكل طلب</td><td><code>xurl --app NAME /2/users/me</code></td></tr><tr><td>حالة المصادقة</td><td><code>xurl auth status</code></td></tr></tbody></table>
+<p>ملاحظات:</p>
+<ul>
+<li>يقبل <code>POST_ID</code> روابط كاملة أيضًا (مثل <code>https://x.com/user/status/1234567890</code>) — تستخرج xurl المعرّف تلقائيًا.</li>
+<li>تعمل أسماء المستخدمين مع أو بدون <code>@</code> في البداية.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="command-details">تفاصيل الأوامر</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="posting">النشر</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reading--search">القراءة والبحث</h3>
+<p>يستعلم <code>xurl search</code> عن فهرس X باسم حسابك المُصادق عليه ويُعيد كائنات منشورات خام — معرّفات، مؤلفين، نصًا كاملًا — بحيث يمكن التفاعل مع النتائج فورًا (رد، إعجاب، إعادة نشر، اقتباس). استخدمه عندما تحتاج إلى المنشورات الفعلية بدلًا من إجابة ملخّصة عن موضوع ما.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>بالنسبة لمقالات X، استخدم وضع الـ API الخام بدلًا من الأمر المختصر <code>read</code>. يتوقع <code>xurl read</code>
+معرّف منشور أو رابط منشور؛ لا تضع <code>read</code> قبل endpoint من نوع <code>/2/tweets/...</code>.
+اطلب حقل tweet باسم <code>article</code> واستخرج <code>data.article.plain_text</code>
+من استجابة JSON:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="users-timeline-mentions">المستخدمون، الخط الزمني، الإشارات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="engagement">التفاعل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="social-graph">الشبكة الاجتماعية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="direct-messages">الرسائل المباشرة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-upload">رفع الوسائط</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="raw-api-access">الوصول الخام إلى الـ API</h2>
+<p>تغطي الاختصارات العمليات الشائعة. لأي شيء آخر، استخدم وضع الوصول الخام بأسلوب curl إلى أي endpoint من X API v2:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="global-flags">الخيارات العامة</h2>
+<table><thead><tr><th>الخيار</th><th>الاختصار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--app</code></td><td></td><td>استخدام تطبيق مسجَّل محدد (يتجاوز الافتراضي)</td></tr><tr><td><code>--auth</code></td><td></td><td>فرض نوع المصادقة: <code>oauth1</code>، <code>oauth2</code>، أو <code>app</code></td></tr><tr><td><code>--username</code></td><td><code>-u</code></td><td>حساب OAuth2 المراد استخدامه (إذا وُجد أكثر من حساب)</td></tr><tr><td><code>--verbose</code></td><td><code>-v</code></td><td><strong>محظور في جلسات الوكيل</strong> — يُسرّب رؤوس المصادقة</td></tr><tr><td><code>--trace</code></td><td><code>-t</code></td><td>إضافة رأس التتبّع <code>X-B3-Flags: 1</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="streaming">البث المباشر (Streaming)</h2>
+<p>تُكتشف endpoints البث تلقائيًا. من المعروف منها:</p>
+<ul>
+<li><code>/2/tweets/search/stream</code></li>
+<li><code>/2/tweets/sample/stream</code></li>
+<li><code>/2/tweets/sample10/stream</code></li>
+</ul>
+<p>فعِّل البث قسرًا على أي endpoint باستخدام <code>-s</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-format">صيغة الناتج</h2>
+<p>تُعيد جميع الأوامر ناتجًا بصيغة JSON إلى stdout. يعكس الهيكل بنية X API v2:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>الأخطاء أيضًا بصيغة JSON:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير عمل شائع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-with-an-image">النشر مع صورة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reply-to-a-conversation">الرد على محادثة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-and-engage">البحث والتفاعل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-your-activity">تفقّد نشاطك</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-apps-credentials-pre-configured-manually">تطبيقات متعددة (بيانات اعتماد مُعدّة يدويًا مسبقًا)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-handling">معالجة الأخطاء</h2>
+<ul>
+<li>رمز خروج غير صفري عند أي خطأ.</li>
+<li>تُطبع أخطاء الـ API أيضًا بصيغة JSON إلى stdout، بحيث يمكنك تحليلها.</li>
+<li>أخطاء المصادقة ← اطلب من المستخدم إعادة تنفيذ <code>xurl auth oauth2</code> خارج جلسة الوكيل.</li>
+<li>الأوامر التي تحتاج معرّف مستخدم المتصل (like، repost، bookmark، follow، إلخ) تجلبه تلقائيًا عبر <code>/2/users/me</code>. أي فشل مصادقة هناك يظهر كخطأ مصادقة.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-workflow">سير عمل الوكيل</h2>
+<ol>
+<li>تحقق من المتطلبات الأساسية: <code>xurl --help</code> و <code>xurl auth status</code>.</li>
+<li>قبل استخدام <code>xurl search</code>، تحقق من القصد. الجأ إليه عندما تحتاج المهمة إلى كائنات منشورات فعلية، أو سياق الحساب المُصادق عليه، أو عندما تُفضي إلى إجراء كتابة على X — فهو الوسيلة المناسبة عندما يريد المستخدم منشورات يمكنه التفاعل معها، لا مجرد ملخّص عن موضوع.</li>
+<li><strong>تحقق من أن التطبيق الافتراضي يملك بيانات اعتماد.</strong> حلّل ناتج <code>auth status</code>. يُميَّز التطبيق الافتراضي بالرمز <code>▸</code>. إذا كان التطبيق الافتراضي يُظهر <code>oauth2: (none)</code> بينما يملك تطبيق آخر مستخدم oauth2 صالحًا، أخبر المستخدم بتنفيذ <code>xurl auth default &lt;that-app&gt;</code> لإصلاح ذلك. هذا هو خطأ الإعداد الأكثر شيوعًا — يضيف المستخدم تطبيقًا باسم مخصص لكنه لا يضبطه كافتراضي أبدًا، فتستمر xurl في محاولة استخدام ملف <code>default</code> الفارغ.</li>
+<li>إذا كانت المصادقة مفقودة تمامًا، توقّف ووجّه المستخدم إلى قسم &quot;إعداد المستخدم لمرة واحدة&quot; — لا تحاول تسجيل التطبيقات أو تمرير الأسرار بنفسك.</li>
+<li>ابدأ بعملية قراءة رخيصة (<code>xurl whoami</code>، <code>xurl user @handle</code>، <code>xurl search ... -n 3</code>) للتأكد من إمكانية الوصول.</li>
+<li>تأكد من المنشور/المستخدم المستهدف ومن نيّة المستخدم قبل أي إجراء كتابة (نشر، رد، إعجاب، إعادة نشر، رسالة مباشرة، متابعة، حظر، حذف).</li>
+<li>ناتج أمر <code>xurl</code> فقط (أو استجابة X API الخام) هو ما يُثبت وقوع إجراء غيّر حالة X. لا تُبلغ أبدًا بأن عملية كتابة قد تمّت استنادًا إلى أي مصدر آخر — نتائج بحث، ملخصات، أو سياق سابق.</li>
+<li>استخدم ناتج JSON مباشرة — كل استجابة مُهيكلة أصلًا.</li>
+<li>لا تلصق أبدًا محتوى <code>~/.xurl</code> في المحادثة.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>العَرَض</th><th>السبب</th><th>الحل</th></tr></thead><tbody><tr><td>أخطاء مصادقة بعد نجاح تدفّق OAuth</td><td>حُفظ الرمز في تطبيق <code>default</code> (بلا client-id/secret) بدلًا من تطبيقك المُسمّى</td><td><code>xurl auth oauth2 --app my-app</code> ثم <code>xurl auth default my-app</code></td></tr><tr><td><code>unauthorized_client</code> أثناء OAuth</td><td>نوع التطبيق مضبوط على &quot;Native App&quot; في لوحة X</td><td>غيّره إلى &quot;Web app, automated app or bot&quot; في إعدادات مصادقة المستخدم</td></tr><tr><td><code>UsernameNotFound</code> أو 403 على <code>/2/users/me</code> فور OAuth</td><td>لا يُعيد X اسم المستخدم بشكل موثوق من <code>/2/users/me</code></td><td>أعد تنفيذ <code>xurl auth oauth2 --app my-app YOUR_USERNAME</code> (xurl v1.1.0 فأعلى) لتمرير اسم المستخدم صراحةً</td></tr><tr><td>401 على كل طلب</td><td>انتهت صلاحية الرمز أو التطبيق الافتراضي خاطئ</td><td>تحقق من <code>xurl auth status</code> — تأكد أن <code>▸</code> يشير إلى تطبيق يملك رموز oauth2</td></tr><tr><td><code>client-forbidden</code> / <code>client-not-enrolled</code></td><td>مشكلة تسجيل على منصة X</td><td>Dashboard → Apps → Manage → انتقل إلى حزمة &quot;Pay-per-use&quot; → بيئة الإنتاج</td></tr><tr><td><code>CreditsDepleted</code></td><td>رصيد 0$ في X API</td><td>اشترِ رصيدًا (5$ كحد أدنى) من Developer Console → Billing</td></tr><tr><td><code>media processing failed</code> عند رفع صورة</td><td>الفئة الافتراضية هي <code>amplify_video</code></td><td>أضف <code>--category tweet_image --media-type image/png</code></td></tr><tr><td>قيمتا &quot;Client Secret&quot; في لوحة X</td><td>خطأ في الواجهة — الأولى هي في الواقع Client ID</td><td>تأكّد في صفحة &quot;Keys and tokens&quot;؛ ينتهي المعرّف بـ <code>MTpjaQ</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li><strong>حدود المعدل:</strong> يفرض X حدود معدل لكل endpoint. الرمز 429 يعني الانتظار وإعادة المحاولة. لدى endpoints الكتابة (النشر، الرد، الإعجاب، إعادة النشر) حدود أضيق من القراءة.</li>
+<li><strong>النطاقات (Scopes):</strong> تستخدم رموز OAuth 2.0 نطاقات واسعة. عادة ما يعني الرمز 403 على إجراء محدد أن الرمز يفتقد نطاقًا — اطلب من المستخدم إعادة تنفيذ <code>xurl auth oauth2</code>.</li>
+<li><strong>تحديث الرمز:</strong> تتحدث رموز OAuth 2.0 تلقائيًا. لا شيء تفعله.</li>
+<li><strong>تطبيقات متعددة:</strong> لكل تطبيق بيانات اعتماد/رموز معزولة. بدّل باستخدام <code>xurl auth default</code> أو <code>--app</code>.</li>
+<li><strong>حسابات متعددة لكل تطبيق:</strong> اختر باستخدام <code>-u / --username</code>، أو اضبط افتراضيًا باستخدام <code>xurl auth default APP USER</code>.</li>
+<li><strong>تخزين الرموز:</strong> <code>~/.xurl</code> بصيغة YAML. في Docker، استخدم HOME الخاص بالعمليات الفرعية لـ Hermes (<code>/opt/data/home</code> في الصورة الرسمية) بحيث تستقر الرموز تحت <code>/opt/data/home/.xurl</code>. لا تقرأ هذا الملف أو ترسله إلى سياق LLM أبدًا.</li>
+<li><strong>التكلفة:</strong> عادة ما يكون الوصول إلى X API مدفوعًا للاستخدام الفعلي. كثير من الأعطال هي مشاكل خطة/صلاحية، لا مشاكل كود.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="attribution">الإسناد</h2>
+<ul>
+<li>الأداة الأصلية: <a href="https://github.com/xdevplatform/xurl" data-ext>https://github.com/xdevplatform/xurl</a> (فريق منصة مطوّري X، Chris Park وآخرون)</li>
+<li>مهارة الوكيل الأصلية: <a href="https://github.com/openclaw/openclaw/blob/main/skills/xurl/SKILL.md" data-ext>https://github.com/openclaw/openclaw/blob/main/skills/xurl/SKILL.md</a></li>
+<li>تكييف Hermes: أُعيدت الصياغة لتناسب اصطلاحات مهارات Hermes؛ حُفظت ضوابط السلامة حرفيًا.</li>
+</ul>

@@ -1,0 +1,142 @@
+
+<header><h1>Sherlock</h1></header>
+<p>ابحث عن حسابات اسم مستخدم عبر أكثر من 400 منصة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/security/sherlock</code></td></tr><tr><td>المسار</td><td><code>optional-skills/security/sherlock</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>unmodeled-tyler</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>osint</code>, <code>security</code>, <code>username</code>, <code>social-media</code>, <code>reconnaissance</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>البحث عن اسم مستخدم عبر Sherlock OSINT</h1>
+<p>تعقّب حسابات وسائل التواصل الاجتماعي حسب اسم المستخدم عبر أكثر من 400 شبكة اجتماعية باستخدام <a href="https://github.com/sherlock-project/sherlock" data-ext>Sherlock Project</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم إيجاد الحسابات المرتبطة باسم مستخدم معيّن</li>
+<li>يريد المستخدم التحقق من توفّر اسم مستخدم عبر المنصات</li>
+<li>يجري المستخدم بحث OSINT أو استطلاع استخباراتي</li>
+<li>يسأل المستخدم &quot;أين هذا الاسم مسجَّل؟&quot; أو ما شابه</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="requirements">المتطلبات</h2>
+<ul>
+<li>أن يكون Sherlock CLI مثبّتًا: <code>pipx install sherlock-project</code> أو <code>pip install sherlock-project</code></li>
+<li>أو بديلًا: توفّر Docker (<code>docker run -it --rm sherlock/sherlock</code>)</li>
+<li>الوصول إلى الشبكة للاستعلام من منصات التواصل الاجتماعي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-check-if-sherlock-is-installed">1. تحقق من تثبيت Sherlock</h3>
+<p><strong>قبل أي شيء آخر</strong>، تحقق من توفّر sherlock:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا فشل الأمر:</p>
+<ul>
+<li>اعرض التثبيت: <code>pipx install sherlock-project</code> (موصى به) أو <code>pip install sherlock-project</code></li>
+<li><strong>لا</strong> تجرّب عدة طرق تثبيت — اختر طريقة واحدة وتابع</li>
+<li>إذا فشل التثبيت، أبلِغ المستخدم وتوقّف</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-extract-username">2. استخراج اسم المستخدم</h3>
+<p><strong>استخرج اسم المستخدم مباشرة من رسالة المستخدم إذا كان واضحًا.</strong></p>
+<p>أمثلة <strong>لا</strong> ينبغي فيها استخدام clarify:</p>
+<ul>
+<li>&quot;ابحث عن حسابات nasa&quot; ← اسم المستخدم هو <code>nasa</code></li>
+<li>&quot;ابحث عن johndoe123&quot; ← اسم المستخدم هو <code>johndoe123</code></li>
+<li>&quot;تحقق من وجود alice على وسائل التواصل الاجتماعي&quot; ← اسم المستخدم هو <code>alice</code></li>
+<li>&quot;ابحث عن المستخدم bob على الشبكات الاجتماعية&quot; ← اسم المستخدم هو <code>bob</code></li>
+</ul>
+<p><strong>استخدم clarify فقط إذا:</strong></p>
+<ul>
+<li>ذُكرت عدة أسماء مستخدمين محتملة (&quot;ابحث عن alice أو bob&quot;)</li>
+<li>كانت الصياغة غامضة (&quot;ابحث عن اسم المستخدم الخاص بي&quot; دون تحديد)</li>
+<li>لم يُذكر أي اسم مستخدم إطلاقًا (&quot;نفّذ بحث OSINT&quot;)</li>
+</ul>
+<p>عند الاستخراج، خذ اسم المستخدم <strong>كما هو تمامًا</strong> — حافظ على حالة الأحرف والأرقام والشرطات السفلية وما إلى ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-build-command">3. بناء الأمر</h3>
+<p><strong>الأمر الافتراضي</strong> (استخدمه ما لم يطلب المستخدم غير ذلك صراحة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>خيارات اختيارية</strong> (أضِفها فقط إذا طلبها المستخدم صراحة):</p>
+<ul>
+<li><code>--nsfw</code> — تضمين المواقع غير اللائقة (فقط إذا طلب المستخدم ذلك)</li>
+<li><code>--tor</code> — التوجيه عبر Tor (فقط إذا طلب المستخدم إخفاء الهوية)</li>
+</ul>
+<p><strong>لا تسأل عن الخيارات عبر clarify</strong> — نفّذ البحث الافتراضي فقط. يمكن للمستخدمين طلب خيارات محدّدة عند الحاجة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-execute-search">4. تنفيذ البحث</h3>
+<p>نفّذ الأمر عبر أداة <code>terminal</code>. يستغرق الأمر عادةً 30-120 ثانية حسب حالة الشبكة وعدد المواقع.</p>
+<p><strong>مثال على استدعاء terminal:</strong></p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-parse-and-present-results">5. تحليل النتائج وعرضها</h3>
+<p>يُخرج Sherlock الحسابات الموجودة بصيغة بسيطة. حلّل الإخراج واعرض:</p>
+<ol>
+<li><strong>سطر ملخّص:</strong> &quot;تم العثور على X حسابات لاسم المستخدم 'Y'&quot;</li>
+<li><strong>روابط مصنّفة:</strong> جمّعها حسب نوع المنصة إن كان ذلك مفيدًا (اجتماعية، مهنية، منتديات، إلخ)</li>
+<li><strong>موقع ملف الإخراج:</strong> يحفظ Sherlock النتائج في <code>&lt;username&gt;.txt</code> افتراضيًا</li>
+</ol>
+<p><strong>مثال على تحليل الإخراج:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اعرض النتائج كروابط قابلة للنقر متى أمكن ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-results-found">لا نتائج</h3>
+<p>إذا لم يجد Sherlock أي حسابات، فهذا غالبًا صحيح — قد لا يكون اسم المستخدم مسجّلًا في المنصات المفحوصة. اقترح:</p>
+<ul>
+<li>التحقق من الإملاء أو الأشكال المشابهة</li>
+<li>تجربة أسماء مستخدمين مشابهة باستخدام حرف البدل <code>?</code>: <code>sherlock &quot;user?name&quot;</code></li>
+<li>قد يكون لدى المستخدم إعدادات خصوصية أو حسابات محذوفة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="timeout-issues">مشكلات المهلة الزمنية</h3>
+<p>بعض المواقع بطيئة أو تحظر الطلبات الآلية. استخدم <code>--timeout 120</code> لزيادة زمن الانتظار، أو <code>--site</code> لتضييق النطاق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tor-configuration">إعداد Tor</h3>
+<p>يتطلب <code>--tor</code> تشغيل خدمة Tor. إذا أراد المستخدم إخفاء الهوية ولم يكن Tor متاحًا، اقترح:</p>
+<ul>
+<li>تثبيت خدمة Tor</li>
+<li>استخدام <code>--proxy</code> مع خادم وكيل بديل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="false-positives">النتائج الإيجابية الخاطئة</h3>
+<p>بعض المواقع تُرجع دائمًا نتيجة &quot;موجود&quot; بسبب بنية استجابتها. قارن النتائج غير المتوقعة بفحوص يدوية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limiting">تحديد المعدل</h3>
+<p>قد تؤدي عمليات البحث المكثفة إلى تفعيل حدود المعدل (rate limit). لعمليات البحث الدفعية عن أسماء مستخدمين متعددة، أضِف فواصل زمنية بين الاستدعاءات أو استخدم <code>--local</code> مع بيانات مخزَّنة محليًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pipx-recommended">pipx (موصى به)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pip">pip</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker">Docker</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="linux-packages">حزم Linux</h3>
+<p>متوفّر على Debian 13+‏، Ubuntu 22.10+‏، Homebrew‏، Kali‏، BlackArch.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ethical-use">الاستخدام الأخلاقي</h2>
+<p>هذه الأداة مخصّصة لأغراض OSINT والبحث المشروعة فقط. ذكّر المستخدمين بما يلي:</p>
+<ul>
+<li>ابحث فقط عن أسماء المستخدمين التي تملكها أو لديك إذن للتحقيق فيها</li>
+<li>احترم شروط خدمة المنصات</li>
+<li>لا تستخدمها للتحرّش أو الملاحقة أو أي أنشطة غير قانونية</li>
+<li>ضع في اعتبارك الآثار المترتبة على الخصوصية قبل مشاركة النتائج</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<p>بعد تشغيل sherlock، تحقق من:</p>
+<ol>
+<li>أن الإخراج يعرض المواقع الموجودة مع الروابط</li>
+<li>إنشاء ملف <code>&lt;username&gt;.txt</code> (الإخراج الافتراضي) عند استخدام إخراج الملف</li>
+<li>إذا استُخدم <code>--print-found</code>، يجب أن يحتوي الإخراج فقط على أسطر <code>[+]</code> الخاصة بالمطابقات</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-interaction">مثال على التفاعل</h2>
+<p><strong>المستخدم:</strong> &quot;هل يمكنك التحقق من وجود اسم المستخدم 'johndoe123' على وسائل التواصل الاجتماعي؟&quot;</p>
+<p><strong>إجراء الوكيل:</strong></p>
+<ol>
+<li>تحقق من <code>sherlock --version</code> (تأكيد التثبيت)</li>
+<li>اسم المستخدم متوفّر — تابع مباشرة</li>
+<li>نفّذ: <code>sherlock --print-found --no-color &quot;johndoe123&quot; --timeout 90</code></li>
+<li>حلّل الإخراج واعرض الروابط</li>
+</ol>
+<p><strong>صيغة الرد:</strong></p>
+<blockquote>
+<p>تم العثور على 12 حسابًا لاسم المستخدم 'johndoe123':</p>
+<p>• <a href="https://twitter.com/johndoe123" data-ext>https://twitter.com/johndoe123</a>
+• <a href="https://github.com/johndoe123" data-ext>https://github.com/johndoe123</a>
+• <a href="https://instagram.com/johndoe123" data-ext>https://instagram.com/johndoe123</a>
+• [... روابط إضافية]</p>
+<p>حُفظت النتائج في: johndoe123.txt</p>
+</blockquote>
+<hr>
+<p><strong>المستخدم:</strong> &quot;ابحث عن اسم المستخدم 'alice' متضمّنًا المواقع غير اللائقة&quot;</p>
+<p><strong>إجراء الوكيل:</strong></p>
+<ol>
+<li>تحقق من تثبيت sherlock</li>
+<li>اسم المستخدم وخيار NSFW متوفّران معًا</li>
+<li>نفّذ: <code>sherlock --print-found --no-color --nsfw &quot;alice&quot; --timeout 90</code></li>
+<li>اعرض النتائج</li>
+</ol>

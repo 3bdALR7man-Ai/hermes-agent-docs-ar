@@ -1,0 +1,114 @@
+
+<header><h1>Airtable</h1></header>
+<p>واجهة Airtable REST API عبر curl. عمليات CRUD على السجلات، والفلاتر، وعمليات upsert.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/productivity/airtable</code></td></tr><tr><td>الإصدار</td><td><code>1.1.0</code></td></tr><tr><td>المؤلف</td><td>community</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Airtable</code>, <code>Productivity</code>, <code>Database</code>, <code>API</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Airtable — القواعد والجداول والسجلات</h1>
+<p>تعامل مع واجهة Airtable REST API مباشرةً عبر <code>curl</code> باستخدام أداة <code>terminal</code>. بلا خادم MCP، وبلا تدفق OAuth، وبلا SDK بلغة Python — فقط <code>curl</code> ورمز وصول شخصي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ol>
+<li>أنشئ <strong>رمز وصول شخصي (Personal Access Token - PAT)</strong> من <a href="https://airtable.com/create/tokens" data-ext>https://airtable.com/create/tokens</a> (تبدأ الرموز بـ <code>pat...</code>).</li>
+<li>امنح هذه الصلاحيات (كحد أدنى):
+<ul>
+<li><code>data.records:read</code> — قراءة الصفوف</li>
+<li><code>data.records:write</code> — إنشاء / تحديث / حذف الصفوف</li>
+<li><code>schema.bases:read</code> — سرد القواعد والجداول</li>
+</ul>
+</li>
+<li><strong>مهم:</strong> في واجهة الرمز نفسها، أضِف كل قاعدة تريد الوصول إليها إلى قائمة <strong>Access</strong> الخاصة بالرمز. رموز PAT مخصصة النطاق لكل قاعدة على حدة — إذ يُعيد رمز صالح على قاعدة غير مصرّح بها الخطأ <code>403</code>.</li>
+<li>خزّن الرمز في <code>${HERMES_HOME:-~/.hermes}/.env</code> (أو عبر <code>hermes setup</code>):
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+</ol>
+<blockquote>
+<p>ملاحظة: أصبحت مفاتيح API القديمة من نوع <code>key...</code> مهملة منذ فبراير 2024. لا يعمل الآن سوى رموز PAT ورموز OAuth.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-basics">أساسيات API</h2>
+<ul>
+<li><strong>Endpoint:</strong> <code>https://api.airtable.com/v0</code></li>
+<li><strong>ترويسة المصادقة:</strong> <code>Authorization: Bearer $AIRTABLE_API_KEY</code></li>
+<li><strong>كل الطلبات</strong> تستخدم JSON (<code>Content-Type: application/json</code> لأي جسم طلب من نوع POST أو PATCH أو PUT).</li>
+<li><strong>مُعرّفات الكائنات:</strong> القواعد <code>app...</code>، والجداول <code>tbl...</code>، والسجلات <code>rec...</code>، والحقول <code>fld...</code>. لا تتغيّر المُعرّفات أبدًا، بخلاف الأسماء التي قد تتغيّر. فضّل استخدام المُعرّفات في الأتمتة.</li>
+<li><strong>حدّ المعدل:</strong> 5 طلبات/ثانية لكل قاعدة. عند ظهور <code>429</code> ← خفّف معدل الطلبات. سيُقيَّد أي دفق طلبات مكثّف على قاعدة واحدة.</li>
+</ul>
+<p>نمط curl الأساسي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُخفي <code>-s</code> شريط تقدّم curl — أبقِه مفعّلًا في كل استدعاء ليبقى ناتج الأداة نظيفًا بالنسبة لـ Hermes. مرّر الناتج عبر <code>python -m json.tool</code> (متوفرة دائمًا) أو <code>jq</code> (إن كانت مثبّتة) لعرض JSON بشكل مقروء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="field-types-request-body-shapes">أنواع الحقول (أشكال جسم الطلب)</h2>
+<table><thead><tr><th>نوع الحقل</th><th>شكل الكتابة</th></tr></thead><tbody><tr><td>نص سطر واحد</td><td><code>&quot;Name&quot;: &quot;hello&quot;</code></td></tr><tr><td>نص طويل</td><td><code>&quot;Notes&quot;: &quot;multi\nline&quot;</code></td></tr><tr><td>رقم</td><td><code>&quot;Score&quot;: 42</code></td></tr><tr><td>مربع اختيار</td><td><code>&quot;Done&quot;: true</code></td></tr><tr><td>اختيار مفرد</td><td><code>&quot;Status&quot;: &quot;Todo&quot;</code> (يجب أن يكون الاسم موجودًا مسبقًا ما لم تستخدم <code>typecast: true</code>)</td></tr><tr><td>اختيار متعدد</td><td><code>&quot;Tags&quot;: [&quot;urgent&quot;, &quot;bug&quot;]</code></td></tr><tr><td>تاريخ</td><td><code>&quot;Due&quot;: &quot;2026-04-01&quot;</code></td></tr><tr><td>تاريخ ووقت (UTC)</td><td><code>&quot;At&quot;: &quot;2026-04-01T14:30:00.000Z&quot;</code></td></tr><tr><td>رابط / بريد إلكتروني / هاتف</td><td><code>&quot;Link&quot;: &quot;https://…&quot;</code></td></tr><tr><td>مرفق</td><td><code>&quot;Files&quot;: [{&quot;url&quot;: &quot;https://…&quot;}]</code> (يجلبه Airtable ويستضيفه من جديد)</td></tr><tr><td>سجل مرتبط</td><td><code>&quot;Owner&quot;: [&quot;recXXXXXXXXXXXXXX&quot;]</code> (مصفوفة من مُعرّفات السجلات)</td></tr><tr><td>مستخدم</td><td><code>&quot;AssignedTo&quot;: {&quot;id&quot;: &quot;usrXXXXXXXXXXXXXX&quot;}</code></td></tr></tbody></table>
+<p>مرّر <code>&quot;typecast&quot;: true</code> في المستوى الأعلى من جسم طلب الإنشاء/التحديث للسماح لـ Airtable بتحويل القيم تلقائيًا (مثل إنشاء خيار اختيار جديد أثناء العملية، أو تحويل <code>&quot;42&quot;</code> إلى <code>42</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-queries">استعلامات شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-bases-the-token-can-see">سرد القواعد التي يمكن للرمز رؤيتها</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-tables--schema-for-a-base">سرد جداول قاعدة ما وبنيتها</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>استخدم هذا قبل التعديل — فهو يؤكد أسماء الحقول ومُعرّفاتها بدقة، ويُظهر <code>options.choices</code> لحقول الاختيار، وأسماء الحقول الأساسية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-records-first-10">سرد السجلات (أول 10)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-a-single-record">جلب سجل واحد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filter-records-filterbyformula">تصفية السجلات (filterByFormula)</h3>
+<p>يجب ترميز صيغ Airtable بصيغة URL. اترك مكتبة Python القياسية تتولى ذلك — لا ترمّزها يدويًا أبدًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>أنماط صيغ مفيدة:</p>
+<ul>
+<li>تطابق تام: <code>{Email}=&#x27;user@example.com&#x27;</code></li>
+<li>يحتوي على: <code>FIND(&#x27;bug&#x27;, LOWER({Title}))</code></li>
+<li>شروط متعددة: <code>AND({Status}=&#x27;Todo&#x27;, {Priority}=&#x27;High&#x27;)</code></li>
+<li>أو: <code>OR({Owner}=&#x27;alice&#x27;, {Owner}=&#x27;bob&#x27;)</code></li>
+<li>غير فارغ: <code>NOT({Assignee}=&#x27;&#x27;)</code></li>
+<li>مقارنة تاريخ: <code>IS_AFTER({Due}, TODAY())</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sort--select-specific-fields">الترتيب + اختيار حقول محددة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يجب ترميز الأقواس المربعة في معاملات الاستعلام بصيغة URL (<code>%5B</code> / <code>%5D</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-a-named-view">استخدام عرض (view) مُسمّى</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تطبّق العروض فلترها وترتيبها المحفوظين من جانب الخادم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-mutations">عمليات التعديل الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-record">إنشاء سجل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-up-to-10-records-in-one-call">إنشاء ما يصل إلى 10 سجلات في استدعاء واحد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>تُحدَّد endpoints الدُفعية بحد أقصى <strong>10 سجلات لكل طلب</strong>. للإدراجات الأكبر، كرّر العملية على دفعات من 10 مع فاصل زمني قصير لاحترام حدّ 5 طلبات/ثانية لكل قاعدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-a-record-patch--merges-preserves-unchanged-fields">تحديث سجل (PATCH — يدمج ويحافظ على الحقول غير المتغيّرة)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="upsert-by-a-merge-field-no-id-needed">عملية upsert باستخدام حقل دمج (بلا حاجة إلى مُعرّف)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>تُنشئ <code>performUpsert</code> سجلات عندما تكون قيم حقل الدمج جديدة، وتُحدّث السجلات التي توجد قيم حقل الدمج الخاصة بها بالفعل. مفيدة جدًا لعمليات المزامنة المتكررة الآمنة (idempotent).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-a-record">حذف سجل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-up-to-10-records-in-one-call">حذف ما يصل إلى 10 سجلات في استدعاء واحد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pagination">التصفح المُقسّم (Pagination)</h2>
+<p>تُعيد endpoints السرد <strong>100 سجل كحد أقصى لكل صفحة</strong>. إذا تضمّنت الاستجابة <code>&quot;offset&quot;: &quot;...&quot;</code>، فمرّرها في الاستدعاء التالي. كرّر العملية حتى يغيب هذا الحقل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="typical-hermes-workflow">سير عمل نموذجي لـ Hermes</h2>
+<ol>
+<li><strong>تأكّد من المصادقة.</strong> <code>curl -s -o /dev/null -w &quot;%{http_code}\n&quot; https://api.airtable.com/v0/meta/bases -H &quot;Authorization: Bearer $AIRTABLE_API_KEY&quot;</code> — يُتوقع الحصول على <code>200</code>.</li>
+<li><strong>حدّد القاعدة.</strong> اسرد القواعد (الخطوة أعلاه) أو اطلب من المستخدم مُعرّف <code>app...</code> مباشرةً إن كان الرمز لا يملك صلاحية <code>schema.bases:read</code>.</li>
+<li><strong>افحص البنية (schema).</strong> <code>GET /v0/meta/bases/$BASE_ID/tables</code> — خزّن أسماء الحقول الدقيقة واسم الحقل الأساسي محليًا في الجلسة قبل إجراء أي تعديل.</li>
+<li><strong>اقرأ قبل أن تكتب.</strong> بالنسبة لعبارة "حدّث X حيث Y"، استخدم <code>filterByFormula</code> أولًا لتحديد مُعرّف <code>rec...</code>، ثم نفّذ <code>PATCH /v0/$BASE_ID/$TABLE/$RECORD_ID</code>. لا تخمّن مُعرّفات السجلات أبدًا.</li>
+<li><strong>اجمع الكتابات في دفعات.</strong> ادمج عمليات الإنشاء المترابطة في طلب POST واحد بحد أقصى 10 سجلات للبقاء ضمن حدّ 5 طلبات/ثانية.</li>
+<li><strong>العمليات الإتلافية.</strong> لا يمكن التراجع عن الحذف عبر API. إذا طلب المستخدم "احذف كل عناصر X"، فاعرض عليه الفلتر وعدد السجلات وانتظر تأكيده قبل التنفيذ.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق شائعة</h2>
+<ul>
+<li><strong>يجب ترميز <code>filterByFormula</code> بصيغة URL.</strong> كذلك أسماء الحقول التي تحتوي مسافات أو أحرفًا غير ASCII تحتاج إلى ترميز (<code>{My Field}</code> ← <code>%7BMy%20Field%7D</code>). استخدم مكتبة Python القياسية (النمط أعلاه) — لا ترمّزها يدويًا أبدًا.</li>
+<li><strong>تُحذَف الحقول الفارغة من الاستجابات.</strong> غياب مفتاح <code>&quot;Assignee&quot;</code> لا يعني أن الحقل غير موجود — بل يعني أن قيمته في هذا السجل فارغة. تحقّق من البنية (الخطوة 3) قبل استنتاج أن حقلًا مفقود.</li>
+<li><strong>الفرق بين PATCH و PUT.</strong> يدمج <code>PATCH</code> الحقول المُرسَلة في السجل. أمّا <code>PUT</code> فيستبدل السجل بالكامل ويمسح أي حقل لم تُدرجه. اجعل <code>PATCH</code> هو الخيار الافتراضي.</li>
+<li><strong>يجب أن تكون خيارات الاختيار المفرد موجودة مسبقًا.</strong> كتابة <code>&quot;Status&quot;: &quot;Shipping&quot;</code> عندما لا يكون <code>Shipping</code> ضمن قائمة خيارات الحقل يُصدر الخطأ <code>INVALID_MULTIPLE_CHOICE_OPTIONS</code> ما لم تمرّر <code>&quot;typecast&quot;: true</code> (التي تُنشئ الخيار تلقائيًا).</li>
+<li><strong>نطاق الرمز مخصص لكل قاعدة.</strong> ظهور <code>403</code> على قاعدة بينما تعمل قاعدة أخرى بلا مشكلة يعني أن قائمة Access الخاصة بالرمز لا تشمل تلك القاعدة — وليس مشكلة في الصلاحيات أو المصادقة. وجّه المستخدم إلى <a href="https://airtable.com/create/tokens" data-ext>https://airtable.com/create/tokens</a> لمنح الوصول.</li>
+<li><strong>حدود المعدل مرتبطة بكل قاعدة، لا بكل رمز.</strong> 5 طلبات/ثانية على <code>baseA</code> و5 طلبات/ثانية على <code>baseB</code> أمر مقبول؛ أمّا 6 طلبات/ثانية على <code>baseA</code> وحدها فسيتم تقييدها. راقب ترويسة <code>Retry-After</code> عند ظهور <code>429</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-notes-for-hermes">ملاحظات مهمة لـ Hermes</h2>
+<ul>
+<li><strong>استخدم دائمًا أداة <code>terminal</code> مع <code>curl</code>.</strong> لا تستخدم <code>web_extract</code> (لأنها لا تستطيع إرسال ترويسات المصادقة) ولا <code>browser_navigate</code> (تحتاج إلى مصادقة عبر الواجهة وبطيئة).</li>
+<li><strong>يتدفق <code>AIRTABLE_API_KEY</code> تلقائيًا من <code>${HERMES_HOME:-~/.hermes}/.env</code> إلى العملية الفرعية</strong> عند تحميل هذه المهارة — بلا حاجة لإعادة تصديره قبل كل استدعاء <code>curl</code>.</li>
+<li><strong>احرص على معالجة الأقواس المعقوفة في الصيغ بعناية.</strong> في جسم heredoc، تكون <code>{Status}</code> نصًا حرفيًا. وفي وسيط shell، تكون <code>{Status}</code> آمنة خارج سياق توسيع الأقواس <code>{...}</code> (brace-expansion) — لكن مرّر السلاسل الديناميكية عبر <code>python urllib.parse.quote</code> قبل دمجها في رابط.</li>
+<li><strong>اطبع الناتج بشكل مقروء باستخدام <code>python -m json.tool</code></strong> (متوفرة دائمًا) بدلًا من <code>jq</code> (اختيارية). الجأ إلى <code>jq</code> فقط عند الحاجة إلى فلترة أو إسقاط حقول.</li>
+<li><strong>التصفح المُقسّم لكل صفحة، لا على مستوى شامل.</strong> حدّ Airtable البالغ 100 سجل هو حدّ صارم لا يمكن رفعه. كرّر العملية باستخدام <code>offset</code> حتى يغيب هذا الحقل.</li>
+<li><strong>اقرأ مصفوفة <code>errors</code></strong> في الاستجابات غير الناجحة (non-2xx) — يُعيد Airtable رموز أخطاء منظّمة مثل <code>AUTHENTICATION_REQUIRED</code> و <code>INVALID_PERMISSIONS</code> و <code>MODEL_ID_NOT_FOUND</code> و <code>INVALID_MULTIPLE_CHOICE_OPTIONS</code> تُخبرك بدقة بمصدر المشكلة.</li>
+</ul>

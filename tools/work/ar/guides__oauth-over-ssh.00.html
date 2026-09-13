@@ -1,0 +1,66 @@
+<header><h1>OAuth عبر SSH / الأجهزة البعيدة</h1></header>
+<p>بعض مزوّدي Hermes — <strong>Spotify</strong> و<strong>خوادم MCP البعيدة</strong> (Linear وSentry وAtlassian وAsana وFigma، ...) — يستخدمون تدفق OAuth بـ<em>إعادة توجيه loopback</em>. يعيد خادم المصادقة توجيه متصفحك إلى <code>http://127.0.0.1:&lt;port&gt;/callback</code> بحيث يمكن لمستمع HTTP صغير يشغّله Hermes التقاط رمز التفويض.</p>
+<p>يعمل هذا بشكل مثالي عندما يكون Hermes ومتصفحك على نفس الجهاز. لكنه يتعطّل بمجرد أن يفترقا: يحاول متصفح جهازك المحمول الوصول إلى <code>127.0.0.1</code> على <strong>جهازك المحمول</strong>، بينما المستمع مرتبط بـ<code>127.0.0.1</code> على <strong>الخادم البعيد</strong>.</p>
+<p>الحل هو أمر SSH local-forward من سطر واحد. أما بالنسبة لخوادم MCP على طرفية تفاعلية، يمكنك غالبًا لصق رابط إعادة التوجيه مرة أخرى بدلًا من ذلك (بدون نفق).</p>
+<p><strong>OAuth الخاص بـ xAI Grok (<code>xai-oauth</code>) يستخدم رمز جهاز OAuth (device code)</strong>، وليس استدعاء loopback — افتح رابط التحقق المطبوع في أي متصفح ويقوم Hermes باستطلاع الحالة حتى الموافقة. لا حاجة إلى نفق SSH. راجع <a href="/docs/guides/xai-grok-oauth">OAuth الخاص بـ xAI Grok</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tldr">الخلاصة</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يطبع Hermes المنفذ الدقيق الذي ارتبط به في سطر <code>Waiting for callback on ...</code> — انسخه من هناك. يستخدم Spotify افتراضيًا المنفذ <code>43827</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-providers-need-this">ما المزوّدون الذين يحتاجون هذا</h2>
+<table><thead><tr><th>المزوّد</th><th>منفذ loopback</th><th>هل يلزم نفق؟</th></tr></thead><tbody><tr><td>Spotify</td><td><code>43827</code> (افتراضي)</td><td>نعم، عندما يكون Hermes بعيدًا</td></tr><tr><td>خوادم MCP (<code>auth: oauth</code>)</td><td>يُختار تلقائيًا لكل خادم</td><td>نعم، عندما يكون Hermes بعيدًا (أو لصق رابط إعادة التوجيه)</td></tr><tr><td><code>xai-oauth</code> (Grok SuperGrok)</td><td>لا ينطبق</td><td>لا — تدفق رمز الجهاز</td></tr><tr><td><code>anthropic</code> (Claude Pro/Max)</td><td>لا ينطبق</td><td>لا — تدفق لصق الرمز</td></tr><tr><td><code>openai-codex</code> (ChatGPT Plus/Pro)</td><td>لا ينطبق</td><td>لا — تدفق رمز الجهاز</td></tr><tr><td><code>minimax</code>، <code>nous-portal</code></td><td>لا ينطبق</td><td>لا — تدفق رمز الجهاز</td></tr><tr><td><code>openrouter</code> (<code>hermes auth add openrouter --type oauth</code>)</td><td>يُخصّصه نظام التشغيل، محليًا فقط</td><td>لا — عبر SSH يتحول Hermes إلى تدفق OpenRouter بدون واجهة (headless) ويطلب منك لصق الرمز الظاهر في المتصفح</td></tr></tbody></table>
+<p>إذا لم يكن مزوّدك في الجدول، فأنت لست بحاجة إلى نفق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-servers">خوادم MCP</h2>
+<p><strong>Desktop Skills ← MCP:</strong> يتلقى التطبيق الأصلي (native app) الاستدعاء (callback) على جهازك
+ويعيد توجيهه إلى الاتصال والملف الشخصي (profile) المحدَّدين، لذا لا يحتاج هذا التدفق إلى
+نفق استدعاء SSH أو <code>dashboard.public_url</code>. تبقى الرموز على
+الملف الشخصي المالك للـ backend. مغادرة تبويب MCP أو تغيير نطاقه يلغي
+عملية تسجيل الدخول المعلَّقة. إذا طلب منك Desktop تحديث الـ backend، حدّثه قبل إعادة المحاولة؛
+فهو لا يعود إلى استدعاء HTTP بعيد. سير العمل عبر الطرفية أدناه
+لم يتغيّر.</p>
+<p>تستخدم خوادم MCP البعيدة (Linear وSentry وAtlassian وAsana وFigma، إلخ) نفس تدفق إعادة توجيه loopback. يختار Hermes تلقائيًا منفذًا حرًا لكل خادم ويطبع رابط التفويض عند بدء تدفق OAuth — إما عند بدء التشغيل (عندما يظهر خادم جديد في <code>mcp_servers:</code>) أو عندما تُشغّل <code>hermes mcp login &lt;server&gt;</code>.</p>
+<p>لديك طريقتان لإتمام العملية من جهاز بعيد:</p>
+<p><strong>الخيار 1 — لصق رابط إعادة التوجيه مرة أخرى (بدون إعداد، يعمل في كل مكان).</strong> على طرفية تفاعلية، يطلب منك Hermes لصق رابط إعادة التوجيه بالتزامن مع تشغيل المستمع المحلي. بعد الموافقة في متصفحك، ستظهر إعادة التوجيه إلى <code>http://127.0.0.1:&lt;port&gt;/callback</code> خطأ اتصال — وهذا متوقّع. انسخ <strong>الرابط الكامل من شريط عنوان المتصفح</strong> والصقه عند طلب Hermes:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تُقبل سلسلة استعلام مجرّدة من نوع <code>?code=...&amp;state=...</code> أيضًا. يعمل هذا مع أي خادم MCP لديه <code>auth: oauth</code> ولا يتطلب أي تعديلات على إعدادات SSH.</p>
+<p><strong>الخيار 2 — إعادة توجيه منفذ SSH (كما في Spotify).</strong> يطبع Hermes المنفذ الدقيق الذي ارتبط به في تلميح جلسة SSH. افتح طرفية منفصلة على جهازك المحمول:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ثم افتح رابط التفويض في متصفحك كالمعتاد؛ تمر إعادة التوجيه عبر النفق ويلتقطها المستمع. استخدم هذا عندما تحتاج إلى إتمام التدفق دون إشراف (مثلًا إعادة مصادقة مُنفَّذة بسكربت حيث لا يمكنك اللصق تفاعليًا).</p>
+<p><strong>مشكلة شائعة — سباق إعادة تحميل الإعدادات خلال 30 ثانية.</strong> إذا عدّلت <code>~/.hermes/config.yaml</code> لإضافة خادم MCP بـ OAuth من داخل جلسة Hermes قيد التشغيل، تُعيد الـ CLI تلقائيًا تحميل اتصالات MCP بمهلة 30 ثانية. وهذا ليس وقتًا كافيًا لإتمام تدفق OAuth تفاعلي، وستتخلى إعادة التحميل عن المحاولة. استخدم <code>hermes mcp login &lt;server&gt;</code> من طرفية جديدة بدلًا من ذلك — فهي لا تملك هذا الحد الأقصى وتنتظر المدة الكاملة 5 دقائق حتى تلصق الرد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-the-listener-cant-just-bind-0000">لماذا لا يمكن للمستمع الارتباط بـ 0.0.0.0 ببساطة</h2>
+<p>يتحقق Spotify ومعظم خوادم OAuth لـ MCP من معامل <code>redirect_uri</code> مقابل قائمة سماح (allowlist). ويتطلب كلاهما صيغة loopback (<code>http://127.0.0.1:&lt;exact-port&gt;/callback</code>). ربط المستمع بـ <code>0.0.0.0</code> أو منفذ مختلف سيجعل خادم المصادقة يرفض الطلب باعتباره عدم تطابق في redirect_uri. يحافظ نفق SSH على سلامة رابط loopback من طرف إلى طرف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step-single-ssh-hop">خطوة بخطوة: قفزة SSH واحدة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-start-the-tunnel-from-your-local-machine">1. ابدأ النفق من جهازك المحلي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>-N</code> تعني &quot;لا تفتح shell بعيدًا، فقط أبقِ النفق مفتوحًا.&quot; أبقِ هذه الطرفية قيد التشغيل طوال مدة تسجيل الدخول.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-in-a-separate-ssh-session-run-the-auth-command">2. في جلسة SSH منفصلة، شغّل أمر المصادقة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يكتشف Hermes جلسة SSH، ويتخطى الفتح التلقائي للمتصفح، ويطبع رابط التفويض إلى جانب سطر <code>Waiting for callback on http://127.0.0.1:&lt;port&gt;/callback</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-open-the-url-in-your-local-browser">3. افتح الرابط في متصفحك المحلي</h3>
+<p>انسخ رابط التفويض من الطرفية البعيدة والصقه في المتصفح على جهازك المحمول. وافق على شاشة الموافقة. يعيد خادم المصادقة التوجيه إلى <code>http://127.0.0.1:&lt;port&gt;/callback</code>. يصل متصفحك إلى النفق، وتُوجَّه الطلبية إلى المستمع البعيد، ويطبع Hermes <code>Login successful!</code>.</p>
+<p>يمكنك إيقاف النفق (Ctrl+C في الطرفية الأولى) بمجرد رؤية سطر النجاح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step-through-a-jump-box">خطوة بخطوة: عبر جهاز وسيط (jump box)</h2>
+<p>إذا كنت تصل إلى Hermes عبر bastion / جهاز وسيط، استخدم خيار SSH المدمج <code>-J</code> (ProxyJump):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>هذا يسلسل اتصال SSH عبر الجهاز الوسيط دون وضع منفذ loopback على الجهاز الوسيط نفسه. ينفق <code>127.0.0.1:43827</code> المحلي على جهازك المحمول مباشرةً إلى <code>127.0.0.1:43827</code> على الخادم البعيد النهائي.</p>
+<p>بالنسبة لإصدارات OpenSSH الأقدم التي لا تدعم <code>-J</code>، الصيغة الطويلة هي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mosh-tmux-ssh-controlmaster">Mosh وtmux وssh ControlMaster</h2>
+<p>النفق خاصية تابعة لاتصال SSH الأساسي. فإذا كنت تشغّل Hermes داخل <code>tmux</code> عبر جلسة mosh، فإن تجوال mosh (roaming) لا ينقل إعادة توجيه <code>-L</code>. افتح جلسة SSH عادية <em>منفصلة</em> <strong>فقط</strong> من أجل نفق <code>-L</code> — فهذا هو الاتصال الذي يجب أن يبقى حيًا طوال تدفق المصادقة. يمكن لجلسة mosh/tmux التفاعلية الاستمرار في تشغيل Hermes عاديًا.</p>
+<p>إذا كنت تستخدم <code>ssh -o ControlMaster=auto</code>، فإن إعادة توجيه المنافذ على اتصال مُتعدَّد (multiplexed) تشترك في عمر الاتصال الرئيسي (master). أعد تشغيل الاتصال الرئيسي إذا لم يظهر النفق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bind-12700143827-address-already-in-use"><code>bind [127.0.0.1]:43827: Address already in use</code></h3>
+<p>شيء ما على جهازك المحمول يستخدم هذا المنفذ بالفعل. إما أن النفق السابق لم يُغلَق بشكل نظيف، أو أن Hermes محليًا يستمع عليه أيضًا. اعثر على المتسبب وأوقفه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ثم أعد محاولة أمر <code>ssh -L</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization-timed-out-waiting-for-the-local-callback">انتهت مهلة التفويض أثناء انتظار الاستدعاء المحلي</h3>
+<p>لم تصل إعادة التوجيه إلى المستمع البعيد. تحقق أن النفق ما زال حيًا (لا يعرض <code>ssh -N</code> ناتجًا، لذا انظر إلى الطرفية التي بدأته منها)، وتأكد من استخدامك للمنفذ من أحدث سطر <code>Waiting for callback on ...</code> (قد يرفعه Hermes تلقائيًا إذا كان المنفذ المفضّل مشغولًا)، وأعد تشغيل النفق إذا لزم الأمر، وأعد تشغيل أمر المصادقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokens-land-in-the-wrong-hermes">الرموز تصل إلى <code>~/.hermes</code> الخطأ</h3>
+<p>تُكتب الرموز تحت مستخدم Linux الذي شغّل <code>hermes auth add ...</code>. فإذا كانت خدمة gateway / systemd لديك تعمل بمستخدم مختلف (مثل <code>root</code> أو مستخدم <code>hermes</code> مخصّص)، فصادق باعتبارك <strong>ذلك</strong> المستخدم حتى تصل الرموز إلى <code>~/.hermes/auth.json</code> الخاص به. استخدم <code>sudo -u hermes -i</code> أو ما يعادله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">راجع أيضًا</h2>
+<ul>
+<li><a href="/docs/guides/xai-grok-oauth">OAuth الخاص بـ xAI Grok</a> — رمز جهاز؛ بدون نفق SSH</li>
+<li><a href="/docs/user-guide/features/spotify#running-over-ssh--in-a-headless-environment">Spotify (<code>Running over SSH</code>)</a></li>
+<li><a href="/docs/user-guide/features/mcp#oauth-authenticated-http-servers">عميل MCP الأصلي (قسم OAuth)</a></li>
+<li><a href="https://man.openbsd.org/ssh#J" data-ext>SSH <code>-J</code> / ProxyJump (صفحة الدليل)</a></li>
+</ul>

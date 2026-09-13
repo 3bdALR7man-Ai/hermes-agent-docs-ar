@@ -1,0 +1,137 @@
+<header><h1>تشغيل Teams Meeting Pipeline</h1></header>
+<p>استخدم هذا الدليل بعد أن تكون قد فعّلت الميزة من صفحة <a href="/docs/user-guide/messaging/teams-meetings">اجتماعات Teams</a>.</p>
+<p>تغطي هذه الصفحة ما يلي:</p>
+<ul>
+<li>تدفّقات CLI الخاصة بالمشغّل</li>
+<li>الصيانة الدورية للاشتراكات (subscriptions)</li>
+<li>فرز الأعطال (failure triage)</li>
+<li>فحوصات ما قبل الإطلاق</li>
+<li>ورقة عمل الطرح (rollout)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-operator-commands">الأوامر الأساسية للمشغّل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="validate-the-config-snapshot">التحقق من لقطة الإعدادات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>استخدم هذا الأمر أولًا بعد أي تغيير في الإعدادات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspect-token-health">فحص سلامة الـ token</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>استخدم <code>--force-refresh</code> حين تشتبه في أن حالة المصادقة قديمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspect-subscriptions">فحص الاشتراكات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="renew-near-expiry-subscriptions">تجديد الاشتراكات التي قاربت على الانتهاء</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automating-subscription-renewal-required-for-production">أتمتة تجديد الاشتراكات (إلزامية في بيئة الإنتاج)</h3>
+<p><strong>تنتهي صلاحية اشتراكات Microsoft Graph خلال 72 ساعة كحد أقصى.</strong> إن لم يجدّدها شيء، تتوقف إشعارات الاجتماعات بصمت بعد 3 أيام ويبدو الـ pipeline «معطّلًا». هذا هو نمط الفشل التشغيلي الأول في أي تكامل يعتمد على Graph.</p>
+<p>يجب عليك حتمًا تشغيل <code>maintain-subscriptions</code> وفق جدول زمني. اختر أحد الخيارات الثلاثة التالية:</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-1-hermes-cron-recommended-if-you-already-run-the-hermes-gateway">الخيار 1: Hermes cron (موصى به إذا كنت تشغّل Hermes gateway بالفعل)</h4>
+<p>يأتي Hermes مع مُجدوِل cron مدمج. يشغّل الوضع <code>--no-agent</code> سكربتًا بوصفه المهمة (بدلًا من استخدام LLM)، ويجب أن يشير <code>--script</code> إلى ملف ضمن <code>~/.hermes/scripts/</code>. أنشئ السكربت أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>ثم سجّل مهمة cron تعتمد على السكربت فقط وتعمل كل 12 ساعة (ما يمنحك هامشًا يعادل 6 أضعاف مقارنةً بنافذة انتهاء الصلاحية البالغة 72 ساعة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تحقّق من أنها سُجّلت، واطّلع على موعد التشغيل التالي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-2-systemd-timer-recommended-for-linux-production-deployments">الخيار 2: systemd timer (موصى به لعمليات النشر الإنتاجية على Linux)</h4>
+<p>أنشئ الملف <code>/etc/systemd/system/hermes-teams-pipeline-maintain.service</code>:</p>
+<div class="language-ini codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>والملف <code>/etc/systemd/system/hermes-teams-pipeline-maintain.timer</code>:</p>
+<div class="language-ini codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>فعّله:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-3-plain-crontab">الخيار 3: crontab عادي</h4>
+<div class="language-cron codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>تأكد من أن بيئة cron تتضمن بيانات الاعتماد <code>MSGRAPH_*</code>. أبسط حل: حمّل الملف <code>~/.hermes/.env</code> (عبر source) في أعلى سكربت wrapper يستدعيه crontab.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="verifying-renewal-is-working">التحقق من أن التجديد يعمل</h4>
+<p>بعد إعداد الجدول الزمني، راجع نشاط التجديد بعد أول تشغيل مجدول:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>إذا لاحظت يومًا أن Graph webhook «توقف عن العمل» بشكل غامض بعد نحو 72 ساعة بالضبط، فهذا أول ما يجب التحقق منه: هل عملت مهمة التجديد فعلًا؟</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspect-recent-jobs">فحص المهام الأخيرة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="replay-a-stored-job">إعادة تشغيل مهمة مخزّنة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dry-run-meeting-artifact-fetches">تشغيل تجريبي (dry-run) لجلب ملفات الاجتماعات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>مرّر <code>--organizer-user-id</code> (معرّف مستخدم المنظِّم في Microsoft Entra) لتحديد الاجتماع
+عبر مسار Graph المقيّد بنطاق المنظِّم <code>/users/{id}/onlineMeetings</code>. هذا
+مطلوب لروابط Teams القصيرة <code>/meet/</code>، التي يرفضها Graph على
+الـ endpoint <code>/communications/onlineMeetings</code>. أما المهام التي تُطلقها الـ webhooks فتستنتج
+المنظِّم تلقائيًا من الحقل <code>@odata.id</code> في الإشعار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="routine-runbook">دليل التشغيل الروتيني (Runbook)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="after-first-setup">بعد الإعداد الأول</h3>
+<p>نفّذ ما يلي بالترتيب:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>ثم أطلق حدث اجتماع حقيقيًا أو انتظر حدوثه، وتأكد من النتيجة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="daily-or-periodic-checks">الفحوصات اليومية أو الدورية</h3>
+<ul>
+<li>شغّل <code>hermes teams-pipeline maintain-subscriptions --dry-run</code></li>
+<li>افحص <code>hermes teams-pipeline list --status failed</code></li>
+<li>تحقّق من أن وجهة التسليم في Teams ما زالت هي المحادثة أو القناة الصحيحة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-changing-webhook-urls-or-delivery-targets">قبل تغيير روابط الـ webhook أو وجهات التسليم</h3>
+<ul>
+<li>حدّث رابط الإشعارات العام أو إعدادات وجهة Teams</li>
+<li>شغّل <code>hermes teams-pipeline validate</code></li>
+<li>جدّد الاشتراكات المتأثرة أو أعد إنشاءها</li>
+<li>تأكد من أن الأحداث الجديدة تصل إلى الوجهة (sink) المتوقعة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-triage">فرز الأعطال</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-jobs-are-being-created">لا تُنشأ أي مهام</h3>
+<p>تحقّق مما يلي:</p>
+<ul>
+<li>أن <code>msgraph_webhook</code> مفعّل</li>
+<li>أن رابط الإشعارات العام يشير إلى <code>/msgraph/webhook</code></li>
+<li>أن حالة العميل (client state) في الاشتراك تطابق <code>MSGRAPH_WEBHOOK_CLIENT_STATE</code></li>
+<li>أن الاشتراكات ما زالت موجودة على الطرف البعيد ولم تنتهِ صلاحيتها</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jobs-stay-in-retry-or-fail-before-summarization">تبقى المهام في حالة إعادة المحاولة أو تفشل قبل التلخيص</h3>
+<p>تحقّق مما يلي:</p>
+<ul>
+<li>صلاحيات النصوص المفرّغة وتوفّرها</li>
+<li>صلاحيات التسجيلات وتوفّر ملفاتها</li>
+<li>توفّر <code>ffmpeg</code> إذا كان اللجوء الاحتياطي إلى التسجيل مفعّلًا</li>
+<li>سلامة Graph token</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="summaries-are-produced-but-not-delivered-to-teams">تُنتج الملخّصات لكنها لا تُسلَّم إلى Teams</h3>
+<p>تحقّق مما يلي:</p>
+<ul>
+<li><code>platforms.teams.enabled: true</code></li>
+<li><code>delivery_mode</code></li>
+<li><code>incoming_webhook_url</code> في وضع webhook</li>
+<li><code>chat_id</code> أو <code>team_id</code> مع <code>channel_id</code> في وضع Graph</li>
+<li>إعدادات مصادقة Teams إذا كان النشر عبر Graph مستخدمًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="duplicate-or-unexpected-replays">إعادات تشغيل مكرّرة أو غير متوقعة</h3>
+<p>تحقّق مما يلي:</p>
+<ul>
+<li>هل أعدت تشغيل مهمة يدويًا باستخدام <code>hermes teams-pipeline run</code></li>
+<li>هل يوجد سجل الوجهة (sink) بالفعل لذلك الاجتماع</li>
+<li>هل فعّلت عمدًا مسارًا لإعادة الإرسال في إعداداتك المحلية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="go-live-checklist">قائمة التحقق قبل الإطلاق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="17"></x-keep> بيانات اعتماد Graph موجودة وصحيحة</li>
+<li class="task-list-item"><x-keep id="18"></x-keep> <code>msgraph_webhook</code> مفعّل ويمكن الوصول إليه من الإنترنت العام</li>
+<li class="task-list-item"><x-keep id="19"></x-keep> <code>MSGRAPH_WEBHOOK_CLIENT_STATE</code> مضبوط ويطابق الاشتراكات</li>
+<li class="task-list-item"><x-keep id="20"></x-keep> اشتراك النصوص المفرّغة مُنشأ</li>
+<li class="task-list-item"><x-keep id="21"></x-keep> اشتراك التسجيلات مُنشأ إذا كان اللجوء الاحتياطي إلى STT مطلوبًا</li>
+<li class="task-list-item"><x-keep id="22"></x-keep> <code>ffmpeg</code> مثبّت إذا كان اللجوء الاحتياطي إلى التسجيل مفعّلًا</li>
+<li class="task-list-item"><x-keep id="23"></x-keep> وجهة التسليم الصادرة في Teams مضبوطة ومُتحقَّق منها</li>
+<li class="task-list-item"><x-keep id="24"></x-keep> وجهات Notion و Linear مضبوطة فقط إذا كانت مطلوبة فعلًا</li>
+<li class="task-list-item"><x-keep id="25"></x-keep> <code>hermes teams-pipeline validate</code> يُرجع لقطة سليمة (OK)</li>
+<li class="task-list-item"><x-keep id="26"></x-keep> <code>hermes teams-pipeline token-health --force-refresh</code> ينجح</li>
+<li class="task-list-item"><x-keep id="27"></x-keep> <strong><code>maintain-subscriptions</code> مُجدوَل</strong> (عبر Hermes cron أو systemd timer أو crontab — راجع <a href="#automating-subscription-renewal-required-for-production">أتمتة تجديد الاشتراكات</a>). بدون ذلك، تنتهي صلاحية اشتراكات Graph بصمت خلال 72 ساعة.</li>
+<li class="task-list-item"><x-keep id="28"></x-keep> أنتج حدث اجتماع حقيقي من البداية إلى النهاية مهمةً مخزّنة</li>
+<li class="task-list-item"><x-keep id="29"></x-keep> وصل ملخّص واحد على الأقل إلى وجهة التسليم المقصودة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-mode-decision-guide">دليل اختيار وضع التسليم</h2>
+<table><thead><tr><th>الوضع</th><th>متى تستخدمه</th><th>المقايضة</th></tr></thead><tbody><tr><td><code>incoming_webhook</code></td><td>حين تحتاج فقط إلى نشر بسيط في Teams</td><td>أبسط إعداد، وتحكّم أقل</td></tr><tr><td><code>graph</code></td><td>حين تحتاج إلى النشر في قناة أو محادثة عبر Graph</td><td>تحكّم أكبر، مع إعدادات أكثر للمصادقة والوجهة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="operator-worksheet">ورقة عمل المشغّل</h2>
+<p>املأ هذه الورقة قبل الطرح:</p>
+<table><thead><tr><th>البند</th><th>القيمة</th></tr></thead><tbody><tr><td>رابط الإشعارات العام</td><td></td></tr><tr><td>Graph tenant ID</td><td></td></tr><tr><td>Graph client ID</td><td></td></tr><tr><td>حالة العميل (client state) للـ webhook</td><td></td></tr><tr><td>اشتراك مورد النصوص المفرّغة</td><td></td></tr><tr><td>اشتراك مورد التسجيلات</td><td></td></tr><tr><td>وضع التسليم في Teams</td><td></td></tr><tr><td>معرّف محادثة Teams أو الفريق/القناة</td><td></td></tr><tr><td>معرّف قاعدة بيانات Notion</td><td></td></tr><tr><td>معرّف فريق Linear</td><td></td></tr><tr><td>تجاوز مسار التخزين، إن وُجد</td><td></td></tr><tr><td>المسؤول عن الفحوصات اليومية</td><td></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="change-review-worksheet">ورقة عمل مراجعة التغييرات</h2>
+<p>استخدم هذه الورقة قبل تغيير النشر:</p>
+<table><thead><tr><th>السؤال</th><th>الإجابة</th></tr></thead><tbody><tr><td>هل سنغيّر رابط الـ webhook العام؟</td><td></td></tr><tr><td>هل سندوّر بيانات اعتماد Graph؟</td><td></td></tr><tr><td>هل سنغيّر وضع التسليم في Teams؟</td><td></td></tr><tr><td>هل سننتقل إلى محادثة أو قناة جديدة في Teams؟</td><td></td></tr><tr><td>هل تحتاج الاشتراكات إلى إعادة إنشاء أو تجديد؟</td><td></td></tr><tr><td>هل نحتاج إلى تشغيل تحقّق جديد من البداية إلى النهاية؟</td><td></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/messaging/teams-meetings">إعداد اجتماعات Teams</a></li>
+<li><a href="/docs/user-guide/messaging/teams">إعداد بوت Microsoft Teams</a></li>
+</ul>

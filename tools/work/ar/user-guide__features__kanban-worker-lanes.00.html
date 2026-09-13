@@ -1,0 +1,89 @@
+<header><h1>مسارات العمل (worker lanes) في Kanban</h1></header>
+<p><strong>مسار العمل (worker lane)</strong> هو فئة من العمليات يستطيع موزِّع kanban (dispatcher) توجيه المهام إليها. لكل مسار هوية (سلسلة المُكلَّف، أي assignee)، وآلية تشغيل، وعقد يحدد ما يجب عليه فعله بالمهمة بعد تشغيله.</p>
+<p>هذه الصفحة هي ذلك العقد. وهي موجّهة إلى فئتين من القرّاء:</p>
+<ul>
+<li><strong>المشغّلون</strong> الذين يختارون المسارات التي يربطونها باللوحة (أي الـ profiles التي ينشئونها، وأي المُكلَّفين يستخدمون).</li>
+<li><strong>مؤلفو الإضافات / التكاملات</strong> الذين يريدون إضافة شكل جديد من المسارات (عامل CLI يغلّف Codex / Claude Code / OpenCode، أو عامل مراجعة داخل حاوية، أو خدمة غير تابعة لـ Hermes تسحب المهام عبر الـ API).</li>
+</ul>
+<p>إذا كنت تكتب كود العامل نفسه — أي الوكيل الذي يعمل <em>داخل</em> المسار — فإن تفاصيل دورة حياة kanban والمرجع تُحقن في system prompt الخاص بالعامل تلقائيًا (كتلة <code>KANBAN_GUIDANCE</code> في <a href="https://github.com/NousResearch/hermes-agent/blob/main/agent/prompt_builder.py" data-ext><code>agent/prompt_builder.py</code></a>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-hierarchy">التسلسل الهرمي</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يملك Hermes Kanban الحقيقة المرجعية لدورة الحياة — <code>ready</code> → <code>running</code> → <code>review</code> / <code>blocked</code> / <code>done</code> / <code>archived</code>. تنفّذ مسارات العمل المهام لكنها لا تملك تلك الحقيقة أبدًا؛ فكل ما تفعله يعود عبر نواة kanban من خلال أدوات <code>kanban_*</code> (أو عبر الـ API بالنسبة إلى العمّال الخارجيين غير التابعين لـ Hermes). ويتحكم المراجِعون في الانتقال من &quot;كُتب تغيير الكود&quot; إلى &quot;اكتملت المهمة&quot;.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-a-lane-provides">ما يوفّره المسار</h2>
+<p>لكي يكون التكامل مسار عمل في kanban، يجب أن يوفّر ثلاثة أمور:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-an-assignee-string">1. سلسلة المُكلَّف (assignee)</h3>
+<p>يطابق الموزِّع <code>task.assignee</code> إما مع اسم profile في Hermes (شكل المسار الافتراضي) أو مع معرّف مسجَّل غير قابل للتشغيل (شكل مسار الإضافة — راجع <a href="#adding-an-external-cli-worker-lane">إضافة مسار عمل خارجي عبر CLI</a> أدناه). تُترك المهام التي لا يمكن تحديد المُكلَّف بها على <code>ready</code> مع حدث <code>skipped_nonspawnable</code> لكي يتمكن مشغّل اللوحة من إصلاحها؛ فلا تُحذف بصمت ولا يُنفّذها أي بديل احتياطي عشوائي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-a-spawn-mechanism">2. آلية تشغيل</h3>
+<p>بالنسبة إلى مسارات profiles في Hermes، تشغّل الدالة <code>_default_spawn</code> في الموزِّع الأمر <code>hermes -p &lt;assignee&gt; chat -q &lt;prompt&gt;</code> (أو صيغة الوحدة المكافئة عندما لا يكون الـ shim ‏<code>hermes</code> موجودًا على <code>$PATH</code>) داخل مساحة العمل المثبّتة للمهمة، مع ضبط متغيرات البيئة التالية:</p>
+<table><thead><tr><th>المتغير</th><th>ما يحمله</th></tr></thead><tbody><tr><td><code>HERMES_KANBAN_TASK</code></td><td>معرّف المهمة التي يعمل عليها العامل</td></tr><tr><td><code>HERMES_KANBAN_DB</code></td><td>المسار المطلق لملف SQLite الخاص باللوحة</td></tr><tr><td><code>HERMES_KANBAN_BOARD</code></td><td>الاسم المختصر (slug) للوحة</td></tr><tr><td><code>HERMES_KANBAN_WORKSPACES_ROOT</code></td><td>جذر شجرة مساحات العمل الخاصة باللوحة</td></tr><tr><td><code>HERMES_KANBAN_WORKSPACE</code></td><td>المسار المطلق لمساحة عمل <em>هذه</em> المهمة</td></tr><tr><td><code>HERMES_KANBAN_RUN_ID</code></td><td>معرّف التشغيل الحالي (لبوابة دورة الحياة)</td></tr><tr><td><code>HERMES_KANBAN_CLAIM_LOCK</code></td><td>سلسلة قفل الاستلام (<code>&lt;host&gt;:&lt;pid&gt;:&lt;uuid&gt;</code>)</td></tr><tr><td><code>HERMES_PROFILE</code></td><td>اسم الـ profile الخاص بالعامل (لنسبة التأليف في <code>kanban_comment</code>)</td></tr><tr><td><code>HERMES_TENANT</code></td><td>نطاق أسماء المستأجر (tenant)، إن كان للمهمة واحد</td></tr></tbody></table>
+<p>أما المسارات غير التابعة لـ Hermes (المسجَّلة عبر إضافة)، فتوفّر الإضافة دالة <code>spawn_fn</code> خاصة بها قابلة للاستدعاء، تتلقى <code>task</code> و <code>workspace</code> و <code>board</code> وتُعيد pid اختياريًا لكشف الأعطال.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="descendant-process-scope">نطاق العمليات المتفرّعة</h3>
+<p>يعود إسناد المهمة إلى عامل الموزِّع، لا إلى كل برنامج يشغّله.
+تحمل أدوات Hermes المساعدة للعمليات الفرعية سياجًا لغير المالك إلى الـ shells ونوى التنفيذ
+وعمليات تسليم cron والـ hooks وخوادم اللغة (language servers) وخوادم MCP العادية العاملة عبر stdio. وتبقى
+العمليات الأبناء اللاحقة مسيَّجة حتى لو أزال سكربتٌ معرّفَ المهمة الموروث: إذ تُرفض تعديلات CLI
+والأدوات، بدلًا من معاملة ذلك السكربت كمنسِّق (orchestrator).
+ويُحتفظ بتوجيه اللوحة/قاعدة البيانات ومسارات مساحة العمل. ويمكن للعمليات المتفرّعة قراءة
+لوحة موجودة دون تشغيل ترحيلات المخطط؛ ويجب على مالكها تهيئتها.</p>
+<p>يمنح الموزِّع صراحةً العاملَ المُسنَد إليه حديثًا نطاقه الخاص. وبالمثل، يستطيع endpoint
+‏MCP المُدار لأدوات Hermes التصرّف نيابةً عن العامل المشرف عليه، بينما تبقى
+العمليات الأبناء العادية لـ shell المنفّذ مسيَّجة. لا يجوز للعمّال سوى تنفيذ عمليات التسليم
+الخاصة بدورة الحياة وإرفاق الملفات بالمهمة المُسندة إليهم؛ ويبقى <code>unblock</code> حكرًا على المنسِّق.
+وتحتفظ التعليقات عبر المهام وإنشاء المهام اللاحقة بسلوكها الحالي.</p>
+<p>ينبغي لمؤلفي التكاملات الذين يشغّلون كودًا استخدام
+<code>agent.delegation_context.delegated_child_subprocess_env</code> عند نقطة التشغيل الفعلية، بعد
+دمج قيم متغيرات البيئة البديلة. فهو يحافظ على سياسة بيانات الاعتماد/الـ profile الخاصة بالمستدعي.
+هذا تحديد نطاق تعاوني وقت التشغيل، و<strong>ليس عزلًا على مستوى نظام التشغيل</strong>: فهو لا يمنع
+الكود العشوائي من محو البيانات الوصفية للنَّسَب عمدًا أو فتح SQLite مباشرةً.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-a-lifecycle-terminator">3. مُنهي دورة الحياة</h3>
+<p>يجب أن ينتهي كل استلام بواحد فقط مما يلي:</p>
+<ul>
+<li><code>kanban_complete(summary=..., metadata=...)</code> — تنجح المهمة، وتتحول الحالة إلى <code>done</code>.</li>
+<li><code>kanban_request_review(summary=..., metadata=..., reviewer=...)</code> — اكتمل التنفيذ على البطاقة نفسها ويدخل مرحلة المراجعة المدمجة؛ وتتحول الحالة إلى <code>review</code>. يحمّل الموزِّع المهارة المضمّنة <code>sdlc-review</code> ما لم يكن <code>kanban.review_dispatch</code> معطّلًا. يوافق المراجِع باستخدام <code>kanban_complete</code>، أو يُعيد عملًا قابلًا للتنفيذ باستخدام <code>kanban_request_changes</code>، أو يصعّد عائقًا خارجيًا حقيقيًا باستخدام <code>kanban_block</code>.</li>
+<li><code>kanban_block(reason=...)</code> — تنتظر المهمة مدخلات بشرية، وتتحول الحالة إلى <code>blocked</code>. يعيد الموزِّع التشغيل عند تنفيذ <code>kanban_unblock</code>.</li>
+<li>تخرج عملية العامل دون استدعاء أداة. تحصدها النواة وتُصدر <code>crashed</code> (مات الـ PID) أو <code>gave_up</code> (انطلق قاطع الإخفاقات المتتالية) أو <code>timed_out</code> (تجاوز max_runtime). هذا هو مسار الإخفاق؛ ولا ينتهي العمّال السليمون إليه.</li>
+</ul>
+<p>تفرض نواة kanban أن يُنهي واحد فقط من هذه كل تشغيل. والعامل الذي لا يستدعي أيًّا منها ويخرج بشكل طبيعي يُعامل على أنه تعطّل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="outputs-and-the-review-handoff">المخرجات وتسليم المراجعة</h2>
+<p>بالنسبة إلى المهام التي تغيّر الكود، اختر نموذج المراجعة الذي يعبّر عنه مخطط المهام:</p>
+<ul>
+<li><strong>المراجعة على البطاقة نفسها:</strong> استدعِ <code>kanban_request_review(summary=..., metadata=..., reviewer=...)</code>. تدخل المهمة <code>review</code> دون المساس بحساب تكرار الحظر. يستلمها الموزِّع افتراضيًا مع المهارة المضمّنة <code>sdlc-review</code>. يوافق المراجِع باستخدام <code>kanban_complete</code>، أو يستدعي <code>kanban_request_changes(reason=...)</code> لإغلاق تشغيل المراجعة وإعادة المهمة إلى منفّذها الأصلي، أو يحظرها فقط عند وجود تصعيد خارجي حقيقي.</li>
+<li><strong>بطاقة مراجعة/QA/إصدار لاحقة مُنشأة مسبقًا:</strong> تعرض <code>kanban_show</code> معرّفات المهام الأبناء؛ افحص تلك البطاقات باستخدام <code>kanban_show(task_id=...)</code> قبل اختيار الإجراء النهائي. عندما تكون المهمة الابن هي مرحلة المراجعة/QA/الإصدار اللاحقة، استدعِ <code>kanban_complete</code> على مرحلة التنفيذ. فلا يمكن ترقية الابن حتى تصبح هذه المهمة الأم <code>done</code>/<code>archived</code>. لا تطلب أيضًا مراجعة على البطاقة نفسها، ولا تحظر المهمة الأم حظرًا ثابتًا أبدًا باستخدام <code>review-required:</code> — فكلا الخيارين يعزل المسار اللاحق أو يكرّره.</li>
+<li><strong>اللوحات البشرية فقط:</strong> اضبط <code>kanban.review_dispatch: false</code>. عندها يمكن أن تبقى المهمة في <code>review</code> حتى يوافق عليها إنسان أو يستخدم <code>reopen-review</code>/لوحة التحكم لإعادتها إلى <code>ready</code>/<code>todo</code>.</li>
+</ul>
+<p>يحمل كلا نموذجي المراجعة تسليمهما المنظَّم على انتقال دورة الحياة نفسه. لا تضع أسرارًا أو tokens أو بيانات شخصية تعريفية خام (PII) في <code>summary</code> أو <code>metadata</code>؛ فصفوف التشغيل دائمة.</p>
+<p>تغطي كتلة <code>KANBAN_GUIDANCE</code> المُحقنة كلا شكلي المخطط، و <code>kanban_complete</code>، وحلقة المراجعة على البطاقة نفسها، و <code>kanban_block</code> للعوائق الحقيقية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="logs-and-audit-trail">السجلات ومسار التدقيق</h2>
+<p>يكتب الموزِّع مخرجات stdout/stderr الخاصة بعامل كل مهمة إلى <code>&lt;board-root&gt;/logs/&lt;task_id&gt;.log</code>. ويمكن تدقيق السجلات انطلاقًا من البيانات الوصفية لـ kanban:</p>
+<ul>
+<li>تحمل صفوف <code>task_runs</code> قيمة <code>log_path</code>، ورمز الخروج (حيثما يتوفر)، والملخص، والبيانات الوصفية.</li>
+<li>تحمل صفوف <code>task_events</code> كل انتقال في الحالة (<code>promoted</code>، <code>claimed</code>، <code>heartbeat</code>، <code>completed</code>، <code>blocked</code>، <code>review_requested</code>، <code>changes_requested</code>، <code>review_reopened</code>، <code>gave_up</code>، <code>crashed</code>، <code>timed_out</code>، <code>reclaimed</code>، <code>claim_extended</code>).</li>
+<li>تُعيد <code>kanban_show</code> كليهما، لذا يحصل المراجِع (أو العامل اللاحق) الذي يقرأ المهمة على السجل الكامل دون الحاجة إلى الوصول إلى لوحة التحكم.</li>
+</ul>
+<p>تعرض لوحة التحكم سجل التشغيلات مع الملخصات وكتل البيانات الوصفية وشارات حالة الخروج. ويمكن لمستخدمي CLI تشغيل <code>hermes kanban tail &lt;task_id&gt;</code> للمتابعة المباشرة، أو <code>hermes kanban runs &lt;task_id&gt;</code> لقائمة المحاولات التاريخية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="existing-lane-shapes">أشكال المسارات الحالية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-profile-lane-default">مسار profile في Hermes (الافتراضي)</h3>
+<p>هو الشكل الذي يتخذه كل عامل kanban اليوم: المُكلَّف اسم profile، ويشغّل الموزِّع <code>hermes -p &lt;profile&gt;</code>، ويتلقى العامل كتلة system prompt ‏<code>KANBAN_GUIDANCE</code> المحقونة تلقائيًا، ويستخدم أدوات <code>kanban_*</code> لإنهاء التشغيل. لا يلزم أي إعداد سوى تعريف الـ profile.</p>
+<p>عندما تنشئ profiles لأسطولك، اختر أسماء تطابق <em>الدور</em> الذي تريد أن يوجّه إليه المنسِّق المهام. يكتشف المنسِّق (عند وجوده) أسماء الـ profiles لديك عبر <code>hermes profile list</code> — فلا توجد قائمة ثابتة يفترضها النظام (والجانب الخاص بالمنسِّق من العقد جزء من <code>KANBAN_GUIDANCE</code> المحقونة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="orchestrator-profile-lane">مسار profile المنسِّق</h3>
+<p>هو تخصيص لمسار الـ profile: المنسِّق profile في Hermes تتضمن toolset الخاصة به <code>kanban</code> لكنها تستبعد <code>terminal</code> / <code>file</code> / <code>code</code> / <code>web</code> لأغراض التنفيذ. مهمته تفكيك هدف عالي المستوى إلى مهام أبناء عبر <code>kanban_create</code> + <code>kanban_link</code> ثم التنحّي جانبًا. وتتضمن مهارة المنسِّق قواعد مقاومة إغراء التنفيذ بنفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-an-external-cli-worker-lane">إضافة مسار عمل خارجي عبر CLI</h2>
+<p>إن ربط أداة CLI غير تابعة لـ Hermes (مثل Codex CLI أو Claude Code CLI أو OpenCode CLI أو مشغّل محلي لنموذج برمجة، إلخ) بوصفها مسار عمل في kanban <em>ليس طريقًا ممهّدًا بعد</em>. دالة التشغيل في الموزِّع قابلة للاستبدال (فـ <code>spawn_fn</code> معامل في <code>dispatch_once</code>)، ويمكن لإضافةٍ تسجيل <code>spawn_fn</code> خاصة بها لمُكلَّف غير تابع لـ Hermes، لكن أعمال التكامل المحيطة — مثل تحويل رمز خروج CLI إلى استدعاءات <code>kanban_complete</code> / <code>kanban_block</code>، وربط اصطلاحات مساحة العمل/الـ sandbox الخاصة بـ CLI بمتغير البيئة <code>HERMES_KANBAN_WORKSPACE</code> لدى الموزِّع، والتعامل مع المصادقة والسياسات الخاصة بكل CLI — لا تزال عملًا تصميميًا خاصًا بكل تكامل.</p>
+<p>إذا كنت تفكر في إضافة مسار CLI، فافتح issue تصف فيها أداة CLI المحددة وسير العمل الذي تحاول تمكينه. العقد أعلاه هو القيود التي يجب أن يستوفيها أي مسار من هذا النوع؛ أما شكل التنفيذ (إضافة لكل CLI مقابل إضافة عامة لتشغيل CLI تُضبط معاملاتها عبر الإعدادات) فلا يزال مفتوحًا.</p>
+<p>الـ issue التاريخية لهذا الموضوع هي <a href="https://github.com/NousResearch/hermes-agent/issues/19931" data-ext>#19931</a>، إلى جانب الـ PR الخاص بـ Codex الذي أُغلق دون دمج <a href="https://github.com/NousResearch/hermes-agent/pull/19924" data-ext>#19924</a> — وهما يصفان مقترح البنية الأصلي لكنهما لم يُسفرا عن مشغّل فعلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-modes-the-dispatcher-handles">أنماط الإخفاق التي يتعامل معها الموزِّع</h2>
+<p>كي لا يضطر مؤلفو المسارات إلى إعادة تنفيذها:</p>
+<ul>
+<li><strong>انتهاء TTL للاستلام القديم</strong> — العامل الذي يستلم مهمة ثم لا يرسل نبضة (heartbeat) أو يُكملها أو يحظرها أبدًا، تُستعاد منه المهمة بعد <code>DEFAULT_CLAIM_TTL_SECONDS</code> (افتراضيًا 15 دقيقة) — ولكن فقط إذا كانت عملية العامل قد ماتت فعلًا. أما العامل الحي (نموذج بطيء يقضي أكثر من 20 دقيقة في استدعاء LLM واحد دون أدوات) فيحصل على <em>تمديد</em> لاستلامه بدلًا من إنهائه؛ ولا يُستعاد إلا الـ PID الميت.</li>
+<li><strong>العامل المتعطّل</strong> — العامل الذي اختفى الـ PID المحلي الخاص به على المضيف تكتشفه <code>detect_crashed_workers</code> وتحصده؛ فتزيد المهمة قيمة <code>consecutive_failures</code> وقد تُحظر تلقائيًا عند انطلاق القاطع.</li>
+<li><strong>إعادة المحاولة على مستوى التشغيل</strong> — عند إعادة محاولة مهمة (بعد حظر، أو بعد تعطّل، أو بعد استعادة)، يمكن للعامل استخدام المعامل <code>expected_run_id</code> في أدوات الإنهاء ليفشل سريعًا إذا كان تشغيله قد استُبدل بالفعل.</li>
+<li><strong>الحد الأقصى لوقت التشغيل لكل مهمة</strong> — يضع <code>task.max_runtime_seconds</code> سقفًا صارمًا للوقت الفعلي لكل تشغيل، بغضّ النظر عن حياة الـ PID. ويلتقط العمّال العالقين فعلًا في جمود (deadlock)، الذين كان تمديد الـ PID الحي سيُبقيهم قيد التشغيل لولا ذلك.</li>
+<li><strong>كشف المهام العالقة</strong> — المهمة الجاهزة التي لا يستلمها المُكلَّف بها أبدًا خلال <code>kanban.stranded_threshold_seconds</code> (افتراضيًا 30 دقيقة) تظهر في <code>hermes kanban diagnostics</code> بوصفها تحذير <code>stranded_in_ready</code>. وتتصاعد الخطورة إلى خطأ عند ضعفي العتبة، وإلى حرجة عند 6 أضعافها. يلتقط هذا في إشارة واحدة المُكلَّفين ذوي الأسماء المكتوبة خطأً، والـ profiles المحذوفة، ومجمّعات العمّال الخارجية المتوقفة — دون الاعتماد على الهوية، ودون قائمة سماح لكل لوحة تحتاج إلى صيانة.</li>
+<li><strong>جمود اعتمادية المراجعة القديمة</strong> — المهمة الأم المحظورة حظرًا ثابتًا باستخدام <code>review-required:</code> بينما تبقى مهمة ابن مباشرة أو أكثر مقيّدة باعتمادياتها في <code>todo</code> تُنتج فورًا الخطأ <code>review_dependency_deadlock</code>. هذا التشخيص للقراءة فقط: فهو يقترح إكمال المرحلة المنتهية أو فك الربط الخاطئ، لكنه لا يزيل حظرًا وضعه المستخدم تلقائيًا أبدًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/features/kanban">النظرة العامة على Kanban</a> — المقدمة الموجّهة للمستخدم.</li>
+<li><a href="/docs/user-guide/features/kanban-tutorial">درس تطبيقي: Kanban</a> — جولة عملية مع فتح لوحة التحكم.</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/agent/prompt_builder.py" data-ext><code>KANBAN_GUIDANCE</code></a> — دورة حياة العامل + المنسِّق المحقونة في system prompt الخاص بكل عامل kanban.</li>
+</ul>

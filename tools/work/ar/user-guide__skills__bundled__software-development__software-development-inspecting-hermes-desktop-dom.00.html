@@ -1,0 +1,95 @@
+
+<header><h1>فحص Dom الخاص بـ Hermes Desktop</h1></header>
+<p>اقرأ الـ DOM/CSS الحيّ لتطبيق Hermes desktop عبر CDP.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/software-development/inspecting-hermes-desktop-dom</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>desktop</code>, <code>electron</code>, <code>cdp</code>, <code>dom</code>, <code>ui-verification</code>, <code>self-inspection</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-node-inspect-debugger"><code>node-inspect-debugger</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging"><code>systematic-debugging</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-dogfood"><code>dogfood</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>فحص الـ DOM الحيّ لـ Hermes desktop</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>عندما تطوّر <code>apps/desktop</code> والمستخدم يشغّل نفس التطبيق
+(<code>hgui</code> / <code>npm run dev</code>)، يمكنك قراءة <strong>الـ DOM المعروض حيًا</strong> للنافذة
+التي ينظر إليها — الأنماط المحسوبة، الأبعاد الهندسية، أي قاعدة CSS فازت فعليًا،
+مخرجات الـ console — بدلًا من استنتاج ذلك من ملفات <code>.tsx</code> وإصابة الخطأ.</p>
+<p>تفتح جلسات تشغيل خادم التطوير منفذ Chrome DevTools Protocol على <code>127.0.0.1:9222</code>
+تلقائيًا. المُصيِّر (renderer) هو صفحة Chromium، فكل ما يستطيع DevTools قراءته
+يستطيع سكربت قراءته أيضًا.</p>
+<p><strong>هذا لا يغني عن النظر إليه فعليًا.</strong> يجيب CDP عن أسئلة <em>واقعية</em> («ما
+هي القيمة المحسوبة لـ padding»، «هل عُرض هذا العنصر»، «أي محدِّد يطابق»).
+لا يستطيع أن يخبرك إن كانت النتيجة تبدو جيدة. توازن الألوان وإحساس التباعد
+و«هل هذا قبيح» ما زالت تحتاج عينَي المستخدم أو لقطة شاشة. أجب عن الحقائق بـ
+CDP، واترك الجماليات للمستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>التحقق من أن تغييرًا في الواجهة أُنجز فعليًا في التطبيق قيد التشغيل</li>
+<li>«لماذا ما زال هذا العنصر X؟» — اعثر على القاعدة الفائزة قبل تعديل أي شيء</li>
+<li>تحديد محدِّد (selector) ثابت لمكوّن توشك على تغييره</li>
+<li>التحقق من القيمة المحسوبة لرمز تصميم (design token) على عقدة حقيقية</li>
+<li>قراءة أخطاء console الخاصة بالمُصيِّر التي يذكرها المستخدم لكن لا يستطيع نسخها</li>
+</ul>
+<p><strong>لا تستخدمها في:</strong> تحليل الأداء (perf) أو أعمال الـ heap (<code>node-inspect-debugger</code>،
+<code>debugging-hermes-desktop</code>)، أو أي حالة يكون فيها السؤال الحقيقي «هل يبدو هذا
+صحيحًا».</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-port">المنفذ (port)</h2>
+<p>مفتوح على <code>127.0.0.1:9222</code> لأي تشغيل لخادم التطوير. مغلق في حالتين فقط
+(<code>apps/desktop/electron/dev-cdp.ts</code>):</p>
+<ul>
+<li><strong>الإصدارات المُحزَّمة (packaged)</strong> — دائمًا، ولا توجد قيمة بيئة تتجاوز ذلك؛</li>
+<li><strong>غياب <code>HERMES_DESKTOP_DEV_SERVER</code></strong> — تشغيل <code>electron .</code> غير مُحزَّم على
+<code>dist/</code> هو الطريقة التي يُختبر بها التطبيق المُحزَّم بشكل واقعي، لذا يتصرف مثله.</li>
+</ul>
+<p><code>HERMES_DESKTOP_CDP_PORT</code> ينقل المنفذ (<code>=9333</code>) أو يعطّله (<code>=off</code>).</p>
+<p>تحقّق قبل فعل أي شيء آخر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>نتيجة فارغة ← لا يوجد منفذ. لا تخمّن منفذًا آخر بصمت.</p>
+<p><strong>لا تُعِد تشغيل تطبيق المستخدم أبدًا للحصول على منفذ.</strong> هذا يدمّر جلسته
+وحالته. شغّل بدلًا من ذلك نسخة معزولة خاصة بك (أدناه).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reading-the-dom">قراءة الـ DOM</h2>
+<p><code>apps/desktop/scripts/eval.mjs</code> هو الحل السريع بسطر واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>للعمل متعدد الخطوات استخدم العميل المشترك — فهو يتضمن اكتشاف الهدف (target discovery) و
+تقييمًا (eval) واعيًا بالـ promise:</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يحتوي <code>SELECTORS</code> في <code>scripts/perf/lib/cdp.mjs</code> على مواضع <code>data-slot</code> الثابتة
+(الـ composer، إطار عرض الخيط (thread viewport)، رسالة المساعد، زوج الدور (turn pair)، شريط الملف الشخصي).
+فضّلها على ابتكار <code>querySelector</code> جديد — إذ يتم تحديثها كوحدة واحدة عند
+انتقال المكوّنات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-question-this-is-best-at-which-rule-won">السؤال الذي تُجيب عنه هذه المهارة أفضل: أي قاعدة فازت؟</h2>
+<p>تعديل كل موضع استدعاء لأن نمطًا «لا يُطبَّق» هو الهدر الكلاسيكي.
+اقرأ العقدة الحقيقية أولًا:</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>إذا لم تحمل العقدة أي صنف (class) خاص بها، فإن القيمة <strong>موروثة</strong> — وتعديل
+مواضع الاستدعاء بالجملة لن يصلح الأمر، وتحتاج إلى قاعدة السلف (ancestor). ورقة أنماط
+من إضافة (plugin) (مثل <code>@tailwindcss/typography</code> التي تتضمّن <code>prose a { font-weight: 500 }</code>)
+تتغلب عادةً على صنف utility؛ تجاوَزها على الصنف المشترك، لا في كل موضع استخدام.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="your-own-isolated-instance">نسختك المعزولة الخاصة</h2>
+<p>عندما لا يوجد منفذ، أو حين يجب ألا تُزعج نافذة المستخدم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يتجنّب <code>--user-data-dir</code> المنفصل قفل المثيل الواحد (single-instance lock) في Electron،
+فلا يتعارض مع نسخة <code>hgui</code> قيد التشغيل؛ ويبقيه <code>HERMES_HOME</code> المنفصل بعيدًا
+عن الجلسات الحقيقية. اختر منفذًا غير 9222 للسبب نفسه. شغّله في
+الخلفية وأنهِه عند الانتهاء.</p>
+<p><code>npm run perf:serve</code> يفعل الشيء نفسه مع <code>HERMES_HOME</code> مؤقت مضمّن فيه، إذا
+أردت أيضًا أداة القياس (perf harness).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق شائعة</h2>
+<ul>
+<li><strong>لا تُنهِ أبدًا خادم التطوير أو تطبيق المستخدم «لتحرير» أي شيء.</strong> إنهاء
+منتصف الخدمة يدمّر مجمّع مقابس (sockets) Chromium، وتُنسَب <code>ERR_NETWORK_CHANGED</code>
+الناتجة إلى أيًّا كان ما غيّرته للتو.</li>
+<li><strong><code>HERMES_HOME</code> مؤقت ليس له خلفية (backend).</strong> يسجّل التطبيق <code>ECONNREFUSED</code> لأجل
+<code>hermes:api</code> وقد يُغلق من تلقاء نفسه. يظل المُصيِّر مُحمّلًا والـ DOM
+قابلًا للقراءة — اقرأه بسرعة، ولا تخلط بين اختبار أُغلق من تلقاء نفسه ومنفذ معطوب.
+يسجّل Chromium السطر <code>DevTools listening on ws://127.0.0.1:&lt;port&gt;/…</code> عند
+ربطه؛ ذلك السطر هو الدليل على فتح المنفذ.</li>
+<li><strong>افحص بشكل متكرر، لا مرة واحدة.</strong> يحتاج التطبيق المُشغَّل حديثًا ثانية أو
+ثانيتين قبل أن يستجيب المنفذ.</li>
+<li><strong>لا تُفرِغ الـ DOM بالكامل أبدًا.</strong> يعرض سطح المكتب مئات العقد، و
+<code>outerHTML</code> سيُغرق سياقك. اختزل الأمر إلى كائن JSON صغير داخل
+التعبير المُقيَّم.</li>
+<li><strong>مرّر <code>match</code> إلى <code>CDP.connect</code>.</strong> بدونه قد تتصل بنافذة الحيوان الأليف
+العائمة، أو نافذة الإدخال السريع، أو هدف devtools بدلًا من النافذة الرئيسية.</li>
+<li><strong><code>cdp.eval</code> يعيد القيمة مباشرة؛ أما <code>Runtime.evaluate</code> الخام فيضاعف التعشيش</strong>
+(<code>.result.result.value</code>). استخدم الغلاف (wrapper).</li>
+<li><strong><code>import.meta.env.DEV</code> تساوي <code>true</code> تحت <code>vite dev</code></strong> في هذا المستودع. الملاحظة في
+<code>apps/desktop/scripts/profile-typing-lag.md</code> التي تدّعي عكس ذلك قديمة وغير صحيحة.</li>
+</ul>

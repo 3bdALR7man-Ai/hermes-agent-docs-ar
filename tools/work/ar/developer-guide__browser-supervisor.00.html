@@ -1,0 +1,148 @@
+<header><h1>مشرف CDP للمتصفح (Browser CDP Supervisor)</h1></header>
+<p>يسدّ مشرف CDP ثغرتين قائمتين منذ وقت طويل في أدوات المتصفح في Hermes:</p>
+<ol>
+<li><strong>مربعات حوار JS الأصلية</strong> (<code>alert</code>/<code>confirm</code>/<code>prompt</code>/<code>beforeunload</code>) تحجب
+خيط JS الخاص بالصفحة. ومن دون إشراف، لا يملك الوكيل أي وسيلة لمعرفة أن
+مربع حوار مفتوح — فتتعلّق استدعاءات الأدوات اللاحقة أو تُطلق أخطاءً مبهمة.</li>
+<li><strong>إطارات iframe متعددة الأصول (OOPIFs)</strong> غير مرئية لاستدعاء
+<code>Runtime.evaluate</code> في المستوى الأعلى. يستطيع الوكيل رؤية عُقد iframe في لقطة DOM، لكنه
+لا يستطيع النقر أو الكتابة أو التقييم (eval) داخلها دون جلسة CDP مرتبطة
+بالهدف الفرعي.</li>
+</ol>
+<p>يعالج المشرف المشكلتين معًا بالاحتفاظ باتصال WebSocket دائم مع endpoint الخاص بـ
+CDP في الـ backend لكل مهمة متصفح، وبإظهار مربعات الحوار المعلّقة وبنية الإطارات
+ضمن <code>browser_snapshot</code>، وبإتاحة أداة <code>browser_dialog</code> للاستجابات
+الصريحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="backend-support">دعم الـ Backends</h2>
+<table><thead><tr><th>الـ Backend</th><th>كشف مربعات الحوار</th><th>الاستجابة لمربعات الحوار</th><th>شجرة الإطارات</th><th><code>Runtime.evaluate</code> داخل OOPIF عبر <code>browser_cdp(frame_id=...)</code></th></tr></thead><tbody><tr><td>Chrome محلي (<code>--remote-debugging-port</code>) / <code>/browser connect</code></td><td>✓</td><td>✓ سير عمل كامل</td><td>✓</td><td>✓</td></tr><tr><td>Browserbase</td><td>✓ (عبر الجسر)</td><td>✓ سير عمل كامل (عبر الجسر)</td><td>✓</td><td>✓</td></tr><tr><td>Camofox</td><td>✗ لا يوجد CDP (REST فقط)</td><td>✗</td><td>جزئي عبر لقطة DOM</td><td>✗</td></tr></tbody></table>
+<p><strong>خصوصية Browserbase.</strong> يستخدم CDP proxy الخاص بـ Browserbase أداة Playwright داخليًا، و
+يغلق مربعات الحوار الأصلية تلقائيًا خلال ~10ms تقريبًا، لذا لا تستطيع <code>Page.handleJavaScriptDialog</code>
+مجاراته. ولهذا يحقن المشرف سكربت جسر (bridge) عبر
+<code>Page.addScriptToEvaluateOnNewDocument</code> يتجاوز
+<code>window.alert</code>/<code>confirm</code>/<code>prompt</code> بطلب XHR متزامن إلى مضيف خاص
+(<code>hermes-dialog-bridge.invalid</code>). يعترض <code>Fetch.enable</code> طلبات XHR هذه قبل
+أن تصل إلى الشبكة — فيتحوّل مربع الحوار إلى حدث <code>Fetch.requestPaused</code> يلتقطه
+المشرف، ثم تُنجز <code>respond_to_dialog</code> الطلب عبر
+<code>Fetch.fulfillRequest</code> بجسم JSON يفكّ السكربت المحقون ترميزه.</p>
+<p>من منظور الصفحة، لا تزال <code>prompt()</code> تعيد السلسلة النصية التي
+زوّدها الوكيل. ومن منظور الوكيل، تبقى الواجهة هي نفسها <code>browser_dialog(action=...)</code>
+في الحالتين.</p>
+<p>لا يُدعم Camofox — فهو لا يوفّر واجهة CDP، ويعمل عبر REST فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cdpsupervisor">CDPSupervisor</h3>
+<p>مهمة <code>asyncio.Task</code> واحدة تعمل في خيط daemon في الخلفية لكل <code>task_id</code> في Hermes.
+تحتفظ باتصال WebSocket دائم مع endpoint الخاص بـ CDP في الـ backend. وتحافظ على:</p>
+<ul>
+<li><strong>طابور مربعات الحوار</strong> — <code>List[PendingDialog]</code> بالحقول <code>{id, type, message, default_prompt, session_id, opened_at}</code></li>
+<li><strong>شجرة الإطارات</strong> — <code>Dict[frame_id, FrameInfo]</code> مع علاقات الأصل، و URL، والأصل (origin)، وما إذا كانت جلسة فرعية متعددة الأصول</li>
+<li><strong>خريطة الجلسات</strong> — <code>Dict[session_id, SessionInfo]</code> كي تتمكّن أدوات التفاعل من التوجيه إلى الجلسة المرتبطة الصحيحة في عمليات OOPIF</li>
+<li><strong>أخطاء console الأخيرة</strong> — مخزن حلقي (ring buffer) لآخر 50 خطأ لأغراض التشخيص</li>
+</ul>
+<p>يشترك عند الارتباط في:</p>
+<ul>
+<li><code>Page.enable</code> — <code>javascriptDialogOpening</code>، <code>frameAttached</code>، <code>frameNavigated</code>، <code>frameDetached</code></li>
+<li><code>Runtime.enable</code> — <code>executionContextCreated</code>، <code>consoleAPICalled</code>، <code>exceptionThrown</code></li>
+<li><code>Target.setAutoAttach {autoAttach: true, flatten: true}</code> — يُظهر أهداف OOPIF الفرعية؛ ويفعّل المشرف <code>Page</code>+<code>Runtime</code> على كل منها</li>
+</ul>
+<p>يجري الوصول إلى الحالة بأمان بين الخيوط عبر قفل للّقطة؛ وتقرأ معالجات الأدوات (المتزامنة)
+اللقطة المجمّدة دون انتظار (await).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifecycle">دورة الحياة</h3>
+<ul>
+<li><strong>البدء:</strong> <code>SupervisorRegistry.get_or_start(task_id, cdp_url)</code> — تستدعيها
+<code>browser_navigate</code>، وعملية إنشاء جلسة Browserbase، و <code>/browser connect</code>.
+وهي متساوية الأثر (idempotent).</li>
+<li><strong>الإيقاف:</strong> عند تفكيك الجلسة أو تنفيذ <code>/browser disconnect</code>. يُلغي مهمة asyncio،
+ويغلق اتصال WebSocket، ويتخلّص من الحالة.</li>
+<li><strong>إعادة الربط:</strong> إذا تغيّر CDP URL (أعاد المستخدم الاتصال بنسخة Chrome جديدة)،
+يُوقَف المشرف القديم ويُشغَّل مشرف جديد — ولا يُعاد استخدام الحالة أبدًا
+بين endpoints مختلفة.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dialog-policy">سياسة مربعات الحوار</h3>
+<p>يمكن ضبطها عبر <code>config.yaml</code> تحت المفتاح <code>browser.dialog_policy</code>:</p>
+<ul>
+<li><strong><code>must_respond</code></strong> (الافتراضي) — يلتقط مربع الحوار، ويُظهره في <code>browser_snapshot</code>، وينتظر
+استدعاءً صريحًا لـ <code>browser_dialog(action=...)</code>. وبعد مهلة أمان مدتها 300s
+دون استجابة، يغلقه تلقائيًا ويسجّل ذلك. يمنع هذا الوكيلَ المعطوب من التوقف
+إلى الأبد.</li>
+<li><code>auto_dismiss</code> — يسجّل مربع الحوار ويغلقه فورًا؛ ويراه الوكيل بعد
+وقوعه عبر <code>browser_state</code> داخل <code>browser_snapshot</code>.</li>
+<li><code>auto_accept</code> — يسجّل مربع الحوار ويقبله (مفيد في حالة <code>beforeunload</code> عندما يريد
+سير العمل مغادرة الصفحة بسلاسة).</li>
+</ul>
+<p>السياسة محدّدة لكل مهمة؛ ولا توجد تجاوزات لكل مربع حوار على حدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-surface">الواجهة المتاحة للوكيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser_dialog-tool">أداة <code>browser_dialog</code></h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<ul>
+<li><code>action=&quot;accept&quot;</code> / <code>&quot;dismiss&quot;</code> → يستجيب لمربع الحوار المحدَّد أو لمربع الحوار المعلّق الوحيد (إلزامي)</li>
+<li><code>prompt_text=...</code> → النص الذي يُمرَّر إلى مربع حوار <code>prompt()</code></li>
+<li><code>dialog_id=...</code> → لإزالة الالتباس عند وجود عدة مربعات حوار في الطابور (نادر)</li>
+</ul>
+<p>الأداة مخصّصة للاستجابة فقط. يقرأ الوكيل مربعات الحوار المعلّقة من مخرجات <code>browser_snapshot</code>
+قبل استدعائها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser_snapshot-extension">امتداد <code>browser_snapshot</code></h3>
+<p>يضيف ثلاثة حقول اختيارية إلى مخرجات اللقطة الحالية عندما يكون هناك مشرف
+مرتبط:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ul>
+<li>
+<p><strong><code>pending_dialogs</code></strong> — مربعات الحوار التي تحجب حاليًا خيط JS الخاص بالصفحة.
+يجب على الوكيل استدعاء <code>browser_dialog(action=...)</code> للاستجابة. يكون فارغًا في
+Browserbase لأن CDP proxy الخاص بها يغلق مربعات الحوار تلقائيًا خلال ~10ms تقريبًا.</p>
+</li>
+<li>
+<p><strong><code>recent_dialogs</code></strong> — مخزن حلقي يضم ما يصل إلى 20 مربع حوار أُغلقت مؤخرًا، مع
+وسم <code>closed_by</code>: <code>&quot;agent&quot;</code> (استجبنا نحن)، أو <code>&quot;auto_policy&quot;</code> (auto_dismiss/auto_accept
+محليًا)، أو <code>&quot;watchdog&quot;</code> (انقضت مهلة must_respond)، أو
+<code>&quot;remote&quot;</code> (أغلقه المتصفح أو الـ backend من جهته، مثل Browserbase). وبهذه الطريقة
+يظل الوكلاء على Browserbase قادرين على معرفة ما حدث.</p>
+</li>
+<li>
+<p><strong><code>frame_tree</code></strong> — بنية الإطارات بما فيها الإطارات الفرعية متعددة الأصول (OOPIF).
+محدودة بـ 30 مُدخلًا وبعمق OOPIF يساوي 2 للحدّ من حجم اللقطة في الصفحات
+المكتظة بالإعلانات. يظهر <code>truncated: true</code> عند بلوغ هذه الحدود؛ ويمكن للوكلاء الذين يحتاجون إلى
+الشجرة الكاملة استخدام <code>browser_cdp</code> مع <code>Page.getFrameTree</code>.</p>
+</li>
+</ul>
+<p>لا تضيف أيٌّ من هذه الحقول مخطط أداة جديدًا — فالوكيل يقرأ اللقطة التي
+يطلبها أصلًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="availability-gating">اشتراط التوفّر</h3>
+<p>تخضع الواجهتان كلتاهما لشرط <code>_browser_cdp_check</code> (لا يمكن للمشرف العمل إلا عندما يكون endpoint الخاص بـ CDP
+قابلًا للوصول). وفي جلسات Camofox أو الجلسات التي لا backend لها، تُخفى أداة مربعات الحوار
+وتُسقط اللقطة الحقول الجديدة — دون تضخّم في المخططات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-origin-iframe-interaction">التفاعل مع إطارات iframe متعددة الأصول</h2>
+<p>يوجّه <code>browser_cdp(frame_id=...)</code> استدعاءات CDP (ولا سيما <code>Runtime.evaluate</code>)
+عبر اتصال WebSocket القائم لدى المشرف، مستخدمًا قيمة
+<code>sessionId</code> الفرعية الخاصة بالـ OOPIF. يلتقط الوكلاء قيم frame_id من
+<code>browser_snapshot.frame_tree.children[]</code> حيث <code>is_oopif=true</code> ويمرّرونها
+إلى <code>browser_cdp</code>. أما إطارات iframe من الأصل نفسه (التي لا جلسة CDP مخصّصة لها)، فيستخدم
+الوكيل فيها بدلًا من ذلك <code>contentWindow</code>/<code>contentDocument</code> من استدعاء
+<code>Runtime.evaluate</code> في المستوى الأعلى — ويُظهر المشرف خطأً يشير إلى هذا
+البديل عندما يكون <code>frame_id</code> تابعًا لإطار ليس OOPIF.</p>
+<p>في Browserbase، هذا هو المسار الموثوق الوحيد للتفاعل مع iframe —
+إذ تصطدم اتصالات CDP عديمة الحالة (التي تُفتح مع كل استدعاء <code>browser_cdp</code>) بانتهاء صلاحية
+URL الموقَّع، بينما يحافظ اتصال المشرف طويل الأمد على جلسة صالحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-layout">تنظيم الملفات</h2>
+<ul>
+<li><code>tools/browser_supervisor.py</code> — <code>CDPSupervisor</code>، <code>SupervisorRegistry</code>، <code>PendingDialog</code>، <code>FrameInfo</code></li>
+<li><code>tools/browser_dialog_tool.py</code> — معالج أداة <code>browser_dialog</code></li>
+<li><code>tools/browser_tool.py</code> — hook البدء في <code>browser_navigate</code>، ودمج <code>browser_snapshot</code>، وإعادة الارتباط في <code>/browser connect</code>، وتفكيك الجلسة في <code>_cleanup_browser_session</code></li>
+<li><code>toolsets.py</code> — يسجّل <code>browser_dialog</code> في <code>browser</code> و <code>hermes-acp</code> و <code>hermes-api-server</code> والـ toolsets الأساسية (بشرط إمكانية الوصول إلى CDP)</li>
+<li><code>hermes_cli/config.py</code> — القيم الافتراضية لـ <code>browser.dialog_policy</code> و <code>browser.dialog_timeout_s</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="non-goals">خارج النطاق</h2>
+<ul>
+<li>الكشف والتفاعل في Camofox (ثغرة في المشروع الأصلي upstream؛ تُتابَع بشكل منفصل)</li>
+<li>بثّ أحداث مربعات الحوار والإطارات مباشرةً إلى المستخدم (يتطلب hooks في الـ gateway)</li>
+<li>حفظ سجل مربعات الحوار عبر الجلسات (في الذاكرة فقط)</li>
+<li>سياسات مربعات حوار لكل iframe (يمكن للوكيل التعبير عن ذلك عبر <code>dialog_id</code>)</li>
+<li>استبدال <code>browser_cdp</code> — فهو يبقى منفذ الطوارئ للحالات الأقل شيوعًا (cookies، و viewport، وخنق الشبكة)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<p>تستخدم اختبارات الوحدة (<code>tests/tools/test_browser_supervisor.py</code>) خادم CDP وهميًا مبنيًا على asyncio
+يتحدّث من البروتوكول ما يكفي لتغطية جميع انتقالات الحالة:
+الارتباط، والتفعيل، والتنقّل، وإطلاق مربع حوار، وإغلاقه، وارتباط الإطارات وفصلها،
+وارتباط الأهداف الفرعية، وتفكيك الجلسة. أما اختبارات E2E مع backend حقيقي (Browserbase + متصفح محلي
+من عائلة Chromium) فتجري يدويًا — نفّذها عبر <code>/browser connect</code> إلى
+متصفح حيّ من عائلة Chromium، وشغّل حالات اختبار مربعات الحوار والإطارات الموضّحة
+أعلاه.</p>

@@ -1,0 +1,94 @@
+<header><h1>Mixture of Agents</h1></header>
+<p>Mixture of Agents مزوّد نماذج افتراضي. يظهر كل إعداد مسبق (preset) مُسمّى من MoA كنموذج قابل للاختيار ضمن المزوّد <code>moa</code>.</p>
+<p>عند اختيار إعداد MoA مسبق، يكون المُجمِّع (aggregator) الخاص به هو النموذج المنفِّذ (acting model)، أي النموذج الذي يكتب رد المساعد ويُصدر استدعاءات الأدوات. تعمل النماذج المرجعية (reference models) أولًا وتقدّم تحليلًا يستفيد منه المُجمِّع.</p>
+<p>استخدم MoA عندما تستفيد مهمة صعبة من وجهات نظر عدة نماذج، مع بقاء الحاجة إلى حلقة الوكيل (agent loop) المعتادة في Hermes: استدعاءات الأدوات، وجولات المتابعة، والمقاطعات، وحفظ سجل المحادثة، وسياق الجلسة نفسه كأي رسالة أخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="select-a-moa-preset-as-your-model">اختيار إعداد MoA مسبق كنموذج لك</h2>
+<p>يمكنك اختيار إعداد مسبق عبر واجهات اختيار النموذج المعتادة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يمكن اختيار إعدادات MoA المسبقة من <strong>كل واجهات Hermes</strong>، لأن MoA مزوّد عادي ضمن نظام النماذج:</p>
+<ul>
+<li><strong>CLI / gateway / TUI <code>/model</code></strong> — <code>/model &lt;preset&gt; --provider moa</code>، أو <code>/model --provider moa</code> للإعداد المسبق الافتراضي. ويعمل أيضًا <code>/model &lt;preset&gt;</code> المجرّد عندما يطابق الاسم تمامًا إعدادًا مسبقًا مضبوطًا.</li>
+<li><strong><code>hermes model</code></strong> و <strong>أداة اختيار النموذج في Dashboard</strong> — يظهر صف مزوّد باسم <code>Mixture of Agents</code> تُعرض فيه أسماء إعداداتك المسبقة بوصفها نماذج له.</li>
+<li><strong>تطبيق Desktop الرسومي</strong> — تعرض القائمة المنسدلة للنماذج قسم <code>MoA presets</code>؛ واختيار أحدها (<code>MoA: &lt;preset&gt;</code>) يحوّل النموذج النشط إلى ذلك الإعداد المسبق. كما تتيح لوحة إعدادات Desktop إنشاء الإعدادات المسبقة وتعديلها.</li>
+</ul>
+<p>وبالتالي تظهر الإعدادات المسبقة المضبوطة في كل مكان تختار فيه أي نموذج آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-command-shortcut">اختصار عبر slash command</h2>
+<p><code>/moa</code> اختصار مريح للاستخدام لمرة واحدة. فهو يشغّل prompt واحدًا عبر إعداد MoA المسبق <strong>الافتراضي</strong>، ثم يعيد النموذج الذي كنت تستخدمه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ينتقل Hermes مؤقتًا إلى إعداد MoA المسبق الافتراضي لذلك الدور الواحد، ويرسل الـ prompt، ثم يستعيد نموذجك السابق بعد ذلك. الوسيط بأكمله هو الـ prompt — إذ لم يعد <code>/moa</code> يفسّره كاسم إعداد مسبق.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أما <code>/moa</code> المجرّد (بلا prompt) فيطبع طريقة الاستخدام فقط.</p>
+<p><strong>للانتقال</strong> إلى إعداد MoA مسبق لبقية الجلسة، اختره من أداة اختيار النموذج — تظهر إعدادات MoA المسبقة تحت مزوّد <code>Mixture of Agents</code> في كل واجهة لاختيار النموذج (انظر أعلاه). و <code>/moa</code> ليس أداة لتبديل النموذج عن قصد، حتى لا يتمكن prompt عادي أبدًا من تغيير نموذجك عن طريق الخطأ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-in-the-agent-loop">كيف يعمل داخل حلقة الوكيل</h2>
+<p>في كل استدعاء للنموذج الرئيسي عند اختيار المزوّد <code>moa</code>، يقوم Hermes بما يلي:</p>
+<ol>
+<li>يحدّد الإعداد المسبق المختار بالاسم؛</li>
+<li>يشغّل النماذج المرجعية المضبوطة دون مخططات الأدوات (tool schemas) (فهي لا تتلقى سوى نصوص المستخدم/المساعد في المحادثة — وليس الـ system prompt الخاص بـ Hermes أو سجل استدعاءات الأدوات — لتبقى الاستدعاءات المرجعية منخفضة التكلفة وتتجنب الرفض من المزوّدين الصارمين)؛</li>
+<li>يُلحق مخرجات النماذج المرجعية كسياق خاص بالمُجمِّع؛</li>
+<li>يستدعي المُجمِّع المضبوط مع مخطط أدوات Hermes المعتاد؛</li>
+<li>يعامل رد المُجمِّع على أنه الرد الفعلي للنموذج؛</li>
+<li>إذا استدعى المُجمِّع أدوات، ينفّذها Hermes بشكل طبيعي؛</li>
+<li>في الجولة التالية للنموذج، تُشغَّل عملية MoA نفسها مجددًا على المحادثة المحدّثة، بما في ذلك نتائج الأدوات.</li>
+</ol>
+<p>ولأن MoA يُختار عبر نظام النماذج المعتاد، فإنه يتكامل تلقائيًا مع <code>/goal</code>، وجلسات الـ gateway، وجلسات TUI، ومحادثات Desktop.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-presets">ضبط الإعدادات المسبقة</h2>
+<p>يمكنك ضبط إعدادات MoA المسبقة المُسمّاة من:</p>
+<ul>
+<li>Dashboard → Models → Model Settings → Mixture of Agents</li>
+<li>تطبيق Desktop → Settings → Model → Mixture of Agents</li>
+<li><code>hermes moa configure [name]</code></li>
+<li><code>config.yaml</code></li>
+</ul>
+<p>تخزّن الإعدادات أزواجًا صريحة من المزوّد/النموذج، لذا يمكنك المزج بين المزوّدين واستخدام عدة نماذج من المزوّد نفسه:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>الإعداد المسبق الافتراضي:</p>
+<ul>
+<li>نموذج مرجعي: <code>openai-codex:gpt-5.5</code></li>
+<li>نموذج مرجعي: <code>openrouter:deepseek/deepseek-v4-pro</code></li>
+<li>المُجمِّع / النموذج المنفِّذ: <code>openrouter:anthropic/claude-opus-4.8</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="advisor-output">مخرجات المستشارين</h3>
+<p>يستخدم MoA حدود المخرجات التي يحددها المزوّد. لم تعد إعدادات الحد الأقصى لـ tokens المخرجات على مستوى الإعداد المسبق أو على مستوى كل خانة مدعومة. تختلف القيم الافتراضية من مزوّد إلى آخر؛ وإغفال الحد لا يعني دائمًا الحد الأقصى للنموذج. أما البروتوكولات الأصلية التي تتطلب حدًا للمخرجات فتتلقى قيمة داخلية من Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="advisor-cadence-with-fanout">وتيرة المستشارين باستخدام <code>fanout</code></h3>
+<p>افتراضيًا، يعمل المستشارون (advisors) <strong>مرة واحدة لكل دور مستخدم</strong> (<code>fanout: user_turn</code>) — إذ يولّفون نصائح على مستوى الخطة عند أول رسالة في الدور، ثم يتابع المُجمِّع المنفِّذ بقية حلقة الأدوات وحده. هذه هي الوتيرة الأقل تكلفة: فتكلفة المستشارين لا تتضاعف بعدد استدعاءات الأدوات في الدور. وهناك وتيرتان بديلتان تقايضان التكلفة بحداثة النصائح:</p>
+<ul>
+<li><code>fanout: per_iteration</code> — يُعاد تشغيل المستشارين في <strong>كل جولة أدوات</strong>، فتواكب نصائحهم دائمًا أحدث نتائج الأدوات — مقابل مضاعفة زمن استجابة المستشارين وتكلفتهم بعدد استدعاءات الأدوات في الدور.</li>
+<li><code>fanout: every_n:3</code> — الحل الوسط: يعمل المستشارون في الجولة <strong>الأولى</strong> من كل دور مستخدم، ثم مرة كل <strong>3</strong> جولات أدوات (تصلح أي قيمة <code>N &gt;= 2</code>). وتعيد الجولات الواقعة بينها استخدام الإرشادات المخزّنة مؤقتًا من آخر تشغيل للمستشارين، لذا يظل المُجمِّع يتلقى النصائح في كل خطوة — لكنها تُحدَّث كل N خطوات بدلًا من كل خطوة. يُعاد ضبط العدّاد مع كل رسالة مستخدم جديدة، فيبدأ كل دور بنصائح جديدة. كما تُقبل صيغة الخريطة <code>fanout: {mode: every_n, n: 3}</code> وتُحوَّل إلى الصيغة النصية.</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تعود القيم غير المعروفة أو غير الصالحة إلى <code>user_turn</code>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>تغيير القيمة الافتراضية</div><div class="admonitionContent_BuS1"><p>قبل يوليو 2026 كانت الوتيرة الافتراضية هي <code>per_iteration</code>. أما الآن فالقيمة الافتراضية هي <code>user_turn</code> — الوتيرة الأقل تكلفة والأقل أثرًا — إلى أن تبرّر اختبارات الأداء لكل وضع قيمة افتراضية أعلى تكلفة. والإعدادات المسبقة التي تريد استعادة النصائح في كل خطوة تضبط <code>fanout: per_iteration</code> صراحةً.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="privacy-filter-for-advisor-outputs">مرشّح الخصوصية لمخرجات المستشارين</h3>
+<p>قد تُردّد مخرجات المستشارين بيانات حساسة من المحادثة — عناوين البريد الإلكتروني، وأرقام الهواتف المنسّقة، ومفاتيح API، و JWTs — في الكتل المرجعية المعروضة في الواجهة، وسجلات تتبّع MoA المحفوظة، و prompt المُجمِّع. يتولى <code>moa.privacy_filter</code> (المعطّل افتراضيًا) تنقيح هذه المواضع:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<ul>
+<li><code>display</code> — ينقّح <strong>المواضع المرئية للمستخدم فقط</strong>: الكتل المرجعية المعنونة المعروضة في الواجهة والسجلات التي يكتبها <code>save_traces</code>. ويظل المُجمِّع يتلقى نص المستشارين الخام، فلا تتأثر جودة الإجابة.</li>
+<li><code>full</code> — ينقّح إضافةً إلى ذلك نص المستشارين المحقون في prompt المُجمِّع (ومُدخل التوليف الخاص بالأمر أحادي الاستخدام <code>/moa</code>).</li>
+</ul>
+<p>تُخفى أشكال بيانات الاعتماد (بادئات مفاتيح API، و JWTs، والمفاتيح الخاصة، وسلاسل الاتصال بقواعد البيانات) بواسطة أداة تنقيح الأسرار المركزية في Hermes؛ ويضيف مرشّح MoA فوق ذلك تنقيح عناوين البريد الإلكتروني وأرقام الهواتف ذات التنسيق الواضح. الأنماط متحفّظة عن قصد لتناسب النصائح بأسلوب مراجعة الكود: فسلاسل الأرقام المجرّدة، وأرقام الأسطر، والطوابع الزمنية، و git SHAs، وعناوين IP لا تُمَس أبدًا — ولا تُطابَق إلا تنسيقات الهواتف المفصولة بمحدِّدات مثل <code>(555) 123-4567</code> أو <code>555-123-4567</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-slot-reasoning-effort">مستوى جهد الاستدلال لكل خانة</h3>
+<p>يمكن لخانات النماذج المرجعية والمُجمِّع أيضًا ضبط <code>reasoning_effort</code>. استخدم ذلك عندما تريد أن يساهم النموذج نفسه بأعماق مختلفة، أو عندما ينبغي للمُجمِّع أن يفكّر بعمق أكبر من النماذج المرجعية الاستشارية. تتطابق القيم الصالحة مع عناصر التحكم المعتادة بالاستدلال في Hermes: <code>none</code>، <code>minimal</code>، <code>low</code>، <code>medium</code>، <code>high</code>، <code>xhigh</code>، <code>max</code>، و <code>ultra</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>أغفِل <code>reasoning_effort</code> لاستخدام القيمة الافتراضية للمزوّد/Hermes لتلك الخانة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminal-preset-management">إدارة الإعدادات المسبقة من الطرفية</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="benchmarks">اختبارات الأداء (Benchmarks)</h2>
+<p>على HermesBench، يتفوق إعداد MoA مسبق من نموذجين — <code>claude-opus-4.8</code> كمُجمِّع فوق <code>gpt-5.5</code> كنموذج مرجعي — على كلٍّ من النموذجين عند تشغيله منفردًا:</p>
+<table><thead><tr><th>النموذج</th><th>نتيجة HermesBench</th></tr></thead><tbody><tr><td><strong>مُجمِّع Opus (opus-4.8 + gpt-5.5 كمرجع) — MoA</strong></td><td><strong>0.8202</strong></td></tr><tr><td><code>anthropic/claude-opus-4.8</code></td><td>0.7607</td></tr><tr><td><code>openai/gpt-5.5</code></td><td>0.7412</td></tr></tbody></table>
+<p>يتفوق إعداد MoA على أقوى مكوّناته (opus-4.8) بنحو 6 نقاط، مما يؤكد أن تجميع وجهة نظر ثانية يرفع الجودة في المهام الصعبة بدلًا من مجرد حساب متوسط النموذجين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching">التخزين المؤقت للـ Prompt</h2>
+<p>صُمّم MoA بحيث <strong>لا ينكسر أبدًا prompt cache الخاص بالمحادثة الرئيسية</strong>. فاختيار إعداد MoA مسبق هو اختيار نموذج عادي: لا يعدّل السياق السابق، ولا يبدّل الـ toolsets، ولا يعيد بناء الـ system prompt في منتصف المحادثة. يبقى سجل محادثتك والـ system prompt ومخطط الأدوات ثابتة على مستوى البايت، لذا تُحفظ البادئة المخزّنة مؤقتًا التي يعتمد عليها كل نموذج آخر تمامًا كما هي مع نموذج عادي. والانتقال إلى إعداد MoA مسبق أو منه يكلّف نفس إبطال الـ cache الذي يسببه أي تبديل آخر عبر <code>/model</code> — لا أكثر.</p>
+<p>يُخزَّن كلا نوعي الاستدعاءات الداخلية مؤقتًا بشكل طبيعي:</p>
+<ul>
+<li><strong>النماذج المرجعية</strong> تتلقى عرضًا مختصرًا وحتميًا للمحادثة (بعد إزالة الـ system prompt وسجل الأدوات — انظر الحلقة أعلاه). ولأن هذا العرض دالة ثابتة للسجل الثابت، تتكرر بادئة الـ prompt الخاصة بالنموذج المرجعي عبر الجولات وتُخزَّن مؤقتًا بشكل طبيعي. والاستدعاءات المرجعية استدعاءات استشارية قصيرة بلا أدوات.</li>
+<li><strong>المُجمِّع</strong> هو النموذج المنفِّذ. تُلحق مخرجات النماذج المرجعية في <em>نهاية</em> آخر دور للمستخدم كإرشادات خاصة. ولأن هذا النص يقع في الذيل — أسفل البادئة الثابتة بأكملها (system prompt + السجل السابق) — فإنه لا يُبطل أي بادئة مخزّنة مؤقتًا: إذ يحصل المُجمِّع على cache hit لكل ما يسبق موضع الحقن، ولا يكون جديدًا سوى الذيل المُلحق حديثًا. وهذا بالضبط سلوك كل دور عادي، حيث تكون كل رسالة مستخدم جديدة أيضًا tokens ذيلية غير مخزّنة مؤقتًا.</li>
+</ul>
+<p>إذن لا يضحّي MoA بالتخزين المؤقت للـ prompt في أيٍّ من نوعي الاستدعاءات. تكلفته الحقيقية الوحيدة هي الاستدعاءات المرجعية الإضافية في كل جولة — فأنت تدفع مقابل وجهات نظر نماذج متعددة، لا مقابل cache مكسور. وتبقى بادئة المحادثة طويلة الأمد المشتركة مع بقية Hermes سليمة تمامًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li>لم يعد MoA مُدرجًا ضمن <code>hermes tools</code>؛ ولا يوجد toolset باسم <code>moa</code> لتفعيله.</li>
+<li>ضبط <code>enabled: false</code> على إعداد مسبق يعطّل توزيع الطلبات على النماذج المرجعية (fan-out) لذلك الإعداد: فيعمل المُجمِّع وحده، تمامًا كما لو اخترته كنموذج عادي. هذا هو مفتاح الإيقاف الخاص بكل إعداد مسبق الظاهر في إعدادات لوحة التحكم و Desktop.</li>
+<li>لا يمكن أن يكون مُجمِّع إعداد مسبق إعدادَ MoA مسبقًا آخر. فأشجار MoA التكرارية محظورة عن قصد.</li>
+<li>لا يؤدي فشل بيانات الاعتماد في أحد النماذج المرجعية إلى إلغاء الدور. إذ يُضمّن Hermes هذا الفشل في السياق المرجعي ويتابع بما أعادته النماذج الأخرى.</li>
+<li>يزيد MoA عدد استدعاءات النموذج. فقد تتضمن جولة واحدة للنموذج عدة استدعاءات مرجعية إضافةً إلى استدعاء المُجمِّع.</li>
+</ul>

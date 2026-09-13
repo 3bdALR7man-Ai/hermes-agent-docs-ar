@@ -1,0 +1,36 @@
+<header><h1>IRC</h1></header>
+<p>يربط محوِّل (adapter) IRC بين Hermes وأي خادم IRC، وينقل الرسائل بين قناة IRC (أو الرسائل المباشرة) والوكيل. يتحدث بروتوكول IRC عبر مكتبة Python القياسية <code>asyncio</code> — <strong>بلا اعتماديات خارجية، ولا SDK، ولا daemon</strong>. ويعمل مع الشبكات العامة مثل <a href="https://libera.chat/" data-ext>Libera.Chat</a> ومع أي ircd مستضاف ذاتيًا.</p>
+<p>IRC نص عادي: لا يوجد دعم للصوت أو الصور أو الملفات أو سلاسل الرسائل أو التفاعلات أو مؤشر الكتابة أو البث المتدفق — تُرسَل الردود كأسطر <code>PRIVMSG</code>، مع تقسيم الرسائل الطويلة لتناسب حد طول السطر في IRC.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>IRC</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>خادم IRC للاتصال به (مثل <code>irc.libera.chat</code>)</li>
+<li>قناة للانضمام إليها (مثل <code>#hermes</code>) — افصل بين عدة قنوات بفواصل للانضمام إليها جميعًا</li>
+<li>اسم مستعار (nickname) للبوت (الافتراضي: <code>hermes-bot</code>)</li>
+<li>اختياري: اسم مستعار مسجَّل + كلمة مرور NickServ إذا كانت شبكتك تتطلب إثبات الهوية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-hermes">ضبط Hermes</h2>
+<p>يمكنك ضبط IRC بطريقتين — عبر متغيرات البيئة (لإعداد سريع يعتمد على البيئة فقط) أو عبر كتلة <code>gateway</code> في <code>~/.hermes/config.yaml</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a--configyaml">الخيار A — ملف config.yaml</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b--environment-variables">الخيار B — متغيرات البيئة</h3>
+<table><thead><tr><th>المتغير</th><th style="text-align:center">مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>IRC_SERVER</code></td><td style="text-align:center">✅</td><td>اسم مضيف خادم IRC (مثل <code>irc.libera.chat</code>)</td></tr><tr><td><code>IRC_CHANNEL</code></td><td style="text-align:center">✅</td><td>القناة أو القنوات المراد الانضمام إليها — افصل بينها بفواصل عند التعدد</td></tr><tr><td><code>IRC_NICKNAME</code></td><td style="text-align:center">✅</td><td>الاسم المستعار للبوت (الافتراضي: <code>hermes-bot</code>)</td></tr><tr><td><code>IRC_PORT</code></td><td style="text-align:center">—</td><td>منفذ الخادم (الافتراضي: <code>6697</code> مع TLS، و <code>6667</code> بدونه)</td></tr><tr><td><code>IRC_USE_TLS</code></td><td style="text-align:center">—</td><td>استخدام TLS (<code>true</code>/<code>false</code>؛ الافتراضي <code>true</code> على المنفذ 6697)</td></tr><tr><td><code>IRC_SERVER_PASSWORD</code></td><td style="text-align:center">—</td><td>كلمة مرور الخادم للأمر <code>PASS</code></td></tr><tr><td><code>IRC_NICKSERV_PASSWORD</code></td><td style="text-align:center">—</td><td>كلمة مرور NickServ لتنفيذ IDENTIFY تلقائيًا عند الاتصال</td></tr><tr><td><code>IRC_ALLOWED_USERS</code></td><td style="text-align:center">—</td><td>الأسماء المستعارة المسموح لها بالتحدث مع البوت، مفصولة بفواصل</td></tr><tr><td><code>IRC_ALLOW_ALL_USERS</code></td><td style="text-align:center">—</td><td>السماح لأي شخص في القناة بالتحدث مع البوت (للتطوير فقط)</td></tr><tr><td><code>IRC_HOME_CHANNEL</code></td><td style="text-align:center">—</td><td>القناة المخصصة لتسليم cron والإشعارات (الافتراضي <code>IRC_CHANNEL</code>)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h2>
+<p>افتراضيًا، لا يُسمح بالتحدث مع البوت إلا للأسماء المستعارة المُدرجة في <code>allowed_users</code> (أو <code>IRC_ALLOWED_USERS</code>). اترك القائمة فارغة <strong>و</strong> اضبط <code>IRC_ALLOW_ALL_USERS=true</code> للسماح لأي شخص في القناة بالمحادثة مع Hermes — وهذا مفيد للاختبار، لكنه غير مستحسن على الشبكات العامة، لأن الأسماء المستعارة في IRC غير مُصادَق عليها ما لم تفرض الشبكة NickServ.</p>
+<p>إذا كانت شبكتك تسجّل الأسماء المستعارة، فاضبط <code>IRC_NICKSERV_PASSWORD</code> (أو <code>nickserv_password</code>) كي يثبت البوت هويته لدى NickServ عند الاتصال ويحتفظ باسمه المستعار المسجَّل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="channels-vs-dms">القنوات مقابل الرسائل المباشرة</h2>
+<ul>
+<li>تُعامَل الرسائل في القناة التي انضم إليها البوت على أنها محادثة <strong>جماعية</strong>.</li>
+<li>تُعامَل الرسائل الخاصة الموجهة إلى البوت على أنها <strong>رسائل مباشرة</strong>.</li>
+</ul>
+<p>تُسلَّم مهام cron والإشعارات إلى <strong>القناة الرئيسية</strong> — أي <code>IRC_HOME_CHANNEL</code> إن كان مضبوطًا، وإلا فأول قناة في <code>IRC_CHANNEL</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-the-gateway">تشغيل الـ gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تحقّق من الحالة باستخدام <code>hermes gateway status</code> — إذ تُعرض هناك حالة اتصال IRC، بما في ذلك الإعدادات المعتمدة على البيئة فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li>تُقسَّم ردود الوكيل الطويلة تلقائيًا إلى عدة أسطر <code>PRIVMSG</code> للبقاء ضمن حد طول السطر في IRC ‏(<code>max_message_length</code>، الافتراضي 450 بايت بعد احتساب حمل البروتوكول).</li>
+<li>يحصل المحوِّل على قفل بيانات اعتماد محصور لكل تركيبة خادم+اسم مستعار، لذا لن يتنازع profile‏ان من Hermes على هوية IRC نفسها.</li>
+</ul>

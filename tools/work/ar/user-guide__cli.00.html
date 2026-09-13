@@ -1,0 +1,142 @@
+<header><h1>واجهة CLI</h1></header>
+<p>واجهة CLI في Hermes Agent هي واجهة مستخدم طرفية (TUI) كاملة — وليست واجهة ويب. تتميز بالتحرير متعدد الأسطر، والإكمال التلقائي لـ slash commands، وسجل المحادثات، وإمكانية المقاطعة وإعادة التوجيه، وبث مخرجات الأدوات مباشرةً (streaming). صُممت لمن يقضون معظم وقتهم في الطرفية.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>الإعداد لأول مرة</div><div class="admonitionContent_BuS1"><p>أمر واحد — <code>hermes setup --portal</code> — وتصبح جاهزًا لتشغيل <code>hermes chat</code>. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يأتي Hermes أيضًا مع TUI حديثة تتضمن نوافذ منبثقة (modal overlays)، والتحديد بالفأرة، وإدخالًا غير حاجب (non-blocking). شغّلها باستخدام <code>hermes --tui</code> — راجع دليل <a href="/docs/user-guide/tui">TUI</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-the-cli">تشغيل CLI</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="worktree-cleanup">تنظيف Worktrees</h3>
+<p>تُنشئ جلسات <code>hermes -w</code> أشجار عمل (worktrees) مؤقتة يمكن التخلص منها تحت <code>&lt;repo&gt;/.worktrees/</code>.
+تعمل أداة تقليم (pruner) متحفظة تلقائيًا عند بدء التشغيل (ولا تزيل إلا الأشجار المؤقتة النظيفة
+والمدموجة بالكامل التي تجاوزت حدًا عمريًا معينًا)، لكن الأشجار المحفوظة
+والـ branches المحلية المدموجة لا تزال تتراكم على الأجهزة كثيرة الاستخدام. استرجع مساحتها
+صراحةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>داخل الجلسة، يؤدي <code>/worktree prune [--dry-run]</code> المهمة نفسها (ولا
+يمس أبدًا الشجرة التي تعمل فيها الجلسة).</p>
+<p>ضمانات الأمان (في جميع الأوضاع، وأيًّا كان العمر):</p>
+<ul>
+<li>لا تُحذف أبدًا التغييرات <strong>المتتبَّعة</strong> غير المُثبَّتة بـ commit.</li>
+<li><strong>الـ commits الفريدة غير المدفوعة (unpushed)</strong> لا تُحذف أبدًا — أما الـ commits التي
+دُمجت في upstream عبر rebase/squash فتُكتشف من خلال تكافؤ الـ patches في <code>git cherry</code>
+وتُعد مدموجة، وهذا ما يتيح أخيرًا استرجاع المساحة من التسرب الأكثر شيوعًا:
+&quot;PR مدموج، وشجرة محفوظة إلى الأبد&quot;.</li>
+<li><strong>مسارات الـ PR المفتوحة المدفوعة تحرر مساحتها على القرص دون فقدان أي شيء</strong>: عندما
+يطابق رأس الـ branch في شجرة نظيفة تمامًا ما يحتفظ به <code>origin</code> (ويُتحقق من ذلك
+باستدعاء واحد لـ <code>git ls-remote</code> في كل عملية مسح)، تصبح النسخة المسحوبة زائدة عن الحاجة — فتُزال الشجرة
+لكن <strong>يُحتفظ بمرجع الـ branch</strong>، وبذلك يكفي أمر واحد هو
+<code>git worktree add .worktrees/&lt;name&gt; &lt;branch&gt;</code> لاستعادة المسار. وإذا
+تعذّر الوصول إلى الـ remote، تُحفظ الشجرة.</li>
+<li>لا تُمس أبدًا الأشجار <strong>التي تستخدمها جلسة hermes قيد التشغيل</strong>.</li>
+<li><strong>الملفات المؤقتة غير المتتبَّعة فقط</strong> (مسودات نص الـ PR، والملاحظات) تُؤرشف في
+<code>~/.hermes/archive/worktree-prune/</code> قبل إزالة شجرتها — ولا
+تُتلف أبدًا.</li>
+<li>يعتمد حذف الـ branches على المحتوى لا على الاسم: فأي branch محلي تكون جميع
+الـ commits الخاصة به موجودة في upstream يمكن حذفه بأمان؛ أما الـ branches التي تحتوي على عمل فريد،
+والـ branches المسحوبة حاليًا، و <code>main</code>/<code>master</code>/<code>develop</code> فيُحتفظ بها دائمًا.</li>
+</ul>
+<p>تعمل أداة التقليم المتحفظة نفسها أيضًا من مُجدول cron (مرة واحدة
+كل 6 ساعات على الأكثر، في الخلفية)، لذا لم تعد الأجهزة التي تشغّل الـ gateway فقط — حيث لا يُطلق أحد
+<code>hermes -w</code> لأيام — تراكم أشجارًا مؤقتة مدموجة
+بين جلسات CLI.</p>
+<p>عندما يتجاوز <code>.worktrees/</code> حد 10 أشجار أو 5 GB، يطبع Hermes عند بدء التشغيل
+إشعارًا من سطر واحد يشير إلى هذه الأوامر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-management">إدارة الإضافات (Plugins)</h3>
+<p>تدير أوامر <code>hermes plugins</code> إضافات Hermes الأصلية وحزم Agent
+Plugins v1 المحمولة عبر سير العمل الاختياري (opt-in) نفسه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تبقى الحزم المحمولة معطّلة حتى تُفعَّل صراحةً. يحمّل Hermes حاليًا
+مدخلات Agent Skills المحمولة ومدخلات MCP من نوع stdio. راجع
+<a href="/docs/developer-guide/plugins#portable-agent-plugins-v1-packages">دليل مطوّري الإضافات</a>
+لمعرفة المجموعة الفرعية المدعومة بالتحديد وحدود الثقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interface-layout">تخطيط الواجهة</h2>
+<x-keep id="31"></x-keep>
+<p class="docs-figure-caption">شعار Hermes CLI وتدفق المحادثة وسطر الإدخال الثابت، معروضة كصورة توضيحية ثابتة في المستندات بدلًا من رسوم نصية هشة.</p>
+<p>يعرض شعار الترحيب نموذجك، والـ terminal backend، ومجلد العمل، والأدوات المتاحة، والمهارات المثبّتة في لمحة واحدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="status-bar">شريط الحالة</h3>
+<p>يوجد شريط حالة دائم فوق منطقة الإدخال، ويُحدَّث في الوقت الفعلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<table><thead><tr><th>العنصر</th><th>الوصف</th></tr></thead><tbody><tr><td>اسم النموذج</td><td>النموذج الحالي (يُقتطع إذا تجاوز 26 حرفًا)</td></tr><tr><td>عدد الـ tokens</td><td>tokens السياق المستخدمة / الحد الأقصى لـ context window؛ وتشير <code>~</code> إلى قيمة تقديرية</td></tr><tr><td>شريط السياق</td><td>مؤشر امتلاء مرئي بعتبات مرمّزة بالألوان</td></tr><tr><td>التكلفة</td><td>التكلفة التقديرية للجلسة (أو <code>n/a</code> للنماذج غير المعروفة أو ذات السعر الصفري)</td></tr><tr><td>🗜️ N</td><td><strong>عدد مرات ضغط السياق</strong> — عدد المرات التي ضُغطت فيها الجلسة الجارية تلقائيًا. يظهر بمجرد حدوث أول عملية ضغط.</td></tr><tr><td>▶ N</td><td><strong>المهام النشطة في الخلفية</strong> — عدد الـ prompts المُطلقة عبر <code>/bg</code> التي لا تزال قيد التشغيل في الجلسة الحالية. يظهر كلما كانت هناك مهمة واحدة على الأقل قيد التنفيذ.</td></tr><tr><td>المدة</td><td>الوقت المنقضي من الجلسة</td></tr><tr><td>عنوان الجلسة</td><td>بمجرد أن يصبح للجلسة عنوان، يظهر كشارة ذهبية مثبّتة عند الحافة اليمنى القصوى. وتُقتطع العناوين الطويلة قبل أن تزيح حقلي النموذج والسياق الأساسيين.</td></tr><tr><td>⚠ YOLO</td><td><strong>تحذير وضع YOLO</strong> — يظهر كلما كان <code>HERMES_YOLO_MODE</code> مفعّلًا (سواء عبر <code>hermes --yolo</code> عند التشغيل أو بتبديل <code>/yolo</code> أثناء الجلسة). يكرر التحذير الظاهر في سطر الشعار حتى لا تنسى أنك في وضع الموافقة التلقائية.</td></tr></tbody></table>
+<p>وجود <code>~</code> قبل عدد أو نسبة السياق يعني أنها تتضمن تقديرًا محليًا. ينطبق هذا أيضًا على <code>/status</code> و <code>/context</code> في الـ gateway، وعلى TUI، ومقياس السياق في Desktop. قراءة استخدام المزوّد غير المتغيرة لا تحمل <code>~</code>؛ أما القراءة المستندة إلى مرجع من المزوّد مع رسائل جديدة غير مُسعَّرة فتحملها. ويُبلغ <code>/context</code> عن المصدر المحدد. تفصيلات الفئات والمساحة الحرة والمهارات والـ toolsets هي دائمًا تقديرات محلية، حتى عندما يأتي الإشغال الإجمالي من بيانات استخدام المزوّد. ولا تغيّر هذه التسميات المعروضة قرارات الضغط (compaction) ولا تُجري طلبات إضافية إلى المزوّد.</p>
+<p>يتكيف الشريط مع عرض الطرفية — تخطيط كامل عند ≥ 76 عمودًا، ومضغوط عند 52–75، ومصغّر (النموذج + المدة، إضافةً إلى شارة YOLO عند تفعيلها) عند أقل من 52.</p>
+<p><strong>ترميز ألوان السياق:</strong></p>
+<table><thead><tr><th>اللون</th><th>العتبة</th><th>المعنى</th></tr></thead><tbody><tr><td>أخضر</td><td>&lt; 50%</td><td>مساحة وافرة</td></tr><tr><td>أصفر</td><td>50–80%</td><td>يقترب من الامتلاء</td></tr><tr><td>برتقالي</td><td>80–95%</td><td>يقترب من الحد</td></tr><tr><td>أحمر</td><td>≥ 95%</td><td>على وشك التجاوز — فكّر في استخدام <code>/compress</code></td></tr></tbody></table>
+<p>استخدم <code>/usage</code> للحصول على تفصيل دقيق يشمل التكاليف لكل فئة (tokens الإدخال مقابل الإخراج).</p>
+<p>مع المزوّد <code>openai-codex</code>، يعرض <code>/usage</code> أيضًا أي عمليات إعادة ضبط مدّخرة لحدود الاستخدام في حساب ChatGPT الخاص بك (&quot;You have N resets banked - use /usage reset to activate&quot;). يستهلك <code>/usage reset</code> عملية إعادة ضبط مدّخرة واحدة، فيستعيد حدودك لفترة الـ 5 ساعات وحدودك الأسبوعية بالكامل. يرفض Hermes استهلاكها ما دامت حدودك غير مستنفدة (لأن إعادة الضبط المدّخرة تستعيد الحصة الكاملة، فاستخدامها مبكرًا يُهدرها) — مرّر <code>/usage reset --force</code> لاستهلاكها رغم ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-resume-display">عرض استئناف الجلسة</h3>
+<p>عند استئناف جلسة سابقة (<code>hermes -c</code> أو <code>hermes --resume &lt;id&gt;</code>)، تظهر لوحة &quot;Previous Conversation&quot; بين الشعار وسطر الإدخال، وتعرض ملخصًا موجزًا لسجل المحادثة. راجع <a href="/docs/user-guide/sessions#conversation-recap-on-resume">الجلسات — ملخص المحادثة عند الاستئناف</a> للاطلاع على التفاصيل والإعدادات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="keybindings">اختصارات لوحة المفاتيح</h2>
+<table><thead><tr><th>المفتاح</th><th>الإجراء</th></tr></thead><tbody><tr><td><code>Enter</code></td><td>إرسال الرسالة</td></tr><tr><td><code>Alt+Enter</code> أو <code>Ctrl+J</code> أو <code>Shift+Enter</code></td><td>سطر جديد (إدخال متعدد الأسطر). يتطلب <code>Shift+Enter</code> طرفية تميّزه عن <code>Enter</code> — انظر أدناه. في Windows Terminal، تلتقط الطرفية <code>Alt+Enter</code> (للتبديل إلى ملء الشاشة)؛ استخدم <code>Ctrl+Enter</code> أو <code>Ctrl+J</code> بدلًا منه.</td></tr><tr><td><code>Alt+V</code></td><td>لصق صورة من الحافظة عندما تدعم الطرفية ذلك</td></tr><tr><td><code>Ctrl+V</code></td><td>لصق النص وإرفاق صور الحافظة متى أمكن</td></tr><tr><td><code>Ctrl+B</code></td><td>بدء/إيقاف التسجيل الصوتي عند تفعيل الوضع الصوتي (<code>voice.record_key</code>، الافتراضي: <code>ctrl+b</code>)</td></tr><tr><td><code>Ctrl+G</code></td><td>فتح محتوى الإدخال الحالي في <code>$EDITOR</code> (vim/nvim/nano/VS Code/إلخ). احفظ واخرج لإرسال النص المعدَّل كـ prompt التالي — وهذا مثالي للـ prompts الطويلة متعددة الفقرات.</td></tr><tr><td><code>Ctrl+X Ctrl+E</code></td><td>اختصار بديل بأسلوب Emacs لفتح المحرر الخارجي (السلوك نفسه الخاص بـ <code>Ctrl+G</code>).</td></tr><tr><td><code>Ctrl+S</code></td><td><strong>تخبئة الـ prompt.</strong> يحفظ المسودة الحالية جانبًا ويُفرغ مربع الكتابة لتتمكن من إرسال شيء آخر أولًا. اضغط <code>Ctrl+S</code> مجددًا على مربع كتابة فارغ لاستعادة المسودة (مع وضع المؤشر في النهاية واستعادة الصور المرفقة). يؤدي الضغط المتكرر إلى بناء مكدّس بدلًا من الكتابة فوق المسودة السابقة، فلا تُفقد مسودة سابقة بصمت أبدًا — وعند وجود مسودتين محفوظتين أو أكثر، يفتح <code>Ctrl+S</code> لوحة تصفح (<code>↑</code>/<code>↓</code> للتنقل، و <code>Enter</code> للاستعادة، و <code>D</code> للحذف، و <code>Esc</code> أو <code>Ctrl+S</code> للإغلاق). تعرض شارة <code>📌 N</code> في شريط الحالة عدد المسودات المحفوظة. تُستعاد المسودات متعددة الأسطر كما هي تمامًا، بما في ذلك الأسطر الفارغة. يُحفظ المخبأ في الذاكرة طوال الجلسة فقط — ولا يُكتب أي شيء على القرص، لأن المسودات كثيرًا ما تحتوي على أسرار.</td></tr><tr><td><code>Ctrl+C</code></td><td>مقاطعة الوكيل (اضغط مرتين خلال ثانيتين لفرض الخروج)</td></tr><tr><td><code>Ctrl+T</code> / <code>F6</code></td><td>فتح شاشة مراقبة الـ subagents المباشرة بملء الشاشة دون فقدان مسودة مربع الكتابة. تظهر اللوحة المباشرة (live dock) تلقائيًا فوق شريط الحالة؛ تحدد الأسهم أحد العاملين (worker)، ويعرض <code>Enter</code> سجله الأخير، ويوجّهه <code>s</code>، ويطلب <code>x</code> إيقافه مع التأكيد. راجع <a href="/docs/user-guide/features/delegation#monitoring-running-subagents-agents">مراقبة الـ subagents</a>.</td></tr><tr><td><code>F7</code></td><td>تبديل لوحة الـ subagents المباشرة بين معاينتها متعددة الصفوف وسطر ملخص واحد دون نقل التركيز من مربع الكتابة.</td></tr><tr><td><code>Ctrl+D</code></td><td>الخروج</td></tr><tr><td><code>Ctrl+Z</code></td><td>تعليق Hermes ونقله إلى الخلفية (Unix فقط). نفّذ <code>fg</code> في الـ shell للاستئناف.</td></tr><tr><td><code>Tab</code></td><td>قبول الاقتراح التلقائي (النص الشبحي) أو الإكمال التلقائي لـ slash commands</td></tr><tr><td><code>!&lt;command&gt;</code></td><td><strong>وضع Shell</strong> — نفّذ أمر shell بنفسك دون استهلاك دور من النموذج (مثل <code>!git status</code>، <code>!pytest -x</code>). انظر أدناه.</td></tr></tbody></table>
+<p><strong>معاينة اللصق متعدد الأسطر.</strong> عند لصق كتلة متعددة الأسطر، يعرض CLI معاينة موجزة من سطر واحد (<code>[pasted: 47 lines, 1,842 chars — press Enter to send]</code>) بدلًا من إلقاء المحتوى بأكمله في سجل التمرير. يظل المحتوى الكامل هو ما يُرسل؛ فهذا مجرد تحسين في طريقة العرض.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-shell-mode"><code>!</code> وضع Shell</h3>
+<p>ابدأ السطر بـ <code>!</code> لتنفيذه كأمر shell بدلًا من إرساله إلى الوكيل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<ul>
+<li><strong>دون تكلفة.</strong> لا يُستدعى النموذج أبدًا — لا استدعاء لـ API، ولا tokens، ولا زمن انتظار.</li>
+<li><strong>لا يدخل أي شيء إلى المحادثة.</strong> لا يُضاف الأمر ولا مخرجاته إلى السجل، فيبقى السياق نظيفًا ولا يتأثر التخزين المؤقت للـ prompt.</li>
+<li><strong>يعمل حيث تعمل أداة <code>terminal</code> الخاصة بالوكيل.</strong> يستخدم مجلد عمل الجلسة، لذا يطابق ناتج <code>!pwd</code> ما سيراه الوكيل.</li>
+<li><strong>تظل الموافقات سارية.</strong> يمر الأمر الخطير (<code>rm -rf</code>، أو الكتابة إلى <code>~/.hermes/config.yaml</code>، وما إلى ذلك) عبر مطالبة الموافقة نفسها التي تستخدمها أداة <code>terminal</code> الخاصة بالوكيل. إن <code>!</code> اختصار لتوفير التكلفة وزمن الانتظار، وليس وسيلة لتجاوز الأمان.</li>
+<li><strong>تُعرض رموز الخروج غير الصفرية.</strong> يطبع الأمر الفاشل <code>! exited &lt;code&gt;</code> بعد مخرجاته.</li>
+<li>كتابة <code>!</code> وحدها تطبع تذكيرًا بطريقة الاستخدام في سطر واحد.</li>
+</ul>
+<p>وضع Shell متاح في CLI فقط. تتجاهله منصات الـ gateway (Discord و Telegram و Slack) وعمليات تشغيل cron — فهؤلاء المستخدمون لديهم الـ shells الخاصة بهم بالفعل.</p>
+<p><strong>إزالة تنسيق Markdown من الردود النهائية.</strong> يزيل CLI أكثر أسوار markdown إسهابًا وأغلفة <code>**bold**</code> / <code>*italic*</code> من ردود الوكيل <em>النهائية</em> لتُعرض كنص مقروء في الطرفية بدلًا من المصدر الخام. تُحفظ كتل الكود والقوائم. ولا يؤثر هذا في منصات الـ gateway أو نتائج الأدوات — إذ تحتفظ بتنسيق markdown الخاص بها للعرض الأصلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-commands">الـ Slash Commands</h2>
+<p>اكتب <code>/</code> لعرض القائمة المنسدلة للإكمال التلقائي. يدعم Hermes مجموعة كبيرة من slash commands الخاصة بـ CLI، وأوامر المهارات الديناميكية، والأوامر السريعة التي يعرّفها المستخدم.</p>
+<p>أمثلة شائعة:</p>
+<table><thead><tr><th>الأمر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>/help</code></td><td>عرض تعليمات الأوامر</td></tr><tr><td><code>/model</code></td><td>عرض النموذج الحالي أو تغييره</td></tr><tr><td><code>/tools</code></td><td>سرد الأدوات المتاحة حاليًا</td></tr><tr><td><code>/skills browse</code></td><td>تصفح Skills Hub والمهارات الاختيارية الرسمية</td></tr><tr><td><code>/bg &lt;prompt&gt;</code></td><td>تشغيل prompt في جلسة منفصلة في الخلفية</td></tr><tr><td><code>/btw &lt;question&gt;</code></td><td>طرح سؤال جانبي حول المحادثة الحالية دون مقاطعتها</td></tr><tr><td><code>/skin</code></td><td>عرض مظهر (skin) CLI النشط أو تبديله</td></tr><tr><td><code>/voice on</code></td><td>تفعيل الوضع الصوتي في CLI (اضغط <code>Ctrl+B</code> للتسجيل)</td></tr><tr><td><code>/voice tts</code></td><td>تبديل التشغيل الصوتي لردود Hermes</td></tr><tr><td><code>/reasoning high</code></td><td>زيادة مستوى جهد الاستدلال (reasoning)</td></tr><tr><td><code>/title My Session</code></td><td>تسمية الجلسة الحالية</td></tr><tr><td><code>/status</code></td><td>عرض معلومات الجلسة — النموذج/الـ profile/الـ tokens/المدة — متبوعة بكتلة <strong>Session recap</strong> محلية (عدد الأدوار الأخيرة، والأدوات الأكثر استخدامًا، والملفات التي جرى التعامل معها، وآخر prompt من المستخدم + رد المساعد). حساب محلي بالكامل؛ دون أي استدعاء لـ LLM.</td></tr><tr><td><code>/context [all]</code></td><td>تفصيل مرئي لاستخدام السياق — شبكة من الكتل الرسومية + جدول tokens لكل فئة (system prompt / الأدوات / المهارات / الذاكرة / المحادثة / المساحة الحرة). يضيف <code>/context all</code> التكاليف لكل مهارة ولكل toolset.</td></tr><tr><td><code>/sessions</code></td><td>فتح أداة تفاعلية لاختيار الجلسات داخل CLI الكلاسيكي مباشرةً (الواجهة نفسها التي يستخدمها TUI). اكتب للتصفية، واستخدم مفاتيح الأسهم للتنقل، و Enter للاستئناف.</td></tr></tbody></table>
+<p>للاطلاع على القوائم الكاملة للأوامر المدمجة في CLI ومنصات المراسلة، راجع <a href="/docs/reference/slash-commands">مرجع Slash Commands</a>.</p>
+<p>للاطلاع على الإعداد، والمزوّدين، وضبط اكتشاف الصمت، واستخدام الصوت في منصات المراسلة/Discord، راجع <a href="/docs/user-guide/features/voice-mode">الوضع الصوتي (Voice Mode)</a>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>الأوامر غير حساسة لحالة الأحرف — يعمل <code>/HELP</code> تمامًا مثل <code>/help</code>. كما تتحول المهارات المثبّتة تلقائيًا إلى slash commands.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-commands">الأوامر السريعة (Quick Commands)</h2>
+<p>يمكنك تعريف أوامر مخصصة تنفّذ أوامر shell فورًا دون استدعاء LLM. تعمل هذه الأوامر في كلٍّ من CLI ومنصات المراسلة (Telegram و Discord وغيرها).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ثم اكتب <code>/status</code> أو <code>/gpu</code> أو <code>/restart</code> في أي محادثة. راجع <a href="/docs/user-guide/configuration#quick-commands">دليل الإعدادات</a> لمزيد من الأمثلة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="preloading-skills-at-launch">تحميل المهارات مسبقًا عند التشغيل</h2>
+<p>إذا كنت تعرف مسبقًا المهارات التي تريد تفعيلها في الجلسة، فمرّرها عند التشغيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يحمّل Hermes كل مهارة مذكورة في الـ prompt الخاص بالجلسة قبل الدور الأول. ويعمل الخيار نفسه في الوضع التفاعلي ووضع الاستعلام الواحد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-slash-commands">Slash Commands الخاصة بالمهارات</h2>
+<p>تُسجَّل كل مهارة مثبّتة في <code>~/.hermes/skills/</code> تلقائيًا كـ slash command. ويصبح اسم المهارة هو الأمر:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="personalities">الشخصيات</h2>
+<p>اضبط شخصية معرّفة مسبقًا لتغيير نبرة الوكيل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تشمل الشخصيات المدمجة: <code>helpful</code>، <code>concise</code>، <code>technical</code>، <code>creative</code>، <code>teacher</code>، <code>kawaii</code>، <code>catgirl</code>، <code>pirate</code>، <code>shakespeare</code>، <code>surfer</code>، <code>noir</code>، <code>uwu</code>، <code>philosopher</code>، <code>hype</code>.</p>
+<p>للعودة إلى الوضع الافتراضي (دون أي طبقة شخصية)، استخدم <code>/personality none</code> — كما يعمل <code>default</code> و <code>neutral</code> أيضًا.</p>
+<p>يمكنك أيضًا تعريف شخصيات مخصصة في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-line-input">الإدخال متعدد الأسطر</h2>
+<p>توجد طريقتان لإدخال رسائل متعددة الأسطر:</p>
+<ol>
+<li><strong><code>Alt+Enter</code> أو <code>Ctrl+J</code> أو <code>Shift+Enter</code></strong> — يُدرج سطرًا جديدًا</li>
+<li><strong>المتابعة بالشرطة المائلة العكسية</strong> — أنهِ السطر بـ <code>\</code> للمتابعة:</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يكون <code>Ctrl+J</code> والمتابعة بالشرطة المائلة العكسية مفعّلين افتراضيًا، بما يتوافق مع اختصارات الإدخال متعدد الأسطر في Claude Code / Codex / OpenCode. وفي الطرفيات المدعومة مثل iTerm2، يطلب Hermes أيضًا الإبلاغ الموسّع عن المفاتيح (extended key reporting) حتى يصل <code>Shift+Enter</code> كمفتاح سطر جديد مستقل. إذا كانت طرفيتك ترسل LF عند الضغط على <code>Enter</code> العادي وكنت بحاجة إلى السلوك الاحتياطي القديم الذي يستخدم <code>Ctrl+J</code> للإرسال، فعطّل ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لصق النص متعدد الأسطر مدعوم — استخدم أيًّا من مفاتيح السطر الجديد أعلاه، أو الصق المحتوى مباشرةً ببساطة.</p><p>في الطرفيات التي تستخدم Kitty keyboard protocol، يُدرج <code>Alt+Enter</code> على لوحة الأرقام أيضًا سطرًا جديدًا، بما في ذلك بجوار محتوى ملصوق مطوي. وتتبع مفاتيح التنقل في لوحة الأرقام عند استخدامها مع مفاتيح التعديل (modifiers) سلوك نظيراتها خارج لوحة الأرقام.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shiftenter-compatibility">توافق Shift+Enter</h3>
+<p>ترسل معظم الطرفيات افتراضيًا تسلسل البايتات نفسه لكلٍّ من <code>Enter</code> و <code>Shift+Enter</code>، لذا لا تستطيع التطبيقات التمييز بينهما. لا يتعرّف Hermes على <code>Shift+Enter</code> إلا عندما ترسل الطرفية تسلسلًا مميزًا عبر <a href="https://sw.kovidgoyal.net/kitty/keyboard-protocol/" data-ext>Kitty keyboard protocol</a> أو وضع <code>modifyOtherKeys</code> في xterm.</p>
+<table><thead><tr><th>الطرفية</th><th>الحالة</th></tr></thead><tbody><tr><td>Kitty، foot، WezTerm، Ghostty</td><td>تمييز <code>Shift+Enter</code> مفعّل افتراضيًا</td></tr><tr><td>iTerm2 (الإصدارات الحديثة)، Alacritty، طرفية VS Code، Warp</td><td>مدعوم بعد تفعيل بروتوكول Kitty في الإعدادات</td></tr><tr><td>Windows Terminal Preview 1.25+</td><td>مدعوم بعد تفعيل بروتوكول Kitty في الإعدادات</td></tr><tr><td>Terminal.app على macOS، و Windows Terminal الافتراضي (الإصدار المستقر)</td><td>غير مدعوم — لا يمكن تمييز <code>Shift+Enter</code> عن <code>Enter</code></td></tr></tbody></table>
+<p>حيث لا تستطيع الطرفية التمييز بينهما، يستمر <code>Alt+Enter</code> و <code>Ctrl+J</code> في العمل افتراضيًا. <strong>في Windows Terminal تحديدًا، تلتقط الطرفية <code>Alt+Enter</code> (للتبديل إلى ملء الشاشة) فلا يصل أبدًا إلى Hermes — استخدم <code>Ctrl+Enter</code> (الذي يُسلَّم كـ <code>Ctrl+J</code>) أو <code>Ctrl+J</code> مباشرةً لإدراج سطر جديد.</strong></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="redirecting-the-agent-mid-turn">إعادة توجيه الوكيل في منتصف الدور</h2>
+<p>أثناء عمل الوكيل، يمكنك إرسال تصحيح دون بدء دور جديد:</p>
+<ul>
+<li><strong>اكتب رسالة جديدة + Enter</strong> — يعيد توجيه الدور النشط باستخدام تصحيحك</li>
+<li><strong><code>Ctrl+C</code></strong> — مقاطعة العملية الحالية (اضغط مرتين خلال ثانيتين لفرض الخروج)</li>
+<li>يبقى عمل الأدوات المكتمل والاستدلال المعروض مسبقًا في السياق</li>
+<li>تصل الأداة قيد التشغيل إلى نقطة توقف آمنة قبل تطبيق التصحيح</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="busy-input-mode">وضع الإدخال أثناء الانشغال (Busy Input Mode)</h3>
+<p>يتحكم مفتاح الإعدادات <code>display.busy_input_mode</code> فيما يحدث عند الضغط على Enter أثناء عمل الوكيل:</p>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>&quot;interrupt&quot;</code> (الافتراضي)</td><td>تعيد رسالتك توجيه الدور النشط. يُعاد بدء توليد النموذج مع الحفاظ على الاستدلال المعروض والعمل المكتمل. ويُنقل أمر الطرفية الجاري في المقدمة إلى الخلفية (دون إنهائه — وستتلقى إشعارًا عند اكتماله) حتى تُقرأ رسالتك فورًا؛ أما الأدوات الأخرى قيد التشغيل فتنتهي أولًا</td></tr><tr><td><code>&quot;queue&quot;</code></td><td>توضع رسالتك في قائمة الانتظار بصمت وتُرسل كدور تالٍ بعد أن ينتهي الوكيل</td></tr><tr><td><code>&quot;steer&quot;</code></td><td>تُحقن رسالتك في التشغيل الحالي عبر <code>/steer</code>، فتصل إلى الوكيل بعد استدعاء الأداة التالي — دون مقاطعة، ودون دور جديد</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يُجهّز وضع <code>&quot;queue&quot;</code> دور متابعة منفصلًا. أما <code>&quot;steer&quot;</code> فينتظر دائمًا حدّ نتيجة الأداة التالية. ويستجيب الوضع الافتراضي <code>&quot;interrupt&quot;</code> بشكل أسرع أثناء توليد النموذج مع تجنب إلغاء أداة قيد التشغيل؛ إذ يُسلَّم أمر <code>terminal</code> طويل يعمل في المقدمة (عملية بناء، أو أداة استطلاع poller) إلى الخلفية حتى يرى الوكيل رسالتك فورًا بدلًا من انتظار انتهاء الأمر. استخدم <code>/stop</code> عندما تريد إلغاء الدور والعمل الجاري في المقدمة. وتعود القيم غير المعروفة إلى <code>&quot;interrupt&quot;</code>.</p>
+<p>لدى <code>&quot;steer&quot;</code> سلوكان احتياطيان تلقائيان: إذا لم يكن الوكيل قد بدأ بعد، أو إذا كانت هناك صور مرفقة، تعود الرسالة إلى سلوك <code>&quot;queue&quot;</code> حتى لا يُفقد شيء.</p>
+<p>يمكنك أيضًا تغييره من داخل CLI:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>تلميح الاستخدام الأول</div><div class="admonitionContent_BuS1"><p>في المرة الأولى التي تضغط فيها Enter أثناء عمل Hermes، يطبع Hermes تذكيرًا من سطر واحد يشرح إعداد <code>/busy</code>. لا يظهر هذا التذكير إلا مرة واحدة لكل تثبيت؛ ويسجّل <code>onboarding.seen.busy_input_prompt</code> في <code>config.yaml</code> أنه قد عُرض. احذف هذا المفتاح لرؤية التلميح مجددًا.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="suspending-to-background">التعليق والنقل إلى الخلفية</h3>
+<p>على أنظمة Unix، اضغط <strong><code>Ctrl+Z</code></strong> لتعليق Hermes ونقله إلى الخلفية — تمامًا مثل أي عملية في الطرفية. تطبع الـ shell رسالة تأكيد:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>اكتب <code>fg</code> في الـ shell لاستئناف الجلسة من حيث توقفت تمامًا. هذه الميزة غير مدعومة على Windows.</p>

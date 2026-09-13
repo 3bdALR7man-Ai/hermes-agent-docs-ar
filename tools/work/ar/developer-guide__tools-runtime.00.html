@@ -1,0 +1,177 @@
+<header><h1>وقت تشغيل الأدوات (Tools Runtime)</h1></header>
+<p>أدوات Hermes دوالّ تسجّل نفسها بنفسها، وتُجمَّع في toolsets، وتُنفَّذ عبر نظام مركزي للسجل (registry) والتوزيع (dispatch).</p>
+<p>الملفات الرئيسية:</p>
+<ul>
+<li><code>tools/registry.py</code></li>
+<li><code>model_tools.py</code></li>
+<li><code>toolsets.py</code></li>
+<li><code>tools/terminal_tool.py</code></li>
+<li><code>tools/environments/*</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-registration-model">نموذج تسجيل الأدوات</h2>
+<p>تستدعي كل وحدة أداة الدالة <code>registry.register(...)</code> لحظة استيرادها.</p>
+<p>يتولّى <code>model_tools.py</code> استيراد وحدات الأدوات واكتشافها، وبناء قائمة المخططات (schemas) التي يستخدمها النموذج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-registryregister-works">كيف تعمل <code>registry.register()</code></h3>
+<p>يستدعي كل ملف أداة في <code>tools/</code> الدالة <code>registry.register()</code> على مستوى الوحدة ليعرّف نفسه. توقيع الدالة هو:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ينشئ كل استدعاء كائن <code>ToolEntry</code> يُخزَّن في القاموس الأحادي (singleton) <code>ToolRegistry._tools</code> مفهرسًا باسم الأداة. يُرفض أي تسجيل من شأنه أن يحجب أداة موجودة تنتمي إلى toolset <strong>مختلفة</strong> (مع تسجيل خطأ في السجل)، ما لم يمرّر المستدعي <code>override=True</code>؛ وتتطلب إضافات (plugins) تتجاوز أدوات مدمجة فوق ذلك موافقة صريحة من المشغّل عبر <code>plugins.entries.&lt;plugin_id&gt;.allow_tool_override: true</code> في <code>config.yaml</code>.</p>
+<p>يمثّل <code>schema[&quot;description&quot;]</code> الوصف المرجعي الذي يراه النموذج. أمّا الوسيط المنفصل <code>description=</code> فيملأ <code>ToolEntry.description</code>؛ وعند إغفاله تعود بيانات السجل الوصفية إلى وصف المخطط. تبني <code>get_definitions()</code> تعريف دالة OpenAI من <code>entry.schema</code>، ولا تنسخ <code>entry.description</code> إلى مخطط يفتقر إلى <code>description</code>. لذلك فإن <code>description=</code> وحده لا يصف الأداة للنموذج، وعندما تختلف القيمتان يرى النموذج قيمة المخطط. يُفضَّل تعريف الوصف مرة واحدة في المخطط، ما لم يكن أحد مستهلكي السجل يحتاج عمدًا إلى بيانات وصفية مختلفة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery-discover_builtin_tools">الاكتشاف: <code>discover_builtin_tools()</code></h3>
+<p>عند استيراد <code>model_tools.py</code>، يستدعي الدالة <code>discover_builtin_tools()</code> من <code>tools/registry.py</code>. تفحص هذه الدالة كل ملف <code>tools/*.py</code> باستخدام تحليل AST للعثور على الوحدات التي تحتوي على استدعاءات <code>registry.register()</code> في المستوى الأعلى، ثم تستوردها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يعني هذا الاكتشاف التلقائي أن ملفات الأدوات الجديدة تُلتقط تلقائيًا — دون قائمة يدوية تحتاج إلى صيانة. لا يطابق فحص AST إلا استدعاءات <code>registry.register()</code> في المستوى الأعلى (لا الاستدعاءات داخل الدوال)، لذا لا تُستورد الوحدات المساعدة في <code>tools/</code>.</p>
+<p>يؤدي كل استيراد إلى تنفيذ استدعاءات <code>registry.register()</code> الخاصة بالوحدة. تُلتقط الأخطاء في الأدوات الاختيارية (مثل غياب <code>fal_client</code> اللازم لتوليد الصور) وتُسجَّل — ولا تمنع تحميل الأدوات الأخرى.</p>
+<p>بعد اكتشاف الأدوات الأساسية، تُكتشف أيضًا أدوات MCP وأدوات الإضافات:</p>
+<ol>
+<li><strong>أدوات MCP</strong> — تقرأ <code>tools.mcp_tool_discovery.discover_mcp_tools()</code> (التي تعيد الواجهة <code>tools.mcp_tool</code> تصديرها) إعدادات خوادم MCP وتسجّل الأدوات القادمة من الخوادم الخارجية.</li>
+<li><strong>أدوات الإضافات</strong> — تحمّل <code>hermes_cli.plugins.discover_plugins()</code> إضافات المستخدم والمشروع و pip التي قد تسجّل أدوات إضافية.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-availability-checking-check_fn">التحقق من توفّر الأدوات (<code>check_fn</code>)</h2>
+<p>يمكن لكل أداة أن توفّر اختياريًا <code>check_fn</code> — وهو كائن قابل للاستدعاء يعيد <code>True</code> عندما تكون الأداة متاحة و <code>False</code> خلاف ذلك. من الفحوص المعتادة:</p>
+<ul>
+<li><strong>وجود مفتاح API</strong> — مثل <code>lambda: bool(os.environ.get(&quot;SERP_API_KEY&quot;))</code> للبحث في الويب</li>
+<li><strong>تشغيل خدمة ما</strong> — مثل التحقق من إعداد خادم Honcho</li>
+<li><strong>تثبيت ملف تنفيذي</strong> — مثل التأكد من توفّر <code>playwright</code> لأدوات المتصفح</li>
+</ul>
+<p>عندما تبني <code>registry.get_definitions()</code> قائمة المخططات للنموذج، فإنها تشغّل <code>check_fn()</code> الخاصة بكل أداة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>السلوكيات الأساسية:</p>
+<ul>
+<li>تُخزَّن نتائج الفحص <strong>مؤقتًا لكل استدعاء</strong> — فإذا تشاركت عدة أدوات الدالة <code>check_fn</code> نفسها، فإنها تُشغَّل مرة واحدة فقط.</li>
+<li>تُعامَل الاستثناءات في <code>check_fn()</code> على أنها &quot;غير متاحة&quot; (آمن عند الفشل).</li>
+<li>تتحقق الدالة <code>is_toolset_available()</code> مما إذا كانت <code>check_fn</code> الخاصة بـ toolset ما تنجح، وتُستخدم لعرض الواجهة ولتحديد الـ toolsets.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="toolset-resolution">تحديد الـ Toolsets</h2>
+<p>الـ toolsets حِزم مسمّاة من الأدوات. يحدّدها Hermes عبر:</p>
+<ul>
+<li>قوائم صريحة بالـ toolsets المفعّلة أو المعطّلة</li>
+<li>الإعدادات المسبقة للمنصات (<code>hermes-cli</code>، <code>hermes-telegram</code>، وغيرها)</li>
+<li>toolsets ديناميكية من MCP</li>
+<li>مجموعات منتقاة لأغراض خاصة مثل <code>hermes-acp</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-get_tool_definitions-filters-tools">كيف تُرشِّح <code>get_tool_definitions()</code> الأدوات</h3>
+<p>نقطة الدخول الرئيسية هي <code>model_tools.get_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode)</code>:</p>
+<ol>
+<li>
+<p><strong>إذا مُرِّر <code>enabled_toolsets</code></strong> — تُضمَّن الأدوات المنتمية إلى تلك الـ toolsets فقط. يُحدَّد اسم كل toolset عبر <code>resolve_toolset()</code> التي تفكّ الـ toolsets المركّبة إلى أسماء أدوات منفردة.</p>
+</li>
+<li>
+<p><strong>إذا مُرِّر <code>disabled_toolsets</code></strong> — يبدأ الترشيح بجميع الـ toolsets، ثم تُطرح منها المعطّلة.</p>
+</li>
+<li>
+<p><strong>إذا لم يُمرَّر أيٌّ منهما</strong> — تُضمَّن جميع الـ toolsets المعروفة.</p>
+</li>
+<li>
+<p><strong>الترشيح في السجل</strong> — تُمرَّر مجموعة أسماء الأدوات المحدَّدة إلى <code>registry.get_definitions()</code>، التي تطبّق ترشيح <code>check_fn</code> وتعيد مخططات بصيغة OpenAI.</p>
+</li>
+<li>
+<p><strong>التعديل الديناميكي للمخططات</strong> — بعد الترشيح، يُعدَّل مخططا <code>execute_code</code> و <code>browser_navigate</code> ديناميكيًا بحيث لا يشيران إلا إلى الأدوات التي اجتازت الترشيح فعلًا (ما يمنع النموذج من توهّم أدوات غير متاحة).</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="legacy-toolset-names">أسماء الـ Toolsets القديمة</h3>
+<p>تُربط أسماء الـ toolsets القديمة ذات اللاحقة <code>_tools</code> (مثل <code>web_tools</code>، <code>terminal_tools</code>) بأسماء الأدوات الحديثة المقابلة لها عبر <code>_LEGACY_TOOLSET_MAP</code> حفاظًا على التوافق مع الإصدارات السابقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dispatch">التوزيع (Dispatch)</h2>
+<p>في وقت التشغيل، تُوزَّع الأدوات عبر السجل المركزي، مع استثناءات تتولاها حلقة الوكيل (agent loop) لبعض الأدوات على مستوى الوكيل، مثل معالجة memory و todo و session-search.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dispatch-flow-model-tool_call--handler-execution">مسار التوزيع: tool_call من النموذج → تنفيذ المعالج</h3>
+<p>عندما يعيد النموذج <code>tool_call</code>، يكون المسار كالتالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-wrapping">تغليف الأخطاء</h3>
+<p>يُغلَّف تنفيذ الأدوات كله بمعالجة للأخطاء على مستويين:</p>
+<ol>
+<li>
+<p><strong><code>registry.dispatch()</code></strong> — تلتقط أي استثناء صادر عن المعالج وتعيد <code>{&quot;error&quot;: &quot;Tool execution failed: ExceptionType: message&quot;}</code> بصيغة JSON.</p>
+</li>
+<li>
+<p><strong><code>handle_function_call()</code></strong> — تغلّف عملية التوزيع بأكملها في كتلة try/except ثانوية تعيد <code>{&quot;error&quot;: &quot;Error executing tool_name: message&quot;}</code>.</p>
+</li>
+</ol>
+<p>يضمن ذلك أن يتلقى النموذج دائمًا سلسلة JSON سليمة البنية، وليس استثناءً غير معالَج أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-loop-tools">أدوات حلقة الوكيل</h3>
+<p>تُعترض أربع أدوات قبل توزيعها عبر السجل لأنها تحتاج إلى حالة على مستوى الوكيل (TodoStore، MemoryStore، وغيرها):</p>
+<ul>
+<li><code>todo</code> — التخطيط وتتبّع المهام</li>
+<li><code>memory</code> — الكتابة في الذاكرة الدائمة</li>
+<li><code>session_search</code> — الاستدعاء عبر الجلسات</li>
+<li><code>delegate_task</code> — إطلاق جلسات subagent</li>
+</ul>
+<p>تظل مخططات هذه الأدوات مسجّلة في السجل (من أجل <code>get_tool_definitions</code>)، لكن معالجاتها تعيد خطأً شكليًا (stub) إذا وصل إليها التوزيع مباشرة بطريقة ما.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="async-bridging">الربط غير المتزامن (Async bridging)</h3>
+<p>عندما يكون معالج الأداة غير متزامن، تربطه <code>_run_async()</code> بمسار التوزيع المتزامن:</p>
+<ul>
+<li><strong>مسار CLI (لا توجد حلقة قيد التشغيل)</strong> — يستخدم حلقة أحداث دائمة لإبقاء العملاء غير المتزامنين المخزّنين مؤقتًا أحياء</li>
+<li><strong>مسار Gateway (توجد حلقة قيد التشغيل)</strong> — يطلق خيطًا (thread) مؤقتًا يُتخلّص منه مع <code>asyncio.run()</code></li>
+<li><strong>الخيوط العاملة (الأدوات المتوازية)</strong> — تستخدم حلقات دائمة لكل خيط مخزّنة في التخزين المحلي للخيط (thread-local storage)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-dangerous_patterns-approval-flow">مسار الموافقة DANGEROUS_PATTERNS</h2>
+<p>تتكامل أداة الطرفية مع نظام موافقة على الأوامر الخطرة معرَّف في <code>tools/approval.py</code>:</p>
+<ol>
+<li>
+<p><strong>كشف الأنماط</strong> — <code>DANGEROUS_PATTERNS</code> قائمة من الصفوف <code>(regex, description)</code> تغطي العمليات المدمِّرة:</p>
+<ul>
+<li>الحذف التعاودي (<code>rm -rf</code>)</li>
+<li>تهيئة أنظمة الملفات (<code>mkfs</code>، <code>dd</code>)</li>
+<li>عمليات SQL المدمِّرة (<code>DROP TABLE</code>، و <code>DELETE FROM</code> دون <code>WHERE</code>)</li>
+<li>الكتابة فوق إعدادات النظام (<code>&gt; /etc/</code>)</li>
+<li>التلاعب بالخدمات (<code>systemctl stop</code>)</li>
+<li>تنفيذ الكود عن بُعد (<code>curl | sh</code>)</li>
+<li>قنابل fork، وإنهاء العمليات، وغير ذلك.</li>
+</ul>
+</li>
+<li>
+<p><strong>الكشف</strong> — قبل تنفيذ أي أمر في الطرفية، تفحص <code>detect_dangerous_command(command)</code> الأمر مقابل جميع الأنماط.</p>
+</li>
+<li>
+<p><strong>طلب الموافقة</strong> — إذا عُثر على تطابق:</p>
+<ul>
+<li><strong>وضع CLI</strong> — يطلب موجِّه تفاعلي من المستخدم الموافقة أو الرفض أو السماح الدائم</li>
+<li><strong>وضع Gateway</strong> — يرسل استدعاء موافقة غير متزامن (callback) الطلب إلى منصة المراسلة</li>
+<li><strong>الموافقة الذكية</strong> — يمكن اختياريًا لـ LLM مساعد أن يوافق تلقائيًا على الأوامر منخفضة الخطورة التي تطابق الأنماط (مثلًا <code>rm -rf node_modules/</code> آمن لكنه يطابق &quot;recursive delete&quot;)</li>
+</ul>
+</li>
+<li>
+<p><strong>حالة الجلسة</strong> — تُتتبَّع الموافقات لكل جلسة. فبمجرد أن توافق على &quot;recursive delete&quot; في جلسة ما، لن تُطلب الموافقة مجددًا لأوامر <code>rm -rf</code> اللاحقة.</p>
+</li>
+<li>
+<p><strong>قائمة السماح الدائمة</strong> — يكتب خيار &quot;allow permanently&quot; النمط في ملف <code>config.yaml</code> ضمن المفتاح <code>command_allowlist</code>، فيبقى ساريًا عبر الجلسات.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminalruntime-environments">بيئات الطرفية ووقت التشغيل</h2>
+<p>يدعم نظام الطرفية عدة backends:</p>
+<ul>
+<li>local</li>
+<li>docker</li>
+<li>ssh</li>
+<li>singularity</li>
+<li>modal</li>
+<li>daytona</li>
+<li>vercel_sandbox</li>
+</ul>
+<p>كما يدعم:</p>
+<ul>
+<li>تجاوز مجلد العمل (cwd) لكل مهمة</li>
+<li>إدارة العمليات في الخلفية</li>
+<li>وضع PTY</li>
+<li>استدعاءات الموافقة (callbacks) للأوامر الخطرة</li>
+</ul>
+<p>يتولّى <code>tools/process_registry_checkpoint.py</code> نقاط الحفظ (checkpoints) للعمليات الجارية
+وتبنّيها بأمان بحسب PID. أما المخرجات المكتملة فمنفصلة: إذ يكتب <code>tools/process_registry_results.py</code>
+إيصالًا ذريًا (atomic) منقَّحًا واحدًا لكل عملية ضمن مجلد
+<code>logs/process-results/</code> في الـ profile. ولا يستطيع المنتجون الكتابة فوق نتائج أصل آخر عبر
+إعادة كتابة نقطة حفظ PID المشتركة. يحفظ السجل الإيصال قبل
+إطلاق حدث الاكتمال الخاص به؛ وينتظر البقاء لمرة واحدة (one-shot linger) ذلك الحدث. أما
+توابع الاستعلام عن العمليات الموجودة فتحمّل اللقطات المحتفَظ بها دون تبنّي معرّفات PID أو إضافة
+إشعارات إلى الطابور. تتطلب القراءة الجلسةَ الدائمة التي أطلقت العملية أو استمرارها الناتج عن
+الضغط؛ فمعرفة المقبض (handle) وحدها لا تخوّل قراءة نتيجة محتفَظ بها.
+يلتقط السجل ذلك المالك قبل بدء أي قارئ للمخرجات، بما في ذلك عمليات
+CLI والعمليات التي لا ترسل إشعارات، ويحافظ على سياق الـ profile الخاص بالمنتج في
+خيوط القراءة. يُفرض تنقيح الإيصالات بصورة مستقلة عن إلغاء الاشتراك في المخرجات الحية؛
+ويُقيَّد الاحتفاظ بحسب العمر والعدد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="concurrency">التزامن</h2>
+<p>قد تُنفَّذ استدعاءات الأدوات تسلسليًا أو بالتزامن، بحسب مزيج الأدوات ومتطلبات التفاعل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/reference/toolsets-reference">مرجع Toolsets</a></li>
+<li><a href="/docs/reference/tools-reference">مرجع الأدوات المدمجة</a></li>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
+</ul>

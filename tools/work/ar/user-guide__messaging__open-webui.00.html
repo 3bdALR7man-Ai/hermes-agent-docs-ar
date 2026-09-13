@@ -1,0 +1,113 @@
+<header><h1>التكامل مع Open WebUI</h1></header>
+<p><a href="https://github.com/open-webui/open-webui" data-ext>Open WebUI</a> (126k★) هي أكثر واجهات المحادثة المستضافة ذاتيًا (self-hosted) للذكاء الاصطناعي شعبية. بفضل خادم API المدمج في Hermes Agent، يمكنك استخدام Open WebUI كواجهة ويب أمامية مصقولة لوكيلك — مع إدارة المحادثات، وحسابات المستخدمين، وواجهة محادثة عصرية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية</h2>
+
+<p>تتصل Open WebUI بخادم API الخاص بـ Hermes Agent تمامًا كما تتصل بـ OpenAI. يعالج Hermes الطلبات باستخدام مجموعة أدواته الكاملة — الطرفية، وعمليات الملفات، والبحث في الويب، والذاكرة، والمهارات — ثم يعيد الرد النهائي.</p>
+<div class="theme-admonition theme-admonition-important admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>مكان التشغيل</div><div class="admonitionContent_BuS1"><p>خادم API هو <strong>بيئة تشغيل لوكيل Hermes</strong>، وليس مجرد وكيل وسيط (proxy) لـ LLM. فمع كل طلب، ينشئ Hermes كائن <code>AIAgent</code> على جانب الخادم في المضيف الذي يعمل عليه خادم API. وتُنفَّذ استدعاءات الأدوات حيث يعمل ذلك الخادم.</p><p>على سبيل المثال، إذا وجّه حاسوب محمول Open WebUI أو أي عميل آخر متوافق مع OpenAI إلى خادم API لـ Hermes على جهاز بعيد، فإن <code>pwd</code> وأدوات الملفات وأدوات المتصفح وأدوات MCP المحلية وغيرها من أدوات مساحة العمل تعمل على مضيف خادم API البعيد، لا على الحاسوب المحمول.</p></div></div>
+<p>تتواصل Open WebUI مع Hermes من خادم إلى خادم، لذا لا تحتاج إلى <code>API_SERVER_CORS_ORIGINS</code> لهذا التكامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-setup">الإعداد السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-api-server">1. فعّل خادم API</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يوجّه <code>hermes config set</code> تلقائيًا الخيار (flag) إلى <code>config.yaml</code> والسرّ إلى <code>~/.hermes/.env</code>. إذا كان الـ gateway يعمل بالفعل، فأعد تشغيله كي يسري التغيير:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-start-hermes-agent-gateway">2. شغّل gateway ‏Hermes Agent</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُفترض أن ترى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-verify-the-api-server-is-reachable">3. تحقّق من إمكانية الوصول إلى خادم API</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إذا فشل <code>/health</code>، فهذا يعني أن الـ gateway لم يلتقط <code>API_SERVER_ENABLED=true</code> — أعد تشغيله. وإذا أعاد <code>/v1/models</code> الاستجابة <code>401</code>، فإن ترويسة <code>Authorization</code> لا تطابق <code>API_SERVER_KEY</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-start-open-webui">4. شغّل Open WebUI</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُخفي <code>ENABLE_OLLAMA_API=false</code> الـ backend الافتراضي لـ Ollama، الذي سيظهر فارغًا لولا ذلك ويزدحم به منتقي النماذج. احذفه إذا كان لديك فعلًا Ollama يعمل بجانبه.</p>
+<p>يستغرق التشغيل الأول من 15 إلى 30 ثانية: إذ تنزّل Open WebUI نماذج التضمين (embedding) من نوع sentence-transformer (نحو 150MB) عند تشغيلها لأول مرة. انتظر حتى تستقر مخرجات <code>docker logs open-webui</code> قبل فتح الواجهة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-open-the-ui">5. افتح الواجهة</h3>
+<p>انتقل إلى <strong><a href="http://localhost:3000" data-ext>http://localhost:3000</a></strong>. أنشئ حساب المسؤول (أول مستخدم يصبح مسؤولًا). يُفترض أن ترى وكيلك في القائمة المنسدلة للنماذج (باسم الـ profile الخاص بك، أو <strong>hermes-agent</strong> للـ profile الافتراضي). ابدأ المحادثة!</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-compose-setup">الإعداد باستخدام Docker Compose</h2>
+<p>لإعداد أكثر ديمومة، أنشئ ملف <code>docker-compose.yml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ثم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-via-the-admin-ui">الضبط عبر واجهة المسؤول</h2>
+<p>إذا كنت تفضّل ضبط الاتصال عبر الواجهة بدلًا من متغيرات البيئة:</p>
+<ol>
+<li>سجّل الدخول إلى Open WebUI على <strong><a href="http://localhost:3000" data-ext>http://localhost:3000</a></strong></li>
+<li>انقر <strong>الصورة الرمزية لملفك الشخصي</strong> → <strong>Admin Settings</strong></li>
+<li>انتقل إلى <strong>Connections</strong></li>
+<li>ضمن <strong>OpenAI API</strong>، انقر <strong>أيقونة مفتاح الربط</strong> (Manage)</li>
+<li>انقر <strong>+ Add New Connection</strong></li>
+<li>أدخل:
+<ul>
+<li><strong>URL</strong>: <code>http://host.docker.internal:8642/v1</code></li>
+<li><strong>API Key</strong>: القيمة نفسها تمامًا الموجودة في <code>API_SERVER_KEY</code> لدى Hermes</li>
+</ul>
+</li>
+<li>انقر <strong>علامة الاختيار</strong> للتحقق من الاتصال</li>
+<li><strong>Save</strong></li>
+</ol>
+<p>يُفترض أن يظهر نموذج وكيلك الآن في القائمة المنسدلة للنماذج (باسم الـ profile الخاص بك، أو <strong>hermes-agent</strong> للـ profile الافتراضي).</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>لا تسري متغيرات البيئة إلا عند <strong>التشغيل الأول</strong> لـ Open WebUI. بعد ذلك، تُخزَّن إعدادات الاتصال في قاعدة بياناتها الداخلية. لتغييرها لاحقًا، استخدم واجهة المسؤول أو احذف وحدة تخزين Docker ‏(volume) وابدأ من جديد.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-type-chat-completions-vs-responses">نوع API: ‏Chat Completions مقابل Responses</h2>
+<p>تدعم Open WebUI وضعين لواجهة API عند الاتصال بـ backend:</p>
+<table><thead><tr><th>الوضع</th><th>الصيغة</th><th>متى تستخدمه</th></tr></thead><tbody><tr><td><strong>Chat Completions</strong> (الافتراضي)</td><td><code>/v1/chat/completions</code></td><td>مستحسن. يعمل مباشرة دون إعداد إضافي.</td></tr><tr><td><strong>Responses</strong> (تجريبي)</td><td><code>/v1/responses</code></td><td>لحفظ حالة المحادثة على جانب الخادم عبر <code>previous_response_id</code>.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-chat-completions-recommended">استخدام Chat Completions (مستحسن)</h3>
+<p>هذا هو الوضع الافتراضي ولا يتطلب أي إعداد إضافي. ترسل Open WebUI طلبات قياسية بصيغة OpenAI ويستجيب Hermes Agent وفقًا لذلك. يتضمن كل طلب سجل المحادثة كاملًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-responses-api">استخدام Responses API</h3>
+<p>لاستخدام وضع Responses API:</p>
+<ol>
+<li>انتقل إلى <strong>Admin Settings</strong> → <strong>Connections</strong> → <strong>OpenAI</strong> → <strong>Manage</strong></li>
+<li>عدّل اتصال hermes-agent الخاص بك</li>
+<li>غيّر <strong>API Type</strong> من &quot;Chat Completions&quot; إلى <strong>&quot;Responses (Experimental)&quot;</strong></li>
+<li>احفظ</li>
+</ol>
+<p>مع Responses API، ترسل Open WebUI الطلبات بصيغة Responses (مصفوفة <code>input</code> + <code>instructions</code>)، ويستطيع Hermes Agent الحفاظ على السجل الكامل لاستدعاءات الأدوات عبر الأدوار باستخدام <code>previous_response_id</code>. وعند <code>stream: true</code>، يبث Hermes أيضًا عناصر <code>function_call</code> و <code>function_call_output</code> الأصلية وفق المواصفة، ما يتيح واجهات مخصصة ومُهيكلة لاستدعاءات الأدوات في العملاء التي تعرض أحداث Responses.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا تزال Open WebUI حاليًا تدير سجل المحادثة على جانب العميل حتى في وضع Responses — فهي ترسل سجل الرسائل كاملًا في كل طلب بدلًا من استخدام <code>previous_response_id</code>. الميزة الرئيسية لوضع Responses اليوم هي تدفق الأحداث المُهيكل: إذ تصل أجزاء النص (deltas) وعناصر <code>function_call</code> و <code>function_call_output</code> كأحداث SSE بصيغة OpenAI Responses بدلًا من أجزاء (chunks) بصيغة Chat Completions.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>عندما ترسل رسالة في Open WebUI:</p>
+<ol>
+<li>ترسل Open WebUI طلب <code>POST /v1/chat/completions</code> يحتوي على رسالتك وسجل المحادثة</li>
+<li>ينشئ Hermes Agent نسخة <code>AIAgent</code> على جانب الخادم باستخدام الـ profile الخاص بخادم API، وإعدادات النموذج والمزوّد، والذاكرة، والمهارات، وtoolsets المضبوطة لخادم API</li>
+<li>يعالج الوكيل طلبك — وقد يستدعي أدوات (الطرفية، وعمليات الملفات، والبحث في الويب، وغيرها) على مضيف خادم API</li>
+<li>أثناء تنفيذ الأدوات، <strong>تُبث رسائل تقدّم مضمّنة إلى الواجهة</strong> كي ترى ما يفعله الوكيل (مثل <code>`💻 ls -la`</code>، <code>`🔍 Python 3.12 release`</code>)</li>
+<li>يُبث الرد النصي النهائي للوكيل عائدًا إلى Open WebUI</li>
+<li>تعرض Open WebUI الرد في واجهة المحادثة الخاصة بها</li>
+</ol>
+<p>يمكن لوكيلك الوصول إلى الأدوات والإمكانات نفسها المتاحة لنسخة Hermes التي تشغّل خادم API. فإذا كان خادم API بعيدًا، فتلك الأدوات بعيدة أيضًا.</p>
+<p>إذا كنت تحتاج اليوم إلى تشغيل الأدوات على مساحة عملك <strong>المحلية</strong>، فشغّل Hermes محليًا ووجّهه إلى مزوّد LLM صرف أو إلى وكيل وسيط صرف للنماذج متوافق مع OpenAI (مثل vLLM وLiteLLM وOllama وllama.cpp وOpenAI وOpenRouter وغيرها). يجري تتبّع وضع مستقبلي لبيئة تشغيل مقسّمة من نوع &quot;remote brain, local hands&quot; في <a href="https://github.com/NousResearch/hermes-agent/issues/18715" data-ext>#18715</a>؛ وهذا ليس سلوك خادم API الحالي.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>تقدّم الأدوات</div><div class="admonitionContent_BuS1"><p>مع تفعيل البث المتدفق (وهو الافتراضي)، سترى مؤشرات مضمّنة موجزة أثناء تشغيل الأدوات — رمز الإيموجي الخاص بالأداة ووسيطها الرئيسي. تظهر هذه المؤشرات في تدفق الرد قبل الإجابة النهائية للوكيل، فتمنحك رؤية لما يجري خلف الكواليس.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-agent-api-server">Hermes Agent (خادم API)</h3>
+<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>API_SERVER_ENABLED</code></td><td><code>false</code></td><td>تفعيل خادم API</td></tr><tr><td><code>API_SERVER_PORT</code></td><td><code>8642</code></td><td>منفذ خادم HTTP</td></tr><tr><td><code>API_SERVER_HOST</code></td><td><code>127.0.0.1</code></td><td>عنوان الربط</td></tr><tr><td><code>API_SERVER_KEY</code></td><td><em>(مطلوب)</em></td><td>Bearer token للمصادقة. يجب أن يطابق <code>OPENAI_API_KEY</code>.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="open-webui">Open WebUI</h3>
+<table><thead><tr><th>المتغير</th><th>الوصف</th></tr></thead><tbody><tr><td><code>OPENAI_API_BASE_URL</code></td><td>عنوان API URL الخاص بـ Hermes Agent (أضف <code>/v1</code>)</td></tr><tr><td><code>OPENAI_API_KEY</code></td><td>يجب ألا يكون فارغًا. يجب أن يطابق <code>API_SERVER_KEY</code>.</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-models-appear-in-the-dropdown">لا تظهر أي نماذج في القائمة المنسدلة</h3>
+<ul>
+<li><strong>تحقّق من أن الـ URL ينتهي بـ <code>/v1</code></strong>: <code>http://host.docker.internal:8642/v1</code> (وليس <code>:8642</code> فقط)</li>
+<li><strong>تحقّق من أن الـ gateway يعمل</strong>: يُفترض أن يعيد <code>curl http://localhost:8642/health</code> القيمة <code>{&quot;status&quot;: &quot;ok&quot;}</code></li>
+<li><strong>تحقّق من قائمة النماذج</strong>: يُفترض أن يعيد <code>curl -H &quot;Authorization: Bearer your-secret-key&quot; http://localhost:8642/v1/models</code> قائمة تتضمن <code>hermes-agent</code></li>
+<li><strong>شبكة Docker</strong>: من داخل Docker، تعني <code>localhost</code> الحاوية نفسها، لا جهازك المضيف. استخدم <code>host.docker.internal</code> أو <code>--network=host</code>.</li>
+<li><strong>backend فارغ لـ Ollama يحجب المنتقي</strong>: إذا حذفت <code>ENABLE_OLLAMA_API=false</code>، فستعرض Open WebUI قسم Ollama فارغًا فوق نماذج Hermes. أعد تشغيل الحاوية مع <code>-e ENABLE_OLLAMA_API=false</code> أو عطّل Ollama من <strong>Admin Settings → Connections</strong>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-test-passes-but-no-models-load">ينجح اختبار الاتصال لكن لا تُحمَّل أي نماذج</h3>
+<p>السبب في الغالب هو غياب اللاحقة <code>/v1</code>. اختبار الاتصال في Open WebUI مجرد فحص أساسي لإمكانية الاتصال — ولا يتحقق من أن سرد النماذج يعمل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-takes-a-long-time">يستغرق الرد وقتًا طويلًا</h3>
+<p>قد يكون Hermes Agent بصدد تنفيذ عدة استدعاءات للأدوات (قراءة ملفات، تشغيل أوامر، البحث في الويب) قبل إنتاج رده النهائي. هذا طبيعي مع الاستعلامات المعقدة. يظهر الرد دفعة واحدة عندما ينتهي الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="invalid-api-key-errors">أخطاء &quot;Invalid API key&quot;</h3>
+<p>تأكد من أن <code>OPENAI_API_KEY</code> في Open WebUI يطابق <code>API_SERVER_KEY</code> في Hermes Agent.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>تحفظ Open WebUI إعدادات الاتصال المتوافقة مع OpenAI في قاعدة بياناتها الخاصة بعد التشغيل الأول. إذا حفظت مفتاحًا خاطئًا عن طريق الخطأ في واجهة المسؤول، فلا يكفي إصلاح متغيرات البيئة وحدها — حدّث الاتصال المحفوظ أو احذفه من <strong>Admin Settings → Connections</strong>، أو أعد تعيين مجلد بيانات Open WebUI / قاعدة بياناتها.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-user-setup-with-profiles">إعداد متعدد المستخدمين باستخدام Profiles</h2>
+<p>لتشغيل نسخ منفصلة من Hermes لكل مستخدم — لكل منها إعداداتها وذاكرتها ومهاراتها — استخدم <a href="/docs/user-guide/profiles">الـ profiles</a>. يشغّل كل profile خادم API خاصًا به على منفذ مختلف، ويُعلن تلقائيًا اسم الـ profile بوصفه النموذج في Open WebUI.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-profiles-and-configure-api-servers">1. أنشئ الـ profiles واضبط خوادم API</h3>
+<p>متغيرات <code>API_SERVER_*</code> هي متغيرات بيئة، وليست مفاتيح إعداد في YAML، لذا اكتبها في ملف <code>.env</code> لكل profile. اختر منافذ خارج نطاق المنصات الافتراضية (<code>8644</code> لمحوِّل الـ webhook، و <code>8645</code> لـ wecom-callback، و <code>8646</code> لـ msgraph-webhook)، مثل <code>8650+</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-start-each-gateway">2. شغّل كل gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-add-connections-in-open-webui">3. أضف الاتصالات في Open WebUI</h3>
+<p>في <strong>Admin Settings</strong> → <strong>Connections</strong> → <strong>OpenAI API</strong> → <strong>Manage</strong>، أضف اتصالًا واحدًا لكل profile:</p>
+<table><thead><tr><th>الاتصال</th><th>URL</th><th>API Key</th></tr></thead><tbody><tr><td>Alice</td><td><code>http://host.docker.internal:8650/v1</code></td><td><code>alice-secret</code></td></tr><tr><td>Bob</td><td><code>http://host.docker.internal:8651/v1</code></td><td><code>bob-secret</code></td></tr></tbody></table>
+<p>ستعرض القائمة المنسدلة للنماذج <code>alice</code> و <code>bob</code> كنموذجين مختلفين. يمكنك إسناد النماذج إلى مستخدمي Open WebUI عبر لوحة المسؤول، فيحصل كل مستخدم على وكيل Hermes خاص به ومعزول.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>أسماء نماذج مخصصة</div><div class="admonitionContent_BuS1"><p>يكون اسم النموذج افتراضيًا هو اسم الـ profile. لتغييره، اضبط <code>API_SERVER_MODEL_NAME</code> في ملف <code>.env</code> الخاص بالـ profile:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="linux-docker-no-docker-desktop">Docker على Linux (بدون Docker Desktop)</h2>
+<p>على Linux بدون Docker Desktop، لا يُحَلّ <code>host.docker.internal</code> افتراضيًا. الخيارات المتاحة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>

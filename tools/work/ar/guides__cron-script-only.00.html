@@ -1,0 +1,82 @@
+<header><h1>مهام Cron بالسكربتات فقط</h1></header>
+<p>أحيانًا تعرف مسبقًا الرسالة التي تريد إرسالها بالضبط. فلا تحتاج إلى وكيل يفكّر فيها، بل تحتاج فقط إلى سكربت يعمل وفق مؤقّت، وأن تصل مخرجاته (إن وُجدت) إلى Telegram / Discord / Slack / Signal.</p>
+<p>يسمّي Hermes ذلك <strong>الوضع دون وكيل (no-agent mode)</strong>. إنه نظام cron نفسه ولكن دون LLM.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<ul>
+<li><strong>لا استدعاء لـ LLM.</strong> صفر tokens، وصفر حلقات وكيل، وصفر إنفاق على النماذج.</li>
+<li><strong>السكربت هو المهمة.</strong> السكربت هو من يقرّر ما إذا كان سيرسل تنبيهًا. أخرِج مخرجات ← تُرسَل رسالة. لا تُخرج شيئًا ← دورة صامتة.</li>
+<li><strong>Bash أو Python.</strong> تعمل ملفات <code>.sh</code> / <code>.bash</code> باستخدام <code>bash</code> من <code>PATH</code> عند توفّره، وإلا فباستخدام <code>/bin/bash</code>؛ وأي امتداد آخر يعمل باستخدام مفسّر Python الحالي. يجب أن تُحلّ المسارات داخل <code>~/.hermes/scripts/</code> (الصيغ النسبية أو المطلقة أو التي تبدأ بـ <code>~</code> مقبولة ما دامت تبقى داخل ذلك المجلد). ولا ترث سكربتات cron بيانات اعتماد المزوّدين من بيئة عملية Hermes <strong>إطلاقًا</strong>.</li>
+<li><strong>المُجدوِل نفسه.</strong> تعيش هذه المهام في <code>cronjob</code> إلى جانب مهام LLM، فالإيقاف المؤقت والاستئناف والسرد والسجلات وتحديد أهداف التسليم كلها تعمل بالطريقة نفسها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-it">متى تستخدمه</h2>
+<p>استخدم الوضع دون وكيل من أجل:</p>
+<ul>
+<li><strong>مراقبة الذاكرة / القرص / GPU.</strong> تعمل كل 5 دقائق، ولا ترسل تنبيهًا إلا عند تجاوز حدّ معيّن.</li>
+<li><strong>CI hooks.</strong> انتهى النشر ← انشر SHA الخاص بالـ commit. فشل البناء ← أرسل آخر 100 سطر من السجل.</li>
+<li><strong>المقاييس الدورية.</strong> &quot;إيرادات Stripe اليومية في الساعة 9 صباحًا&quot; على شكل استدعاء API بسيط مع طباعة منسّقة.</li>
+<li><strong>أدوات استطلاع الأحداث الخارجية.</strong> افحص API، وأرسل تنبيهًا عند تغيّر الحالة.</li>
+<li><strong>نبضات التحقق (Heartbeats).</strong> أرسل ping إلى لوحة تحكم كل N دقيقة لإثبات أن الجهاز المضيف يعمل.</li>
+</ul>
+<p>استخدم مهمة cron عادية (يقودها LLM) عندما تحتاج إلى أن <strong>يقرّر</strong> الوكيل ما سيقوله، مثل تلخيص مستند طويل، أو اختيار العناصر المثيرة للاهتمام من خلاصة (feed)، أو صياغة رسالة ودّية مفهومة. أما المسار دون وكيل فهو للحالات التي يكون فيها stdout الخاص بالسكربت هو الرسالة نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-one-from-chat">إنشاؤها من المحادثة</h2>
+<p>المكسب الحقيقي للوضع دون وكيل هو أن الوكيل نفسه يستطيع إعداد أداة المراقبة لك، دون محرّر، ودون shell، ودون الحاجة إلى تذكّر خيارات CLI. تصف ما تريده، فيكتب Hermes السكربت ويجدوله ويخبرك متى سيُنفَّذ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-transcript">مثال على محادثة</h3>
+<blockquote>
+<p><strong>أنت:</strong> نبّهني على telegram إذا تجاوزت RAM نسبة 85%، وافحص ذلك كل 5 دقائق</p>
+<p><strong>Hermes:</strong> <em>(يكتب <code>~/.hermes/scripts/memory-watchdog.sh</code>، ثم يستدعي <code>cronjob(...)</code> مع <code>no_agent=true</code>)</em></p>
+<p>تم الإعداد. تعمل المهمة كل 5 دقائق، وترسل تنبيهًا إلى Telegram فقط عندما تتجاوز RAM نسبة 85%. السكربت: <code>memory-watchdog.sh</code>. معرّف المهمة: <code>abc123</code>.</p>
+</blockquote>
+<p>في الخلفية، يُجري الوكيل استدعاءين للأدوات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ومن تلك اللحظة تصبح كل دورة مجانية: يشغّل المُجدوِل السكربت، ويمرّر stdout الخاص به إلى Telegram إن لم يكن فارغًا، ولا يلمس أي نموذج إطلاقًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-agent-decides-for-you">ما يقرّره الوكيل نيابةً عنك</h3>
+<p>عندما تصوغ طلبًا مثل &quot;نبّهني عندما يحدث X&quot; أو &quot;افحص Y كل N دقيقة وأخبرني إذا حدث Z&quot;، فإن وصف الأداة <code>cronjob</code> في Hermes يوجّهه إلى اختيار <code>no_agent=True</code> كلما كان محتوى الرسالة محدّدًا بالكامل بواسطة السكربت. ويرجع إلى المسار العادي الذي يقوده LLM عندما يحتاج الطلب إلى استدلال (<em>&quot;لخّص الـ issues الجديدة&quot;</em>، <em>&quot;اختر العناوين الأكثر إثارة للاهتمام&quot;</em>، <em>&quot;صُغ تذكيرًا ودّيًا&quot;</em>).</p>
+<p>لست مضطرًا إلى تحديد <code>--no-agent</code> بنفسك. يكفي أن تصف السلوك المطلوب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-watchdogs-from-chat">إدارة أدوات المراقبة من المحادثة</h3>
+<p>يستطيع الوكيل إيقاف المهام مؤقتًا واستئنافها وتعديلها وإزالتها بالطريقة نفسها التي ينشئها بها:</p>
+<blockquote>
+<p><strong>أنت:</strong> أوقف مراقبة الذاكرة الليلة</p>
+<p><strong>Hermes:</strong> <em>(يستدعي <code>cronjob(action=&#x27;pause&#x27;, job_id=&#x27;abc123&#x27;)</code>)</em></p>
+<p>تم الإيقاف المؤقت. يمكنك الاستئناف بقول &quot;أعد تشغيلها&quot; أو عبر <code>hermes cron resume abc123</code>.</p>
+</blockquote>
+<blockquote>
+<p><strong>أنت:</strong> غيّرها لتعمل كل 15 دقيقة</p>
+<p><strong>Hermes:</strong> <em>(يستدعي <code>cronjob(action=&#x27;update&#x27;, job_id=&#x27;abc123&#x27;, schedule=&#x27;every 15m&#x27;)</code>)</em></p>
+</blockquote>
+<p>دورة الحياة الكاملة (الإنشاء / السرد / التحديث / الإيقاف المؤقت / الاستئناف / التشغيل الفوري / الإزالة) متاحة للوكيل دون أن تحتاج إلى تعلّم أي أوامر CLI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-one-from-the-cli">إنشاؤها من CLI</h2>
+<p>تفضّل الـ shell؟ يمنحك مسار CLI النتيجة نفسها بثلاثة أوامر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>هذا كل شيء. لا prompt، ولا مهارة، ولا نموذج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-script-output-maps-to-delivery">كيف تتحوّل مخرجات السكربت إلى تسليم</h2>
+<table><thead><tr><th>سلوك السكربت</th><th>النتيجة</th></tr></thead><tbody><tr><td>رمز خروج 0، و stdout غير فارغ</td><td>يُسلَّم stdout كما هو حرفيًا</td></tr><tr><td>رمز خروج 0، و stdout فارغ</td><td>دورة صامتة — لا تسليم</td></tr><tr><td>رمز خروج 0، و stdout يحتوي على <code>{&quot;wakeAgent&quot;: false}</code> في السطر الأخير</td><td>دورة صامتة (بوابة مشتركة مع مهام LLM)</td></tr><tr><td>رمز خروج غير صفري</td><td>يُسلَّم تنبيه بالخطأ (حتى لا تتعطّل أداة المراقبة بصمت)</td></tr><tr><td>انتهاء مهلة السكربت</td><td>يُسلَّم تنبيه بالخطأ</td></tr></tbody></table>
+<p>سلوك &quot;الصمت عند الفراغ&quot; هو مفتاح نمط المراقبة الكلاسيكي: يمكن للسكربت أن يعمل كل دقيقة بحرية، لكن القناة لا ترى رسالة إلا عندما يحتاج شيء ما إلى انتباه فعلًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="script-rules">قواعد السكربتات</h2>
+<p>يجب أن توجد السكربتات في <code>~/.hermes/scripts/</code>. ويُفرض ذلك عند إنشاء المهمة وعند تشغيلها معًا، إذ تُرفض المسارات المطلقة وتوسيع <code>~/</code> وأنماط اجتياز المسارات (<code>../</code>). ويُشارَك المجلد نفسه مع بوابة سكربت الفحص المسبق التي تستخدمها مهام LLM.</p>
+<p>يُختار المفسّر بحسب امتداد الملف:</p>
+<table><thead><tr><th>الامتداد</th><th>المفسّر</th></tr></thead><tbody><tr><td><code>.sh</code>, <code>.bash</code></td><td><code>bash</code> من <code>PATH</code> (الاحتياطي <code>/bin/bash</code>)</td></tr><tr><td>أي امتداد آخر</td><td><code>sys.executable</code> (مفسّر Python الحالي)</td></tr></tbody></table>
+<p>نحن عمدًا لا نعتدّ بسطور shebang من نوع <code>#!/...</code>، فإبقاء مجموعة المفسّرات صريحة وصغيرة يقلّل المساحة التي يثق بها المُجدوِل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="schedule-syntax">صياغة الجدولة</h2>
+<p>مثل جميع مهام cron الأخرى:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>راجع <a href="/docs/user-guide/features/cron">مرجع ميزة cron</a> للاطلاع على الصياغة الكاملة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-targets">أهداف التسليم</h2>
+<p>يقبل <code>--deliver</code> كل ما يعرفه الـ gateway. إليك بعض الصيغ الشائعة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>لا يلزم وجود gateway قيد التشغيل وقت تشغيل السكربت بالنسبة إلى المنصات التي تعتمد على bot token (Telegram و Discord و Slack و Signal و SMS و WhatsApp)، إذ تستدعي الأداة REST endpoint الخاص بكل منصة مباشرةً باستخدام بيانات الاعتماد الموجودة مسبقًا في <code>~/.hermes/.env</code> / <code>~/.hermes/config.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-and-lifecycle">التعديل ودورة الحياة</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>كل ما يعمل على مهام LLM (الإيقاف المؤقت، والاستئناف، والتشغيل اليدوي، وتغيير أهداف التسليم) يعمل على المهام دون وكيل أيضًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="worked-example-disk-space-alert">مثال عملي: تنبيه مساحة القرص</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يبقى صامتًا ما دام نظاما الملفات كلاهما دون 90%؛ وعندما يمتلئ أحدهما، يُطلق سطرًا واحدًا بالضبط لكل نظام ملفات تجاوز الحد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-with-other-patterns">مقارنة بالأنماط الأخرى</h2>
+<table><thead><tr><th>النهج</th><th>ما الذي يعمل</th><th>متى تستخدمه</th></tr></thead><tbody><tr><td><code>cronjob --no-agent</code> (هذه الصفحة)</td><td>سكربتك وفق جدول Hermes</td><td>أدوات المراقبة / التنبيهات / المقاييس المتكررة التي لا تحتاج إلى استدلال</td></tr><tr><td><code>cronjob</code> (الافتراضي، LLM)</td><td>الوكيل مع سكربت فحص مسبق اختياري</td><td>عندما يتطلّب محتوى الرسالة استدلالًا على البيانات</td></tr><tr><td>cron نظام التشغيل + <code>curl</code> إلى <a href="/docs/user-guide/messaging/webhooks">اشتراك webhook</a></td><td>سكربتك وفق جدول نظام التشغيل</td><td>عندما قد يكون Hermes نفسه في حالة غير سليمة (أي أنه الشيء الذي تراقبه)</td></tr></tbody></table>
+<p>بالنسبة إلى أدوات مراقبة سلامة النظام الحرجة التي يجب أن تعمل <em>حتى عندما يكون الـ gateway متوقفًا</em>، استخدم cron على مستوى نظام التشغيل مع <code>curl</code> بسيط إلى اشتراك webhook في Hermes (أو إلى أي endpoint خارجي للتنبيهات)، فهذه تعمل كعمليات مستقلة في نظام التشغيل ولا تعتمد على كون Hermes قيد التشغيل. أما المُجدوِل المدمج في الـ gateway فهو الخيار الصحيح عندما يكون الشيء المُراقَب خارجيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><a href="/docs/guides/automate-with-cron">أتمتة أي شيء باستخدام Cron</a> — أنماط cron التي يقودها LLM.</li>
+<li><a href="/docs/user-guide/features/cron">مرجع المهام المجدولة (Cron)</a> — صياغة الجدولة الكاملة، ودورة الحياة، وتوجيه التسليم.</li>
+<li><a href="/docs/user-guide/messaging/webhooks">اشتراكات Webhook</a> — نقاط دخول HTTP من نوع أرسِل وانسَ (fire-and-forget) للمُجدوِلات الخارجية.</li>
+<li><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a> — الآليات الداخلية لموجّه التسليم.</li>
+</ul>

@@ -1,0 +1,120 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="shell-hooks">Shell Hooks</h2>
+<p>أعلن عن hooks بسكربتات shell في ملف <code>config.yaml</code> الخاص بـ profile، وسيُشغِّلها Hermes كعمليات فرعية كلما أُطلِق حدث الـ hook المطابق للإضافة — في جلسات CLI، والـ gateway، وDesktop، وTUI، ومحادثة لوحة التحكم. لا حاجة إلى تأليف إضافة Python.</p>
+<p>يسجّل Desktop وTUI ومحادثة لوحة التحكم الـ hooks عند بناء وكيل، باستخدام إعدادات profile تلك الجلسة وقائمة سماح الموافقة الخاصة بها. تبديل الـ profiles لا يعيد استخدام hooks profile آخر. تظل متطلبات موافقة الـ hooks القائمة وسلوك الوضع الآمن ساريَين؛ تُتخطَّى الـ hooks غير المعتمَدة بدلًا من الموافقة عليها صمتًا.</p>
+<p>استخدم hooks الـ shell عندما تريد سكربتًا جاهزًا وحيد الملف (Bash، أو Python، أو أي شيء بشيبانغ) من أجل:</p>
+<ul>
+<li><strong>حظر أو تعديل استدعاء أداة</strong> — رفض أوامر <code>terminal</code> الخطرة، وفرض سياسات لكل دليل، واشتراط الموافقة على عمليات <code>write_file</code> / <code>patch</code> المدمِّرة، أو إعادة كتابة الوسائط (تعقيم المسارات، حقن الافتراضيات) قبل تشغيل الأداة.</li>
+<li><strong>التشغيل بعد استدعاء أداة</strong> — تنسيق ملفات Python أو TypeScript التي كتبها الوكيل للتو تلقائيًا، وتسجيل استدعاءات API، وإطلاق سير عمل CI.</li>
+<li><strong>حقن سياق في دور الـ LLM التالي</strong> — إلحاق مخرجات <code>git status</code>، أو اليوم الحالي من الأسبوع، أو مستندات مسترجَعة برسالة المستخدم (انظر <a href="#pre_llm_call"><code>pre_llm_call</code></a>).</li>
+<li><strong>مراقبة أحداث دورة الحياة</strong> — كتابة سطر سجل عند اكتمال وكيل فرعي (<code>subagent_stop</code>) أو بدء جلسة (<code>on_session_start</code>).</li>
+</ul>
+<p>تُسجَّل hooks الـ shell باستدعاء <code>agent.shell_hooks.register_from_config(cfg)</code> في كل من بدء تشغيل CLI (<code>hermes_cli/main.py</code>) وبدء تشغيل الـ gateway (<code>gateway/run.py</code>). تتكامل بشكل طبيعي مع hooks إضافات Python — يمر كلاهما عبر نفس الموزِّع (dispatcher).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-at-a-glance">مقارنة سريعة</h3>
+<table><thead><tr><th>البُعد</th><th>hooks الـ shell</th><th><a href="#plugin-hooks">hooks الإضافات</a></th><th><a href="#gateway-event-hooks">hooks الـ gateway</a></th></tr></thead><tbody><tr><td>يُعلَن عنها في</td><td>كتلة <code>hooks:</code> في <code>~/.hermes/config.yaml</code></td><td><code>register()</code> في إضافة <code>plugin.yaml</code></td><td>مجلد <code>HOOK.yaml</code> + <code>handler.py</code></td></tr><tr><td>تعيش تحت</td><td><code>~/.hermes/agent-hooks/</code> (بحسب الاتفاق)</td><td><code>~/.hermes/plugins/&lt;name&gt;/</code></td><td><code>~/.hermes/hooks/&lt;name&gt;/</code></td></tr><tr><td>اللغة</td><td>أي لغة (Bash، Python، ملف Go تنفيذي، …)</td><td>Python فقط</td><td>Python فقط</td></tr><tr><td>تعمل في</td><td>CLI + Gateway</td><td>CLI + Gateway</td><td>Gateway فقط</td></tr><tr><td>الأحداث</td><td><code>VALID_HOOKS</code> (بما فيها <code>subagent_stop</code>)</td><td><code>VALID_HOOKS</code></td><td>أحداث دورة حياة الـ gateway (<code>gateway:startup</code>، <code>agent:*</code>، <code>command:*</code>)</td></tr><tr><td>يمكنها حظر استدعاء أداة</td><td>نعم (<code>pre_tool_call</code>)</td><td>نعم (<code>pre_tool_call</code>)</td><td>لا</td></tr><tr><td>يمكنها حقن سياق LLM</td><td>نعم (<code>pre_llm_call</code>)</td><td>نعم (<code>pre_llm_call</code>)</td><td>لا</td></tr><tr><td>الموافقة</td><td>مطالبة عند أول استخدام لكل زوج <code>(event, command)</code></td><td>ضمنية (ثقة إضافة Python)</td><td>ضمنية (ثقة الدليل)</td></tr><tr><td>عزل بين العمليات</td><td>نعم (عملية فرعية)</td><td>لا (داخل نفس العملية)</td><td>لا (داخل نفس العملية)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-schema">مخطط الإعدادات</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="68"></x-keep></div></div>
+<p>يجب أن تكون أسماء الأحداث واحدة من <a href="#plugin-hooks">أحداث hooks الإضافات</a>؛ تُنتِج الأخطاء الإملائية تحذير "هل تقصد X؟" وتُتخطَّى. تُتجاهَل المفاتيح غير المعروفة داخل مُدخَل واحد؛ وغياب <code>command</code> يعني التخطي مع تحذير. يُحدّ <code>timeout &gt; 300</code> بتحذير. <code>fail_closed: true</code> على حدث غير <code>pre_tool_call</code> يُحذِّر ويُتجاهَل (الأحداث القادرة على الحظر فقط يمكنها الفشل بشكل مغلق).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="json-wire-protocol">بروتوكول النقل عبر JSON</h3>
+<p>في كل مرة يُطلَق فيها الحدث، يُطلِق Hermes عملية فرعية لكل hook مطابق (بحسب المُطابِق matcher)، ويُمرِّر حمولة JSON عبر <strong>stdin</strong>، ويقرأ <strong>stdout</strong> كـ JSON.</p>
+<p><strong>stdin — الحمولة التي يتلقاها السكربت:</strong></p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="69"></x-keep></div></div>
+<p>يسمّي <code>profile</code> profile Hermes الذي أطلق الـ hook (<code>&quot;default&quot;</code> خارج الـ profiles)، بحيث يمكن
+لسكربت واحد أن يخدم كل profile خلف gateway متعدد الإرسال؛ وتعمل العملية الفرعية أيضًا ضمن
+<code>HERMES_HOME</code> الخاصة بذلك الـ profile. <code>tool_name</code> و <code>tool_input</code> تكون <code>null</code> للأحداث غير المتعلقة بأداة (<code>pre_llm_call</code>، <code>subagent_stop</code>، أحداث دورة حياة الجلسة). يحمل قاموس <code>extra</code> كل الوسائط المفتاحية الخاصة بالحدث (<code>user_message</code>، <code>conversation_history</code>، <code>child_role</code>، <code>duration_ms</code>، …). القيم غير القابلة للتسلسل تُحوَّل إلى نص بدلًا من حذفها.</p>
+<p><strong>stdout — الاستجابة الاختيارية:</strong></p>
+<div class="language-jsonc codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="70"></x-keep></div></div>
+<p>JSON المشوَّه، ورموز الخروج غير الصفرية، وانتهاءات المهلة تُسجِّل تحذيرًا لكنها لا تُوقِف حلقة الوكيل أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exit-code-2--block-claude-code--cursor-compatible">رمز الخروج 2 = حظر (متوافق مع Claude Code / Cursor)</h3>
+<p>يحظر hook من نوع <code>pre_tool_call</code> يخرج برمز <strong>2</strong> استدعاء الأداة حتى عندما لا يحمل stdout الخاص به JSON حظر. تُحدَّد رسالة الحظر بترتيب الأولوية:</p>
+<ol>
+<li>JSON حظر في stdout (<code>reason</code> / <code>message</code>)، إن وُجد؛</li>
+<li>أول 400 حرف من stderr؛</li>
+<li>افتراضي عام هو <code>&quot;Blocked by shell hook.&quot;</code>.</li>
+</ol>
+<p>لذا فإن أبسط hook حاجب ممكن هو:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="71"></x-keep></div></div>
+<p>بالنسبة للأحداث التي لا يُحتَرَم توجيه الحظر فيها (كل الأحداث ما عدا <code>pre_tool_call</code>)، يُعامَل الخروج برمز 2 كأي خروج آخر غير صفري: يُسجَّل تحذير، ويُحلَّل stdout رغم ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fail-open-vs-fail-closed">الفشل المفتوح مقابل الفشل المغلق</h3>
+<p>افتراضيًا، تفشل hooks الـ shell <strong>بشكل مفتوح</strong>: يُسجِّل خطأ التشغيل، أو انتهاء المهلة، أو stdout غير القابل للتحليل تحذيرًا وتستمر العملية. هذا هو الافتراضي الصحيح لـ hooks المراقبة — لكنه خاطئ لبوابات الأمان. يجب ألا يسمح ماسح أسرار معطوب صمتًا باستدعاء الأداة الذي كان من المفترض أن يفحصه.</p>
+<p>اضبط <code>fail_closed: true</code> (أو <code>failClosed: true</code>، تهجئة Cursor/Claude Code) على مُدخَل <code>pre_tool_call</code> لعكس ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="72"></x-keep></div></div>
+<p>مع <code>fail_closed: true</code>، يصبح كل مما يلي الآن <strong>حاجبًا</strong> لاستدعاء الأداة برسالة <code>hook &lt;command&gt; failed closed: &lt;reason&gt;</code>:</p>
+<table><thead><tr><th>الإخفاق</th><th>الفشل المفتوح (الافتراضي)</th><th><code>fail_closed: true</code></th></tr></thead><tbody><tr><td>الأمر غير موجود / غير قابل للتنفيذ</td><td>تحذير، متابعة</td><td><strong>حظر</strong></td></tr><tr><td>انتهاء المهلة</td><td>تحذير، متابعة</td><td><strong>حظر</strong></td></tr><tr><td>stdout غير JSON (مثل تتبّع مكدّس)</td><td>تحذير، متابعة</td><td><strong>حظر</strong></td></tr><tr><td>خروج نظيف، JSON صالح بلا إجراء (<code>{}</code>)</td><td>متابعة</td><td>متابعة</td></tr></tbody></table>
+<p>ينطبق <code>fail_closed</code> فقط على الأحداث القادرة على الحظر (<code>pre_tool_call</code> حاليًا)؛ ضبطه على أي حدث آخر يُسجِّل تحذيرًا وقت تحليل الإعدادات ويُتجاهَل. يعكس <code>hermes hooks test</code> هذه الدلالات — يُظهر سطر <code>parsed</code> بالضبط شكل الحظر الذي سيتلقاه الموزِّع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="worked-examples">أمثلة عملية</h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-auto-format-python-files-after-every-write">1. تنسيق ملفات Python تلقائيًا بعد كل كتابة</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="73"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="74"></x-keep></div></div>
+<p>رؤية الوكيل السياقية للملف <strong>لا</strong> تُعاد قراءتها تلقائيًا — فإعادة التنسيق تؤثّر فقط على الملف على القرص. تلتقط استدعاءات <code>read_file</code> اللاحقة النسخة المُنسَّقة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-block-destructive-terminal-commands">2. حظر أوامر <code>terminal</code> المدمِّرة</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="75"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="76"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-inject-git-status-into-every-turn-claude-code-userpromptsubmit-equivalent">3. حقن <code>git status</code> في كل دور (مكافئ <code>UserPromptSubmit</code> في Claude Code)</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="77"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="78"></x-keep></div></div>
+<p>حدث <code>UserPromptSubmit</code> في Claude Code ليس عمدًا حدثًا منفصلًا في Hermes — يُطلَق <code>pre_llm_call</code> في نفس الموضع ويدعم حقن السياق أصلًا. استخدمه هنا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-log-every-subagent-completion">4. تسجيل كل اكتمال لوكيل فرعي</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="79"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="80"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="consent-model">نموذج الموافقة</h3>
+<p>يطلب كل زوج فريد من <code>(event, command)</code> موافقة المستخدم في المرة الأولى التي يراه فيها Hermes، ثم يحفظ القرار في <code>~/.hermes/shell-hooks-allowlist.json</code>. تتخطى التشغيلات اللاحقة (CLI أو الـ gateway) المطالبة.</p>
+<p>ثلاثة مخارج تتجاوز المطالبة التفاعلية — يكفي أي واحد منها:</p>
+<ol>
+<li>خيار <code>--accept-hooks</code> في CLI (مثل <code>hermes --accept-hooks chat</code>)</li>
+<li>متغير البيئة <code>HERMES_ACCEPT_HOOKS=1</code></li>
+<li><code>hooks_auto_accept: true</code> في <code>~/.hermes/config.yaml</code></li>
+</ol>
+<p>تحتاج التشغيلات غير التفاعلية (gateway، cron، CI) إلى واحد من هذه الثلاثة — وإلا فإن أي hook مُضاف حديثًا يبقى غير مسجَّل صمتًا ويُسجِّل تحذيرًا.</p>
+<p><strong>تعديلات السكربت موثوقة صمتًا.</strong> تعتمد قائمة السماح على سلسلة الأمر الدقيقة، لا على بصمة (hash) السكربت، لذا فتعديل السكربت على القرص لا يُبطل الموافقة. يُبلِّغ <code>hermes hooks doctor</code> عن انحراف وقت التعديل (mtime) حتى تتمكن من رصد التعديلات وتقرير ما إذا كنت ستوافق مجددًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-allowlisting">إضافة يدوية إلى قائمة السماح</h4>
+<p>الإضافة اليدوية إلى قائمة السماح مفيدة لعمليات النشر غير التفاعلية أو حسابات الخدمة حيث لا يستطيع المُشغِّل الإجابة على مطالبة أول استخدام تفاعليًا. ملف قائمة السماح هو <code>~/.hermes/shell-hooks-allowlist.json</code>، والصيغة المتوقَّعة هي مصفوفة <code>approvals</code>. تسجّل كل موافقة <code>event</code> الحدث و <code>command</code> سلسلة الأمر الدقيقة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="81"></x-keep></div></div>
+<p>يجب أن تطابق سلسلة الأمر أمر الـ hook المُعَدّ تمامًا. الكائن المُفهرَس بالمسار مع حقل <code>sha256</code> ليس الصيغة المتوقَّعة ولن يُوافِق على الـ hook. تحقّق من المُدخلات اليدوية بـ <code>hermes hooks list</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-hermes-hooks-cli">واجهة سطر الأوامر <code>hermes hooks</code></h3>
+<table><thead><tr><th>الأمر</th><th>ما يفعله</th></tr></thead><tbody><tr><td><code>hermes hooks list</code></td><td>عرض الـ hooks المُعدَّة مع المُطابِق (matcher)، والمهلة، وحالة الموافقة</td></tr><tr><td><code>hermes hooks test &lt;event&gt; [--for-tool X] [--payload-file F]</code></td><td>تشغيل كل hook مطابق ضد حمولة اصطناعية وطباعة الاستجابة المُحلَّلة</td></tr><tr><td><code>hermes hooks revoke &lt;command&gt;</code></td><td>إزالة كل مُدخَل من قائمة السماح مطابق لـ <code>&lt;command&gt;</code> (يسري عند إعادة التشغيل التالية)</td></tr><tr><td><code>hermes hooks doctor</code></td><td>لكل hook مُعَدّ: فحص صلاحية التنفيذ (exec bit)، وحالة قائمة السماح، وانحراف وقت التعديل، وصحة مخرجات JSON، ووقت تنفيذ تقريبي</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h3>
+<p>تعمل hooks الـ shell <strong>ببيانات اعتماد المستخدم الكاملة</strong> — نفس حد الثقة الذي يتمتع به مُدخَل cron أو اسم مستعار (alias) للـ shell. عامل كتلة <code>hooks:</code> في <code>config.yaml</code> كإعدادات مميَّزة:</p>
+<ul>
+<li>اقتصر على الإشارة إلى سكربتات كتبتها بنفسك أو راجعتها بالكامل.</li>
+<li>أبقِ السكربتات داخل <code>~/.hermes/agent-hooks/</code> ليسهل تدقيق المسار.</li>
+<li>أعِد تشغيل <code>hermes hooks doctor</code> بعد سحب إعدادات مشتركة لرصد الـ hooks المُضافة حديثًا قبل تسجيلها.</li>
+<li>إذا كان ملف config.yaml خاضعًا للتحكم بالإصدار (version-controlled) ضمن فريق، راجع طلبات السحب (PRs) التي تُغيِّر قسم <code>hooks:</code> بنفس الطريقة التي تراجع بها إعدادات CI.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ordering-and-precedence">الترتيب والأسبقية</h3>
+<p>تمر كل من hooks إضافات Python وhooks الـ shell عبر نفس موزِّع <code>invoke_hook()</code>. تُسجَّل إضافات Python أولًا (<code>discover_and_load()</code>)، ثم hooks الـ shell ثانيًا (<code>register_from_config()</code>)، لذا تسبق قرارات حظر <code>pre_tool_call</code> الخاصة بـ Python في حالات التعادل. يفوز أول حظر صالح — يعيد المُجمِّع (aggregator) النتيجة بمجرد أن يُنتِج أي استدعاء <code>{&quot;action&quot;: &quot;block&quot;, &quot;message&quot;: str}</code> برسالة غير فارغة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-webhooks">Webhooks الصادرة</h2>
+<p>webhooks الصادرة هي مرآة الدفع (push) المقابلة لـ <a href="/docs/user-guide/messaging/webhooks">منصة webhooks الواردة</a>: توقظ webhooks الواردة Hermes عندما يتغيّر العالم؛ وتخبر webhooks الصادرة العالم عندما يفعل Hermes شيئًا. اضبط قائمة نقاط نهاية HTTP وأحداث دورة الحياة التي تهمها، وسيرسل Hermes حمولة JSON موقَّعة إلى كل نقطة نهاية كلما أُطلِق حدث مطابق — دون استقصاء (polling) من جهة الاستقبال.</p>
+<p>الاستخدامات النموذجية:</p>
+<ul>
+<li>إعلام نظام CI أو لوحة تحكم عند انتهاء دور وكيل (<code>on_session_end</code>)</li>
+<li>تتبّع اكتمالات الوكلاء الفرعيين عبر أسطول من الوكلاء (<code>subagent_stop</code>)</li>
+<li>تغذية المراقبة الخارجية بنشاط الأدوات (<code>post_tool_call</code> مع <code>matcher</code>)</li>
+<li>إيقاظ نسخة <em>أخرى</em> من Hermes: وجّه الرابط إلى webhook الوارد الخاص بتلك النسخة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h3>
+<p>أضف قائمة <code>hooks.outbound:</code> إلى <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="82"></x-keep></div></div>
+<p>أي حدث من مجموعة hooks الإضافات صالح (<code>pre_tool_call</code>، و <code>post_tool_call</code>، و <code>pre_llm_call</code>، و <code>post_llm_call</code>، و <code>on_session_start</code>، و <code>on_session_end</code>، و <code>subagent_start</code>، و <code>subagent_stop</code>، ...). المُدخلات المشوَّهة تُحذِّر وتُتخطَّى — لا يُوقِف webhook معطوب الوكيل أبدًا. تسري التغييرات عند جلسة CLI التالية / إعادة تشغيل الـ gateway.</p>
+<p>الأسرار: يُفضَّل <code>secret_env</code> (اسم متغير بيئة، يُضبَط عادة في <code>~/.hermes/.env</code>) على قيمة <code>secret:</code> نصية مباشرة، حتى يبقى ملف الإعدادات خاليًا من بيانات الاعتماد. المُدخلات بلا سر تُسلَّم دون توقيع (تُوسَم بـ <code>UNSIGNED</code> بواسطة <code>hermes hooks list</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="wire-format">صيغة النقل</h3>
+<p>يُرسِل كل إطلاق حدث جسم JSON بنفس الشكل العلوي لـ stdin الخاص بـ hooks الـ shell، إضافة إلى بيانات وصفية للتسليم. يسمّي <code>profile</code> profile Hermes الذي أصدر الحدث (<code>&quot;default&quot;</code> خارج الـ profiles)، بحيث يمكن للمستقبِلين خلف gateway متعدد الإرسال التمييز بين الـ profiles:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="83"></x-keep></div></div>
+<p>الترويسات (Headers):</p>
+<table><thead><tr><th>الترويسة</th><th>القيمة</th></tr></thead><tbody><tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr><tr><td><code>X-Hermes-Event</code></td><td>اسم حدث الـ hook</td></tr><tr><td><code>X-Hermes-Delivery</code></td><td>معرّف فريد لكل تسليم — نفس قيمة <code>delivery_id</code> في الجسم</td></tr><tr><td><code>X-Hermes-Signature-256</code></td><td><code>sha256=&lt;hex&gt;</code> — HMAC-SHA256 للجسم الخام، بأسلوب GitHub؛ موجودة فقط عند ضبط سر</td></tr></tbody></table>
+<p>تحقّق من التوقيع تمامًا كما تفعل مع webhook خاص بـ GitHub:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="84"></x-keep></div></div>
+<p>بما أن <code>delivery_id</code> و <code>timestamp</code> يعيشان <strong>داخل الجسم الموقَّع</strong>، فإن المستقبِل المتحقِّق يحصل أيضًا على حماية من إعادة التشغيل (replay) مجانًا:</p>
+<ul>
+<li><strong>إزالة التكرار</strong> بناءً على <code>delivery_id</code> (أو ترويسة <code>X-Hermes-Delivery</code> المطابقة) — تذكّر المعرّفات المرصودة مؤخرًا وتخطَّ التكرارات. يعيد Hermes محاولة التسليمات الفاشلة مرة واحدة، لذا يمكن أن يصل نفس المعرّف مرتين بشكل مشروع.</li>
+<li><strong>رفض الأحداث القديمة</strong> عبر مقارنة <code>timestamp</code> بساعتك ضمن نافذة تسامح (5 دقائق هو الافتراضي الشائع). لا يستطيع مهاجم يعيد تشغيل طلب مُلتقَط تزوير طابع زمني حديث دون السر.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-semantics">دلالات التسليم</h3>
+<ul>
+<li><strong>أطلق ولا تنتظر، خارج المسار الحرج.</strong> تُسلسَل الأحداث وتُضاف إلى قائمة الانتظار فورًا؛ ويقوم خيط خلفي واحد بعمليات POST عبر HTTP. لا يمكن أبدًا لنقطة نهاية بطيئة أو ميتة أن تُعطِّل استدعاء أداة أو دور وكيل.</li>
+<li><strong>للإعلام فقط.</strong> بخلاف hooks الـ shell، لا يمكن لـ webhooks الصادرة حظر استدعاءات الأدوات أو حقن سياق — يُتجاهَل جسم الاستجابة. فهي تراقب، ولا توجّه أبدًا.</li>
+<li><strong>محاولات إعادة محدودة.</strong> تُعاد محاولة أخطاء الاتصال واستجابات 5xx مرة واحدة مع تأخير تصاعدي (backoff)؛ ولا تُعاد محاولة استجابات 4xx (إذ يقول المستقبِل إن الطلب نفسه خاطئ). تُسجَّل الإخفاقات وتُسقَط — التسليم بأفضل جهد، وليس مضمونًا.</li>
+<li><strong>لا يُتبَع إعادة التوجيه أبدًا.</strong> تُعامَل استجابة 3xx كإعداد خاطئ وتُسجَّل — فاتّباع POST مُعاد توجيهه سيُسقِط الحمولة الموقَّعة صمتًا. وجّه <code>url</code> إلى نقطة النهاية النهائية.</li>
+<li><strong>قائمة انتظار محدودة.</strong> إذا تراكمت قائمة الانتظار (نقطة نهاية ميتة، عاصفة أحداث)، تُسقَط الأحداث الجديدة بتحذير بدلًا من استهلاك ذاكرة غير محدودة.</li>
+<li><strong>لا مطالبة موافقة.</strong> لا تُنفِّذ الأهداف الصادرة أي كود على جهازك — فهي تتلقى بيانات على رابط ضبطته أنت. يتخطى <code>HERMES_SAFE_MODE=1</code> التسجيل رغم ذلك، مثل الإضافات وhooks الـ shell. لاحظ أن الحمولات تتضمّن مُدخلات الأدوات وبيانات وصفية للأحداث، لذا وجّه الأهداف فقط إلى نقاط نهاية تثق بها، وفضّل <code>https://</code>.</li>
+</ul>
+<p>يعرض <code>hermes hooks list</code> الأهداف الصادرة المُعدَّة إلى جانب hooks الـ shell، بما في ذلك ما إذا كان كل هدف موقَّعًا.</p>

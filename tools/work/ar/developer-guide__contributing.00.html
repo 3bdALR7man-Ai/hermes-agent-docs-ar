@@ -1,0 +1,149 @@
+<header><h1>المساهمة</h1></header>
+<p>شكرًا لمساهمتك في Hermes Agent! يغطي هذا الدليل إعداد بيئة التطوير، وفهم قاعدة الكود، ودمج الـ PR الخاص بك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contribution-priorities">أولويات المساهمة</h2>
+<p>نقدّر المساهمات وفق الترتيب التالي:</p>
+<ol>
+<li><strong>إصلاح الأخطاء (Bug fixes)</strong> — الأعطال المفاجئة، والسلوك غير الصحيح، وفقدان البيانات</li>
+<li><strong>التوافق عبر المنصات</strong> — macOS، وتوزيعات Linux المختلفة، و WSL2</li>
+<li><strong>تعزيز الأمان</strong> — حقن الأوامر في الـ shell، وحقن الـ prompt (prompt injection)، واجتياز المسارات (path traversal)</li>
+<li><strong>الأداء والمتانة</strong> — منطق إعادة المحاولة، ومعالجة الأخطاء، والتدهور السلس (graceful degradation)</li>
+<li><strong>مهارات جديدة</strong> — المفيدة على نطاق واسع (راجع <a href="/docs/developer-guide/creating-skills">إنشاء المهارات (Skills)</a>)</li>
+<li><strong>أدوات جديدة</strong> — نادرًا ما تكون مطلوبة؛ فمعظم القدرات ينبغي أن تكون مهارات</li>
+<li><strong>التوثيق</strong> — الإصلاحات، والتوضيحات، والأمثلة الجديدة</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-contribution-paths">مسارات المساهمة الشائعة</h2>
+<ul>
+<li>هل تبني أداة مخصّصة/محلية دون تعديل نواة Hermes؟ ابدأ بصفحة <a href="/docs/developer-guide/plugins">بناء إضافة (Plugin) لـ Hermes</a></li>
+<li>هل تبني أداة أساسية مدمجة جديدة لـ Hermes نفسه؟ ابدأ بصفحة <a href="/docs/developer-guide/adding-tools">إضافة أدوات</a></li>
+<li>هل تبني مهارة جديدة؟ ابدأ بصفحة <a href="/docs/developer-guide/creating-skills">إنشاء المهارات (Skills)</a></li>
+<li>هل تبني مزوّد inference جديدًا؟ ابدأ بصفحة <a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="development-setup">إعداد بيئة التطوير</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h3>
+<table><thead><tr><th>المتطلب</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>Git</strong></td><td>مع تثبيت الامتداد <code>git-lfs</code></td></tr><tr><td><strong>Python 3.11–3.13</strong></td><td>سيثبّته uv إن لم يكن موجودًا</td></tr><tr><td><strong>uv</strong></td><td>مدير حزم Python سريع (<a href="https://docs.astral.sh/uv/" data-ext>التثبيت</a>)</td></tr><tr><td><strong>Node.js 26+</strong></td><td>اختياري — مطلوب لأدوات المتصفح وجسر WhatsApp (يتوافق مع حقل engines في ملف <code>package.json</code> الجذري)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-with-the-standard-installer">التثبيت باستخدام المُثبّت القياسي</h3>
+<p>بالنسبة إلى معظم المساهمين، فإن أفضل طريقة لتهيئة بيئة التطوير هي المسار نفسه الذي يسلكه
+المستخدمون: شغّل المُثبّت القياسي، ثم اعمل داخل المستودع الذي استنسخه.
+يُنشئ المُثبّت الـ venv الخاص بـ Hermes، ويربط الأمر <code>hermes</code>، ويسجّل
+طريقة التثبيت لكي يستخدمها <code>hermes update</code>، ويستنسخ مشروع git الكامل إلى
+<code>$HERMES_HOME/hermes-agent</code> (عادةً <code>~/.hermes/hermes-agent</code>). يُبقي ذلك
+بيئة التطوير لديك على البنية نفسها التي يفترضها كلٌّ من CLI، والمحدِّث، ومُثبّت الاعتماديات
+الكسول (lazy)، والـ gateway، والتوثيق.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>بعد ذلك، أنشئ الـ branches وشغّل الاختبارات من تلك النسخة المسحوبة (checkout):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يمكنك أيضًا تشغيل نسخة Hermes معزولة تمامًا (بمجلد HERMES_HOME مؤقت، ومجلد userData منفصل لـ Electron،
+واسم تطبيق Electron مختلف لتجنّب قفل النسخة الواحدة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-clone-fallback">البديل الاحتياطي: الاستنساخ اليدوي</h3>
+<p>استخدم هذه الطريقة فقط إذا كنت لا تريد عمدًا بنية التثبيت المُدارة الخاصة بـ Hermes
+(مثل نسخة مستنسخة مؤقتة داخل حاوية أو مهمة CI). إذا ثبّتت
+بهذه الطريقة، فتأكد من تشغيل نقطة الدخول <code>hermes</code> من هذا الـ venv؛ إذ قد يؤدي تشغيل
+<code>python3 -m hermes_cli.main</code> الخاص بالنظام إلى التقاط حزم Python غير ذات صلة
+مثبّتة على النظام.</p>
+<p>أنشئ الـ venv <strong>خارج</strong> شجرة المصدر المستنسخة. فالـ venv الموجود داخل
+المجلد الذي يعمل منه الوكيل قد يُمحى بأمر يستخدم مسارًا نسبيًا
+ينفّذه الوكيل على نسخته المسحوبة نفسها (<code>rm -rf venv</code>، <code>uv venv venv</code>، إلخ)،
+ما يدمّر بيئة التشغيل الجارية بصمت في منتصف الجلسة. أما إبقاؤه خارج
+الشجرة فيعني أنه لا يوجد مسار نسبي من مساحة العمل يؤدي إليه.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-for-development">الإعداد للتطوير</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run">التشغيل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>إذا استخدمت البديل الاحتياطي للاستنساخ اليدوي، فشغّل <code>./hermes</code> من النسخة المسحوبة أو
+أنشئ رابطًا رمزيًا (symlink) إلى الـ venv الخاص بهذه النسخة المستنسخة صراحةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-tests">تشغيل الاختبارات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="code-style">أسلوب كتابة الكود</h2>
+<ul>
+<li><strong>PEP 8</strong> مع استثناءات عملية (دون فرض صارم لطول السطر)</li>
+<li><strong>التعليقات</strong>: فقط عند شرح مقصد غير واضح، أو مقايضات، أو خصوصيات غريبة في API</li>
+<li><strong>معالجة الأخطاء</strong>: التقط استثناءات محددة. استخدم <code>logger.warning()</code>/<code>logger.error()</code> مع <code>exc_info=True</code> للأخطاء غير المتوقعة</li>
+<li><strong>التوافق عبر المنصات</strong>: لا تفترض أبدًا أن النظام Unix (انظر أدناه)</li>
+<li><strong>مسارات آمنة مع الـ profiles</strong>: لا تكتب <code>~/.hermes</code> بشكل ثابت في الكود أبدًا — استخدم <code>get_hermes_home()</code> من <code>hermes_constants</code> لمسارات الكود، و<code>display_hermes_home()</code> للرسائل التي تظهر للمستخدم. راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md#profiles-multi-instance-support" data-ext>AGENTS.md</a> للاطلاع على القواعد كاملة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-platform-compatibility">التوافق عبر المنصات</h2>
+<p>راجع <strong><a href="/docs/getting-started/platform-support">دعم المنصات</a></strong>. يستخدم Windows الأصلي Git Bash (من <a href="https://git-scm.com/download/win" data-ext>Git for Windows</a>) لأوامر الـ shell. تتطلب بعض الميزات بدائيات نواة POSIX ولذلك تُقيَّد: فلوحة الطرفية المضمّنة PTY في لوحة التحكم (تبويب <code>/chat</code>) تحتاج إلى PTY متوافق مع POSIX (على Linux أو macOS أو WSL2). إذا كان تطويرك يعتمد بكثافة على Windows، فشغّل أداة الفحص الخاصة بمزالق Windows (<code>scripts/check-windows-footguns.py</code>) قبل الدفع (push).</p>
+<p>عند المساهمة بالكود، ضع هذه القواعد في اعتبارك:</p>
+<ul>
+<li><strong>لا تُضف إشارات غير محمية إلى <code>signal.SIGKILL</code>.</strong> فهي غير معرّفة على Windows. إما أن تمرّ عبر <code>gateway.status.terminate_pid(pid, force=True)</code> (البدائية المركزية التي تنفّذ <code>taskkill /T /F</code> على Windows و SIGKILL على POSIX)، أو أن تلجأ احتياطيًا إلى <code>getattr(signal, &quot;SIGKILL&quot;, signal.SIGTERM)</code>.</li>
+<li><strong>التقط <code>OSError</code> إلى جانب <code>ProcessLookupError</code> في فحوصات <code>os.kill(pid, 0)</code>.</strong> إذ يرفع Windows الاستثناء <code>OSError</code> (WinError 87، &quot;parameter is incorrect&quot;) لمعرّف عملية (PID) لم يعد موجودًا بدلًا من <code>ProcessLookupError</code>.</li>
+<li><strong>لا تفرض دلالات POSIX على الطرفية.</strong> فالدوال <code>os.setsid</code> و<code>os.killpg</code> و<code>os.getpgid</code> و<code>os.fork</code> كلها ترفع استثناءات على Windows — قيّدها بالشرط <code>if sys.platform != &quot;win32&quot;:</code> أو <code>if os.name != &quot;nt&quot;:</code>.</li>
+<li><strong>افتح الملفات مع تحديد <code>encoding=&quot;utf-8&quot;</code> صراحةً.</strong> فالقيمة الافتراضية في Python على Windows هي لغة النظام المحلية (locale) (غالبًا cp1252)، ما يؤدي إلى تشوّه النصوص غير اللاتينية (mojibake) أو إلى تعطّل البرنامج.</li>
+<li><strong>استخدم <code>pathlib.Path</code> / <code>os.path.join</code> — ولا تدمج المسارات يدويًا باستخدام <code>/</code> أبدًا.</strong> يهمّ هذا بدرجة أقل في السلاسل النصية التي يُعيدها نظام التشغيل، وبدرجة أكبر في السلاسل التي نبنيها لتمريرها إلى العمليات الفرعية (subprocesses).</li>
+</ul>
+<p>الأنماط الرئيسية:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-file-encoding">1. ترميز الملفات</h3>
+<p>قد تحفظ بعض البيئات ملفات <code>.env</code> بترميزات غير UTF-8:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-process-management">2. إدارة العمليات</h3>
+<p>تختلف <code>os.setsid()</code> و<code>os.killpg()</code> ومعالجة الإشارات (signals) من منصة إلى أخرى:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-path-separators">3. فواصل المسارات</h3>
+<p>استخدم <code>pathlib.Path</code> بدلًا من دمج السلاسل النصية باستخدام <code>/</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-considerations">اعتبارات الأمان</h2>
+<p>يملك Hermes صلاحية الوصول إلى الطرفية، لذا فالأمان أمر مهم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="existing-protections">الحمايات الحالية</h3>
+<table><thead><tr><th>الطبقة</th><th>التنفيذ</th></tr></thead><tbody><tr><td><strong>تمرير كلمة مرور sudo</strong></td><td>يستخدم <code>shlex.quote()</code> لمنع حقن الأوامر في الـ shell</td></tr><tr><td><strong>اكتشاف الأوامر الخطرة</strong></td><td>أنماط Regex في <code>tools/approval.py</code> مع تدفّق لموافقة المستخدم</td></tr><tr><td><strong>حقن الـ prompt في Cron</strong></td><td>ماسح يحظر أنماط تجاوز التعليمات</td></tr><tr><td><strong>قائمة حظر الكتابة</strong></td><td>تُحلّ المسارات المحمية عبر <code>os.path.realpath()</code> لمنع الالتفاف عليها بالروابط الرمزية</td></tr><tr><td><strong>حماية المهارات (Skills guard)</strong></td><td>ماسح أمني للمهارات المثبّتة من الـ hub</td></tr><tr><td><strong>Sandbox لتنفيذ الكود</strong></td><td>تعمل العملية الابنة بعد نزع مفاتيح API منها</td></tr><tr><td><strong>تقوية الحاويات</strong></td><td>Docker: إسقاط جميع الـ capabilities، ومنع تصعيد الصلاحيات، وتحديد عدد العمليات (PID limits)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="contributing-security-sensitive-code">المساهمة بكود حسّاس أمنيًا</h3>
+<ul>
+<li>استخدم دائمًا <code>shlex.quote()</code> عند إدراج مدخلات المستخدم في أوامر الـ shell</li>
+<li>حُلّ الروابط الرمزية باستخدام <code>os.path.realpath()</code> قبل فحوصات التحكم في الوصول</li>
+<li>لا تسجّل الأسرار في السجلات</li>
+<li>التقط الاستثناءات العامة حول تنفيذ الأدوات</li>
+<li>اختبر على جميع المنصات إذا كان تغييرك يمسّ مسارات الملفات أو العمليات</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pull-request-process">عملية Pull Request</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="branch-naming">تسمية الـ Branches</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-submitting">قبل الإرسال</h3>
+<ol>
+<li><strong>شغّل الاختبارات</strong>: <code>scripts/run_tests.sh</code> لمطابقة بيئة CI. لا تستخدم <code>python -m pytest ...</code> مباشرةً إلا حين يكون السكربت المُغلِّف غير متاح أو حين تتعمّد تصحيح الأخطاء خارجه.</li>
+<li><strong>اختبر يدويًا</strong>: شغّل <code>hermes</code> وجرّب مسار الكود الذي غيّرته</li>
+<li><strong>تحقّق من الأثر عبر المنصات</strong>: ضع في اعتبارك macOS و Linux و WSL2 و Windows الأصلي. إذا كنت تعدّل عمليات إدخال/إخراج الملفات، أو إدارة العمليات، أو التعامل مع الطرفية، أو العمليات الفرعية، أو الإشارات، فشغّل <code>scripts/check-windows-footguns.py</code>.</li>
+<li><strong>اجعل الـ PRs مركّزة</strong>: تغيير منطقي واحد لكل PR</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pr-description">وصف الـ PR</h3>
+<p>ضمّن ما يلي:</p>
+<ul>
+<li><strong>ما الذي</strong> تغيّر و<strong>لماذا</strong></li>
+<li><strong>كيفية اختباره</strong> خطوة بخطوة</li>
+<li><strong>المنصات</strong> التي اختبرت عليها</li>
+<li>الإشارة إلى أي issues ذات صلة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="commit-messages">رسائل الـ Commit</h3>
+<p>نستخدم <a href="https://www.conventionalcommits.org/" data-ext>Conventional Commits</a>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<table><thead><tr><th>النوع</th><th>يُستخدم لـ</th></tr></thead><tbody><tr><td><code>fix</code></td><td>إصلاح الأخطاء</td></tr><tr><td><code>feat</code></td><td>الميزات الجديدة</td></tr><tr><td><code>docs</code></td><td>التوثيق</td></tr><tr><td><code>test</code></td><td>الاختبارات</td></tr><tr><td><code>refactor</code></td><td>إعادة هيكلة الكود</td></tr><tr><td><code>chore</code></td><td>البناء، و CI، وتحديثات الاعتماديات</td></tr></tbody></table>
+<p>النطاقات (Scopes): <code>cli</code>، <code>gateway</code>، <code>tools</code>، <code>skills</code>، <code>agent</code>، <code>install</code>، <code>whatsapp</code>، <code>security</code></p>
+<p>أمثلة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="repo-local-review-checklists-agentschecksmd">قوائم مراجعة محلية داخل المستودع: <code>.agents/checks/*.md</code></h3>
+<p>يمكن للمشاريع المبنية على Hermes (أو التي يراجعها Hermes) الاحتفاظ بقوائم تحقق للمراجعين داخل المستودع ضمن <code>.agents/checks/</code>. كل ملف هو قائمة تحقق مركّزة بصيغة markdown عادية، يحمّلها الوكيل قبل مراجعة أي تغيير يمسّ المجال المطابق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>أعراف تجعل هذه القوائم تعمل جيدًا:</p>
+<ul>
+<li><strong>اهتمام واحد لكل ملف</strong>، ويُسمّى الملف باسم ذلك الاهتمام. فالملفات الصغيرة تُقرأ كاملة، أما ملف <code>checklist.md</code> الضخم فيُقرأ على عجل.</li>
+<li><strong>اكتب الفحوصات كإجراءات قابلة للتحقق</strong> («شغّل X وتأكد من Y»)، لا كتطلعات («يجب أن يكون الكود آمنًا»).</li>
+<li><strong>اذكر شرط التطبيق في أعلى الملف</strong> — أي المسارات أو أنواع التغييرات التي تنطبق عليها القائمة — كي يتمكن الوكيل (أو الإنسان) من تخطّي غير المتعلّق منها بسهولة.</li>
+<li>احفظها في نظام التحكم بالإصدارات بجوار الكود الذي تحرسه: فهي تتطور مع قاعدة الكود، والـ PR الذي يغيّر القواعد يغيّر قائمة التحقق في الـ diff نفسه.</li>
+</ul>
+<p>حين تطلب من Hermes مراجعة PR في مستودع يحتوي على <code>.agents/checks/</code>، اطلب منه (أو علّمه عبر مهارة) أن يقرأ قوائم التحقق ذات الصلة أولًا وأن يقدّم تقريره وفقًا لها. يمنح هذا وكلاء المراجعة المعيار الخاص بالمشروع الذي تغفله الـ prompts العامة للمراجعة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reporting-issues">الإبلاغ عن المشكلات</h2>
+<ul>
+<li>استخدم <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>GitHub Issues</a></li>
+<li>ضمّن: نظام التشغيل، وإصدار Python، وإصدار Hermes (<code>hermes --version</code>)، وتتبّع الخطأ الكامل (traceback)</li>
+<li>ضمّن خطوات إعادة إنتاج المشكلة</li>
+<li>راجع المشكلات الموجودة قبل إنشاء مشكلات مكرّرة</li>
+<li>أبلغ عن الثغرات الأمنية بشكل خاص</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="community">المجتمع</h2>
+<ul>
+<li><strong>Discord</strong>: <a href="https://discord.gg/NousResearch" data-ext>discord.gg/NousResearch</a></li>
+<li><strong>GitHub Discussions</strong>: لمقترحات التصميم ونقاشات البنية المعمارية</li>
+<li><strong>Skills Hub</strong>: ارفع المهارات المتخصصة وشاركها مع المجتمع</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="license">الترخيص</h2>
+<p>بمساهمتك، فإنك توافق على ترخيص مساهماتك بموجب <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE" data-ext>MIT License</a>.</p>

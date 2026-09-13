@@ -1,0 +1,172 @@
+
+<header><h1>تصحيح REST/GraphQL</h1></header>
+<p>صحّح واجهات REST/GraphQL: رموز الحالة، المصادقة، المخططات، إعادة الإنتاج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/software-development/rest-graphql-debug</code></td></tr><tr><td>المسار</td><td><code>optional-skills/software-development/rest-graphql-debug</code></td></tr><tr><td>الإصدار</td><td><code>1.2.0</code></td></tr><tr><td>المؤلف</td><td>eren-karakus0</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>api</code>, <code>rest</code>, <code>graphql</code>, <code>http</code>, <code>debugging</code>, <code>testing</code>, <code>curl</code>, <code>integration</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging"><code>systematic-debugging</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development"><code>test-driven-development</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>اختبار وتصحيح API</h1>
+<p>نفّذ تشخيص REST وGraphQL عبر أدوات Hermes — <code>terminal</code> لأمر <code>curl</code>، و<code>execute_code</code> لاستخدام <code>requests</code> في Python، و<code>web_extract</code> لمستندات المزوّد. اعزل الطبقة المُعطَّلة قبل تخمين الإصلاح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>تُعيد الواجهة رمز حالة أو نصًا غير متوقع</li>
+<li>فشل المصادقة (401/403 بعد تحديث token، أو OAuth، أو مفتاح API)</li>
+<li>تعمل في Postman لكنها تفشل في الكود</li>
+<li>تصحيح تكامل webhook / callback</li>
+<li>بناء أو مراجعة اختبارات تكامل API</li>
+<li>مشكلات حدّ المعدل (rate limiting) أو التقسيم إلى صفحات (pagination)</li>
+</ul>
+<p>تخطَّها بالنسبة لعرض واجهة المستخدم، أو ضبط استعلامات قاعدة البيانات، أو بنية DNS/جدار الحماية التحتية (صعّدها لجهة أخرى).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-principle">المبدأ الأساسي</h2>
+<p><strong>اعزل الطبقة، ثم أصلح.</strong> قد تُخفي استجابة 200 OK بيانات معطوبة. وقد يُخفي خطأ 500 خطأً إملائيًا بحرف واحد في المصادقة. تتبّع السلسلة بالترتيب؛ لا تتخطَّ أي خطوة أبدًا.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-minute-quickstart">بدء سريع خلال 5 دقائق</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rest-via-terminal">REST عبر terminal</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="graphql-via-terminal">GraphQL عبر terminal</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>مأزق GraphQL:</strong> غالبًا ما تُعيد الخوادم رمز HTTP 200 حتى عندما يفشل الاستعلام. افحص دائمًا حقل <code>errors</code> بصرف النظر عن رمز الحالة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-requests-via-execute_code">Python (باستخدام requests) عبر execute_code</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="layered-debug-flow">تدفّق التصحيح المتدرّج</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1--connectivity">الخطوة 1 — الاتصال</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>الأعطال: عدم تحليل DNS، جدار حماية، الحاجة إلى VPN، proxy مفقود.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-15--timeouts">الخطوة 1.5 — انتهاء المهلة (Timeouts)</h3>
+<p>ميّز بين <em>عدم القدرة على الوصول</em> و<em>الوصول ببطء</em>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>في Python، مرّر دائمًا مهلة على شكل tuple — فمكتبة <code>requests</code> لا تملك قيمة افتراضية وستنتظر إلى ما لا نهاية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>التشخيص: ارتفاع <code>time_connect</code> يدل على مشكلة شبكة/جدار حماية؛ وارتفاع <code>time_starttransfer</code> مع انخفاض <code>time_connect</code> يدل على خادم بطيء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2--tlsssl">الخطوة 2 — TLS/SSL</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>الأعطال: شهادة منتهية الصلاحية، شهادة موقّعة ذاتيًا، عدم تطابق اسم المضيف، حزمة CA مفقودة. استخدم <code>-k</code> فقط للتصحيح المؤقت، ولا تستخدمها أبدًا في الكود.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3--authentication">الخطوة 3 — المصادقة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>قائمة تحقق:</p>
+<ul>
+<li>هل انتهت صلاحية الـ token؟ (خاصية <code>exp</code> في JWT)</li>
+<li>هل المخطط (scheme) الصحيح مستخدم؟ Bearer مقابل Basic مقابل Token مقابل <code>X-Api-Key</code></li>
+<li>هل البيئة صحيحة؟ استخدام مفتاح staging على prod خطأ كلاسيكي</li>
+<li>هل مفتاح API في الترويسة (header) أم في معامل الاستعلام (<code>?api_key=…</code>)؟</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4--request-format">الخطوة 4 — صيغة الطلب</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong>عدم تطابق Content-Type / نص الطلب — خطأ 415/400 الصامت:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>شائع: form-encoded مقابل JSON، حقول مطلوبة مفقودة، طريقة HTTP خاطئة، معاملات استعلام غير مُرمَّزة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5--response-parsing">الخطوة 5 — تحليل الاستجابة</h3>
+<p>افحص دائمًا نوع المحتوى (content-type) قبل استدعاء <code>.json()</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>الأعطال: صفحة خطأ HTML بدلًا من JSON المتوقّع، نص فارغ، ترميز محارف (charset) خاطئ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6--semantic-validation">الخطوة 6 — التحقق الدلالي</h3>
+<p>تم التحليل بنجاح — لكن هل البيانات <em>صحيحة</em>؟</p>
+<ul>
+<li>هل <code>&quot;status&quot;: &quot;active&quot;</code> يعني ما يفترضه الكود؟</li>
+<li>هل المعرّف (ID) في الاستجابة يطابق المطلوب؟</li>
+<li>هل الطوابع الزمنية في المنطقة الزمنية المتوقعة؟</li>
+<li>هل التقسيم إلى صفحات (pagination) يُعيد كل النتائج، أم الصفحة الأولى فقط؟</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="http-status-playbook">دليل رموز حالة HTTP</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="401-unauthorized--credentials-missing-or-invalid">401 Unauthorized — بيانات اعتماد مفقودة أو غير صالحة</h3>
+<ol>
+<li>هل ترويسة <code>Authorization</code> موجودة فعليًا؟ (تأكّد بـ <code>curl -v</code>)</li>
+<li>هل الـ token صحيح وغير منتهي الصلاحية؟</li>
+<li>هل مخطط المصادقة (auth scheme) صحيح؟ (<code>Bearer</code> مقابل <code>Basic</code> مقابل <code>Token</code>)</li>
+<li>بعض الواجهات تستخدم معامل استعلام (<code>?api_key=…</code>) بدلًا من ترويسة.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="403-forbidden--authenticated-but-not-authorized">403 Forbidden — مصادَق عليه لكن غير مخوَّل</h3>
+<ol>
+<li>هل يملك الـ token الصلاحيات/النطاقات (scopes) المطلوبة؟</li>
+<li>هل المورد مملوك لحساب آخر؟</li>
+<li>هل قائمة IP المسموح بها تحظرك؟</li>
+<li>هل هي مشكلة CORS في المتصفح؟ (تحقّق من <code>Access-Control-Allow-Origin</code>)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="404-not-found--resource-doesnt-exist-or-url-is-wrong">404 Not Found — المورد غير موجود أو الرابط خاطئ</h3>
+<ol>
+<li>هل المسار صحيح؟ (شرطة مائلة زائدة، خطأ إملائي، بادئة الإصدار)</li>
+<li>هل معرّف المورد موجود؟</li>
+<li>هل إصدار API صحيح (<code>/v1/</code> مقابل <code>/v2/</code>)؟</li>
+<li>هل الرابط الأساسي (base URL) صحيح (staging مقابل prod)؟</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="409-conflict--state-collision">409 Conflict — تعارض في الحالة</h3>
+<ol>
+<li>هل المورد موجود مسبقًا (إنشاء مكرّر)؟</li>
+<li>هل <code>ETag</code> / <code>If-Match</code> غير محدَّث؟</li>
+<li>هل هناك تعديل متزامن من عملية أخرى؟</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="422-unprocessable-entity--valid-json-invalid-data">422 Unprocessable Entity — JSON صالح، بيانات غير صالحة</h3>
+<p>عادةً ما يذكر نص الخطأ الحقول الخاطئة. تحقّق من:</p>
+<ul>
+<li>أنواع الحقول (نص مقابل عدد صحيح، صيغة التاريخ)</li>
+<li>الحقول المطلوبة مقابل الاختيارية</li>
+<li>قيم enum ضمن المجموعة المسموح بها</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="429-too-many-requests--rate-limited">429 Too Many Requests — تجاوز حدّ المعدل</h3>
+<p>تحقّق من ترويستَي <code>Retry-After</code> و<code>X-RateLimit-*</code>. تراجع أُسّي (exponential backoff):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5xx--server-side-usually-not-your-fault">5xx — من جانب الخادم، غالبًا ليس خطأك</h3>
+<ul>
+<li><strong>500</strong> — خلل في الخادم. سجّل معرّف الترابط (correlation ID) وأبلغ المزوّد.</li>
+<li><strong>502</strong> — الخادم الأعلى (upstream) متوقف. تراجع + إعادة محاولة.</li>
+<li><strong>503</strong> — حمل زائد / صيانة. تحقّق من صفحة الحالة.</li>
+<li><strong>504</strong> — انتهت مهلة الخادم الأعلى. قلّل حجم البيانات أو ارفع المهلة.</li>
+</ul>
+<p>لكل رموز 5xx: تراجع مع jitter، وأصدر تنبيهًا إذا استمر الخطأ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pagination--idempotency">التقسيم إلى صفحات والقُصدية (Idempotency)</h2>
+<p><strong>التقسيم إلى صفحات.</strong> تحقّق من أنك تحصل على <em>كل</em> النتائج. ابحث عن <code>next_cursor</code>، <code>next_page</code>، <code>total_count</code>. نمطان:</p>
+<ul>
+<li>الإزاحة (offset) (<code>?limit=100&amp;offset=200</code>) — بسيط، لكن قد يتخطّى عناصر إذا تغيّرت البيانات.</li>
+<li>المؤشر (cursor) (<code>?cursor=abc123</code>) — مفضّل للبيانات الحية أو المجموعات الكبيرة.</li>
+</ul>
+<p><strong>القُصدية (Idempotency).</strong> للعمليات غير القُصدية (POST)، أرسل <code>Idempotency-Key: &lt;uuid&gt;</code> حتى لا تتسبب إعادة المحاولة في خصم مزدوج / إنشاء مزدوج. إلزامي للمدفوعات والطلبات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contract-validation">التحقق من العقد (Contract Validation)</h2>
+<p>اكتشف انحراف المخطط (schema) قبل أن يصل إلى الإنتاج:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>شغّله بعد ترقيات API، وعند التكامل مع أطراف ثالثة جديدة، أو ضمن اختبارات CI السريعة (smoke tests).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="correlation-ids">معرّفات الترابط (Correlation IDs)</h2>
+<p>احرص دائمًا على تسجيل معرّف الطلب الخاص بالمزوّد — أسرع طريق لدعم المزوّد:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>قالب تقرير خطأ للمزوّد:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="regression-test-template">قالب اختبار الانحدار (Regression)</h2>
+<p>ضع هذا في <code>tests/</code> وشغّله عبر <code>terminal(&#x27;pytest tests/test_api_smoke.py -v&#x27;)</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-handling">التعامل مع الـ token</h3>
+<ul>
+<li>لا تسجّل رموز (tokens) كاملة في السجلّات أبدًا. احجبها: <code>Bearer &lt;REDACTED&gt;</code>.</li>
+<li>لا تُدرج الرموز في الكود مباشرةً أبدًا. اقرأها من متغيرات البيئة (<code>os.environ[&quot;API_TOKEN&quot;]</code>) أو من <code>${HERMES_HOME:-~/.hermes}/.env</code>.</li>
+<li>غيّر الرمز فورًا إذا ظهر في السجلّات، أو رسائل الخطأ، أو تاريخ git.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="safe-logging">التسجيل الآمن</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="leak-checklist">قائمة تحقق من التسريبات</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="25"></x-keep> <strong>بيانات اعتماد في الروابط.</strong> مفاتيح API في معاملات الاستعلام تنتهي في سجلّات الخادم، وسجل المتصفح، وترويسات referrer — استخدم الترويسات (headers) بدلًا من ذلك.</li>
+<li class="task-list-item"><x-keep id="26"></x-keep> <strong>معلومات تعريف شخصية (PII) في استجابات الخطأ.</strong> لا ينبغي لخطأ <code>404 on /users/123</code> أن يكشف ما إذا كان المستخدم موجودًا (تعداد/enumeration).</li>
+<li class="task-list-item"><x-keep id="27"></x-keep> <strong>تتبّعات المكدّس (stack traces) في الإنتاج.</strong> لا ينبغي لأخطاء 500 أن تسرّب مسارات الملفات أو إصدارات إطار العمل.</li>
+<li class="task-list-item"><x-keep id="28"></x-keep> <strong>أسماء مضيفين/عناوين IP داخلية.</strong> مثل <code>10.x.x.x</code> أو <code>internal-api.corp.local</code> في نصوص الخطأ.</li>
+<li class="task-list-item"><x-keep id="29"></x-keep> <strong>رموز يُعاد إظهارها.</strong> بعض الواجهات تُضمِّن رمز المصادقة في تفاصيل الخطأ. تحقّق من أنها لا تفعل ذلك.</li>
+<li class="task-list-item"><x-keep id="30"></x-keep> <strong>ترويستا <code>Server</code> / <code>X-Powered-By</code> المطوّلتان.</strong> تسريب معلومات المكدّس التقني. سجّلها للمراجعة الأمنية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-tool-patterns">أنماط أدوات Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminal--for-curl-dig-openssl">terminal — لـ curl وdig وopenssl</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="execute_code--for-multi-step-python-flows">execute_code — لتدفقات Python متعددة الخطوات</h3>
+<p>عندما يمتد التصحيح عبر مصادقة ← جلب ← تقسيم إلى صفحات ← تحقّق، استخدم <code>execute_code</code>. تبقى المتغيرات محفوظة طوال السكربت، وتُطبع النتائج على stdout، دون خطر إغراق سياقك (context) بالرموز:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_extract--for-vendor-api-docs">web_extract — لمستندات API الخاصة بالمزوّد</h3>
+<p>اسحب مواصفات نقطة النهاية (endpoint) التي تُصحّحها بدلًا من التخمين:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delegate_task--for-full-crud-test-sweeps">delegate_task — لعمليات اختبار CRUD الشاملة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-format">صيغة الإخراج</h2>
+<p>عند تقرير النتائج:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><code>systematic-debugging</code> — بعد عزل طبقة API المُعطَّلة، حدّد السبب الجذري في كودك</li>
+<li><code>test-driven-development</code> — اكتب اختبار الانحدار قبل شحن الإصلاح</li>
+</ul>

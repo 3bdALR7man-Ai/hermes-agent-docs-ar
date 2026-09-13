@@ -1,0 +1,118 @@
+
+<header><h1>Torchtitan</h1></header>
+<p>درّب نماذج LLM مسبقًا على نطاق واسع باستخدام تفريع PyTorch الرباعي الأبعاد (4D parallelism).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/torchtitan</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/torchtitan</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>torch&gt;=2.6.0</code>، <code>torchtitan&gt;=0.2.0</code>، <code>torchao&gt;=0.5.0</code></td></tr><tr><td>المنصات</td><td>linux، macos</td></tr><tr><td>الوسوم</td><td><code>Model Architecture</code>، <code>Distributed Training</code>، <code>TorchTitan</code>، <code>FSDP2</code>، <code>Tensor Parallel</code>، <code>Pipeline Parallel</code>، <code>Context Parallel</code>، <code>Float8</code>، <code>Llama</code>، <code>Pretraining</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>TorchTitan - تدريب مسبق موزّع أصيل لنماذج LLM في PyTorch</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>TorchTitan هو المنصة الرسمية من PyTorch للتدريب المسبق للنماذج اللغوية الكبيرة على نطاق واسع، بتفريع رباعي الأبعاد قابل للتركيب (FSDP2 و TP و PP و CP)، ويحقق تسريعًا يزيد على 65% مقارنة بالخط الأساسي على معالجات H100.</p>
+<p><strong>التثبيت</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>تنزيل الـ tokenizer</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>ابدأ التدريب على 8 معالجات GPU</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير عمل شائع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-pretrain-llama-31-8b-on-single-node">سير العمل 1: تدريب Llama 3.1 8B مسبقًا على عقدة واحدة</h3>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطوة 1: تنزيل الـ tokenizer</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد التدريب</strong></p>
+<p>في البنية الحالية لـ torchtitan، تُعرَّف إعدادات التشغيل ضمن <strong>سجل إعدادات (config registry)</strong> بلغة Python
+(<code>torchtitan/models/llama3/config_registry.py</code>) ويُختار منها بالاسم عبر <code>CONFIG=&lt;name&gt;</code>
+(أو <code>--config &lt;name&gt;</code>). للتخصيص، سجّل إعدادك الخاص في السجل، أو تجاوَز (override)
+حقولًا فردية من سطر الأوامر (مثل <code>--optimizer.lr 3e-4 --training.steps 1000</code>).</p>
+<p>الإعدادات المكافئة لتشغيل بحجم 8B تبدو كالتالي (مُعروضة كحقول؛ اضبطها في
+إدخال السجل أو كتجاوزات <code>--section.key value</code>):</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>الخطوة 3: تشغيل التدريب</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>الخطوة 4: المراقبة وحفظ نقاط التفتيش (checkpoints)</strong></p>
+<p>تُحفظ سجلات TensorBoard في <code>./outputs/tb/</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-multi-node-training-with-slurm">سير العمل 2: تدريب متعدد العُقد باستخدام SLURM</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>الخطوة 1: إعداد التفريع (parallelism) للتوسع</strong></p>
+<p>لنموذج 70B على 256 معالج GPU (32 عقدة):</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد سكربت SLURM</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong>الخطوة 3: إرسال المهمة (job)</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>الخطوة 4: الاستئناف من نقطة تفتيش</strong></p>
+<p>يستأنف التدريب تلقائيًا إذا وُجدت نقطة تفتيش في المجلد المُعدّ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-enable-float8-training-for-h100s">سير العمل 3: تفعيل التدريب بصيغة Float8 لمعالجات H100</h3>
+<p>توفّر Float8 تسريعًا بنسبة 30-50% على معالجات H100.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p><strong>الخطوة 1: تثبيت torchao</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد Float8</strong></p>
+<p>في الإصدار الحالي من torchtitan، تُطبَّق Float8 وقت الإعداد عبر معامل <code>quantization</code>
+داخل استدعاء <code>model_registry()</code> ضمن سجل الإعدادات (وليس عبر قسم TOML باسم
+<code>[quantize.linear.float8]</code>). أضف <code>Float8LinearConverter.Config</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>فعّل أيضًا <code>torch.compile</code> في إعداد التشغيل الخاص بك:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>الخطوة 3: التشغيل مع compile</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-4-4d-parallelism-for-405b-models">سير العمل 4: تفريع رباعي الأبعاد (4D) لنماذج 405B</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><strong>الخطوة 1: إنشاء نقطة تفتيش بذرية (seed checkpoint)</strong></p>
+<p>مطلوبة لضمان تهيئة متسقة عبر مراحل PP:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد التفريع الرباعي الأبعاد</strong></p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p><strong>الخطوة 3: التشغيل على 512 معالج GPU</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-vs-alternatives">متى تستخدمها مقابل البدائل</h2>
+<p><strong>استخدم TorchTitan عندما:</strong></p>
+<ul>
+<li>تريد تدريب نماذج LLM مسبقًا من الصفر (من 8B إلى أكثر من 405B)</li>
+<li>تحتاج إلى حل أصيل في PyTorch بلا اعتماديات من أطراف ثالثة</li>
+<li>تحتاج إلى تفريع رباعي الأبعاد قابل للتركيب (FSDP2 و TP و PP و CP)</li>
+<li>تدرّب على معالجات H100 بدعم Float8</li>
+<li>تريد نقاط تفتيش قابلة للتبادل مع torchtune/HuggingFace</li>
+</ul>
+<p><strong>استخدم بدائل أخرى بدلًا من ذلك:</strong></p>
+<ul>
+<li><strong>Megatron-LM</strong>: لأقصى أداء في عمليات النشر الخاصة بـ NVIDIA فقط</li>
+<li><strong>DeepSpeed</strong>: منظومة أوسع لتحسين ZeRO، مع دعم للـ inference</li>
+<li><strong>Axolotl/TRL</strong>: للـ fine-tuning بدلًا من التدريب المسبق</li>
+<li><strong>LitGPT</strong>: للتعليم والتدريب على نطاق أصغر</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">مشكلات شائعة</h2>
+<p><strong>المشكلة: نفاد الذاكرة مع النماذج الكبيرة</strong></p>
+<p>فعّل activation checkpointing وقلّل حجم الدفعة (batch size):</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>أو استخدم تجميع التدرجات (gradient accumulation):</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p><strong>المشكلة: TP يسبب استهلاكًا عاليًا للذاكرة مع async collectives</strong></p>
+<p>اضبط متغير البيئة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>المشكلة: تدريب Float8 ليس أسرع</strong></p>
+<p>لا تفيد Float8 إلا عمليات GEMM الكبيرة. صفِّ الطبقات الصغيرة عبر <code>filter_fqns</code> الخاص بالمحوّل (converter):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><strong>المشكلة: فشل تحميل نقطة التفتيش بعد تغيير التفريع</strong></p>
+<p>استخدم قدرة إعادة التقسيم (resharding) في DCP:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p><strong>المشكلة: تهيئة التفريع بالخطوط الأنبوبية (pipeline parallelism)</strong></p>
+<p>أنشئ نقطة تفتيش بذرية أولًا (راجع سير العمل 4، الخطوة 1).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-models">النماذج المدعومة</h2>
+<table><thead><tr><th>النموذج</th><th>الأحجام</th><th>الحالة</th></tr></thead><tbody><tr><td>Llama 3.1</td><td>8B، 70B، 405B</td><td>إنتاجي (Production)</td></tr><tr><td>Llama 4</td><td>متنوعة</td><td>تجريبي</td></tr><tr><td>DeepSeek V3</td><td>16B، 236B، 671B (MoE)</td><td>تجريبي</td></tr><tr><td>GPT-OSS</td><td>20B، 120B (MoE)</td><td>تجريبي</td></tr><tr><td>Qwen 3</td><td>متنوعة</td><td>تجريبي</td></tr><tr><td>Flux</td><td>Diffusion</td><td>تجريبي</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-benchmarks-h100">معايير الأداء (H100)</h2>
+<table><thead><tr><th>النموذج</th><th>عدد GPU</th><th>التفريع (Parallelism)</th><th>TPS/GPU</th><th>التقنيات</th></tr></thead><tbody><tr><td>Llama 8B</td><td>8</td><td>FSDP</td><td>5,762</td><td>الخط الأساسي</td></tr><tr><td>Llama 8B</td><td>8</td><td>FSDP+compile+FP8</td><td>8,532</td><td>+48%</td></tr><tr><td>Llama 70B</td><td>256</td><td>FSDP+TP+AsyncTP</td><td>876</td><td>تفريع ثنائي الأبعاد (2D)</td></tr><tr><td>Llama 405B</td><td>512</td><td>FSDP+TP+PP</td><td>128</td><td>تفريع ثلاثي الأبعاد (3D)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-topics">مواضيع متقدمة</h2>
+<p><strong>إعداد FSDP2</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/torchtitan/references/fsdp.md" data-ext>references/fsdp.md</a> للمقارنة التفصيلية بين FSDP2 و FSDP1 ومكافئات ZeRO.</p>
+<p><strong>تدريب Float8</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/torchtitan/references/float8.md" data-ext>references/float8.md</a> لوصفات القياس (scaling) على مستوى الـ tensor مقابل الصف (rowwise).</p>
+<p><strong>حفظ نقاط التفتيش</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/torchtitan/references/checkpoint.md" data-ext>references/checkpoint.md</a> للتحويل إلى HuggingFace وحفظ نقاط التفتيش غير المتزامن.</p>
+<p><strong>إضافة نماذج مخصصة</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/torchtitan/references/custom-models.md" data-ext>references/custom-models.md</a> لبروتوكول TrainSpec.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li>GitHub: <a href="https://github.com/pytorch/torchtitan" data-ext>https://github.com/pytorch/torchtitan</a></li>
+<li>الورقة البحثية: <a href="https://arxiv.org/abs/2410.06511" data-ext>https://arxiv.org/abs/2410.06511</a></li>
+<li>ICLR 2025: <a href="https://iclr.cc/virtual/2025/poster/29620" data-ext>https://iclr.cc/virtual/2025/poster/29620</a></li>
+<li>منتدى PyTorch: <a href="https://discuss.pytorch.org/c/distributed/torchtitan/44" data-ext>https://discuss.pytorch.org/c/distributed/torchtitan/44</a></li>
+</ul>

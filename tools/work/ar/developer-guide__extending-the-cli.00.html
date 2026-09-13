@@ -1,0 +1,51 @@
+<header><h1>توسعة CLI</h1></header>
+<p>يوفّر Hermes نقاط توسعة محمية (protected extension hooks) على <code>HermesCLI</code> بحيث يمكن لواجهات CLI المُغلِّفة (wrapper CLIs) إضافة عناصر واجهة (widgets) واختصارات لوحة مفاتيح وتخصيصات للتخطيط دون تجاوز (override) التابع <code>run()</code> أو بنية TUI في <code>hermes_cli/cli_tui_mixin.py</code> (حيث تُعرَّف هذه الـ hooks؛ ويدمجها <code>HermesCLI</code> في <code>cli.py</code>). هذا يبقي توسعتك منفصلة عن التغييرات الداخلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="extension-points">نقاط التوسعة</h2>
+<p>هناك خمس نقاط توسعة (extension seams) متاحة:</p>
+<table><thead><tr><th>الـ Hook</th><th>الغرض</th><th>تجاوَزْه (override) عندما...</th></tr></thead><tbody><tr><td><code>_get_extra_tui_widgets()</code></td><td>حقن عناصر واجهة (widgets) في التخطيط</td><td>تحتاج عنصر واجهة دائمًا (لوحة، سطر حالة، مشغّل مصغّر)</td></tr><tr><td><code>_register_extra_tui_keybindings(kb, *, input_area)</code></td><td>إضافة اختصارات لوحة مفاتيح</td><td>تحتاج مفاتيح سريعة (تبديل اللوحات، أزرار تحكم، اختصارات نمطية)</td></tr><tr><td><code>_build_tui_layout_children(**widgets)</code></td><td>تحكّم كامل في ترتيب عناصر الواجهة</td><td>تحتاج إعادة ترتيب أو تغليف عناصر الواجهة الموجودة (نادر)</td></tr><tr><td><code>process_command()</code></td><td>إضافة أوامر slash مخصّصة</td><td>تحتاج معالجة <code>/mycommand</code> الخاصة بك (hook موجود مسبقًا)</td></tr><tr><td><code>_build_tui_style_dict()</code></td><td>أنماط prompt_toolkit مخصّصة</td><td>تحتاج ألوانًا أو تنسيقًا مخصّصًا (hook موجود مسبقًا)</td></tr></tbody></table>
+<p>أول ثلاث نقاط هي hooks محمية جديدة. أما الاثنتان الأخيرتان فكانتا موجودتين مسبقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-a-wrapper-cli">البدء السريع: واجهة CLI مُغلِّفة (wrapper)</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>شغّلها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hook-reference">مرجع الـ Hooks</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="_get_extra_tui_widgets"><code>_get_extra_tui_widgets()</code></h3>
+<p>يُعيد قائمة بعناصر واجهة prompt_toolkit لإدراجها في تخطيط TUI. تظهر عناصر الواجهة <strong>بين الفاصل (spacer) وشريط الحالة</strong> — أعلى منطقة الإدخال لكن أسفل المُخرَج الرئيسي.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ينبغي أن يكون كل عنصر واجهة حاوية (container) من نوع prompt_toolkit (مثل <code>Window</code> أو <code>ConditionalContainer</code> أو <code>HSplit</code>). استخدم <code>ConditionalContainer</code> أو <code>filter=Condition(...)</code> لجعل عناصر الواجهة قابلة للتبديل (toggleable).</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="_register_extra_tui_keybindingskb--input_area"><code>_register_extra_tui_keybindings(kb, *, input_area)</code></h3>
+<p>يُستدعى بعد أن يُسجّل Hermes اختصاراته الخاصة وقبل بناء التخطيط. أضِف اختصاراتك إلى <code>kb</code>.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>المعاملات:</p>
+<ul>
+<li><strong><code>kb</code></strong> — نسخة <code>KeyBindings</code> الخاصة بتطبيق prompt_toolkit</li>
+<li><strong><code>input_area</code></strong> — عنصر <code>TextArea</code> الرئيسي، إن احتجت إلى قراءة إدخال المستخدم أو التعامل معه</li>
+</ul>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>تجنّب التعارض</strong> مع اختصارات لوحة المفاتيح المدمجة: <code>Enter</code> (إرسال)، <code>Escape Enter</code> (سطر جديد)، <code>Ctrl-C</code> (مقاطعة)، <code>Ctrl-D</code> (خروج)، <code>Tab</code> (قبول الاقتراح التلقائي). مفاتيح الوظائف F2 وما بعدها وتركيبات Ctrl آمنة بشكل عام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="_build_tui_layout_childrenwidgets"><code>_build_tui_layout_children(**widgets)</code></h3>
+<p>تجاوَزْ هذا فقط عندما تحتاج تحكّمًا كاملًا في ترتيب عناصر الواجهة. ينبغي لمعظم التوسعات استخدام <code>_get_extra_tui_widgets()</code> بدلًا من ذلك.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>التنفيذ الافتراضي يُعيد (يتم استبعاد أي عناصر واجهة قيمتها <code>None</code>):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="layout-diagram">مخطط التخطيط (Layout)</h2>
+<p>التخطيط الافتراضي من الأعلى إلى الأسفل:</p>
+<ol>
+<li><strong>منطقة المُخرَج</strong> — سجلّ المحادثة القابل للتمرير</li>
+<li><strong>الفاصل (Spacer)</strong></li>
+<li><strong>عناصر واجهة إضافية</strong> — من <code>_get_extra_tui_widgets()</code></li>
+<li><strong>شريط الحالة</strong> — النموذج، نسبة السياق، الوقت المنقضي</li>
+<li><strong>شريط الصور</strong> — عدد الصور المُرفَقة</li>
+<li><strong>منطقة الإدخال</strong> — طلب المستخدم (prompt)</li>
+<li><strong>حالة الصوت</strong> — مؤشّر التسجيل</li>
+<li><strong>قائمة الإكمال التلقائي</strong> — اقتراحات الإكمال التلقائي</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tips">نصائح</h2>
+<ul>
+<li><strong>أعِد رسم العرض (invalidate)</strong> بعد تغيّرات الحالة: استدعِ <code>self._invalidate()</code> لإطلاق إعادة رسم من prompt_toolkit.</li>
+<li><strong>الوصول إلى حالة الوكيل</strong>: <code>self.agent</code> و <code>self.model</code> و <code>self.conversation_history</code> كلها متاحة.</li>
+<li><strong>أنماط مخصّصة</strong>: تجاوَزْ <code>_build_tui_style_dict()</code> وأضِف مُدخلات لفئات النمط المخصّصة الخاصة بك.</li>
+<li><strong>أوامر Slash</strong>: تجاوَزْ <code>process_command()</code>، وعالِج أوامرك، ثم استدعِ <code>super().process_command(cmd)</code> لكل شيء آخر.</li>
+<li><strong>لا تتجاوَزْ <code>run()</code></strong> إلا إذا كان ذلك ضروريًا جدًا — إذ إن نقاط التوسعة (hooks) موجودة خصّيصًا لتجنّب هذا الترابط (coupling).</li>
+</ul>

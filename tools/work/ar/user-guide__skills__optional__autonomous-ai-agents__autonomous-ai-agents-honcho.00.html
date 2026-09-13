@@ -1,0 +1,184 @@
+
+<header><h1>Honcho</h1></header>
+<p>إعداد ذاكرة Honcho لـ Hermes واستكشاف أخطائها وإصلاحها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/autonomous-ai-agents/honcho</code></td></tr><tr><td>المسار</td><td><code>optional-skills/autonomous-ai-agents/honcho</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Honcho</code>, <code>Memory</code>, <code>Profiles</code>, <code>Observation</code>, <code>Dialectic</code>, <code>User-Modeling</code>, <code>Session-Summary</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>ذاكرة Honcho لـ Hermes</h1>
+<p>يوفّر Honcho نمذجة مستخدم عابرة للجلسات وأصيلة الذكاء الاصطناعي (AI-native). فهو يتعلّم من هو المستخدم عبر المحادثات، ويمنح كل profile في Hermes هوية نظير (peer) خاصة به مع مشاركة رؤية موحّدة للمستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>إعداد Honcho (سحابي أو مستضاف ذاتيًا)</li>
+<li>استكشاف أخطاء عدم عمل الذاكرة / عدم مزامنة النظراء (peers)</li>
+<li>إنشاء إعدادات متعددة الـ profiles حيث يمتلك كل وكيل نظير Honcho خاصًا به</li>
+<li>ضبط إعدادات الملاحظة (observation)، والاسترجاع، وعمق الجدل (dialectic)، أو تكرار الكتابة</li>
+<li>فهم ما تفعله أدوات Honcho الخمس ومتى تُستخدم</li>
+<li>ضبط ميزانيات السياق وحقن ملخص الجلسة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cloud-apphonchodev">سحابي (app.honcho.dev)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-hosted">مستضاف ذاتيًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>راجع: <a href="https://docs.honcho.dev/v3/guides/integrations/hermes#running-honcho-locally-with-hermes" data-ext>https://docs.honcho.dev/v3/guides/integrations/hermes#running-honcho-locally-with-hermes</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify">تحقّق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="base-context-injection">حقن السياق الأساسي</h3>
+<p>عندما يحقن Honcho سياقًا في الـ system prompt (في وضعَي الاسترجاع <code>hybrid</code> أو <code>context</code>)، فإنه يجمّع كتلة السياق الأساسي بهذا الترتيب:</p>
+<ol>
+<li><strong>ملخص الجلسة</strong> -- موجز قصير للجلسة الحالية حتى الآن (يوضع أولًا حتى يحصل النموذج على استمرارية محادثة فورية)</li>
+<li><strong>تمثيل المستخدم</strong> -- نموذج Honcho المتراكم عن المستخدم (التفضيلات، الحقائق، الأنماط)</li>
+<li><strong>بطاقة نظير الذكاء الاصطناعي (AI peer card)</strong> -- بطاقة هوية نظير الذكاء الاصطناعي لهذا الـ profile في Hermes</li>
+</ol>
+<p>يُولَّد ملخص الجلسة تلقائيًا بواسطة Honcho في بداية كل دور (عند وجود جلسة سابقة). فهو يمنح النموذج بداية دافئة (warm start) دون إعادة تشغيل السجل الكامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cold--warm-prompt-selection">اختيار الـ prompt البارد / الدافئ</h3>
+<p>يختار Honcho تلقائيًا بين استراتيجيتين للـ prompt:</p>
+<table><thead><tr><th>الحالة</th><th>الاستراتيجية</th><th>ما يحدث</th></tr></thead><tbody><tr><td>لا جلسة سابقة أو تمثيل فارغ</td><td><strong>بداية باردة (Cold start)</strong></td><td>prompt تمهيدي خفيف؛ يتخطى حقن الملخص؛ يشجّع النموذج على التعرّف على المستخدم</td></tr><tr><td>تمثيل موجود و/أو سجل جلسة</td><td><strong>بداية دافئة (Warm start)</strong></td><td>حقن كامل للسياق الأساسي (ملخص ← تمثيل ← بطاقة)؛ system prompt أغنى</td></tr></tbody></table>
+<p>لست بحاجة لضبط هذا -- فهو تلقائي بناءً على حالة الجلسة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="peers">النظراء (Peers)</h3>
+<p>يُنمذج Honcho المحادثات كتفاعلات بين <strong>نظراء (peers)</strong>. ينشئ Hermes نظيرين لكل جلسة:</p>
+<ul>
+<li><strong>نظير المستخدم</strong> (<code>peerName</code>): يمثّل الإنسان. يبني Honcho تمثيلًا للمستخدم من الرسائل المُلاحَظة.</li>
+<li><strong>نظير الذكاء الاصطناعي</strong> (<code>aiPeer</code>): يمثّل نسخة Hermes هذه. يحصل كل profile على نظير ذكاء اصطناعي خاص به بحيث تطوّر الوكلاء آراءً مستقلة.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="observation">الملاحظة (Observation)</h3>
+<p>لكل نظير مفتاحا ملاحظة يتحكمان فيما يتعلّمه Honcho:</p>
+<table><thead><tr><th>المفتاح</th><th>ما يفعله</th></tr></thead><tbody><tr><td><code>observeMe</code></td><td>تُلاحَظ رسائل النظير نفسه (يبني تمثيلًا ذاتيًا)</td></tr><tr><td><code>observeOthers</code></td><td>تُلاحَظ رسائل النظراء الآخرين (يبني فهمًا متبادلًا بين النظراء)</td></tr></tbody></table>
+<p>الافتراضي: كل المفاتيح الأربعة <strong>مفعّلة</strong> (ملاحظة ثنائية الاتجاه كاملة).</p>
+<p>اضبطها لكل نظير في <code>honcho.json</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>أو استخدم الإعدادات المختصرة الجاهزة (presets):</p>
+<table><thead><tr><th>الإعداد الجاهز</th><th>المستخدم</th><th>الذكاء الاصطناعي</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><code>&quot;directional&quot;</code> (الافتراضي)</td><td>me:on, others:on</td><td>me:on, others:on</td><td>وكلاء متعددون، ذاكرة كاملة</td></tr><tr><td><code>&quot;unified&quot;</code></td><td>me:on, others:off</td><td>me:off, others:on</td><td>وكيل واحد، نمذجة المستخدم فقط</td></tr></tbody></table>
+<p>الإعدادات المُغيَّرة في <a href="https://app.honcho.dev" data-ext>لوحة تحكم Honcho</a> تُزامَن عند تهيئة الجلسة -- وتتغلّب إعدادات الخادم على الإعدادات الافتراضية المحلية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sessions">الجلسات</h3>
+<p>تحدّد جلسات Honcho نطاق وصول الرسائل والملاحظات. خيارات الاستراتيجية:</p>
+<table><thead><tr><th>الاستراتيجية</th><th>السلوك</th></tr></thead><tbody><tr><td><code>per-directory</code> (الافتراضي)</td><td>جلسة واحدة لكل مجلد عمل</td></tr><tr><td><code>per-repo</code></td><td>جلسة واحدة لكل جذر مستودع git</td></tr><tr><td><code>per-session</code></td><td>جلسة Honcho جديدة لكل تشغيل Hermes</td></tr><tr><td><code>global</code></td><td>جلسة واحدة عبر كل المجلدات</td></tr></tbody></table>
+<p>تجاوز يدوي: <code>hermes honcho map my-project-name</code></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recall-modes">أوضاع الاسترجاع (Recall)</h3>
+<p>كيف يصل الوكيل إلى ذاكرة Honcho:</p>
+<table><thead><tr><th>الوضع</th><th>حقن سياق تلقائي؟</th><th>أدوات متاحة؟</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><code>hybrid</code> (الافتراضي)</td><td>نعم</td><td>نعم</td><td>يقرّر الوكيل متى يستخدم الأدوات مقابل السياق التلقائي</td></tr><tr><td><code>context</code></td><td>نعم</td><td>لا (مخفية)</td><td>أقل تكلفة token، بلا استدعاءات أدوات</td></tr><tr><td><code>tools</code></td><td>لا</td><td>نعم</td><td>يتحكم الوكيل صراحة في كل وصول إلى الذاكرة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="three-orthogonal-knobs">ثلاثة مقابض مستقلة</h2>
+<p>يُتحكَّم في سلوك الجدل (dialectic) في Honcho عبر ثلاثة أبعاد مستقلة. يمكن ضبط كل منها دون التأثير على الآخرَين:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cadence-when">الوتيرة (متى)</h3>
+<p>تتحكم في <strong>عدد مرات</strong> حدوث استدعاءات الجدل والسياق.</p>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>الوصف</th></tr></thead><tbody><tr><td><code>contextCadence</code></td><td><code>1</code></td><td>الحد الأدنى من الأدوار بين استدعاءات API للسياق</td></tr><tr><td><code>dialecticCadence</code></td><td><code>2</code></td><td>الحد الأدنى من الأدوار بين استدعاءات API للجدل. يُنصح بـ 1–5</td></tr><tr><td><code>injectionFrequency</code></td><td><code>every-turn</code></td><td><code>every-turn</code> أو <code>first-turn</code> لحقن السياق الأساسي</td></tr></tbody></table>
+<p>القيم الأعلى للوتيرة تُشغّل نموذج الجدل بشكل أقل تكرارًا. <code>dialecticCadence: 2</code> تعني أن المحرك يعمل كل دور آخر. ضبطها على <code>1</code> يُشغّله كل دور.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="depth-how-many">العمق (كم مرة)</h3>
+<p>يتحكم في <strong>عدد جولات</strong> استدلال الجدل التي ينفّذها Honcho لكل استعلام.</p>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>المدى</th><th>الوصف</th></tr></thead><tbody><tr><td><code>dialecticDepth</code></td><td><code>1</code></td><td>1-3</td><td>عدد جولات استدلال الجدل لكل استعلام</td></tr><tr><td><code>dialecticDepthLevels</code></td><td>--</td><td>مصفوفة</td><td>تجاوزات مستوى اختيارية لكل جولة عمق (انظر أدناه)</td></tr></tbody></table>
+<p><code>dialecticDepth: 2</code> تعني أن Honcho يشغّل جولتين من التوليف الجدلي. تنتج الجولة الأولى إجابة أولية؛ وتُنقّحها الثانية.</p>
+<p>تتيح لك <code>dialecticDepthLevels</code> ضبط مستوى الاستدلال لكل جولة على حدة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إذا حُذفت <code>dialecticDepthLevels</code>، تستخدم الجولات <strong>مستويات تناسبية</strong> مشتقة من <code>dialecticReasoningLevel</code> (الأساس):</p>
+<table><thead><tr><th>العمق</th><th>مستويات التمرير</th></tr></thead><tbody><tr><td>1</td><td>[base]</td></tr><tr><td>2</td><td>[minimal, base]</td></tr><tr><td>3</td><td>[minimal, base, low]</td></tr></tbody></table>
+<p>يُبقي هذا التمريرات الأولى رخيصة مع استخدام العمق الكامل في التوليف النهائي.</p>
+<p><strong>العمق عند بدء الجلسة.</strong> يشغّل التسخين المسبق (prewarm) عند بدء الجلسة العمق الكامل المضبوط في <code>dialecticDepth</code> في الخلفية قبل الدور الأول. غالبًا ما يعيد التسخين المسبق أحادي التمرير على نظير بارد مخرجات ضحلة — بينما يشغّل العمق متعدد التمريرات دورة التدقيق/التوفيق قبل أن يتحدث المستخدم أصلًا. يستهلك الدور الأول نتيجة التسخين المسبق مباشرة؛ وإذا لم يكتمل التسخين المسبق في الوقت، يعود الدور الأول إلى استدعاء متزامن بمهلة محدودة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="level-how-hard">المستوى (كم القوة)</h3>
+<p>يتحكم في <strong>شدّة</strong> كل جولة استدلال جدلي.</p>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>الوصف</th></tr></thead><tbody><tr><td><code>dialecticReasoningLevel</code></td><td><code>low</code></td><td><code>minimal</code>، <code>low</code>، <code>medium</code>، <code>high</code>، <code>max</code></td></tr><tr><td><code>dialecticDynamic</code></td><td><code>true</code></td><td>عندما تكون <code>true</code>، يمكن للنموذج تمرير <code>reasoning_level</code> إلى <code>honcho_reasoning</code> لتجاوز الافتراضي لكل استدعاء. <code>false</code> = استخدام <code>dialecticReasoningLevel</code> دائمًا، وتُتجاهل تجاوزات النموذج</td></tr></tbody></table>
+<p>المستويات الأعلى تنتج توليفًا أغنى لكن بتكلفة token أعلى على خادم Honcho.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-profile-setup">إعداد متعدد الـ Profiles</h2>
+<p>يحصل كل profile في Hermes على نظير ذكاء اصطناعي خاص به في Honcho مع مشاركة نفس مساحة العمل (سياق المستخدم). وهذا يعني:</p>
+<ul>
+<li>كل الـ profiles ترى نفس تمثيل المستخدم</li>
+<li>يبني كل profile هويته وملاحظاته الخاصة بالذكاء الاصطناعي</li>
+<li>الاستنتاجات المكتوبة من قِبل profile واحد مرئية للآخرين عبر مساحة العمل المشتركة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-profile-with-honcho-peer">إنشاء profile بنظير Honcho</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ما تفعله <code>--clone</code> بالنسبة لـ Honcho:</p>
+<ol>
+<li>تنشئ كتلة مضيف <code>hermes.coder</code> في <code>honcho.json</code></li>
+<li>تضبط <code>aiPeer: &quot;coder&quot;</code> (اسم الـ profile)</li>
+<li>ترث <code>workspace</code>، و<code>peerName</code>، و<code>writeFrequency</code>، و<code>recallMode</code>، وغيرها من الافتراضي</li>
+<li>تُنشئ النظير في Honcho مسبقًا حتى يكون موجودًا قبل أول رسالة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="backfill-existing-profiles">تعبئة الـ profiles الموجودة بأثر رجعي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-profile-config">إعدادات لكل profile</h3>
+<p>تجاوز أي إعداد في كتلة المضيف:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools">الأدوات</h2>
+<p>يملك الوكيل 5 أدوات Honcho ثنائية الاتجاه (مخفية في وضع الاسترجاع <code>context</code>):</p>
+<table><thead><tr><th>الأداة</th><th>استدعاء LLM؟</th><th>التكلفة</th><th>تُستخدم عندما</th></tr></thead><tbody><tr><td><code>honcho_profile</code></td><td>لا</td><td>ضئيلة</td><td>لقطة سريعة وواقعية في بداية المحادثة أو لبحث سريع عن الاسم/الدور/التفضيل</td></tr><tr><td><code>honcho_search</code></td><td>لا</td><td>منخفضة</td><td>جلب حقائق سابقة محددة لتحلّلها بنفسك — مقتطفات خام، بلا توليف</td></tr><tr><td><code>honcho_context</code></td><td>لا</td><td>منخفضة</td><td>لقطة كاملة لسياق الجلسة: الملخص، التمثيل، البطاقة، الرسائل الأخيرة</td></tr><tr><td><code>honcho_reasoning</code></td><td>نعم</td><td>متوسطة–عالية</td><td>سؤال بلغة طبيعية يوليفه محرك الجدل في Honcho</td></tr><tr><td><code>honcho_conclude</code></td><td>لا</td><td>ضئيلة</td><td>كتابة أو حذف حقيقة دائمة؛ مرّر <code>peer: &quot;ai&quot;</code> لمعرفة الذكاء الاصطناعي بنفسه</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho_profile"><code>honcho_profile</code></h3>
+<p>قراءة أو تحديث بطاقة نظير — حقائق أساسية منسّقة (الاسم، الدور، التفضيلات، أسلوب التواصل). مرّر <code>card: [...]</code> للتحديث؛ اترك المعامل فارغًا للقراءة. بلا استدعاء LLM.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho_search"><code>honcho_search</code></h3>
+<p>بحث دلالي عبر السياق المخزَّن لنظير محدد. يُعيد مقتطفات خام مرتّبة حسب الصلة، بلا توليف. الافتراضي 800 token، والحد الأقصى 2000. مفيد عندما تحتاج حقائق سابقة محددة لتحلّلها بنفسك بدلًا من إجابة مُوَلَّفة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho_context"><code>honcho_context</code></h3>
+<p>لقطة كاملة لسياق الجلسة من Honcho — ملخص الجلسة، وتمثيل النظير، وبطاقة النظير، والرسائل الأخيرة. بلا استدعاء LLM. استخدمها عندما تريد رؤية كل ما يعرفه Honcho عن الجلسة والنظير الحاليين دفعة واحدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho_reasoning"><code>honcho_reasoning</code></h3>
+<p>سؤال بلغة طبيعية يجيب عنه محرك الاستدلال الجدلي في Honcho (استدعاء LLM على خادم Honcho). تكلفة أعلى وجودة أعلى. مرّر <code>reasoning_level</code> للتحكم في العمق: <code>minimal</code> (سريع/رخيص) ← <code>low</code> ← <code>medium</code> ← <code>high</code> ← <code>max</code> (شامل). اتركه فارغًا لاستخدام الافتراضي المضبوط (<code>low</code>). استخدمها لفهم مُوَلَّف لأنماط المستخدم أو أهدافه أو حالته الحالية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho_conclude"><code>honcho_conclude</code></h3>
+<p>كتابة أو حذف استنتاج دائم عن نظير. مرّر <code>conclusion: &quot;...&quot;</code> للإنشاء. مرّر <code>delete_id: &quot;...&quot;</code> لإزالة استنتاج (لإزالة معلومات تعريف شخصية (PII) — يُصحّح Honcho الاستنتاجات الخاطئة ذاتيًا بمرور الوقت، لذا لا يلزم الحذف إلا للـ PII). يجب أن تمرّر واحدًا فقط من الاثنين بالضبط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bidirectional-peer-targeting">استهداف النظراء ثنائي الاتجاه</h3>
+<p>تقبل كل الأدوات الخمس معامل <code>peer</code> اختياريًا:</p>
+<ul>
+<li><code>peer: &quot;user&quot;</code> (الافتراضي) — يعمل على نظير المستخدم</li>
+<li><code>peer: &quot;ai&quot;</code> — يعمل على نظير الذكاء الاصطناعي لهذا الـ profile</li>
+<li><code>peer: &quot;&lt;explicit-id&gt;&quot;</code> — أي معرّف نظير في مساحة العمل</li>
+</ul>
+<p>أمثلة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-usage-patterns">أنماط استخدام الوكيل</h2>
+<p>إرشادات لـ Hermes عندما تكون ذاكرة Honcho مفعّلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="on-conversation-start">عند بدء المحادثة</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>لا تستدعِ <code>honcho_reasoning</code> في كل دور. فالحقن التلقائي يتكفّل بالفعل بتحديث السياق الجاري. استخدم أداة الاستدلال فقط عندما تحتاج فعليًا رؤية مُوَلَّفة لا يوفّرها السياق الأساسي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-the-user-shares-something-to-remember">عندما يشارك المستخدم شيئًا يجب تذكّره</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>استنتاجات جيدة: &quot;يفضّل أمثلة الكود على الشروحات النثرية&quot;، &quot;يعمل على مشروع Rust غير متزامن حتى أبريل 2026&quot;
+استنتاجات سيئة: &quot;قال المستخدم شيئًا عن Rust&quot; (غامض جدًا)، &quot;يبدو المستخدم تقنيًا&quot; (موجود بالفعل في التمثيل)</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-the-user-asks-about-past-context--you-need-to-recall-specifics">عندما يسأل المستخدم عن سياق سابق / تحتاج إلى تذكّر تفاصيل محددة</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-peer-ai">متى تستخدم <code>peer: &quot;ai&quot;</code></h3>
+<p>استخدم استهداف نظير الذكاء الاصطناعي لبناء معرفة الوكيل بنفسه واستعلامها:</p>
+<ul>
+<li><code>honcho_conclude conclusion=&quot;I tend to be verbose when explaining architecture&quot; peer=&quot;ai&quot;</code> — تصحيح ذاتي</li>
+<li><code>honcho_reasoning query=&quot;How do I typically handle ambiguous requests?&quot; peer=&quot;ai&quot;</code> — تدقيق ذاتي</li>
+<li><code>honcho_profile peer=&quot;ai&quot;</code> — مراجعة بطاقة هويته الخاصة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-not-to-call-tools">متى لا تستدعي الأدوات</h3>
+<p>في وضعَي <code>hybrid</code> و<code>context</code>، يُحقَن السياق الأساسي (تمثيل المستخدم + البطاقة + ملخص الجلسة) تلقائيًا قبل كل دور. لا تُعِد جلب ما تم حقنه بالفعل. استدعِ الأدوات فقط عندما:</p>
+<ul>
+<li>تحتاج شيئًا لا يحتويه السياق المُحقَن</li>
+<li>يطلب منك المستخدم صراحة استرجاع الذاكرة أو التحقق منها</li>
+<li>تكتب استنتاجًا عن شيء جديد</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cadence-awareness">الوعي بالوتيرة</h3>
+<p>تشترك <code>honcho_reasoning</code> على جانب الأدوات في نفس تكلفة الجدل التلقائي عبر الحقن. بعد استدعاء أداة صريح، تُعاد ضبط وتيرة الحقن التلقائي -- لتجنّب احتساب التكلفة مرتين في نفس الدور.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-reference">مرجع الإعدادات</h2>
+<p>ملف الإعدادات: <code>$HERMES_HOME/honcho.json</code> (محلي للـ profile) أو <code>~/.honcho/config.json</code> (عام).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-settings">الإعدادات الرئيسية</h3>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>الوصف</th></tr></thead><tbody><tr><td><code>apiKey</code></td><td>--</td><td>مفتاح API (<a href="https://app.honcho.dev" data-ext>احصل على واحد</a>)</td></tr><tr><td><code>baseUrl</code></td><td>--</td><td>عنوان URL الأساسي لـ Honcho المستضاف ذاتيًا</td></tr><tr><td><code>peerName</code></td><td>--</td><td>هوية نظير المستخدم</td></tr><tr><td><code>aiPeer</code></td><td>مفتاح المضيف</td><td>هوية نظير الذكاء الاصطناعي</td></tr><tr><td><code>workspace</code></td><td>مفتاح المضيف</td><td>معرّف مساحة العمل المشتركة</td></tr><tr><td><code>recallMode</code></td><td><code>hybrid</code></td><td><code>hybrid</code>، أو <code>context</code>، أو <code>tools</code></td></tr><tr><td><code>observation</code></td><td>الكل مفعّل</td><td>قيم منطقية <code>observeMe</code>/<code>observeOthers</code> لكل نظير</td></tr><tr><td><code>writeFrequency</code></td><td><code>async</code></td><td><code>async</code>، أو <code>turn</code>، أو <code>session</code>، أو عدد صحيح N</td></tr><tr><td><code>sessionStrategy</code></td><td><code>per-directory</code></td><td><code>per-directory</code>، <code>per-repo</code>، <code>per-session</code>، <code>global</code></td></tr><tr><td><code>messageMaxChars</code></td><td><code>25000</code></td><td>الحد الأقصى للأحرف لكل رسالة (تُقسَّم إذا تجاوزت الحد)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dialectic-settings">إعدادات الجدل (Dialectic)</h3>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>الوصف</th></tr></thead><tbody><tr><td><code>dialecticReasoningLevel</code></td><td><code>low</code></td><td><code>minimal</code>، <code>low</code>، <code>medium</code>، <code>high</code>، <code>max</code></td></tr><tr><td><code>dialecticDynamic</code></td><td><code>true</code></td><td>رفع مستوى الاستدلال تلقائيًا بحسب تعقيد الاستعلام. <code>false</code> = مستوى ثابت</td></tr><tr><td><code>dialecticDepth</code></td><td><code>1</code></td><td>عدد جولات الجدل لكل استعلام (1-3)</td></tr><tr><td><code>dialecticDepthLevels</code></td><td>--</td><td>مصفوفة اختيارية للمستويات لكل جولة، مثل <code>[&quot;low&quot;, &quot;high&quot;]</code></td></tr><tr><td><code>dialecticMaxInputChars</code></td><td><code>10000</code></td><td>الحد الأقصى للأحرف لمدخل استعلام الجدل</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-budget-and-injection">ميزانية السياق والحقن</h3>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>الوصف</th></tr></thead><tbody><tr><td><code>contextTokens</code></td><td>غير محدود</td><td>الحد الأقصى لـ token لحقن السياق الأساسي المُجمَّع (الملخص + التمثيل + البطاقة). حد اختياري — اتركه فارغًا ليبقى غير محدود، أو اضبطه على عدد صحيح لتحديد حجم الحقن.</td></tr><tr><td><code>injectionFrequency</code></td><td><code>every-turn</code></td><td><code>every-turn</code> أو <code>first-turn</code></td></tr><tr><td><code>contextCadence</code></td><td><code>1</code></td><td>الحد الأدنى من الأدوار بين استدعاءات API للسياق</td></tr><tr><td><code>dialecticCadence</code></td><td><code>2</code></td><td>الحد الأدنى من الأدوار بين استدعاءات LLM للجدل (يُنصح بـ 1–5)</td></tr></tbody></table>
+<p>تُفرَض ميزانية <code>contextTokens</code> عند وقت الحقن. إذا تجاوز مجموع ملخص الجلسة + التمثيل + البطاقة الميزانية، يقلّص Honcho الملخص أولًا، ثم التمثيل، مع الحفاظ على البطاقة. هذا يمنع تضخم السياق في الجلسات الطويلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-context-sanitization">تعقيم سياق الذاكرة</h3>
+<p>يعقّم Honcho كتلة <code>memory-context</code> قبل الحقن لمنع حقن الأوامر (prompt injection) والمحتوى المشوَّه:</p>
+<ul>
+<li>يزيل علامات XML/HTML من الاستنتاجات التي كتبها المستخدم</li>
+<li>يوحّد المسافات البيضاء وأحرف التحكم</li>
+<li>يقتطع الاستنتاجات الفردية التي تتجاوز <code>messageMaxChars</code></li>
+<li>يهرب تسلسلات الفواصل التي قد تُخلّ ببنية الـ system prompt</li>
+</ul>
+<p>يعالج هذا الإصلاح حالات حدّية حيث يمكن لاستنتاجات المستخدم الخام التي تحتوي على ترميز أو أحرف خاصة أن تُفسد كتلة السياق المحقونة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="honcho-not-configured">&quot;Honcho not configured&quot;</h3>
+<p>نفّذ <code>hermes honcho setup</code>. تأكد من وجود <code>memory.provider: honcho</code> في <code>~/.hermes/config.yaml</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-not-persisting-across-sessions">الذاكرة لا تستمر عبر الجلسات</h3>
+<p>تحقّق من <code>hermes honcho status</code> -- تأكد من أن <code>saveMessages: true</code> وأن <code>writeFrequency</code> ليست <code>session</code> (التي تكتب فقط عند الخروج).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="profile-not-getting-its-own-peer">الـ profile لا يحصل على نظير خاص به</h3>
+<p>استخدم <code>--clone</code> عند الإنشاء: <code>hermes profile create &lt;name&gt; --clone</code>. للـ profiles الموجودة: <code>hermes honcho sync</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="observation-changes-in-dashboard-not-reflected">تغييرات الملاحظة في لوحة التحكم لا تنعكس</h3>
+<p>تُزامَن إعدادات الملاحظة من الخادم عند كل تهيئة جلسة. ابدأ جلسة جديدة بعد تغيير الإعدادات في واجهة Honcho.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messages-truncated">اقتطاع الرسائل</h3>
+<p>الرسائل التي تتجاوز <code>messageMaxChars</code> (الافتراضي 25 ألفًا) تُقسَّم تلقائيًا بعلامات <code>[continued]</code>. إذا كنت تواجه هذا كثيرًا، تحقق مما إذا كانت نتائج الأدوات أو محتوى المهارات يُضخّم حجم الرسالة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-injection-too-large">حقن السياق كبير جدًا</h3>
+<p>إذا رأيت تحذيرات حول تجاوز ميزانية السياق، خفّض <code>contextTokens</code> أو قلّل <code>dialecticDepth</code>. يُقلَّص ملخص الجلسة أولًا عندما تكون الميزانية ضيقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-summary-missing">ملخص الجلسة مفقود</h3>
+<p>يتطلب ملخص الجلسة دورًا سابقًا واحدًا على الأقل في جلسة Honcho الحالية. عند البدء البارد (جلسة جديدة، بلا سجل)، يُحذف الملخص ويستخدم Honcho استراتيجية prompt البداية الباردة بدلًا منه.</p>

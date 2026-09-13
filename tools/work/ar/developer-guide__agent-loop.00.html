@@ -1,0 +1,123 @@
+<header><h1>آلية عمل Agent Loop من الداخل</h1></header>
+<p>محرّك التنسيق الأساسي هو صنف <code>AIAgent</code>. أصبح <code>run_agent.py</code> الآن مجرّد واجهة رقيقة: تعيش الحلقة نفسها في <code>agent/conversation_loop.py</code>، وكل مرحلة من مراحل الدور (turn) في <code>agent/turn_*.py</code> (تحضير التكرار، استدعاء API، خطأ API، الفيضان (overflow)، الاقتطاع، الاسترداد)، وربط المُنشئ (constructor) في <code>agent/agent_init.py</code>، وكل ما من تجميع الـ prompt إلى توزيع الأدوات إلى التبديل الاحتياطي بين المزوّدين موزَّع في وحدات <code>agent/*.py</code> مركّزة تُمزج داخل <code>AIAgent</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-responsibilities">المسؤوليات الأساسية</h2>
+<p><code>AIAgent</code> مسؤول عن:</p>
+<ul>
+<li>تجميع الـ system prompt الفعلي ومخططات الأدوات عبر <code>prompt_builder.py</code></li>
+<li>اختيار المزوّد الصحيح ونمط API المناسب (chat_completions، codex_responses، anthropic_messages)</li>
+<li>إجراء استدعاءات نموذج قابلة للمقاطعة مع دعم الإلغاء</li>
+<li>تنفيذ استدعاءات الأدوات (بالتسلسل أو بالتزامن عبر thread pool)</li>
+<li>الحفاظ على سجل المحادثة بصيغة رسائل OpenAI</li>
+<li>معالجة الضغط وإعادة المحاولة والتبديل إلى نموذج احتياطي</li>
+<li>تتبّع ميزانيات التكرار عبر الوكلاء الأصليين والفرعيين</li>
+<li>تفريغ الذاكرة الدائمة قبل فقدان السياق</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-entry-points">نقطتا دخول</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>chat()</code> غلاف رقيق حول <code>run_conversation()</code> يستخرج حقل <code>final_response</code> من قاموس النتيجة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-modes">أنماط API</h2>
+<p>يدعم Hermes ثلاثة أنماط تنفيذ لـ API، تُحدَّد بناءً على اختيار المزوّد والوسائط الصريحة وقواعد استدلال base URL:</p>
+<table><thead><tr><th>نمط API</th><th>يُستخدم لأجل</th><th>نوع العميل</th></tr></thead><tbody><tr><td><code>chat_completions</code></td><td>endpoints متوافقة مع OpenAI (OpenRouter، مخصّصة، معظم المزوّدين)</td><td><code>openai.OpenAI</code></td></tr><tr><td><code>codex_responses</code></td><td>OpenAI Codex / Responses API</td><td><code>openai.OpenAI</code> بصيغة Responses</td></tr><tr><td><code>anthropic_messages</code></td><td>Anthropic Messages API الأصلية</td><td><code>anthropic.Anthropic</code> عبر مهايئ</td></tr></tbody></table>
+<p>يحدّد النمط كيفية تنسيق الرسائل، وكيفية بناء استدعاءات الأدوات، وكيفية تحليل الردود، وكيفية عمل التخزين المؤقت والبث. تتلاقى الأنماط الثلاثة على نفس صيغة الرسائل الداخلية (قواميس بأسلوب OpenAI بحقول <code>role</code>/<code>content</code>/<code>tool_calls</code>) قبل استدعاءات API وبعدها.</p>
+<p><strong>ترتيب تحديد النمط:</strong></p>
+<ol>
+<li>وسيط المُنشئ الصريح <code>api_mode</code> (الأولوية الأعلى)</li>
+<li>الاكتشاف الخاص بالمزوّد (مثل مزوّد <code>anthropic</code> ← <code>anthropic_messages</code>)</li>
+<li>قواعد استدلال base URL (مثل <code>api.anthropic.com</code> ← <code>anthropic_messages</code>)</li>
+<li>الافتراضي: <code>chat_completions</code></li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="turn-lifecycle">دورة حياة الدور (Turn)</h2>
+<p>يتبع كل تكرار في agent loop هذا التسلسل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-format">صيغة الرسائل</h3>
+<p>تستخدم جميع الرسائل داخليًا صيغة متوافقة مع OpenAI:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُخزَّن محتوى الاستدلال (reasoning) (من النماذج التي تدعم التفكير الممتد) في <code>assistant_msg[&quot;reasoning&quot;]</code> ويُعرض اختياريًا عبر <code>reasoning_callback</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-alternation-rules">قواعد تناوب الرسائل</h3>
+<p>يفرض agent loop تناوبًا صارمًا لأدوار الرسائل:</p>
+<ul>
+<li>بعد رسالة النظام: <code>User → Assistant → User → Assistant → ...</code></li>
+<li>أثناء استدعاء الأدوات: <code>Assistant (with tool_calls) → Tool → Tool → ... → Assistant</code></li>
+<li><strong>ممنوع</strong> وجود رسالتَي assistant متتاليتين</li>
+<li><strong>ممنوع</strong> وجود رسالتَي user متتاليتين</li>
+<li><strong>فقط</strong> الدور <code>tool</code> يمكن أن تتوالى فيه إدخالات متتالية (نتائج أدوات متوازية)</li>
+</ul>
+<p>يتحقّق المزوّدون من صحة هذه التسلسلات، ويرفضون أي سجلّ غير سليم البنية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interruptible-api-calls">استدعاءات API القابلة للمقاطعة</h2>
+<p>تُغلَّف طلبات API داخل <code>_interruptible_api_call()</code> التي تشغّل استدعاء HTTP الفعلي في مسار (thread) خلفي بينما تراقب حدث مقاطعة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>عند حدوث مقاطعة (يرسل المستخدم رسالة جديدة، أو أمر <code>/stop</code>، أو إشارة):</p>
+<ul>
+<li>يُتخلّى عن مسار API (وتُهمَل الاستجابة)</li>
+<li>يمكن للوكيل معالجة المُدخل الجديد أو الإيقاف بشكل نظيف</li>
+<li>لا تُدرَج أي استجابة جزئية في سجل المحادثة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-execution">تنفيذ الأدوات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sequential-vs-concurrent">تسلسلي مقابل متزامن</h3>
+<p>عندما يعيد النموذج استدعاءات أدوات:</p>
+<ul>
+<li><strong>استدعاء أداة واحد</strong> ← يُنفَّذ مباشرةً في المسار الرئيسي</li>
+<li><strong>استدعاءات أدوات متعددة</strong> ← تُنفَّذ بالتزامن عبر <code>ThreadPoolExecutor</code>
+<ul>
+<li>استثناء: الأدوات الموسومة كتفاعلية (مثل <code>clarify</code>) تفرض التنفيذ التسلسلي</li>
+<li>تُعاد النتائج إلى ترتيبها الأصلي في استدعاء الأدوات بصرف النظر عن ترتيب اكتمالها</li>
+</ul>
+</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="execution-flow">تدفّق التنفيذ</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-level-tools">أدوات على مستوى الوكيل</h3>
+<p>بعض الأدوات يعترضها <code>agent/tool_executor.py</code> (المُستدعى من <code>agent/conversation_loop.py</code>) <em>قبل</em> الوصول إلى <code>handle_function_call()</code>:</p>
+<table><thead><tr><th>الأداة</th><th>سبب الاعتراض</th></tr></thead><tbody><tr><td><code>todo</code></td><td>تقرأ/تكتب حالة مهام محلية للوكيل</td></tr><tr><td><code>memory</code></td><td>تكتب إلى ملفات الذاكرة الدائمة مع حدود للأحرف</td></tr><tr><td><code>session_search</code></td><td>تستعلم سجل الجلسة عبر قاعدة بيانات جلسات الوكيل</td></tr><tr><td><code>delegate_task</code></td><td>تُنشئ subagent واحدًا أو أكثر بسياق معزول</td></tr></tbody></table>
+<p>تُعدِّل هذه الأدوات حالة الوكيل مباشرةً وتعيد نتائج أدوات اصطناعية دون المرور عبر السجل (registry).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="callback-surfaces">أسطح رد النداء (Callback)</h2>
+<p>يدعم <code>AIAgent</code> عمليات رد نداء خاصة بكل منصّة تتيح عرض التقدّم في الوقت الفعلي داخل CLI وgateway وتكاملات ACP:</p>
+<table><thead><tr><th>رد النداء (Callback)</th><th>وقت الإطلاق</th><th>يُستخدم بواسطة</th></tr></thead><tbody><tr><td><code>tool_progress_callback</code></td><td>قبل/بعد كل تنفيذ أداة</td><td>مؤشر التحميل (spinner) في CLI، رسائل تقدّم gateway</td></tr><tr><td><code>thinking_callback</code></td><td>عند بدء/توقّف النموذج عن التفكير</td><td>مؤشّر &quot;thinking...&quot; في CLI</td></tr><tr><td><code>reasoning_callback</code></td><td>عند إعادة النموذج لمحتوى استدلال</td><td>عرض الاستدلال في CLI، كتل الاستدلال في gateway</td></tr><tr><td><code>clarify_callback</code></td><td>عند استدعاء أداة <code>clarify</code></td><td>موجّه الإدخال في CLI، رسالة تفاعلية في gateway</td></tr><tr><td><code>step_callback</code></td><td>بعد كل دور كامل للوكيل</td><td>تتبّع خطوات gateway، تقدّم ACP</td></tr><tr><td><code>stream_delta_callback</code></td><td>عند كل رمز بث (streaming) (عند التفعيل)</td><td>عرض البث في CLI</td></tr><tr><td><code>tool_gen_callback</code></td><td>عند تحليل استدعاء أداة من البث</td><td>معاينة الأداة في مؤشر التحميل بـ CLI</td></tr><tr><td><code>status_callback</code></td><td>تغييرات الحالة (تفكير، تنفيذ، إلخ)</td><td>تحديثات حالة ACP</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="budget-and-fallback-behavior">سلوك الميزانية والاحتياط</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iteration-budget">ميزانية التكرار</h3>
+<p>يتتبّع الوكيل التكرارات عبر <code>IterationBudget</code>:</p>
+<ul>
+<li>الافتراضي: 500 تكرار (قابل للضبط عبر <code>agent.max_turns</code>)</li>
+<li>يحصل كل وكيل على ميزانيته الخاصة. تحصل الوكلاء الفرعيون على ميزانيات مستقلة محدودة بسقف <code>delegation.max_iterations</code> (الافتراضي 50) — يمكن لإجمالي التكرارات عبر الوكيل الأصلي والوكلاء الفرعيين أن يتجاوز سقف الوكيل الأصلي</li>
+<li>عند بلوغ 100%، يتوقّف الوكيل ويعيد ملخّصًا للعمل المنجز</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fallback-model">النموذج الاحتياطي</h3>
+<p>عند فشل النموذج الأساسي (خطأ حدّ المعدل 429، خطأ خادم 5xx، خطأ مصادقة 401/403):</p>
+<ol>
+<li>يُتحقّق من قائمة <code>fallback_providers</code> في الإعدادات</li>
+<li>تُجرَّب كل بديل بالترتيب</li>
+<li>عند النجاح، تستمر المحادثة مع المزوّد الجديد</li>
+<li>عند 401/403، تُجرَّب إعادة تحديث بيانات الاعتماد قبل التحويل</li>
+</ol>
+<p>يغطّي نظام الاحتياط أيضًا المهام المساعدة بشكل مستقل — الرؤية (vision) والضغط واستخراج الويب لكل منها سلسلة احتياط خاصة قابلة للضبط عبر قسم الإعدادات <code>auxiliary.*</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compression-and-persistence">الضغط والاستمرارية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-compression-triggers">متى يبدأ الضغط</h3>
+<ul>
+<li><strong>ما قبل التحليق (Preflight)</strong> (قبل استدعاء API): إذا تجاوزت المحادثة 50% من context window الخاصة بالنموذج</li>
+<li><strong>الضغط التلقائي في gateway</strong>: إذا تجاوزت 85% (أكثر جرأة، يعمل بين الأدوار)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-happens-during-compression">ما الذي يحدث أثناء الضغط</h3>
+<ol>
+<li>تُفرَّغ الذاكرة إلى القرص أولًا (لمنع فقدان البيانات)</li>
+<li>تُلخَّص أدوار المحادثة الوسطى في ملخّص مُكثَّف</li>
+<li>تُحفظ آخر N رسالة سليمةً (<code>compression.protect_last_n</code>، الافتراضي: 20)</li>
+<li>تُبقى أزواج رسائل استدعاء الأداة/نتيجتها معًا (لا تُقسَّم أبدًا)</li>
+<li>يُولَّد معرّف نَسَب (lineage) جلسة جديد (الضغط ينشئ جلسة &quot;فرعية&quot;)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-persistence">استمرارية الجلسة</h3>
+<p>بعد كل دور:</p>
+<ul>
+<li>تُحفظ الرسائل في مخزن الجلسات (SQLite عبر <code>hermes_state.py</code>)</li>
+<li>تُفرَّغ تغييرات الذاكرة إلى <code>MEMORY.md</code> / <code>USER.md</code></li>
+<li>يمكن استئناف الجلسة لاحقًا عبر <code>/resume</code> أو <code>hermes chat --resume</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-source-files">ملفات المصدر الرئيسية</h2>
+<table><thead><tr><th>الملف</th><th>الغرض</th></tr></thead><tbody><tr><td><code>run_agent.py</code></td><td>واجهة <code>AIAgent</code> — نقاط الدخول العامة؛ تعيش الحلقة ومراحل الدور في <code>agent/</code></td></tr><tr><td><code>agent/conversation_loop.py</code></td><td>agent loop (متن <code>run_conversation()</code>)</td></tr><tr><td><code>agent/turn_*.py</code></td><td>مراحل الدور: iteration_prep، api_call، api_error، overflow، truncation، recovery</td></tr><tr><td><code>agent/tool_executor.py</code></td><td>تنفيذ استدعاءات الأدوات واعتراض الأدوات على مستوى الوكيل</td></tr><tr><td><code>agent/prompt_builder.py</code></td><td>تجميع الـ system prompt من الذاكرة والمهارات وملفات السياق والشخصية</td></tr><tr><td><code>agent/context_engine.py</code></td><td>ContextEngine ABC — إدارة سياق قابلة للتوصيل (pluggable)</td></tr><tr><td><code>agent/context_compressor.py</code></td><td>المحرّك الافتراضي — خوارزمية تلخيص فاقدة (lossy)</td></tr><tr><td><code>agent/prompt_caching.py</code></td><td>علامات التخزين المؤقت لـ Anthropic prompt ومقاييس الذاكرة المؤقتة</td></tr><tr><td><code>agent/auxiliary_client.py</code></td><td>عميل LLM مساعد للمهام الجانبية (الرؤية، التلخيص)</td></tr><tr><td><code>model_tools.py</code></td><td>تجميع مخططات الأدوات، وتوزيع <code>handle_function_call()</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</a></li>
+<li><a href="/docs/developer-guide/prompt-assembly">تجميع الـ Prompt</a></li>
+<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق وتخزين الـ Prompt المؤقت</a></li>
+<li><a href="/docs/developer-guide/tools-runtime">Tools Runtime</a></li>
+<li><a href="/docs/developer-guide/architecture">نظرة عامة على البنية المعمارية</a></li>
+</ul>

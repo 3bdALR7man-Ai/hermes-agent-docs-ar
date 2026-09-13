@@ -1,0 +1,95 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-message-transcription-stt">تفريغ الرسائل الصوتية نصيًا (STT)</h2>
+<p>تُفرَّغ الرسائل الصوتية المُرسَلة على Telegram أو Discord أو WhatsApp أو Slack أو Signal نصيًا بشكل تلقائي، ويُدرَج النص في المحادثة. ويرى الوكيل النص المُفرَّغ كأي نص عادي.</p>
+<table><thead><tr><th>المزوّد</th><th>الجودة</th><th>التكلفة</th><th>مفتاح API</th></tr></thead><tbody><tr><td><strong>Local Whisper</strong> (الافتراضي)</td><td>جيدة</td><td>مجاني</td><td>لا حاجة إليه</td></tr><tr><td><strong>Groq Whisper API</strong></td><td>جيدة–ممتازة</td><td>فئة مجانية</td><td><code>GROQ_API_KEY</code></td></tr><tr><td><strong>OpenAI Whisper API</strong></td><td>جيدة–ممتازة</td><td>مدفوع</td><td><code>VOICE_TOOLS_OPENAI_KEY</code> أو <code>OPENAI_API_KEY</code></td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>دون أي إعدادات</div><div class="admonitionContent_BuS1"><p>يعمل التفريغ المحلي مباشرةً دون إعداد إضافي عند تثبيت <code>faster-whisper</code>. وإذا لم يكن متاحًا، يمكن لـ Hermes أيضًا استخدام أداة CLI محلية باسم <code>whisper</code> من مواقع التثبيت الشائعة (مثل <code>/opt/homebrew/bin</code>) أو أمر مخصّص عبر <code>HERMES_LOCAL_STT_COMMAND</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-1">الإعدادات</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-details">تفاصيل المزوّدين</h3>
+<p><strong>Local (faster-whisper)</strong> — يشغّل Whisper محليًا عبر <a href="https://github.com/SYSTRAN/faster-whisper" data-ext>faster-whisper</a>. يستخدم CPU افتراضيًا، و GPU إن كان متاحًا. أحجام النماذج:</p>
+<table><thead><tr><th>النموذج</th><th>الحجم</th><th>السرعة</th><th>الجودة</th></tr></thead><tbody><tr><td><code>tiny</code></td><td>~75 MB</td><td>الأسرع</td><td>أساسية</td></tr><tr><td><code>base</code></td><td>~150 MB</td><td>سريع</td><td>جيدة (الافتراضي)</td></tr><tr><td><code>small</code></td><td>~500 MB</td><td>متوسط</td><td>أفضل</td></tr><tr><td><code>medium</code></td><td>~1.5 GB</td><td>أبطأ</td><td>عالية جدًا</td></tr><tr><td><code>large-v3</code></td><td>~3 GB</td><td>الأبطأ</td><td>الأفضل</td></tr></tbody></table>
+<p><strong>Groq API</strong> — يتطلب <code>GROQ_API_KEY</code>. خيار سحابي احتياطي جيد عندما تريد خدمة STT مستضافة مجانية. اضبط <code>stt.groq.language</code> (أو متغير البيئة العام <code>HERMES_LOCAL_STT_LANGUAGE</code>) لتجاوز الاكتشاف التلقائي للغة في Whisper وتقليل زمن الاستجابة عندما تكون لغة الصوت معروفة.</p>
+<p><strong>OpenAI API</strong> — يقبل <code>VOICE_TOOLS_OPENAI_KEY</code> أولًا، ثم يعود إلى <code>OPENAI_API_KEY</code> احتياطيًا. ويدعم <code>whisper-1</code> و <code>gpt-4o-mini-transcribe</code> و <code>gpt-4o-transcribe</code> و <code>gpt-transcribe</code>.</p>
+<p><strong>Mistral API (Voxtral Transcribe)</strong> — يتطلب <code>MISTRAL_API_KEY</code>. يستخدم نماذج <a href="https://docs.mistral.ai/capabilities/audio/speech_to_text/" data-ext>Voxtral Transcribe</a> من Mistral. ويدعم 13 لغة، وتمييز المتحدثين (speaker diarization)، والطوابع الزمنية على مستوى الكلمة. ثبّته باستخدام <code>cd ~/.hermes/hermes-agent &amp;&amp; uv pip install -e &quot;.[mistral]&quot;</code>.</p>
+<p><strong>xAI Grok STT</strong> — يتطلب <code>XAI_API_KEY</code>. يُرسل الطلبات إلى <code>https://api.x.ai/v1/stt</code> بصيغة multipart/form-data. وهو خيار جيد إذا كنت تستخدم xAI بالفعل للمحادثة أو TTS وتريد مفتاح API واحدًا لكل شيء. يأتي بعد Groq في ترتيب الاكتشاف التلقائي — لذا اضبط <code>stt.provider: xai</code> صراحةً لفرض استخدامه.</p>
+<p><strong>أمر CLI محلي مخصّص كخيار احتياطي</strong> — اضبط <code>HERMES_LOCAL_STT_COMMAND</code> إذا أردت أن يستدعي Hermes أمر تفريغ محليًا مباشرةً. يدعم قالب الأمر العناصر النائبة <code>{input_path}</code> و <code>{output_dir}</code> و <code>{language}</code> و <code>{model}</code>. يقسّم Hermes القالب بعد تعبئته إلى قائمة وسائط وينفّذه دون shell، لذا تُمرَّر العوامل مثل <code>|</code> و <code>&gt;</code> و <code>&amp;&amp;</code> و <code>;</code> كوسائط حرفية. ويجب أن يكتب أمرك ملف تفريغ <code>.txt</code> في مكانٍ ما داخل <code>{output_dir}</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-doubao--volcengine-asr">مثال: Doubao / Volcengine ASR</h4>
+<p>إذا كنت تستخدم <a href="https://pypi.org/project/doubao-speech/" data-ext><code>doubao-speech</code></a> لـ Doubao TTS (راجع <a href="#example-doubao-chinese-seed-tts-20">ما ورد أعلاه</a>)، فإن الحزمة نفسها تتولى تحويل الكلام إلى نص عبر واجهة STT القائمة على الأوامر المحلية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>إذا كان قالب محلي موثوق يحتاج عمدًا إلى pipes أو إعادة توجيه (redirects) أو أي ميزة أخرى من ميزات الـ shell، فاستدعِ الـ shell صراحةً. وأبقِ المسارات الديناميكية خارج برنامج الـ shell، ومرّرها كوسائط موضعية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>على Windows، استخدم بدلًا من ذلك wrapper صريحًا عبر <code>cmd /c</code> أو PowerShell. فالـ wrapper الصريح يجعل تفسير الـ shell جزءًا اختياريًا تفعّله بنفسك ضمن argv المُعدّ، بدلًا من أن يكون خاصية ضمنية لكل قالب STT محلي.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>يكتب Hermes الرسالة الصوتية الواردة إلى <code>{input_path}</code>، ثم يشغّل الأمر، ويقرأ ملف <code>.txt</code> الناتج داخل <code>{output_dir}</code>. ويكتشف endpoint الخاص بـ Volcengine bigmodel اللغة تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fallback-behavior">السلوك الاحتياطي (Fallback)</h3>
+<p>يُلتزَم بدقة بالاختيار <strong>الصريح</strong> للمزوّد عبر <code>stt.provider</code> (المكتوب في <code>config.yaml</code>، مثلًا عبر <code>hermes tools</code>) — فإذا تعذّر تشغيل ذلك المزوّد، يفشل التفريغ برسالة خطأ واضحة (<code>stt is configured to use &lt;provider&gt; (set via hermes tools), but &lt;failure&gt;. Run &#x27;hermes tools&#x27; to change it.</code>) بدلًا من التبديل بصمت إلى محرّك آخر. لاحظ أن كتابة <code>stt.provider: local</code> في إعداداتك تُعدّ اختيارًا صريحًا.</p>
+<p>عندما <strong>لا يكون أي مزوّد قد اختير من قبل</strong>، يكتشف Hermes تلقائيًا ما هو متاح:</p>
+<ul>
+<li><strong>Local faster-whisper غير متاح</strong> → يجرّب أداة CLI محلية باسم <code>whisper</code> أو <code>HERMES_LOCAL_STT_COMMAND</code> قبل المزوّدين السحابيين</li>
+<li><strong>مفتاح Groq غير مضبوط</strong> → يُتجاوَز؛ وينتقل إلى المزوّد المتاح التالي</li>
+<li><strong>مفتاح OpenAI غير مضبوط</strong> → يُتجاوَز؛ وينتقل إلى المزوّد المتاح التالي</li>
+<li><strong>مفتاح Mistral أو الـ SDK غير مضبوط</strong> → يُتجاوَز في الاكتشاف التلقائي؛ وينتقل إلى المزوّد المتاح التالي</li>
+<li><strong>لا شيء متاح</strong> → تمرّ الرسائل الصوتية كما هي مع ملاحظة دقيقة للمستخدم</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-custom-command-providers">مزوّدو STT القائمون على أوامر مخصّصة</h3>
+<p>إذا لم يكن محرّك STT الذي تريده مدعومًا بشكل أصلي (Doubao ASR، أو NVIDIA Parakeet، أو نسخة مبنية من whisper.cpp، أو أداة CLI مفتوحة المصدر لـ SenseVoice، أو أي شيء آخر يوفّر أمر shell)، فاربطه بوصفه <strong>مزوّدًا من نوع command</strong> دون كتابة أي كود Python. يشغّل Hermes أمر الـ shell الخاص بك على الملف الصوتي، ثم يقرأ النص المُفرَّغ.</p>
+<p>عرّف مزوّدًا واحدًا أو أكثر تحت <code>stt.providers.&lt;name&gt;</code> وبدّل بينها باستخدام <code>stt.provider: &lt;name&gt;</code> — بالبنية نفسها المستخدمة في <a href="#custom-command-providers">سجل مزوّدي الأوامر</a> الخاص بـ TTS، مع تكييفها لاتجاه الإدخال=صوت → الإخراج=نص مُفرَّغ.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>يُكمّل هذا منفذ الطوارئ القديم <code>HERMES_LOCAL_STT_COMMAND</code> المتاح عبر المسار المدمج <code>local_command</code>. وعلى عكس سجل مزوّدي الأوامر المعتمد على الـ shell، يُقسَّم القالب القديم إلى argv ويعمل دون تفسير ضمني من الـ shell. استخدم <code>stt.providers.&lt;name&gt;</code> عندما تريد <strong>عدة</strong> محرّكات STT معتمدة على الـ shell، أو اسمًا يمكنك اختياره عبر <code>stt.provider</code>، أو أي شيء يحتاج إلى <code>language</code> / <code>model</code> / <code>timeout</code> خاصة بكل مزوّد.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-placeholders">العناصر النائبة في STT</h4>
+<p>يمكن لقالب الأمر الخاص بك الإشارة إلى العناصر النائبة التالية. يستبدلها Hermes وقت التعبئة، ويُطبّق على كل قيمة اقتباس الـ shell المناسب للسياق المحيط بها (دون اقتباس / داخل علامات اقتباس مفردة / داخل علامات اقتباس مزدوجة)، لذا فالمسارات التي تحتوي على مسافات آمنة.</p>
+<table><thead><tr><th>العنصر النائب</th><th>المعنى</th></tr></thead><tbody><tr><td><code>{input_path}</code></td><td>المسار المطلق لملف الصوت المُدخَل (موقعه الأصلي، للقراءة فقط)</td></tr><tr><td><code>{output_path}</code></td><td>المسار المطلق الذي يجب أن يكتب الأمر النص المُفرَّغ إليه</td></tr><tr><td><code>{output_dir}</code></td><td>المجلد الأب لـ <code>{output_path}</code> (مفيد للأدوات المشابهة لـ whisper)</td></tr><tr><td><code>{format}</code></td><td>صيغة الإخراج المُعدّة: <code>txt</code> / <code>json</code> / <code>srt</code> / <code>vtt</code></td></tr><tr><td><code>{language}</code></td><td>رمز اللغة المُعدّ (القيمة الافتراضية <code>en</code>)</td></tr><tr><td><code>{model}</code></td><td><code>stt.providers.&lt;name&gt;.model</code>، ويكون فارغًا إن لم يُضبط</td></tr></tbody></table>
+<p>استخدم <code>{{</code> و <code>}}</code> للأقواس المعقوفة الحرفية (مفيد عند تضمين مقتطفات JSON في الأمر).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-the-transcript-is-read-back">كيف يُقرأ النص المُفرَّغ</h4>
+<p>بعد أن ينتهي أمرك بنجاح:</p>
+<ol>
+<li>إذا كان <code>{output_path}</code> موجودًا وغير فارغ → يقرأه Hermes كنص UTF-8.</li>
+<li>وإلا، إذا كتب الأمر إلى stdout → يستخدم Hermes ذلك الناتج.</li>
+<li>وإلا → خطأ: &quot;Command STT provider wrote no output file and produced no stdout&quot;.</li>
+</ol>
+<p>يتيح لك هذا استخدام السجل مع أدوات CLI التي تكتب ملفات (<code>whisper-cli</code>، <code>parakeet-asr</code>) ومع الأوامر ذات السطر الواحد على طريقة curl التي تُخرج النص المُفرَّغ إلى stdout (<code>curl … | jq -r .text</code>).</p>
+<p>مع <code>format: json</code> / <code>srt</code> / <code>vtt</code>، يُعيد Hermes محتوى الملف الخام في الحقل <code>transcript</code>. واستخراج <code>.text</code> من JSON خارج نطاق المُشغّل — فإما أن تضبط <code>format: txt</code>، أو تعالج JSON لاحقًا في مرحلة تالية.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-command-provider-optional-keys">المفاتيح الاختيارية لمزوّدي أوامر STT</h4>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>timeout</code></td><td><code>300</code></td><td>بالثواني؛ تُنهى شجرة العمليات كاملةً عند انقضاء المهلة (<code>start_new_session</code> على Unix، و <code>taskkill /T</code> على Windows).</td></tr><tr><td><code>format</code></td><td><code>txt</code></td><td>إحدى القيم <code>txt</code> / <code>json</code> / <code>srt</code> / <code>vtt</code>. تحدّد امتداد <code>{output_path}</code>.</td></tr><tr><td><code>language</code></td><td><code>en</code></td><td>تُمرَّر إلى <code>{language}</code>. وقيمتها الافتراضية <code>stt.language</code> ثم <code>en</code>.</td></tr><tr><td><code>model</code></td><td>فارغ</td><td>تُمرَّر إلى <code>{model}</code>. ويتجاوزها الوسيط <code>model=</code> الممرَّر إلى <code>transcribe_audio()</code>.</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-command-provider-behavior-notes">ملاحظات حول سلوك مزوّدي أوامر STT</h4>
+<ul>
+<li><strong>المزوّدون المدمجون لهم الأولوية دائمًا.</strong> تعريف <code>stt.providers.openai: type: command</code> لا يتجاوز معالج OpenAI Whisper الحقيقي. إذ يُحسم الاسم المدمج مبكرًا قبل تشغيل آلية تحديد مزوّدي الأوامر.</li>
+<li><strong>تنظيف شجرة العمليات.</strong> عندما يتجاوز أمرٌ مدة <code>timeout</code>، تُنهى شجرة عملياته بالكامل، لا الـ shell wrapper وحده. لذا تُحصَد بشكل موثوق خطوط ASR طويلة التشغيل التي تُنشئ عمليات فرعية لتحميل النماذج.</li>
+<li><strong>اقتباس الـ shell تلقائي.</strong> العناصر النائبة داخل <code>&#x27;…&#x27;</code> تحصل على تهريب آمن لعلامات الاقتباس المفردة؛ وداخل <code>&quot;…&quot;</code> تحصل على تهريب لـ <code>$</code>/<code>`</code>/<code>&quot;</code>؛ وخارج علامات الاقتباس تُعالَج بـ <code>shlex.quote</code>. لا تضع علامات اقتباس مسبقًا حول قيم العناصر النائبة.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-command-provider-security">أمان مزوّدي أوامر STT</h4>
+<p>يعمل أمر الـ shell بصلاحيات المستخدم نفسه الذي يشغّل Hermes مع وصول كامل إلى نظام الملفات — وهو نموذج الثقة نفسه المتّبع في <code>tts.providers.&lt;name&gt;: type: command</code> و <code>HERMES_LOCAL_STT_COMMAND</code>. لا تعرّف مزوّدي أوامر إلا من مصادر تثق بها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-plugin-providers-stt">مزوّدو الإضافات بلغة Python (STT)</h3>
+<p>لمحرّكات STT غير المدمجة والتي لا يمكن التعبير عنها كأمر shell (لأنها تحتاج إلى Python SDK، أو مصادقة مع تحديث OAuth، أو مقاطع متدفقة، وما إلى ذلك)، سجّل إضافة Python عبر <code>ctx.register_transcription_provider()</code>. تعمل الإضافة <strong>جنبًا إلى جنب مع</strong> المزوّدين المدمجين الثمانية (<code>local</code>، <code>local_command</code>، <code>groq</code>، <code>openai</code>، <code>mistral</code>، <code>xai</code>، <code>elevenlabs</code>، <code>deepinfra</code>) ومع سجل <code>stt.providers.&lt;name&gt;: type: command</code> — إذ يحتفظ المزوّدون المدمجون بتطبيقاتهم الأصلية ولهم الأولوية دائمًا عند تعارض الأسماء؛ ولمزوّدي الأوامر الأولوية على الإضافات التي تحمل الاسم نفسه (لأن الإعدادات أقرب محليًا من تثبيت الإضافة).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-pick-which-stt">متى تختار كل خيار (STT)</h4>
+<table><thead><tr><th>الـ backend لديه…</th><th>استخدم</th></tr></thead><tbody><tr><td>أمر shell واحد يأخذ ملفًا صوتيًا ويُخرج نصًا</td><td><code>stt.providers.&lt;name&gt;: type: command</code> (لا حاجة إلى Python)</td></tr><tr><td>المطلوب هو منفذ الطوارئ القديم ذو الأمر الواحد فقط</td><td>متغير البيئة <code>HERMES_LOCAL_STT_COMMAND</code> (مُقسَّم إلى argv؛ دون shell ضمني)</td></tr><tr><td>Python SDK دون CLI</td><td>إضافة <code>register_transcription_provider()</code></td></tr><tr><td>مصادقة مع تحديث OAuth، أو مقاطع متدفقة، أو بيانات وصفية لقائمة الأصوات</td><td>إضافة <code>register_transcription_provider()</code></td></tr><tr><td>مزوّد مدمج يغطي الحالة بالفعل (<code>local</code>، <code>groq</code>، <code>openai</code>، …)</td><td>اضبط <code>stt.provider: &lt;name&gt;</code> — المزوّدون المدمجون مضمَّنون مباشرةً</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="resolution-order">ترتيب التحديد</h4>
+<ol>
+<li><strong><code>stt.provider</code> اسم مزوّد مدمج</strong> → توجيه إلى المزوّد المدمج. <strong>له الأولوية دائمًا.</strong></li>
+<li><strong><code>stt.provider</code> يطابق <code>stt.providers.&lt;name&gt;</code> مع ضبط <code>command:</code></strong> → مُشغّل مزوّد الأوامر (راجع <a href="#stt-custom-command-providers">مزوّدو STT القائمون على أوامر مخصّصة</a>). وله الأولوية على إضافة تحمل الاسم نفسه.</li>
+<li><strong><code>stt.provider</code> يطابق <code>TranscriptionProvider</code> مسجّلًا عبر إضافة</strong> → توجيه إلى الإضافة:
+<ul>
+<li>إذا أعادت الدالة <code>is_available()</code> الخاصة بالإضافة القيمة <code>False</code> (بسبب نقص بيانات الاعتماد أو الـ SDK)، يُظهر الاستدعاء رسالة خطأ بعدم التوفر تحدّد الإضافة المعنية — <strong>وليس</strong> الرسالة العامة &quot;No STT provider available&quot;.</li>
+<li>وإلا، تُستدعى الدالة <code>transcribe()</code> الخاصة بالإضافة مع <code>model</code> (من الوسيط العام <code>model=</code>، مع الرجوع احتياطيًا إلى <code>stt.&lt;provider&gt;.model</code>) و <code>language</code> (من <code>stt.&lt;provider&gt;.language</code>).</li>
+</ul>
+</li>
+<li><strong>لا يوجد تطابق</strong> → خطأ &quot;No STT provider available&quot;.</li>
+</ol>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-provider-config-namespace">نطاق الإعدادات الخاص بكل مزوّد</h4>
+<p>تقرأ الإضافات إعداداتها الخاصة بكل مزوّد من <code>stt.&lt;provider&gt;</code> في <code>config.yaml</code>، على غرار قراءة المزوّدين المدمجين لـ <code>stt.openai.model</code> / <code>stt.mistral.model</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>يُمرّر الموزِّع (dispatcher) القيمتين <code>model</code> و <code>language</code> من هذا القسم؛ أما كل ما عداهما فيمكن للإضافة قراءته بنفسها.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-plugin-1">إضافة بالحد الأدنى</h4>
+<p>ضع ما يلي في <code>~/.hermes/plugins/my-stt/</code>:</p>
+<p><code>plugin.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p><code>__init__.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>فعّلها (<code>hermes plugins enable my-stt</code>)، واضبط <code>stt.provider: my-stt</code> في <code>config.yaml</code>، وسيُوجَّه تفريغ الرسائل الصوتية عبر إضافتك.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-hooks-1">Hooks اختيارية</h4>
+<p>أعِد تعريف ما يلي في صنف المزوّد الخاص بك للحصول على تكامل أغنى:</p>
+<ul>
+<li><code>list_models()</code> → قائمة من القواميس بالشكل <code>{id, display, languages, max_audio_seconds}</code>.</li>
+<li><code>default_model()</code> → سلسلة نصية تُعاد عندما لا يحدّد المستخدم نموذجًا آخر.</li>
+<li><code>get_setup_schema()</code> → أعِد <code>{name, badge, tag, env_vars: [{key, prompt, url}]}</code> لتغذية صفوف أداة الاختيار في <code>hermes tools</code> / <code>hermes setup</code> (فئة أداة الاختيار الخاصة بـ STT لم تُطرح بعد — وهذه البيانات الوصفية متاحة للإضافات من أجل التوافق المستقبلي).</li>
+</ul>
+<p>راجع <code>agent/transcription_provider.py</code> للاطلاع على الصنف المجرّد (ABC) الكامل مع docstrings.</p>

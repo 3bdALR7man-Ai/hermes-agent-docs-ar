@@ -1,0 +1,130 @@
+<header><h1>إعداد Signal</h1></header>
+<p>يتصل Hermes بـ Signal عبر الـ daemon الخاص بـ <a href="https://github.com/AsamK/signal-cli" data-ext>signal-cli</a> الذي يعمل في وضع HTTP. يبث المحوّل (adapter) الرسائل في الوقت الفعلي عبر SSE (Server-Sent Events) ويرسل الردود عبر JSON-RPC.</p>
+<p>يُعد Signal أكثر تطبيقات المراسلة الشائعة تركيزًا على الخصوصية — فهو مشفّر من طرف إلى طرف افتراضيًا، وبروتوكوله مفتوح المصدر، ويجمع الحد الأدنى من البيانات الوصفية. وهذا يجعله مثاليًا لسير عمل الوكلاء الحساس أمنيًا.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>لا اعتماديات Python جديدة</div><div class="admonitionContent_BuS1"><p>يستخدم محوّل Signal المكتبة <code>httpx</code> (وهي بالفعل من الاعتماديات الأساسية لـ Hermes) في جميع الاتصالات. لا حاجة إلى أي حزم Python إضافية، بل تحتاج فقط إلى تثبيت signal-cli خارجيًا.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>signal-cli</strong> — عميل Signal مبني على Java (<a href="https://github.com/AsamK/signal-cli" data-ext>GitHub</a>)</li>
+<li>بيئة تشغيل <strong>Java 17+</strong> — يتطلبها signal-cli</li>
+<li><strong>رقم هاتف</strong> مثبّت عليه Signal (لربطه كجهاز ثانوي)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="installing-signal-cli">تثبيت signal-cli</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>signal-cli <strong>غير</strong> متوفر في مستودعات apt أو snap. ويقوم أمر التثبيت على Linux الوارد أعلاه بالتنزيل مباشرةً من <a href="https://github.com/AsamK/signal-cli/releases" data-ext>إصدارات GitHub (GitHub releases)</a>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-link-your-signal-account">الخطوة 1: اربط حساب Signal الخاص بك</h2>
+<p>يعمل signal-cli كـ <strong>جهاز مرتبط</strong> — مثل WhatsApp Web، لكن لـ Signal. ويبقى هاتفك هو الجهاز الأساسي.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ol>
+<li>افتح <strong>Signal</strong> على هاتفك</li>
+<li>انتقل إلى <strong>Settings → Linked Devices</strong></li>
+<li>اضغط على <strong>Link New Device</strong></li>
+<li>امسح رمز QR أو أدخل الـ URI</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-start-the-signal-cli-daemon">الخطوة 2: شغّل الـ daemon الخاص بـ signal-cli</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>أبقِ هذا يعمل في الخلفية. يمكنك استخدام <code>systemd</code> أو <code>tmux</code> أو <code>screen</code>، أو تشغيله كخدمة.</p></div></div>
+<p>تحقّق من أنه يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-hermes">الخطوة 3: إعداد Hermes</h2>
+<p>الطريقة الأسهل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اختر <strong>Signal</strong> من قائمة المنصات. سيقوم المعالج بما يلي:</p>
+<ol>
+<li>التحقق مما إذا كان signal-cli مثبّتًا</li>
+<li>طلب HTTP URL (الافتراضي: <code>http://127.0.0.1:8080</code>)</li>
+<li>اختبار الاتصال بالـ daemon</li>
+<li>سؤالك عن رقم هاتف الحساب</li>
+<li>ضبط المستخدمين المسموح لهم وسياسات الوصول</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-configuration">الإعداد اليدوي</h3>
+<p>أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ثم شغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-access">الوصول عبر الرسائل المباشرة</h3>
+<p>يتبع الوصول عبر الرسائل المباشرة (DM) النمط نفسه المتبع في جميع منصات Hermes الأخرى:</p>
+<ol>
+<li><strong>ضبط <code>SIGNAL_ALLOWED_USERS</code></strong> → لا يستطيع المراسلة إلا هؤلاء المستخدمون</li>
+<li><strong>عدم ضبط قائمة سماح</strong> → يحصل المستخدمون غير المعروفين على رمز اقتران عبر الرسائل المباشرة (وافق عليه عبر <code>hermes pairing approve signal CODE</code>)</li>
+<li><strong><code>SIGNAL_ALLOW_ALL_USERS=true</code></strong> → يستطيع أي شخص المراسلة (استخدمه بحذر)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-access">الوصول في المجموعات</h3>
+<p>يُتحكَّم في الوصول في المجموعات عبر متغير البيئة <code>SIGNAL_GROUP_ALLOWED_USERS</code>:</p>
+<table><thead><tr><th>الإعداد</th><th>السلوك</th></tr></thead><tbody><tr><td>غير مضبوط (الافتراضي)</td><td>تُتجاهل جميع رسائل المجموعات، ولا يرد البوت إلا على الرسائل المباشرة.</td></tr><tr><td>مضبوط بمعرّفات مجموعات</td><td>لا تُراقَب إلا المجموعات المُدرجة (مثل <code>groupId1,groupId2</code>).</td></tr><tr><td>مضبوط على <code>*</code></td><td>يرد البوت في أي مجموعة هو عضو فيها.</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="attachments">المرفقات</h3>
+<p>يدعم المحوّل إرسال الوسائط واستقبالها في كلا الاتجاهين.</p>
+<p><strong>الواردة</strong> (المستخدم → الوكيل):</p>
+<ul>
+<li><strong>الصور</strong> — PNG و JPEG و GIF و WebP (تُكتشف تلقائيًا عبر magic bytes)</li>
+<li><strong>الصوت</strong> — MP3 و OGG و WAV و M4A (تُفرَّغ الرسائل الصوتية إلى نص إذا كان Whisper مُعدًّا)</li>
+<li><strong>المستندات</strong> — PDF و ZIP وأنواع الملفات الأخرى</li>
+</ul>
+<p><strong>الصادرة</strong> (الوكيل → المستخدم):</p>
+<p>يستطيع الوكيل إرسال ملفات الوسائط عبر وسوم <code>MEDIA:</code> في الردود. وطرق التسليم التالية مدعومة:</p>
+<ul>
+<li><strong>الصور</strong> — ترسل <code>send_multiple_images</code> و <code>send_image_file</code> صور PNG و JPEG و GIF و WebP كمرفقات Signal أصلية</li>
+<li><strong>الصوت</strong> — ترسل <code>send_voice</code> الملفات الصوتية (OGG و MP3 و WAV و M4A و AAC) كمرفقات</li>
+<li><strong>الفيديو</strong> — ترسل <code>send_video</code> ملفات فيديو MP4</li>
+<li><strong>المستندات</strong> — ترسل <code>send_document</code> أي نوع من الملفات (PDF و ZIP وغيرها)</li>
+</ul>
+<p>تمر جميع الوسائط الصادرة عبر API المرفقات القياسي في Signal. وعلى عكس بعض المنصات، لا يميّز Signal بين الرسائل الصوتية ومرفقات الملفات على مستوى البروتوكول.</p>
+<p>حد حجم المرفقات: <strong>100 MB</strong> (في كلا الاتجاهين).</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>ستفرض خوادم Signal حدًّا لمعدل رفع المرفقات (rate limit)</strong>، لذا يستخدم المحوّل مُجدوِلًا لإرسال الصور المتعددة يجمّع الصور في دفعات من 32 صورة ويُبطئ عمليات الرفع لتتوافق مع سياسة خوادم Signal.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-formatting-reply-quotes-and-reactions">التنسيق الأصلي، والردود المقتبسة، والتفاعلات</h3>
+<p>تُعرض رسائل Signal بـ <strong>تنسيق أصلي</strong> بدلًا من رموز markdown الحرفية. إذ يحوّل المحوّل تنسيق markdown (<code>**bold**</code>، <code>*italic*</code>، <code>`code`</code>، <code>~~strike~~</code>، <code>||spoiler||</code>، والعناوين) إلى <code>bodyRanges</code> في Signal، فيظهر النص بتنسيق حقيقي في عميل المستلم بدلًا من ظهور الرموز <code>**</code> / <code>`</code> كما هي.</p>
+<p><strong>الردود المقتبسة.</strong> عندما يرد Hermes على رسالة محددة، فإنه ينشر الآن ردًا أصليًا يقتبس الرسالة الأصلية — وهي الميزة نفسها في الواجهة التي يراها مستخدمو Signal عند استخدامهم &quot;Reply&quot; بأنفسهم. ويحدث ذلك تلقائيًا للردود المولّدة استجابةً لرسالة واردة.</p>
+<p><strong>التفاعلات.</strong> يستطيع الوكيل التفاعل مع الرسائل عبر API التفاعلات القياسي؛ وتظهر التفاعلات في Signal كتفاعلات emoji على الرسالة المعنية بدلًا من ظهورها كنص إضافي.</p>
+<p>لا يتطلب أيٌّ من ذلك إعدادات إضافية — فهو مفعّل افتراضيًا في إصدارات signal-cli الحديثة. وإذا كان إصدار <code>signal-cli</code> لديك قديمًا جدًا، يلجأ Hermes إلى التسليم بنص عادي ويسجّل تحذيرًا لمرة واحدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-messages">الرسائل الطويلة</h3>
+<p>يحدّ Signal الرسالة الواحدة بـ <strong>8,000 حرف</strong>. ويقسّم Hermes الردود الأطول تلقائيًا إلى أجزاء مرقّمة (<code>(1/3)</code>، <code>(2/3)</code>، …) بدلًا من اقتطاعها. وينطبق ذلك على كل مسارات التسليم — ردود المحادثة المباشرة، وتسليمات مهام cron، و <code>hermes send</code>، واستدعاءات MCP <code>send_message</code> — كما يُحافَظ على التنسيق الأصلي (العريض، والمائل، والشيفرة، والنص المخفي) عبر حدود الأجزاء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="typing-indicators">مؤشرات الكتابة</h3>
+<p>يرسل البوت مؤشرات الكتابة أثناء معالجة الرسائل، ويحدّثها كل 8 ثوانٍ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-progress-display">عرض تقدّم الأدوات</h3>
+<p>لا يدعم Signal تعديل الرسائل المُرسلة مسبقًا. لذلك يُخفي Hermes فقاعات تقدّم الأدوات الخاصة بالـ gateway على Signal، حتى عند تفعيل <code>/verbose</code> وحفظ وضع غير <code>off</code> للمنصة.</p>
+<p>لا يزال بإمكانك رؤية نشاط الأدوات في CLI، ويمكن أن تتضمن ردود Signal النهائية مخرجات المساعد المعتادة. وإذا كنت تحتاج إلى عرض تقدّم حي لكل أداة في المحادثة، فاستخدم منصة مراسلة تدعم تعديل الرسائل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phone-number-redaction">إخفاء أرقام الهواتف</h3>
+<p>تُخفى جميع أرقام الهواتف تلقائيًا في السجلات:</p>
+<ul>
+<li><code>+15551234567</code> → <code>+155****4567</code></li>
+<li>ينطبق هذا على كلٍّ من سجلات Hermes gateway ونظام الإخفاء العام</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="note-to-self-single-number-setup">Note to Self (إعداد برقم واحد)</h3>
+<p>إذا كنت تشغّل signal-cli كـ <strong>جهاز ثانوي مرتبط</strong> برقم هاتفك الخاص (بدلًا من رقم منفصل للبوت)، فيمكنك التفاعل مع Hermes عبر ميزة &quot;Note to Self&quot; في Signal.</p>
+<p>ما عليك سوى إرسال رسالة إلى نفسك من هاتفك — فيلتقطها signal-cli ويرد Hermes في المحادثة نفسها.</p>
+<p><strong>آلية العمل:</strong></p>
+<ul>
+<li>تصل رسائل &quot;Note to Self&quot; على هيئة مغلّفات <code>syncMessage.sentMessage</code></li>
+<li>يكتشف المحوّل متى تكون هذه الرسائل موجهة إلى حساب البوت نفسه، ويعالجها كرسائل واردة عادية</li>
+<li>تمنع الحماية من الصدى (تتبّع الطوابع الزمنية للرسائل المُرسلة) الحلقاتِ اللانهائية — إذ تُستبعد ردود البوت نفسه تلقائيًا</li>
+</ul>
+<p><strong>لا حاجة إلى إعدادات إضافية.</strong> يعمل هذا تلقائيًا ما دام <code>SIGNAL_ACCOUNT</code> مطابقًا لرقم هاتفك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="health-monitoring">مراقبة الحالة (Health Monitoring)</h3>
+<p>يراقب المحوّل اتصال SSE ويعيد الاتصال تلقائيًا في الحالات التالية:</p>
+<ul>
+<li>انقطاع الاتصال (مع تراجع أُسّي (exponential backoff): 2s → 60s)</li>
+<li>عدم رصد أي نشاط لمدة 120 ثانية (يُرسل ping إلى signal-cli للتحقق)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td><strong>&quot;Cannot reach signal-cli&quot;</strong> أثناء الإعداد</td><td>تأكد من أن الـ daemon الخاص بـ signal-cli يعمل: <code>signal-cli --account +YOUR_NUMBER daemon --http 127.0.0.1:8080</code></td></tr><tr><td><strong>عدم استلام الرسائل</strong></td><td>تحقّق من أن <code>SIGNAL_ALLOWED_USERS</code> يتضمن رقم المرسل بتنسيق E.164 (مع البادئة <code>+</code>)</td></tr><tr><td><strong>&quot;signal-cli not found on PATH&quot;</strong></td><td>ثبّت signal-cli وتأكد من وجوده في PATH، أو استخدم Docker</td></tr><tr><td><strong>الاتصال ينقطع باستمرار</strong></td><td>افحص سجلات signal-cli بحثًا عن أخطاء، وتأكد من تثبيت Java 17+.</td></tr><tr><td><strong>تجاهل رسائل المجموعات</strong></td><td>اضبط <code>SIGNAL_GROUP_ALLOWED_USERS</code> بمعرّفات مجموعات محددة، أو بـ <code>*</code> للسماح بجميع المجموعات.</td></tr><tr><td><strong>البوت لا يرد على أحد</strong></td><td>اضبط <code>SIGNAL_ALLOWED_USERS</code>، أو استخدم الاقتران عبر الرسائل المباشرة، أو اسمح صراحةً لجميع المستخدمين عبر سياسة الـ gateway إذا كنت تريد وصولًا أوسع.</td></tr><tr><td><strong>رسائل مكررة</strong></td><td>تأكد من أن نسخة واحدة فقط من signal-cli تستمع على رقم هاتفك</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>اضبط دائمًا عناصر التحكم في الوصول.</strong> يملك البوت وصولًا إلى الطرفية افتراضيًا. ومن دون <code>SIGNAL_ALLOWED_USERS</code> أو الاقتران عبر الرسائل المباشرة، يرفض الـ gateway جميع الرسائل الواردة كإجراء أمان.</p></div></div>
+<ul>
+<li>تُخفى أرقام الهواتف في جميع مخرجات السجلات</li>
+<li>استخدم الاقتران عبر الرسائل المباشرة أو قوائم السماح الصريحة لإضافة المستخدمين الجدد بأمان</li>
+<li>أبقِ المجموعات معطّلة ما لم تكن تحتاج إلى دعم المجموعات تحديدًا، أو أضف إلى قائمة السماح المجموعات التي تثق بها فقط</li>
+<li>يحمي التشفير من طرف إلى طرف في Signal محتوى الرسائل أثناء النقل</li>
+<li>تحتوي بيانات جلسة signal-cli في <code>~/.local/share/signal-cli/</code> على بيانات اعتماد الحساب — احمِها كما تحمي كلمة المرور</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables-reference">مرجع متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>SIGNAL_HTTP_URL</code></td><td>نعم</td><td>—</td><td>HTTP endpoint الخاص بـ signal-cli</td></tr><tr><td><code>SIGNAL_ACCOUNT</code></td><td>نعم</td><td>—</td><td>رقم هاتف البوت (E.164)</td></tr><tr><td><code>SIGNAL_ALLOWED_USERS</code></td><td>لا</td><td>—</td><td>أرقام هواتف/UUIDs مفصولة بفواصل</td></tr><tr><td><code>SIGNAL_GROUP_ALLOWED_USERS</code></td><td>لا</td><td>—</td><td>معرّفات المجموعات المراد مراقبتها، أو <code>*</code> لجميعها (احذفه لتعطيل المجموعات)</td></tr><tr><td><code>SIGNAL_ALLOW_ALL_USERS</code></td><td>لا</td><td><code>false</code></td><td>السماح لأي مستخدم بالتفاعل (تجاوز قائمة السماح)</td></tr><tr><td><code>SIGNAL_HOME_CHANNEL</code></td><td>لا</td><td>—</td><td>وجهة التسليم الافتراضية لمهام cron</td></tr></tbody></table>

@@ -1,0 +1,195 @@
+
+<header><h1>لاعب Pokemon</h1></header>
+<p>العب Pokemon عبر محاكي بلا واجهة رسومية + قراءات من الذاكرة (RAM).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/gaming/pokemon-player</code></td></tr><tr><td>المسار</td><td><code>optional-skills/gaming/pokemon-player</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1)، Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>لاعب Pokemon</h1>
+<p>العب ألعاب Pokemon عبر محاكاة بلا واجهة رسومية باستخدام حزمة <code>pokemon-agent</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يقول المستخدم &quot;play pokemon&quot;، &quot;start pokemon&quot;، &quot;pokemon game&quot;</li>
+<li>يسأل المستخدم عن Pokemon Red وBlue وYellow وFireRed وغيرها</li>
+<li>يريد المستخدم مشاهدة ذكاء اصطناعي يلعب Pokemon</li>
+<li>يشير المستخدم إلى ملف ROM (.gb، .gbc، .gba)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="startup-procedure">إجراء البدء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-first-time-setup-clone-venv-install">1. الإعداد للمرة الأولى (استنساخ، بيئة افتراضية، تثبيت)</h3>
+<p>المستودع هو NousResearch/pokemon-agent على GitHub. استنسخه، ثم
+أعِدَّ بيئة Python 3.10+ افتراضية. استخدم uv (مفضّل للسرعة)
+لإنشاء البيئة الافتراضية وتثبيت الحزمة في وضع قابل للتحرير مع
+إضافة (extra) pyboy. إذا لم يتوفر uv، ارجع إلى python -m venv + pip.</p>
+<p>إذا كانت هناك نسخة مسحوبة (checkout) موجودة بالفعل (مثلًا ~/pokemon-agent مع بيئة افتراضية جاهزة)،
+انتقل إليها فقط ونفّذ source .venv/bin/activate بدلًا من إعادة الاستنساخ.</p>
+<p>ستحتاج أيضًا إلى ملف ROM. اطلب من المستخدم ملفه الخاص (قد يكون إعداد سابق
+قد وضع بالفعل ملفًا في roms/pokemon_red.gb داخل النسخة المسحوبة).
+لا تُنزّل أو تُقدّم ملفات ROM أبدًا — اسأل المستخدم دائمًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-start-the-game-server">2. شغّل خادم اللعبة</h3>
+<p>من داخل مجلد pokemon-agent مع تفعيل البيئة الافتراضية، شغّل
+pokemon-agent serve مع --rom يشير إلى ملف ROM و--port 9876.
+شغّله في الخلفية باستخدام &amp;.
+لاستئناف لعبة محفوظة، أضف --load-state مع اسم الحفظ.
+انتظر 4 ثوانٍ لبدء التشغيل، ثم تحقّق باستخدام GET /health.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-set-up-live-dashboard-for-user-to-watch">3. أعِدَّ لوحة تحكم مباشرة ليشاهدها المستخدم</h3>
+<p>استخدم نفقًا عكسيًا عبر SSH (SSH reverse tunnel) عبر localhost.run حتى يتمكن المستخدم من مشاهدة
+لوحة التحكم في متصفحه. اتصل باستخدام ssh، وحوّل المنفذ المحلي
+9876 إلى المنفذ البعيد 80 على نقطة نهاية localhost.run التي لا تتطلب مفتاحًا
+(ssh -R 80:localhost:9876 ssh://nokey@localhost.run). وجّه المخرجات
+إلى ملف سجل، وانتظر 10 ثوانٍ، ثم ابحث في السجل عن رابط
+.lhr.life. أعطِ المستخدم الرابط مع إضافة /dashboard/.
+يتغيّر رابط النفق في كل مرة — أعطِ المستخدم الرابط الجديد إن أُعيد التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="save-and-load">الحفظ والتحميل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-save">متى تحفظ</h3>
+<ul>
+<li>كل 15-20 دورًا من اللعب</li>
+<li>دائمًا قبل معارك الصالات، أو مواجهات المنافسين، أو المعارك الخطرة</li>
+<li>قبل دخول بلدة أو زنزانة جديدة</li>
+<li>قبل أي إجراء غير متأكد منه</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-save">كيفية الحفظ</h3>
+<p>POST /save مع اسم وصفي. أمثلة جيدة:
+before_brock، route1_start، mt_moon_entrance، got_cut</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-load">كيفية التحميل</h3>
+<p>POST /load مع اسم الحفظ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-available-saves">عرض قائمة الحفظات المتاحة</h3>
+<p>GET /saves يعيد جميع الحالات المحفوظة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="loading-on-server-startup">التحميل عند بدء تشغيل الخادم</h3>
+<p>استخدم علامة --load-state عند بدء تشغيل الخادم لتحميل حفظ تلقائيًا.
+هذا أسرع من التحميل عبر الـ API بعد بدء التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-gameplay-loop">حلقة اللعب</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-observe--check-state-and-take-a-screenshot">الخطوة 1: راقب — تحقّق من الحالة والتقط لقطة شاشة</h3>
+<p>GET /state للموضع، ونقاط الحياة (HP)، والمعركة، والحوار.
+GET /screenshot واحفظ إلى /tmp/pokemon.png، ثم استخدم vision_analyze.
+افعل الاثنين دائمًا — حالة الذاكرة (RAM) تعطي الأرقام، والرؤية تعطي الوعي المكاني.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-orient">الخطوة 2: تموضع</h3>
+<ul>
+<li>حوار/نص على الشاشة ← تقدّم فيه</li>
+<li>في معركة ← قاتل أو اهرب</li>
+<li>الفريق مصاب ← توجّه إلى مركز Pokemon</li>
+<li>قرب الهدف ← تنقّل بحذر</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-decide">الخطوة 3: قرّر</h3>
+<p>الأولوية: الحوار &gt; المعركة &gt; الشفاء &gt; هدف القصة &gt; التدريب &gt; الاستكشاف</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-act--move-2-4-steps-max-then-re-check">الخطوة 4: تصرّف — تحرّك 2-4 خطوات كحد أقصى، ثم تحقّق مجددًا</h3>
+<p>POST /action مع قائمة إجراءات قصيرة (2-4 إجراءات، وليس 10-15).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-verify--screenshot-after-every-move-sequence">الخطوة 5: تحقّق — التقط لقطة شاشة بعد كل تسلسل حركة</h3>
+<p>التقط لقطة شاشة واستخدم vision_analyze لتأكيد أنك تحركت إلى حيث
+تنوي. هذه أهم خطوة على الإطلاق. من دون الرؤية سوف تضيع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-record-progress-to-memory-with-pkm-prefix">الخطوة 6: سجّل التقدم في الذاكرة مع بادئة PKM:</h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-save-periodically">الخطوة 7: احفظ بشكل دوري</h3>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="action-reference">مرجع الإجراءات</h2>
+<ul>
+<li>press_a — تأكيد، تحدّث، اختيار</li>
+<li>press_b — إلغاء، إغلاق القائمة</li>
+<li>press_start — فتح قائمة اللعبة</li>
+<li>walk_up/down/left/right — تحرّك بلاطة واحدة</li>
+<li>hold_b_N — اضغط مطوّلًا على B لمدة N إطارًا (استخدمه لتسريع النص)</li>
+<li>wait_60 — انتظر حوالي ثانية واحدة (60 إطارًا)</li>
+<li>a_until_dialog_end — اضغط A بشكل متكرر حتى ينتهي الحوار</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="critical-tips-from-experience">نصائح حاسمة من الخبرة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-vision-constantly">استخدم الرؤية باستمرار</h3>
+<ul>
+<li>التقط لقطة شاشة كل 2-4 خطوات حركة</li>
+<li>تخبرك حالة الذاكرة (RAM) بالموضع ونقاط الحياة لكن ليس بما حولك</li>
+<li>الحواف، والأسوار، واللافتات، وأبواب المباني، والشخصيات غير القابلة للعب — مرئية فقط عبر لقطة الشاشة</li>
+<li>اسأل نموذج الرؤية أسئلة محددة: &quot;ما الذي يوجد بلاطة واحدة شمالي؟&quot;</li>
+<li>عند التعثر، التقط لقطة شاشة دائمًا قبل تجربة اتجاهات عشوائية</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="warp-transitions-need-extra-wait-time">انتقالات الاِنتِقال الآني (Warp) تحتاج وقت انتظار إضافي</h3>
+<p>عند المشي عبر باب أو درج، تتلاشى الشاشة إلى الأسود أثناء
+انتقال الخريطة. يجب عليك الانتظار حتى يكتمل. أضف 2-3 من إجراءات wait_60
+بعد أي انتقال عبر باب/درج. من دون الانتظار، يُقرأ الموضع
+على أنه قديم وستظن أنك ما زلت في الخريطة القديمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="building-exit-trap">فخ الخروج من المبنى</h3>
+<p>عندما تخرج من مبنى، تظهر مباشرة أمام الباب.
+إذا سرت شمالًا، تعود إلى الداخل مباشرة. تجنّب ذلك دائمًا بالتحرك جانبيًا أولًا
+عبر السير يسارًا أو يمينًا بمقدار بلاطتين، ثم تابع في الاتجاه المقصود.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dialog-handling">التعامل مع الحوار</h3>
+<p>يظهر نص الجيل الأول ببطء حرفًا بحرف. لتسريع الحوار،
+اضغط مطوّلًا على B لمدة 120 إطارًا ثم اضغط A. كرّر حسب الحاجة. الضغط المطوّل على B يجعل
+النص يظهر بأقصى سرعة. ثم اضغط A للانتقال إلى السطر التالي.
+يتحقق إجراء a_until_dialog_end من علامة الحوار في الذاكرة (RAM)، لكن هذه العلامة
+لا تلتقط جميع حالات النص. إذا بدا الحوار عالقًا، استخدم نمط
+hold_b + press_a اليدوي بدلًا من ذلك وتحقّق عبر لقطة شاشة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ledges-are-one-way">الحواف اتجاه واحد فقط</h3>
+<p>يمكن القفز عن الحواف (حواف منحدرة صغيرة) للأسفل (جنوبًا) فقط، ولا يمكن أبدًا التسلق
+للأعلى (شمالًا). إذا كنت محظورًا بحافة تتجه شمالًا، يجب أن تذهب يسارًا أو يمينًا
+لإيجاد الفجوة حولها. استخدم الرؤية لتحديد أي اتجاه فيه
+الفجوة. اسأل نموذج الرؤية صراحة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="navigation-strategy">استراتيجية التنقل</h3>
+<ul>
+<li>تحرّك 2-4 خطوات في كل مرة، ثم التقط لقطة شاشة للتحقق من الموضع</li>
+<li>عند دخول منطقة جديدة، التقط لقطة شاشة فورًا للتموضع</li>
+<li>اسأل نموذج الرؤية &quot;أي اتجاه إلى [الوجهة]؟&quot;</li>
+<li>إذا تعثرت لأكثر من 3 محاولات، التقط لقطة شاشة وأعِد التقييم بالكامل</li>
+<li>لا تُكثر من 10-15 حركة — ستتجاوز الهدف أو تعلق</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-from-wild-battles">الهروب من المعارك البرية</h3>
+<p>في قائمة المعركة، يقع RUN في أسفل اليمين. للوصول إليه من موضع المؤشر
+الافتراضي (FIGHT، أعلى اليسار): اضغط للأسفل ثم لليمين لتحريك المؤشر
+إلى RUN، ثم اضغط A. أحطها بـ hold_b لتسريع النص/الرسوم المتحركة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="battling-fight">القتال (FIGHT)</h3>
+<p>في قائمة المعركة، يقع FIGHT في أعلى اليسار (موضع المؤشر الافتراضي).
+اضغط A للدخول إلى اختيار الحركة، واضغط A مجددًا لاستخدام الحركة الأولى.
+ثم اضغط مطوّلًا على B لتسريع رسوم الهجوم المتحركة والنص.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="battle-strategy">استراتيجية المعركة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="decision-tree">شجرة القرار</h3>
+<ol>
+<li>تريد الأسر؟ ← أضعف ثم ارمِ كرة Poke Ball</li>
+<li>بري لا تحتاجه؟ ← اهرب (RUN)</li>
+<li>ميزة نوع؟ ← استخدم حركة فعّالة بشكل كبير</li>
+<li>لا ميزة؟ ← استخدم أقوى حركة STAB</li>
+<li>نقاط حياة منخفضة؟ ← بدّل أو استخدم جرعة (Potion)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gen-1-type-chart-key-matchups">جدول أنواع الجيل الأول (المطابقات الأساسية)</h3>
+<ul>
+<li>الماء يهزم النار، والأرض، والصخر</li>
+<li>النار تهزم العشب، والحشرات، والجليد</li>
+<li>العشب يهزم الماء، والأرض، والصخر</li>
+<li>الكهرباء تهزم الماء، والطيران</li>
+<li>الأرض تهزم النار، والكهرباء، والصخر، والسم</li>
+<li>الذهني (Psychic) يهزم القتال، والسم (مهيمن في الجيل الأول!)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gen-1-quirks">غرائب الجيل الأول</h3>
+<ul>
+<li>الإحصائية الخاصة (Special) = الهجوم والدفاع معًا للحركات الخاصة</li>
+<li>نوع الذهني (Psychic) مبالغ فيه من حيث القوة (حركات الشبح بها خلل)</li>
+<li>الضربات الحرجة تعتمد على إحصائية السرعة</li>
+<li>Wrap/Bind يمنعان الخصم من التصرف</li>
+<li>خلل Focus Energy: يُخفّض معدل الضربات الحرجة بدلًا من رفعه</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-conventions">اصطلاحات الذاكرة</h2>
+<table><thead><tr><th>البادئة</th><th>الغرض</th><th>مثال</th></tr></thead><tbody><tr><td>PKM:OBJECTIVE</td><td>الهدف الحالي</td><td>احصل على الطرد من متجر Viridian</td></tr><tr><td>PKM:MAP</td><td>معرفة التنقل</td><td>Viridian: المتجر في الشمال الشرقي</td></tr><tr><td>PKM:STRATEGY</td><td>خطط المعركة/الفريق</td><td>أحتاج نوع عشب قبل Misty</td></tr><tr><td>PKM:PROGRESS</td><td>متتبع الإنجازات</td><td>هزمت المنافس، متجه إلى Viridian</td></tr><tr><td>PKM:STUCK</td><td>حالات التعثر</td><td>حافة عند y=28 اذهب يمينًا للتجاوز</td></tr><tr><td>PKM:TEAM</td><td>ملاحظات الفريق</td><td>Squirtle مستوى 6، Tackle + Tail Whip</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="progression-milestones">مراحل التقدّم</h2>
+<ul>
+<li>اختر البوكيمون الأول</li>
+<li>سلّم الطرد من متجر Viridian، واحصل على Pokedex</li>
+<li>شارة الصخر — Brock (صخر) ← استخدم الماء/العشب</li>
+<li>شارة الشلال — Misty (ماء) ← استخدم العشب/الكهرباء</li>
+<li>شارة الرعد — Lt. Surge (كهرباء) ← استخدم الأرض</li>
+<li>شارة قوس قزح — Erika (عشب) ← استخدم النار/الجليد/الطيران</li>
+<li>شارة الروح — Koga (سم) ← استخدم الأرض/الذهني</li>
+<li>شارة المستنقع — Sabrina (ذهني) ← أصعب صالة</li>
+<li>شارة البركان — Blaine (نار) ← استخدم الماء/الأرض</li>
+<li>شارة الأرض — Giovanni (أرض) ← استخدم الماء/العشب/الجليد</li>
+<li>الأربعة الكبار ← البطل!</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="stopping-play">إيقاف اللعب</h2>
+<ol>
+<li>احفظ اللعبة باسم وصفي عبر POST /save</li>
+<li>حدّث الذاكرة بـ PKM:PROGRESS</li>
+<li>أخبر المستخدم: &quot;Game saved as [name]! Say &#x27;play pokemon&#x27; to resume.&quot;</li>
+<li>أنهِ عمليات الخادم والنفق في الخلفية</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق شائعة</h2>
+<ul>
+<li>لا تُنزّل أو تُقدّم ملفات ROM أبدًا</li>
+<li>لا تُرسل أكثر من 4-5 إجراءات دون التحقق بالرؤية</li>
+<li>تجنّب دائمًا بالتحرك جانبيًا بعد الخروج من المباني قبل التوجه شمالًا</li>
+<li>أضف دائمًا wait_60 مرتين إلى ثلاث مرات بعد الانتقال عبر باب/درج</li>
+<li>اكتشاف الحوار عبر الذاكرة (RAM) غير موثوق — تحقّق بلقطات الشاشة</li>
+<li>احفظ قبل المواجهات الخطرة</li>
+<li>يتغيّر رابط النفق في كل مرة تُعيد تشغيله</li>
+</ul>

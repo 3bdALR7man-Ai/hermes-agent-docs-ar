@@ -1,0 +1,166 @@
+<header><h1>إعداد Discord</h1></header>
+<p>يتكامل Hermes Agent مع Discord على هيئة بوت، ما يتيح لك محادثة مساعد الذكاء الاصطناعي الخاص بك عبر الرسائل المباشرة أو قنوات الخادم. يستقبل البوت رسائلك، ويعالجها عبر الـ pipeline الخاص بـ Hermes Agent (بما في ذلك استخدام الأدوات والذاكرة والاستدلال)، ثم يردّ في الوقت الفعلي. ويدعم النصوص والرسائل الصوتية والمرفقات والـ slash commands.</p>
+<p>قبل البدء في الإعداد، إليك الجزء الذي يهمّ معظم الناس: كيف يتصرف Hermes بعد إضافته إلى خادمك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-behaves">كيف يتصرف Hermes</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة (DMs)</strong></td><td>يردّ Hermes على كل رسالة، دون الحاجة إلى <code>@mention</code>. ولكل محادثة مباشرة جلستها الخاصة.</td></tr><tr><td><strong>قنوات الخادم</strong></td><td>افتراضيًا، لا يردّ Hermes إلا عندما تشير إليه عبر <code>@mention</code>. وإذا نشرت في قناة دون الإشارة إليه، يتجاهل Hermes الرسالة.</td></tr><tr><td><strong>قنوات الرد الحر (free-response)</strong></td><td>يمكنك إعفاء قنوات محددة من شرط الإشارة عبر <code>DISCORD_FREE_RESPONSE_CHANNELS</code>، أو تعطيل الإشارات على مستوى جميع القنوات عبر <code>DISCORD_REQUIRE_MENTION=false</code>. يُردّ على الرسائل في هذه القنوات مباشرةً في القناة — إذ يُتجاوز الإنشاء التلقائي لسلاسل المحادثة (auto-threading) لتبقى القناة مساحة دردشة خفيفة.</td></tr><tr><td><strong>سلاسل المحادثة (Threads)</strong></td><td>يردّ Hermes في سلسلة المحادثة نفسها. وتظل قواعد الإشارة سارية ما لم تُضبط تلك السلسلة أو قناتها الأم كقناة رد حر. وتبقى سلاسل المحادثة معزولة عن القناة الأم فيما يخص سجل الجلسة.</td></tr><tr><td><strong>القنوات المشتركة بين عدة مستخدمين</strong></td><td>افتراضيًا، يعزل Hermes سجل الجلسة لكل مستخدم داخل القناة حرصًا على الأمان والوضوح. فالشخصان اللذان يتحدثان في القناة نفسها لا يتشاركان سجل محادثة واحدًا ما لم تعطّل ذلك صراحةً.</td></tr><tr><td><strong>الرسائل التي تشير إلى مستخدمين آخرين</strong></td><td>عندما تكون قيمة <code>DISCORD_IGNORE_NO_MENTION</code> هي <code>true</code> (الافتراضية)، يلتزم Hermes الصمت إذا كانت الرسالة تشير (@mention) إلى مستخدمين آخرين <strong>دون</strong> الإشارة إلى البوت. يمنع ذلك البوت من التدخل في محادثات موجّهة إلى أشخاص آخرين. اضبطه على <code>false</code> إذا أردت أن يردّ البوت على جميع الرسائل بغض النظر عمّن تُشار إليه. ينطبق هذا على قنوات الخادم فقط، لا على الرسائل المباشرة.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا أردت قناة مساعدة عادية يمكن للناس فيها التحدث مع Hermes دون الإشارة إليه في كل مرة، فأضف تلك القناة إلى <code>DISCORD_FREE_RESPONSE_CHANNELS</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord-gateway-model">نموذج Gateway في Discord</h3>
+<p>Hermes على Discord ليس webhook يردّ دون حالة (stateless). بل يعمل عبر Messaging Gateway الكامل، ما يعني أن كل رسالة واردة تمر بالمراحل التالية:</p>
+<ol>
+<li>التفويض (<code>DISCORD_ALLOWED_USERS</code>)</li>
+<li>فحوص الإشارة / الرد الحر</li>
+<li>البحث عن الجلسة</li>
+<li>تحميل سجل الجلسة</li>
+<li>التنفيذ المعتاد لوكيل Hermes، بما في ذلك الأدوات والذاكرة والـ slash commands</li>
+<li>تسليم الرد إلى Discord</li>
+</ol>
+<p>لهذا أهميته، لأن السلوك في خادم مزدحم يعتمد على توجيه Discord وعلى سياسة الجلسات في Hermes معًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-model-in-discord">نموذج الجلسات في Discord</h3>
+<p>افتراضيًا:</p>
+<ul>
+<li>تحصل كل محادثة مباشرة على جلستها الخاصة</li>
+<li>تحصل كل سلسلة محادثة في الخادم على نطاق أسماء (namespace) خاص بجلساتها</li>
+<li>يحصل كل مستخدم في قناة مشتركة على جلسته الخاصة داخل تلك القناة</li>
+</ul>
+<p>لذا إذا تحدثت Alice و Bob كلاهما مع Hermes في <code>#research</code>، يعاملهما Hermes افتراضيًا كمحادثتين منفصلتين رغم أنهما يستخدمان قناة Discord المرئية نفسها.</p>
+<p>يُتحكَّم في ذلك عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>لا تضبطه على <code>false</code> إلا إذا أردت صراحةً محادثة واحدة مشتركة للغرفة بأكملها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>قد تكون الجلسات المشتركة مفيدة في غرفة تعاونية، لكنها تعني أيضًا أن:</p>
+<ul>
+<li>المستخدمين يتشاركون نمو السياق وتكاليف الـ tokens</li>
+<li>مهمة طويلة كثيفة الأدوات لشخص واحد قد تُضخّم سياق الجميع</li>
+<li>تشغيلًا جاريًا لشخص ما قد يقاطع رسالة متابعة لشخص آخر في الغرفة نفسها</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interrupts-and-concurrency">المقاطعات والتزامن</h3>
+<p>يتتبّع Hermes الوكلاء قيد التشغيل حسب مفتاح الجلسة.</p>
+<p>مع الإعداد الافتراضي <code>group_sessions_per_user: true</code>:</p>
+<ul>
+<li>مقاطعة Alice لطلبها الجاري لا تؤثر إلا في جلسة Alice في تلك القناة</li>
+<li>يستطيع Bob مواصلة الحديث في القناة نفسها دون أن يرث سجل Alice أو يقاطع تشغيلها</li>
+</ul>
+<p>مع <code>group_sessions_per_user: false</code>:</p>
+<ul>
+<li>تتشارك الغرفة بأكملها خانة واحدة لوكيل قيد التشغيل لتلك القناة/سلسلة المحادثة</li>
+<li>قد تقاطع رسائل المتابعة من أشخاص مختلفين بعضها بعضًا أو تنتظر في الطابور خلف بعضها</li>
+</ul>
+<p>يرشدك هذا الدليل خلال عملية الإعداد كاملة — من إنشاء البوت في Developer Portal الخاص بـ Discord إلى إرسال رسالتك الأولى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-websocket-health">سلامة اتصال Gateway WebSocket</h3>
+<p>إن Discord REST و Gateway WebSocket وسيلتا نقل منفصلتان. فالاستجابة الناجحة من REST (بما في ذلك إعادة <code>fetch_user()</code> لرمز HTTP 200) لا تثبت أن البوت ما زال قادرًا على استقبال أحداث Gateway. لذلك يجمع Hermes بين حالة الجاهزية (ready)، وحالة إغلاق العميل/المقبس (socket)، وما إذا كان المقبس مفتوحًا، وعمر آخر إقرار (ACK) لنبضة القلب (heartbeat)، وقيمة محدودة لزمن استجابة نبضة القلب.</p>
+<p>بعد عدد العينات غير السليمة المتتالية المضبوط، يُصدر المحوّل (adapter) حدثًا فادحًا واحدًا قابلًا لإعادة المحاولة. عندها يُنشئ مراقب إعادة اتصال الـ gateway الموجود محوّلًا جديدًا؛ ولا يبدأ محوّل Discord حلقة إعادة اتصال ثانية غير محدودة.</p>
+<p>اضبط الحدود غير السرية في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يبقى الاسمان القديمان <code>liveness_interval_seconds</code> و <code>liveness_failure_threshold</code> مجرد أسماء بديلة للتوافق فقط؛ ولم يعودا يعنيان الفحص عبر REST.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-discord-application">الخطوة 1: إنشاء تطبيق Discord</h2>
+<ol>
+<li>انتقل إلى <a href="https://discord.com/developers/applications" data-ext>Discord Developer Portal</a> وسجّل الدخول بحساب Discord الخاص بك.</li>
+<li>انقر على <strong>New Application</strong> في الزاوية العلوية اليمنى.</li>
+<li>أدخل اسمًا لتطبيقك (مثل &quot;Hermes Agent&quot;) ووافق على شروط خدمة المطوّرين (Developer Terms of Service).</li>
+<li>انقر على <strong>Create</strong>.</li>
+</ol>
+<p>ستنتقل إلى صفحة <strong>General Information</strong>. دوّن <strong>Application ID</strong> — إذ ستحتاج إليه لاحقًا لإنشاء رابط الدعوة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-the-bot">الخطوة 2: إنشاء البوت</h2>
+<ol>
+<li>في الشريط الجانبي الأيسر، انقر على <strong>Bot</strong>.</li>
+<li>يُنشئ Discord تلقائيًا مستخدم بوت لتطبيقك. وسترى اسم مستخدم البوت، ويمكنك تخصيصه.</li>
+<li>ضمن <strong>Authorization Flow</strong>:
+<ul>
+<li>اضبط <strong>Public Bot</strong> على <strong>ON</strong> — وهذا مطلوب لاستخدام رابط الدعوة الذي يوفّره Discord (موصى به). يتيح ذلك لتبويب Installation إنشاء رابط تفويض افتراضي.</li>
+<li>اترك <strong>Require OAuth2 Code Grant</strong> على <strong>OFF</strong>.</li>
+</ul>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك تعيين صورة رمزية (avatar) ولافتة (banner) مخصّصتين للبوت من هذه الصفحة، وهما ما سيراه المستخدمون في Discord.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>بديل البوت الخاص</div><div class="admonitionContent_BuS1"><p>إذا فضّلت إبقاء البوت خاصًا (Public Bot = OFF)، <strong>فيجب</strong> عليك استخدام طريقة <strong>Manual URL</strong> في الخطوة 5 بدلًا من تبويب Installation، لأن الرابط الذي يوفّره Discord يتطلب تفعيل Public Bot.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-enable-privileged-gateway-intents">الخطوة 3: تفعيل Privileged Gateway Intents</h2>
+<p>هذه هي الخطوة الأهم في عملية الإعداد بأكملها. فمن دون تفعيل الـ intents الصحيحة، سيتصل البوت بـ Discord لكنه <strong>لن يتمكن من قراءة محتوى الرسائل</strong>.</p>
+<p>في صفحة <strong>Bot</strong>، مرّر للأسفل إلى <strong>Privileged Gateway Intents</strong>. سترى ثلاثة مفاتيح تبديل:</p>
+<table><thead><tr><th>الـ Intent</th><th>الغرض</th><th>مطلوب؟</th></tr></thead><tbody><tr><td><strong>Presence Intent</strong></td><td>معرفة حالة المستخدم (متصل/غير متصل)</td><td>اختياري</td></tr><tr><td><strong>Server Members Intent</strong></td><td>الوصول إلى قائمة الأعضاء وتحديد أسماء المستخدمين</td><td><strong>مطلوب</strong></td></tr><tr><td><strong>Message Content Intent</strong></td><td>قراءة المحتوى النصي للرسائل</td><td><strong>مطلوب</strong></td></tr></tbody></table>
+<p><strong>فعّل كلًّا من Server Members Intent و Message Content Intent</strong> بضبطهما على <strong>ON</strong>.</p>
+<ul>
+<li>من دون <strong>Message Content Intent</strong>، يستقبل البوت أحداث الرسائل لكن نص الرسالة يكون فارغًا — أي أن البوت لا يرى حرفيًا ما كتبته.</li>
+<li>من دون <strong>Server Members Intent</strong>، لا يستطيع البوت تحديد أسماء المستخدمين لقائمة المستخدمين المسموح لهم، وقد يفشل في التعرّف على من يراسله.</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="36"></x-keep></span>هذا هو السبب الأول لعدم عمل بوتات Discord</div><div class="admonitionContent_BuS1"><p>إذا كان البوت متصلًا لكنه لا يردّ على الرسائل أبدًا، فمن شبه المؤكد أن <strong>Message Content Intent</strong> معطّل. ارجع إلى <a href="https://discord.com/developers/applications" data-ext>Developer Portal</a>، واختر تطبيقك → Bot → Privileged Gateway Intents، وتأكد من ضبط <strong>Message Content Intent</strong> على ON. ثم انقر على <strong>Save Changes</strong>.</p></div></div>
+<p><strong>بخصوص عدد الخوادم:</strong></p>
+<ul>
+<li>إذا كان البوت في <strong>أقل من 100 خادم</strong>، يمكنك ببساطة تفعيل الـ intents وتعطيلها بحرية.</li>
+<li>إذا كان البوت في <strong>100 خادم أو أكثر</strong>، يشترط Discord تقديم طلب تحقق لاستخدام الـ privileged intents. وفي الاستخدام الشخصي، لا داعي للقلق بشأن ذلك.</li>
+</ul>
+<p>انقر على <strong>Save Changes</strong> في أسفل الصفحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-get-the-bot-token">الخطوة 4: الحصول على token البوت</h2>
+<p>token البوت هو بيانات الاعتماد التي يستخدمها Hermes Agent لتسجيل الدخول بصفته البوت الخاص بك. وأنت ما زلت في صفحة <strong>Bot</strong>:</p>
+<ol>
+<li>ضمن قسم <strong>Token</strong>، انقر على <strong>Reset Token</strong>.</li>
+<li>إذا كانت المصادقة الثنائية مفعّلة على حساب Discord الخاص بك، فأدخل رمز 2FA.</li>
+<li>سيعرض Discord الـ token الجديد. <strong>انسخه فورًا.</strong></li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="37"></x-keep></span>يُعرض الـ Token مرة واحدة فقط</div><div class="admonitionContent_BuS1"><p>لا يُعرض الـ token إلا مرة واحدة. وإذا فقدته، فستحتاج إلى إعادة تعيينه وإنشاء token جديد. لا تشارك الـ token علنًا أبدًا ولا تضعه في commit على Git — فأي شخص يملك هذا الـ token يتحكم في البوت تحكمًا كاملًا.</p></div></div>
+<p>خزّن الـ token في مكان آمن (مدير كلمات مرور مثلًا). ستحتاج إليه في الخطوة 8.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-generate-the-invite-url">الخطوة 5: إنشاء رابط الدعوة</h2>
+<p>تحتاج إلى رابط OAuth2 URL لدعوة البوت إلى خادمك. وهناك طريقتان لذلك:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-using-the-installation-tab-recommended">الخيار A: استخدام تبويب Installation (موصى به)</h3>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="38"></x-keep></span>يتطلب Public Bot</div><div class="admonitionContent_BuS1"><p>تتطلب هذه الطريقة ضبط <strong>Public Bot</strong> على <strong>ON</strong> في الخطوة 2. وإذا ضبطت Public Bot على OFF، فاستخدم طريقة Manual URL أدناه بدلًا منها.</p></div></div>
+<ol>
+<li>في الشريط الجانبي الأيسر، انقر على <strong>Installation</strong>.</li>
+<li>ضمن <strong>Installation Contexts</strong>، فعّل <strong>Guild Install</strong>.</li>
+<li>في <strong>Install Link</strong>، اختر <strong>Discord Provided Link</strong>.</li>
+<li>ضمن <strong>Default Install Settings</strong> الخاصة بـ Guild Install:
+<ul>
+<li><strong>Scopes</strong>: اختر <code>bot</code> و <code>applications.commands</code></li>
+<li><strong>Permissions</strong>: اختر الصلاحيات المذكورة أدناه.</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-url">الخيار B: الرابط اليدوي</h3>
+<p>يمكنك إنشاء رابط الدعوة مباشرةً باستخدام هذه الصيغة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>استبدل <code>YOUR_APP_ID</code> بقيمة Application ID من الخطوة 1.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-permissions">الصلاحيات المطلوبة</h3>
+<p>هذه هي الحد الأدنى من الصلاحيات التي يحتاجها البوت:</p>
+<ul>
+<li><strong>View Channels</strong> — رؤية القنوات التي يملك صلاحية الوصول إليها</li>
+<li><strong>Send Messages</strong> — الرد على رسائلك</li>
+<li><strong>Embed Links</strong> — تنسيق الردود الغنية</li>
+<li><strong>Attach Files</strong> — إرسال الصور والصوت ومخرجات الملفات</li>
+<li><strong>Read Message History</strong> — الحفاظ على سياق المحادثة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-additional-permissions">صلاحيات إضافية موصى بها</h3>
+<ul>
+<li><strong>Send Messages in Threads</strong> — الرد في سلاسل المحادثة</li>
+<li><strong>Add Reactions</strong> — التفاعل مع الرسائل للإشعار بالاستلام</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-integers">الأعداد الصحيحة للصلاحيات</h3>
+<table><thead><tr><th>المستوى</th><th>العدد الصحيح للصلاحيات</th><th>ما يتضمنه</th></tr></thead><tbody><tr><td>الحد الأدنى</td><td><code>117760</code></td><td>View Channels, Send Messages, Read Message History, Attach Files</td></tr><tr><td>موصى به</td><td><code>274878286912</code></td><td>كل ما سبق إضافةً إلى Embed Links و Send Messages in Threads و Add Reactions</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-invite-to-your-server">الخطوة 6: دعوة البوت إلى خادمك</h2>
+<ol>
+<li>افتح رابط الدعوة في متصفحك (من تبويب Installation أو الرابط اليدوي الذي أنشأته).</li>
+<li>في القائمة المنسدلة <strong>Add to Server</strong>، اختر خادمك.</li>
+<li>انقر على <strong>Continue</strong>، ثم <strong>Authorize</strong>.</li>
+<li>أكمل اختبار CAPTCHA إذا طُلب منك ذلك.</li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="39"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>تحتاج إلى صلاحية <strong>Manage Server</strong> على خادم Discord لدعوة بوت. وإذا لم يظهر خادمك في القائمة المنسدلة، فاطلب من أحد مسؤولي الخادم استخدام رابط الدعوة بدلًا منك.</p></div></div>
+<p>بعد التفويض، سيظهر البوت في قائمة أعضاء خادمك (وسيبدو غير متصل حتى تشغّل Hermes gateway).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-find-your-discord-user-id">الخطوة 7: العثور على معرّف مستخدم Discord الخاص بك</h2>
+<p>يستخدم Hermes Agent معرّف مستخدم Discord الخاص بك (User ID) للتحكم في من يمكنه التفاعل مع البوت. للعثور عليه:</p>
+<ol>
+<li>افتح Discord (تطبيق سطح المكتب أو تطبيق الويب).</li>
+<li>انتقل إلى <strong>Settings</strong> → <strong>Advanced</strong> → اضبط <strong>Developer Mode</strong> على <strong>ON</strong>.</li>
+<li>أغلق الإعدادات.</li>
+<li>انقر بزر الفأرة الأيمن على اسم المستخدم الخاص بك (في رسالة، أو قائمة الأعضاء، أو ملفك الشخصي) → <strong>Copy User ID</strong>.</li>
+</ol>
+<p>معرّف المستخدم الخاص بك رقم طويل مثل <code>284102345871466496</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="40"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يتيح لك Developer Mode أيضًا نسخ <strong>معرّفات القنوات (Channel IDs)</strong> و<strong>معرّفات الخوادم (Server IDs)</strong> بالطريقة نفسها — انقر بزر الفأرة الأيمن على اسم القناة أو الخادم واختر Copy ID. ستحتاج إلى Channel ID إذا أردت تعيين قناة رئيسية (home channel) يدويًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8-configure-hermes-agent">الخطوة 8: إعداد Hermes Agent</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار A: الإعداد التفاعلي (موصى به)</h3>
+<p>شغّل أمر الإعداد الموجَّه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اختر <strong>Discord</strong> عند المطالبة، ثم الصق token البوت ومعرّف المستخدم عندما يُطلب منك ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار B: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى ملف <code>~/.hermes/.env</code> الخاص بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ثم شغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>من المفترض أن يصبح البوت متصلًا في Discord خلال ثوانٍ قليلة. أرسل له رسالة — إما رسالة مباشرة أو في قناة يستطيع رؤيتها — لاختباره.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="41"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك تشغيل <code>hermes gateway</code> في الخلفية أو كخدمة systemd لتشغيل دائم. راجع توثيق النشر للاطلاع على التفاصيل.</p></div></div>

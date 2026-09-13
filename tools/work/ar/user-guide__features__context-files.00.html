@@ -1,0 +1,97 @@
+<header><h1>ملفات السياق (Context Files)</h1></header>
+<p>يكتشف Hermes Agent تلقائيًا ملفات السياق التي تُشكّل سلوكه ويحمّلها. بعض هذه الملفات محلية على مستوى المشروع وتُكتشف من مجلد العمل. أما <code>SOUL.md</code> فأصبح الآن عامًا على مستوى نسخة Hermes، ولا يُحمَّل إلا من <code>HERMES_HOME</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-context-files">ملفات السياق المدعومة</h2>
+<table><thead><tr><th>الملف</th><th>الغرض</th><th>طريقة الاكتشاف</th></tr></thead><tbody><tr><td><strong>.hermes.md</strong> / <strong>HERMES.md</strong></td><td>تعليمات المشروع (الأولوية القصوى)</td><td>يصعد حتى جذر git</td></tr><tr><td><strong>AGENTS.override.md</strong></td><td>تجاوز شخصي لـ AGENTS.md على مستوى كل مجلد (يُستثنى عادةً عبر gitignore)</td><td>CWD عند بدء التشغيل + المجلدات الفرعية تدريجيًا</td></tr><tr><td><strong>AGENTS.md</strong></td><td>تعليمات المشروع، والاصطلاحات، والبنية المعمارية</td><td>CWD عند بدء التشغيل + المجلدات الفرعية تدريجيًا</td></tr><tr><td><strong>CLAUDE.md</strong></td><td>ملفات سياق Claude Code (تُكتشف أيضًا)</td><td>CWD عند بدء التشغيل + المجلدات الفرعية تدريجيًا</td></tr><tr><td><strong>SOUL.md</strong></td><td>تخصيص عام للشخصية والنبرة لهذه النسخة من Hermes</td><td><code>HERMES_HOME/SOUL.md</code> فقط</td></tr><tr><td><strong>.cursorrules</strong></td><td>اصطلاحات كتابة الكود في Cursor IDE</td><td>CWD فقط</td></tr><tr><td><strong>.cursor/rules/*.mdc</strong></td><td>وحدات قواعد Cursor IDE</td><td>CWD فقط</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>نظام الأولوية</div><div class="admonitionContent_BuS1"><p>لا يُحمَّل إلا نوع <strong>واحد</strong> من سياق المشروع في كل جلسة (يُعتمد أول تطابق): <code>.hermes.md</code> → <code>AGENTS.override.md</code> → <code>AGENTS.md</code> → <code>CLAUDE.md</code> → <code>.cursorrules</code>. أما <strong>SOUL.md</strong> فيُحمَّل دائمًا بشكل مستقل بوصفه هوية الوكيل (الخانة رقم 1).</p><p>إذا وُجد <code>AGENTS.override.md</code> بجوار <code>AGENTS.md</code>، يُحمَّل ملف التجاوز <strong>بدلًا من</strong> الملف المُضاف إلى المستودع — احتفظ بملف <code>AGENTS.override.md</code> شخصي (مستثنى عادةً عبر gitignore) عندما تريد تعليمات مختلفة عن تلك الموجودة في المستودع، دون تعديل ملف <code>AGENTS.md</code> المتتبَّع.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agentsmd">AGENTS.md</h2>
+<p><code>AGENTS.md</code> هو ملف السياق الأساسي للمشروع. يُخبر الوكيل بكيفية هيكلة مشروعك، والاصطلاحات الواجب اتباعها، وأي تعليمات خاصة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-chain-git-root--working-directory">سلسلة المجلدات (جذر git → مجلد العمل)</h3>
+<p>عندما يقع مجلد العمل داخل مستودع git، يحمّل Hermes عند بدء الجلسة <strong>سلسلة مدمجة</strong> من ملفات <code>AGENTS.md</code>: ملف <code>AGENTS.md</code> الموجود في جذر git أولًا، ثم ملف <code>AGENTS.md</code> في كل مجلد وسيط نزولًا حتى مجلد العمل. تظهر الملفات الأعمق لاحقًا في الـ prompt، لذا تكون الأولوية للإرشادات الأكثر تحديدًا. يحصل كل ملف على ترويسة مصدر خاصة به (مثل <code>## ../../AGENTS.md</code>)، وتُحذف النسخ المتطابقة المكررة على طول السلسلة.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>خارج مستودع git، يُفحص مجلد العمل نفسه فقط — ولا يُرجع أبدًا إلى المجلدات الأم، لذا لا يمكن لملف <code>AGENTS.md</code> مزروع في <code>/tmp</code> أو <code>$HOME</code> أن يتسرّب إلى جلسات غير ذات صلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="progressive-subdirectory-discovery">الاكتشاف التدريجي للمجلدات الفرعية</h3>
+<p>عند بدء الجلسة، يحمّل Hermes ملف <code>AGENTS.md</code> من مجلد العمل إلى الـ system prompt. ومع تنقّل الوكيل داخل المجلدات الفرعية أثناء الجلسة (عبر <code>read_file</code> و <code>terminal</code> و <code>search_files</code> وغيرها)، فإنه <strong>يكتشف تدريجيًا</strong> ملفات السياق في تلك المجلدات ويحقنها في المحادثة لحظة أن تصبح ذات صلة.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يتميّز هذا النهج بميزتين مقارنةً بتحميل كل شيء عند بدء التشغيل:</p>
+<ul>
+<li><strong>لا تضخّم في الـ system prompt</strong> — لا تظهر تلميحات المجلدات الفرعية إلا عند الحاجة</li>
+<li><strong>الحفاظ على prompt cache</strong> — يبقى الـ system prompt ثابتًا عبر الأدوار</li>
+</ul>
+<p>يُفحص كل مجلد فرعي مرة واحدة على الأكثر في كل جلسة. كما يصعد الاكتشاف عبر المجلدات الأم، لذا فإن قراءة <code>backend/src/main.py</code> ستكتشف <code>backend/AGENTS.md</code> حتى لو لم يكن في <code>backend/src/</code> ملف سياق خاص به.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>تخضع ملفات سياق المجلدات الفرعية لنفس <a href="#security-prompt-injection-protection">الفحص الأمني</a> الذي تخضع له ملفات السياق عند بدء التشغيل، وتُحظر الملفات الخبيثة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-agentsmd">مثال على AGENTS.md</h3>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="soulmd">SOUL.md</h2>
+<p>يتحكم <code>SOUL.md</code> في شخصية الوكيل ونبرته وأسلوب تواصله. راجع صفحة <a href="/docs/user-guide/features/personality">الشخصية (Personality)</a> للاطلاع على التفاصيل الكاملة.</p>
+<p><strong>الموقع:</strong></p>
+<ul>
+<li><code>~/.hermes/SOUL.md</code></li>
+<li>أو <code>$HERMES_HOME/SOUL.md</code> إذا كنت تشغّل Hermes بمجلد home مخصص</li>
+</ul>
+<p>تفاصيل مهمة:</p>
+<ul>
+<li>ينشئ Hermes ملف <code>SOUL.md</code> افتراضيًا تلقائيًا إن لم يكن موجودًا بعد</li>
+<li>يحمّل Hermes ملف <code>SOUL.md</code> من <code>HERMES_HOME</code> فقط</li>
+<li>لا يبحث Hermes عن <code>SOUL.md</code> في مجلد العمل</li>
+<li>إذا كان الملف فارغًا، فلا يُضاف أي شيء من <code>SOUL.md</code> إلى الـ prompt</li>
+<li>إذا كان الملف يحتوي على محتوى، يُحقن هذا المحتوى حرفيًا بعد الفحص والاقتطاع</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cursorrules">.cursorrules</h2>
+<p>Hermes متوافق مع ملف <code>.cursorrules</code> ووحدات القواعد <code>.cursor/rules/*.mdc</code> الخاصة بـ Cursor IDE. إذا وُجدت هذه الملفات في جذر مشروعك ولم يُعثر على ملف سياق ذي أولوية أعلى (<code>.hermes.md</code> أو <code>AGENTS.md</code> أو <code>CLAUDE.md</code>)، فإنها تُحمَّل بوصفها سياق المشروع.</p>
+<p>هذا يعني أن اصطلاحات Cursor الموجودة لديك تُطبَّق تلقائيًا عند استخدام Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-context-files-are-loaded">كيفية تحميل ملفات السياق</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="at-startup-system-prompt">عند بدء التشغيل (system prompt)</h3>
+<p>تُحمَّل ملفات السياق بواسطة <code>build_context_files_prompt()</code> في <code>agent/prompt_builder.py</code>:</p>
+<ol>
+<li><strong>فحص مجلد العمل</strong> — يبحث عن <code>.hermes.md</code> → <code>AGENTS.md</code> → <code>CLAUDE.md</code> → <code>.cursorrules</code> (يُعتمد أول تطابق)</li>
+<li><strong>قراءة المحتوى</strong> — يُقرأ كل ملف كنص UTF-8</li>
+<li><strong>الفحص الأمني</strong> — يُفحص المحتوى بحثًا عن أنماط prompt injection</li>
+<li><strong>الاقتطاع</strong> — تُقتطع الملفات التي تتجاوز حد الأحرف من المنتصف مع الإبقاء على البداية والنهاية (70% للبداية، و20% للنهاية، مع علامة في المنتصف). يكون الحد هو قيمة <code>context_file_max_chars</code> الصريحة من config.yaml عند ضبطها؛ وإلا فإنه يتغير ديناميكيًا بحسب context window الخاصة بالنموذج (بحد أدنى 20,000 حرف، وحد أقصى 500,000)</li>
+<li><strong>التجميع</strong> — تُدمج جميع الأقسام تحت ترويسة <code># Project Context</code></li>
+<li><strong>الحقن</strong> — يُضاف المحتوى المجمّع إلى الـ system prompt</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="during-the-session-progressive-discovery">أثناء الجلسة (الاكتشاف التدريجي)</h3>
+<p>يراقب <code>SubdirectoryHintTracker</code> في <code>agent/subdirectory_hints.py</code> وسائط استدعاءات الأدوات بحثًا عن مسارات الملفات:</p>
+<ol>
+<li><strong>استخراج المسارات</strong> — بعد كل استدعاء أداة، تُستخرج مسارات الملفات من الوسائط (<code>path</code> و <code>workdir</code> وأوامر الـ shell)</li>
+<li><strong>الصعود عبر المجلدات الأم</strong> — يُفحص المجلد وما يصل إلى 5 مجلدات أم (مع التوقف عند المجلدات التي سبقت زيارتها)</li>
+<li><strong>تحميل التلميحات</strong> — إذا عُثر على <code>AGENTS.md</code> أو <code>CLAUDE.md</code> أو <code>.cursorrules</code>، فإنه يُحمَّل (أول تطابق في كل مجلد)</li>
+<li><strong>الفحص الأمني</strong> — نفس فحص prompt injection المطبّق على ملفات بدء التشغيل</li>
+<li><strong>الاقتطاع</strong> — بحد أقصى 8,000 حرف لكل ملف</li>
+<li><strong>الحقن</strong> — يُلحق بنتيجة الأداة، فيراه النموذج ضمن السياق بصورة طبيعية</li>
+</ol>
+<p>يبدو قسم الـ prompt النهائي تقريبًا كما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لاحظ أن محتوى SOUL يُدرج مباشرةً، دون أي نص تغليف إضافي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-prompt-injection-protection">الأمان: الحماية من Prompt Injection</h2>
+<p>تُفحص جميع ملفات السياق بحثًا عن أي prompt injection محتمل قبل تضمينها. يبحث الفاحص عن:</p>
+<ul>
+<li><strong>محاولات تجاوز التعليمات</strong>: &quot;ignore previous instructions&quot;، &quot;disregard your rules&quot;</li>
+<li><strong>أنماط الخداع</strong>: &quot;do not tell the user&quot;</li>
+<li><strong>تجاوز الـ system prompt</strong>: &quot;system prompt override&quot;</li>
+<li><strong>تعليقات HTML مخفية</strong>: <code>&lt;!-- ignore instructions --&gt;</code></li>
+<li><strong>عناصر div مخفية</strong>: <code>&lt;div style=&quot;display:none&quot;&gt;</code></li>
+<li><strong>تسريب بيانات الاعتماد</strong>: <code>curl ... $API_KEY</code></li>
+<li><strong>الوصول إلى ملفات الأسرار</strong>: <code>cat .env</code>، <code>cat credentials</code></li>
+<li><strong>الأحرف غير المرئية</strong>: المسافات صفرية العرض (zero-width spaces)، وأحرف تجاوز الاتجاه الثنائي (bidirectional overrides)، وأحرف ربط الكلمات (word joiners)</li>
+</ul>
+<p>إذا اكتُشف أي نمط تهديد، يُحظر الملف:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>يحمي هذا الفاحص من أنماط الحقن الشائعة، لكنه ليس بديلًا عن مراجعة ملفات السياق في المستودعات المشتركة. تحقّق دائمًا من محتوى AGENTS.md في المشاريع التي لم تكتبها بنفسك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-limits">حدود الحجم</h2>
+<table><thead><tr><th>الحد</th><th>القيمة</th></tr></thead><tbody><tr><td>الحد الأقصى للأحرف لكل ملف</td><td><code>context_file_max_chars</code> عند ضبطه؛ وإلا فهو ديناميكي (يتغير بحسب context window الخاصة بالنموذج، بحد أدنى 20,000 وحد أقصى 500,000)</td></tr><tr><td>مهلة القراءة لكل ملف</td><td><code>context_file_read_timeout</code> (الافتراضي 5 ثوانٍ)؛ يُتخطى الملف الذي تستغرق قراءته وقتًا أطول — مثلًا على iCloud Drive أو OneDrive أو NFS — مع إصدار تحذير</td></tr><tr><td>نسبة البداية عند الاقتطاع</td><td>70%</td></tr><tr><td>نسبة النهاية عند الاقتطاع</td><td>20%</td></tr><tr><td>علامة الاقتطاع</td><td>10% (تعرض أعداد الأحرف وتقترح استخدام أدوات الملفات)</td></tr></tbody></table>
+<p>عندما يتجاوز ملف الحد المضبوط، تظهر رسالة الاقتطاع كما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tips-for-effective-context-files">نصائح لملفات سياق فعّالة</h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>أفضل الممارسات لملف AGENTS.md</div><div class="admonitionContent_BuS1"><ol>
+<li><strong>اجعله موجزًا</strong> — ابقَ دون قيمة <code>context_file_max_chars</code> المضبوطة لديك؛ فالوكيل يقرأه في كل دور</li>
+<li><strong>نظّمه بالعناوين</strong> — استخدم أقسام <code>##</code> للبنية المعمارية والاصطلاحات والملاحظات المهمة</li>
+<li><strong>أدرج أمثلة ملموسة</strong> — اعرض أنماط الكود المفضّلة، وأشكال API، واصطلاحات التسمية</li>
+<li><strong>اذكر ما يجب تجنّبه</strong> — &quot;لا تعدّل ملفات الترحيل (migration) مباشرةً أبدًا&quot;</li>
+<li><strong>اذكر المسارات والمنافذ الرئيسية</strong> — يستخدمها الوكيل في أوامر الطرفية</li>
+<li><strong>حدّثه مع تطوّر المشروع</strong> — السياق القديم أسوأ من عدم وجود سياق</li>
+</ol></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-subdirectory-context">سياق لكل مجلد فرعي</h3>
+<p>في المستودعات الأحادية (monorepos)، ضع التعليمات الخاصة بكل مجلد فرعي في ملفات AGENTS.md متداخلة:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>

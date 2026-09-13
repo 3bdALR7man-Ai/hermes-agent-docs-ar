@@ -1,0 +1,191 @@
+<header><h1>إعداد WhatsApp Business Cloud API</h1></header>
+<p>يستطيع Hermes الاتصال بـ WhatsApp عبر WhatsApp Business Cloud API <strong>الرسمي</strong> من Meta. وهذا هو المسار المناسب لبيئات الإنتاج: لا عملية فرعية لجسر Node.js، ولا رموز QR، ولا خطر لحظر الحساب.</p>
+<p>في المقابل:</p>
+<ul>
+<li>تحتاج إلى <strong>حساب Meta Business</strong> (وليس حساب WhatsApp شخصيًا).</li>
+<li>يعمل البوت على رقم هاتف تجاري مخصص، وليس على رقمك الشخصي.</li>
+<li>يحتاج Hermes gateway إلى <strong>URL عام يعمل بـ HTTPS</strong> كي تتمكن Meta من تسليم الرسائل الواردة عبر webhook.</li>
+<li>الردود المُرسلة بعد مرور أكثر من 24 ساعة على آخر رسالة من المستخدم تتطلب <strong>قالبًا (template)</strong> معتمدًا مسبقًا (وهذه قاعدة &quot;نافذة خدمة العملاء&quot; الخاصة بـ Meta، وليست قيدًا من Hermes).</li>
+</ul>
+<p>إذا لم تناسب هذه القيود حالة استخدامك، فإن <a href="/docs/user-guide/messaging/whatsapp">التكامل عبر جسر Baileys</a> هو البديل — يعمل مع الحساب الشخصي ولا يحتاج إلى URL عام، لكنه غير رسمي ومعرّض للحظر.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>أيهما أستخدم؟</div><div class="admonitionContent_BuS1"><ul>
+<li><strong>Cloud API (هذا الدليل)</strong> — إذا كنت تشغّل بوتًا تجاريًا حقيقيًا، وتريد الاستقرار، ولا تمانع إجراءات التحقق لدى Meta واعتماد القوالب</li>
+<li><strong><a href="/docs/user-guide/messaging/whatsapp">جسر Baileys</a></strong> — للمشاريع الشخصية، والعروض التجريبية السريعة، وإعدادات المستخدم الواحد، إذا كنت مستعدًا للمخاطرة بحساب رقم هاتف البوت</li>
+</ul></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يرشدك المعالج خلال كل بيانات الاعتماد، ويتحقق من صحة كل منها فور لصقها (فيكتشف الفخ الأول في الإعداد — لصق رقم هاتف في حقل Phone Number ID)، ويطبع تعليمات متابعة دقيقة للأجزاء التي يجب إنجازها خارج المعالج (تشغيل cloudflared، وضبط webhook في لوحة تحكم Meta).</p>
+<p>بقية هذه الصفحة مرجع للإعداد اليدوي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ol>
+<li><strong>حساب Meta Business</strong>. أنشئ واحدًا من <a href="https://business.facebook.com/" data-ext>business.facebook.com</a>.</li>
+<li><strong>تطبيق Meta مفعّل فيه WhatsApp</strong>. راجع &quot;إنشاء تطبيق Meta&quot; أدناه.</li>
+<li><strong>وسيلة لكشف منفذ محلي على الإنترنت العام</strong> عبر HTTPS. يُوصى بـ Cloudflare Tunnel (<code>cloudflared</code>) — فهو مجاني، ولا يتطلب إعادة توجيه المنافذ (port forwarding)، ولا يحتاج إلى نطاق (domain). كما تصلح أيضًا خيارات ngrok، أو نطاقك الخاص مع reverse proxy و TLS، أو VPS يرتبط فيه الـ gateway مباشرةً بعنوان IP عام.</li>
+<li><strong>اختياري لكنه موصى به</strong>: وجود ffmpeg على <code>PATH</code> كي تُعرض الرسائل الصوتية الصادرة كفقاعات ملاحظات صوتية أصلية في WhatsApp (موجة صوتية خضراء) بدلًا من مرفقات صوتية بصيغة MP3. ويتكيف Hermes بسلاسة في حال عدم وجوده.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-the-meta-app">إنشاء تطبيق Meta</h2>
+<ol>
+<li>انتقل إلى <a href="https://developers.facebook.com/apps" data-ext>developers.facebook.com/apps</a> → <strong>Create App</strong>.</li>
+<li>اختر حالة الاستخدام: <strong>&quot;Connect with customers through WhatsApp&quot;</strong> → <strong>Next</strong>.</li>
+<li>اختر محفظة أعمال (business portfolio) أو أنشئ واحدة. راجع متطلبات النشر. ثم أكّد → <strong>Create app</strong>.</li>
+<li>بعد الإنشاء ستنتقل إلى <strong>Customize use case → Connect on WhatsApp → Quickstart</strong>. انقر على <strong>Start using the API</strong> → وستصبح الآن في صفحة <strong>API Setup</strong>.</li>
+<li>تأكد من ربط حساب WhatsApp Business Account (WABA). إذا أنشأت محفظة جديدة في الخطوة 3، فقد أُنشئ هذا الحساب تلقائيًا. تحقّق من ذلك في صفحة API Setup.</li>
+</ol>
+<p>ستحتاج إلى القيم التالية من لوحة التحكم — ويطلبها المعالج بهذا الترتيب:</p>
+<table><thead><tr><th>القيمة</th><th>موقعها في لوحة التحكم</th><th>شكل الحقل</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>Phone Number ID</strong></td><td>App Dashboard → WhatsApp → API Setup → أسفل القائمة المنسدلة &quot;From&quot;</td><td>رقمي، 15-17 خانة</td><td><strong>ليس</strong> رقم الهاتف نفسه. الخطأ الأكثر شيوعًا في الإعداد هو لصق رقم الهاتف الفعلي هنا.</td></tr><tr><td><strong>Access Token</strong></td><td>App Dashboard → WhatsApp → API Setup → &quot;Generate access token&quot;</td><td>يبدأ بـ <code>EAA</code>، وطوله 100+ حرف</td><td>الـ tokens المؤقتة تدوم 24 ساعة — راجع &quot;الـ token الدائم&quot; أدناه لبيئة الإنتاج.</td></tr><tr><td><strong>App Secret</strong></td><td>App Dashboard → Settings → Basic → انقر على &quot;Show&quot; بجوار App secret</td><td>32 حرفًا بنظام hex وبأحرف صغيرة</td><td>يُستخدم للتحقق من توقيعات webhook الواردة. ومن دونه يُرفض تسليم الرسائل الواردة بالرمز 503.</td></tr><tr><td><strong>App ID</strong> (اختياري)</td><td>App Dashboard → Settings → Basic</td><td>رقمي، 15-16 خانة</td><td>غير مطلوب للمراسلة، لكنه مفيد للتحليلات.</td></tr><tr><td><strong>WABA ID</strong> (اختياري)</td><td>App Dashboard → WhatsApp → API Setup → قرب أعلى الصفحة</td><td>رقمي، 15+ خانة</td><td>غير مطلوب للمراسلة، لكنه مفيد للتحليلات.</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="permanent-token-production">الـ token الدائم (للإنتاج)</h2>
+<p>تنتهي صلاحية access tokens المؤقتة بعد <strong>24 ساعة</strong>، أي أن الـ token الذي تولّده اليوم يتوقف عن العمل غدًا. في عمليات النشر الإنتاجية، استخدم <strong>token دائمًا لمستخدم نظام (System User)</strong>:</p>
+<ol>
+<li>انتقل إلى <a href="https://business.facebook.com/latest/settings" data-ext>business.facebook.com/latest/settings</a> → <strong>System users</strong> (في الشريط الجانبي الأيسر).</li>
+<li><strong>Add</strong> → الاسم (مثل <code>hermes-bot</code>) → الدور: <strong>Admin</strong>.</li>
+<li>اختر المستخدم الجديد → <strong>Assign Assets</strong>:
+<ul>
+<li>اختر تطبيقك → فعّل <strong>Manage app</strong> تحت Full control.</li>
+<li>اختر حساب WhatsApp الخاص بك → فعّل <strong>Manage WhatsApp Business Accounts</strong> تحت Full control.</li>
+<li>انقر على <strong>Assign assets</strong>.</li>
+</ul>
+</li>
+<li><strong>Generate token</strong> مع منح الصلاحيات التالية:
+<ul>
+<li><code>business_management</code></li>
+<li><code>whatsapp_business_messaging</code></li>
+<li><code>whatsapp_business_management</code></li>
+</ul>
+</li>
+<li>اضبط <strong>token expiration: Never</strong>.</li>
+<li>انسخ الـ token → حدّث <code>WHATSAPP_CLOUD_ACCESS_TOKEN</code> في <code>~/.hermes/.env</code> → أعد تشغيل الـ gateway.</li>
+</ol>
+<p>لا تنتهي صلاحية tokens مستخدمي النظام (System User) ما لم تُلغِها صراحةً.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="exposing-hermes-to-the-internet">كشف Hermes على الإنترنت</h2>
+<p>يسلّم Cloud API الرسائل الواردة عبر طلبات HTTPS POST إلى URL الخاص بـ webhook لديك — ما يعني أن Hermes gateway يجب أن يكون قابلًا للوصول من خوادم Meta. وهناك ثلاث طرق شائعة لذلك:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cloudflare-tunnel-recommended">Cloudflare Tunnel (موصى به)</h3>
+<p>مجاني، ولا يتطلب إعادة توجيه المنافذ، ويعمل على Windows / macOS / Linux. ويعمل كعملية منفصلة إلى جانب الـ gateway.</p>
+<p><strong>التثبيت:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>شغّل نفقًا سريعًا (quick tunnel)</strong> (لا حاجة إلى حساب Cloudflare — ويمنحك URL بالشكل <code>https://&lt;random&gt;.trycloudflare.com</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>دوّن الـ URL المطبوع — فهو ما ستعطيه لـ Meta.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>عناوين الأنفاق السريعة تتغير</div><div class="admonitionContent_BuS1"><p>يتغير URL النفق السريع المجاني في كل مرة تعيد فيها تشغيل <code>cloudflared</code>. وللحصول على URL ثابت، سجّل الدخول باستخدام <code>cloudflared tunnel login</code> وأنشئ نفقًا مُسمّى (named tunnel). تحصل حسابات Cloudflare المجانية على عدد غير محدود من الأنفاق المُسمّاة — راجع <a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/" data-ext>توثيق Cloudflare</a> للاطلاع على سير عمل الأنفاق المُسمّاة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ngrok">ngrok</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>تعرض الفئة المجانية URL مختلفًا عند كل إعادة تشغيل، أما الفئة المدفوعة فتمنحك نطاقًا فرعيًا ثابتًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="your-own-domain--reverse-proxy">نطاقك الخاص + reverse proxy</h3>
+<p>إذا كان لديك بالفعل خادم بشهادة TLS (مثل Caddy أو nginx أو غيرهما)، فوجّه مسارًا إلى <code>localhost:8090</code>. هذا هو الخيار الأكثر استقرارًا للإنتاج، لكنه يتطلب بنية تحتية قائمة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-the-webhook-on-metas-side">إعداد webhook من جهة Meta</h2>
+<p>بمجرد تشغيل النفق:</p>
+<ol>
+<li>دوّن الـ URL العام الذي يطبعه النفق — لنفترض أنه <code>https://abc123.trycloudflare.com</code>.</li>
+<li>ولّد <strong>Verify Token</strong> — يتولى المعالج ذلك نيابةً عنك باستخدام <code>secrets.token_urlsafe(32)</code>؛ وإذا كنت تُجري الإعداد يدويًا، فنفّذ:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+احفظه باسم <code>WHATSAPP_CLOUD_VERIFY_TOKEN</code> في <code>~/.hermes/.env</code>.</li>
+<li>شغّل Hermes gateway: <code>hermes gateway</code>.</li>
+<li>في Meta App Dashboard → <strong>WhatsApp → Configuration</strong> (أو <strong>Use cases → Customize → Configuration</strong> حسب إصدار الواجهة) → انقر على <strong>Edit</strong> في قسم Webhook.</li>
+<li>املأ الحقول:
+<ul>
+<li><strong>Callback URL</strong>: <code>https://abc123.trycloudflare.com/whatsapp/webhook</code></li>
+<li><strong>Verify Token</strong>: السلسلة النصية من الخطوة 2 (يجب أن تتطابق تمامًا)</li>
+</ul>
+</li>
+<li>انقر على <strong>Verify and save</strong>. سترسل Meta طلب GET إلى الـ URL الخاص بك، فيعيد الـ gateway قيمة التحدي (challenge)، ثم تعتمد Meta الـ webhook كمُتحقَّق منه.</li>
+<li>ضمن <strong>Webhook fields</strong>، انقر على <strong>Manage</strong> → اشترك في الحقل <strong>messages</strong>. فهذا ما يُبلغ Meta بأن تسلّم الرسائل الواردة فعليًا إلى الـ webhook الخاص بك.</li>
+</ol>
+<p><strong>للتحقق من الحلقة يدويًا</strong> (من طرفية ثالثة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipient-whitelist-meta-side">قائمة المستلمين المسموح بهم (من جهة Meta)</h2>
+<p>في وضع التطوير (قبل أن يمر تطبيقك بمراجعة App Review)، تقيّد Meta الأرقام التي يمكن لبوتك مراسلتها:</p>
+<ol>
+<li>App Dashboard → WhatsApp → API Setup → القائمة المنسدلة <strong>To</strong>.</li>
+<li>انقر على <strong>Manage phone number list</strong>.</li>
+<li>أضف أرقام الهواتف التي تريد مراسلتها (رقمك، وأرقام فريقك، والمختبرين المتعاونين). سترسل Meta إلى كل رقم رمز تحقق من 6 أرقام عبر SMS أو WhatsApp.</li>
+</ol>
+<p>يُسمح بما يصل إلى 5 أرقام في وضع التطوير، ويؤدي اجتياز App Review إلى إزالة هذا الحد.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="allowlist-hermes-side">قائمة السماح (من جهة Hermes)</h2>
+<p>إلى جانب قائمة المستلمين المسموح بهم لدى Meta، يمتلك Hermes قائمة سماح خاصة به لكل منصة تتحكم في <strong>الرسائل الواردة التي يعالجها الوكيل</strong>. أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يضبط المعالج ذلك في الخطوة 6. ومن دون قائمة سماح، <strong>تُرفض كل رسالة واردة</strong> — وهذا مقصود، حتى لا يمكن استدعاء البوت من أرقام عشوائية إذا خُففت قائمة المستلمين المسموح بهم يومًا ما.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="polishing-your-bots-whatsapp-profile">تحسين ملف تعريف البوت في WhatsApp</h2>
+<p>يعرض WhatsApp <strong>اسمًا وصورة ملف شخصي</strong> لبوتك في رأس المحادثة وفي قائمة جهات الاتصال. ولا يمكن ضبط هذه العناصر عبر Cloud API — إذ تُدار من Business Manager لدى Meta.</p>
+<p>بعد أن يعمل بوتك، توجّه إلى <strong><a href="https://business.facebook.com/wa/manage/phone-numbers/" data-ext>business.facebook.com/wa/manage/phone-numbers</a></strong>، وانقر على رقم هاتفك، وستجد:</p>
+<table><thead><tr><th>العنصر</th><th>الموقع</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>اسم العرض (Display name)</strong></td><td>أعلى صفحة رقم الهاتف</td><td>تمر التغييرات بعملية مراجعة الأسماء لدى Meta (~24–48 ساعة).</td></tr><tr><td><strong>صورة الملف الشخصي</strong></td><td>أعلى صفحة رقم الهاتف</td><td>صورة مربعة، ويُوصى بأبعاد ≥640×640px. تُحدَّث فورًا.</td></tr><tr><td><strong>About / الوصف / الموقع الإلكتروني / البريد الإلكتروني / ساعات العمل / الفئة</strong></td><td>الزر &quot;Edit profile&quot;</td><td>تظهر هذه في لوحة المعلومات عندما يضغط المستخدم على اسم البوت. وهي تجميلية فقط.</td></tr><tr><td><strong>شارة التحقق</strong> (علامة الصح الخضراء)</td><td>Business Manager → Security Center → Start Verification</td><td>تتطلب عملية التحقق من النشاط التجاري المنفصلة لدى Meta.</td></tr></tbody></table>
+<p>يطبع المعالج <code>hermes whatsapp-cloud</code> هذه الروابط في نهاية الإعداد. ولا شيء من ذلك مطلوب لعمل البوت — إنه مجرد تحسين لطريقة ظهور بوتك للمستخدمين.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<p>توجد جميع الإعدادات في <code>~/.hermes/.env</code>. والقيم المطلوبة مكتوبة بخط <strong>عريض</strong>.</p>
+<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><strong><code>WHATSAPP_CLOUD_PHONE_NUMBER_ID</code></strong></td><td>—</td><td>المعرّف المكوّن من 15-17 خانة من API Setup. <strong>ليس</strong> رقم الهاتف.</td></tr><tr><td><strong><code>WHATSAPP_CLOUD_ACCESS_TOKEN</code></strong></td><td>—</td><td>access token من Meta (يبدأ بـ <code>EAA</code>). مؤقت لمدة 24 ساعة أو دائم لمستخدم نظام (System User).</td></tr><tr><td><strong><code>WHATSAPP_CLOUD_APP_SECRET</code></strong></td><td>—</td><td>32 حرفًا بنظام hex من Settings → Basic. ومن دونه تُرفض الرسائل الواردة بالرمز 503.</td></tr><tr><td><strong><code>WHATSAPP_CLOUD_VERIFY_TOKEN</code></strong></td><td>—</td><td>سرّ مشترك لمصافحة GET. يولّده المعالج تلقائيًا.</td></tr><tr><td><strong><code>WHATSAPP_CLOUD_ALLOWED_USERS</code></strong></td><td>—</td><td>قيم wa_id مفصولة بفواصل للمسموح لهم بمراسلة البوت.</td></tr><tr><td><code>WHATSAPP_CLOUD_ALLOW_ALL_USERS</code></td><td><code>false</code></td><td>اضبطه على <code>true</code> لتجاوز قائمة السماح.</td></tr><tr><td><code>WHATSAPP_CLOUD_APP_ID</code></td><td>—</td><td>اختياري، لتكامل التحليلات مستقبلًا.</td></tr><tr><td><code>WHATSAPP_CLOUD_WABA_ID</code></td><td>—</td><td>اختياري، لتكامل التحليلات مستقبلًا.</td></tr><tr><td><code>WHATSAPP_CLOUD_WEBHOOK_HOST</code></td><td>غير مضبوط (dual-stack: جميع الواجهات، IPv4+IPv6)</td><td>واجهة الشبكة التي يرتبط بها خادم webhook.</td></tr><tr><td><code>WHATSAPP_CLOUD_WEBHOOK_PORT</code></td><td><code>8090</code></td><td>المنفذ الذي يرتبط به خادم webhook. يجب أن يطابق المنفذ الذي يعيد النفق توجيه الطلبات إليه.</td></tr><tr><td><code>WHATSAPP_CLOUD_WEBHOOK_PATH</code></td><td><code>/whatsapp/webhook</code></td><td>مسار URL الذي ترسل إليه Meta طلبات POST.</td></tr><tr><td><code>WHATSAPP_CLOUD_API_VERSION</code></td><td><code>v20.0</code></td><td>إصدار Meta Graph API. لا تغيّره إلا إذا أوصى توثيق Meta بإصدار أحدث.</td></tr><tr><td><code>WHATSAPP_CLOUD_HOME_CHANNEL</code></td><td>—</td><td>قيمة wa_id التي تُستخدم كقناة رئيسية للبوت (لمهام cron وغيرها).</td></tr></tbody></table>
+<p>يمكنك تفعيل <strong>كلا</strong> المحوّلين، Baileys (<code>whatsapp</code>) و Cloud (<code>whatsapp_cloud</code>)، في آن واحد، مع استهداف أرقام هواتف مختلفة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound">الرسائل الواردة</h3>
+<ul>
+<li><strong>الرسائل النصية</strong> — تُمرَّر مباشرةً إلى الوكيل.</li>
+<li><strong>الصور</strong> — تُنزَّل تلقائيًا وتُرفق بمدخلات الوكيل. تقرأ النماذج ذات قدرات الرؤية الأصلية (Claude و GPT-4o و Gemini وغيرها) الصورة مباشرةً؛ بينما تتلقى النماذج التي لا تدعم الرؤية وصفًا نصيًا مولّدًا تلقائيًا.</li>
+<li><strong>الملاحظات الصوتية</strong> — تُنزَّل تلقائيًا بصيغة <code>.ogg</code>، وتُفرَّغ إلى نص عبر مزوّد STT المُعدّ لديك (faster-whisper المحلي، أو OpenAI/Nous، أو Groq، وغيرها)، ثم تُسلَّم إلى الوكيل كنص.</li>
+<li><strong>المستندات</strong> — تُنزَّل تلقائيًا. الملفات النصية الصغيرة القابلة للقراءة (<code>.txt</code>، <code>.md</code>، <code>.json</code>، <code>.py</code>، <code>.csv</code>، وغيرها) حتى 100KB تُضمَّن مباشرةً في مدخلات الوكيل ليقرأها دون استدعاء أداة. أما الملفات الأكبر فتُخزَّن مؤقتًا محليًا لتصل إليها أدوات الوكيل الأخرى.</li>
+<li><strong>الضغط على الأزرار</strong> — عندما يضغط المستخدم على زر أرسله البوت سابقًا (اختيار في سؤال توضيح، أو موافقة على أمر، أو تأكيد slash command)، تُوجَّه الضغطة مباشرةً إلى الـ handler المناسب. أما الضغطات القديمة فتُعامَل كمدخلات نصية عادية.</li>
+<li><strong>سياق الرد</strong> — عندما يرد المستخدم على رسالة سابقة، يرى الوكيل النص الأصلي كسياق. واقتباس صورة أو ملاحظة صوتية أو فيديو أو مستند (سواء كان منك أو مما أرسله البوت، مثل رسم بياني سلّمته مهمة cron) يُرفق ذلك الملف أيضًا بالدور، لذا فإن كتابة &quot;ما هذا؟&quot; تحت صورة مقتبسة تعمل كما هو متوقع. لا يحمل webhook الخاص بـ Meta إلا معرّف الرسالة المقتبسة، لذا يُستخرج الملف من فهرس محلي للرسائل المُرسلة/المستلمة مؤخرًا (آخر 1000 رسالة لكل gateway)؛ أما الاقتباسات الأقدم فتصل دون المرفق.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound">الرسائل الصادرة</h3>
+<ul>
+<li><strong>النص</strong> — يُحوَّل markdown تلقائيًا إلى صيغة WhatsApp الخاصة (<code>**bold**</code> → <code>*bold*</code>، <code>~~strike~~</code> → <code>~strike~</code>، العناوين → نص عريض، <code>[link](url)</code> → <code>link (url)</code>). وتُقسَّم الرسائل الطويلة إلى أجزاء بحد 4096 حرفًا لكل جزء.</li>
+<li><strong>الصور</strong> — تُدعم الصور التي يولّدها الوكيل وملفات الصور المحلية على حد سواء، وتُسلَّم كمرفقات صور أصلية.</li>
+<li><strong>الرسائل الصوتية</strong> — تُحوَّل مخرجات تحويل النص إلى كلام (text-to-speech) عبر ffmpeg إلى فقاعة ملاحظة صوتية أصلية في WhatsApp (موجة صوتية خضراء). ومن دون تثبيت ffmpeg، يُستعاض عنها بمرفق صوتي بصيغة MP3. راجع &quot;الرسائل الصوتية&quot; أدناه.</li>
+<li><strong>الفيديو / المستندات</strong> — كلاهما مدعوم، ويُرسلان كمرفقات أصلية.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-ux">تجربة الاستخدام التفاعلية</h3>
+<p>عندما يستدعي الوكيل أيًّا من هذه التدفقات، يستخدم Hermes الرسائل التفاعلية الأصلية في WhatsApp — أزرارًا يُجاب عنها بالضغط بدلًا من مطالبات &quot;رد برقم الخيار&quot;:</p>
+<ul>
+<li><strong>أداة <code>clarify</code></strong> — تُعرض الأسئلة متعددة الخيارات كأزرار رد سريع (1–3 خيارات) أو كقائمة تُفتح بالضغط (4 خيارات أو أكثر). واختيار &quot;✏️ Other&quot; يتيح للمستخدم كتابة إجابة حرة يتلقاها الوكيل كجواب على السؤال.</li>
+<li><strong>الموافقة على الأوامر الخطرة</strong> — عندما يصادف تنفيذ الطرفية/الشيفرة لدى الوكيل أمرًا مقيّدًا، يرى المستخدم أزرار <code>✅ Approve</code> / <code>❌ Deny</code> بدلًا من الحاجة إلى كتابة <code>/approve</code> أو <code>/deny</code>.</li>
+<li><strong>تأكيدات slash commands</strong> — تعرض الأوامر ذات الصلاحيات الخاصة مثل <code>/reload-mcp</code> أزرار <code>✅ Approve Once</code> / <code>🔒 Always</code> / <code>❌ Cancel</code>.</li>
+</ul>
+<p>تتحول جميع المطالبات التفاعلية بسلاسة إلى نص عادي إذا فشل عرض الأزرار (مثلًا في عملاء WhatsApp القديمة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-receipts-and-typing-indicator">إشعارات القراءة ومؤشر الكتابة</h3>
+<p>يُقرّ Hermes باستلام الرسائل الواردة فورًا:</p>
+<ul>
+<li>تظهر على رسالتك <strong>علامتا الصح الزرقاوان</strong> بمجرد أن يستلمها الـ gateway.</li>
+<li>يظهر تحت اسم البوت في محادثة WhatsApp لديك <strong>&quot;typing…&quot;</strong> أثناء تحضير الوكيل للرد.</li>
+<li>يختفي مؤشر الكتابة تلقائيًا عند وصول أول رسالة رد من البوت.</li>
+</ul>
+<p>يوضح هذا بجلاء متى رأى البوت رسالتك ومتى لا يزال يعمل على الرد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-messages">الرسائل الصوتية</h3>
+<p>يميّز WhatsApp بين &quot;الملاحظة الصوتية&quot; (فقاعة الموجة الصوتية الخضراء) ومرفق الملف الصوتي العادي. والفرق يتعلق بالترميز (codec) فقط: إذ يجب أن تكون الملاحظات الصوتية بصيغة <code>audio/ogg</code> مع ترميز <code>opus</code>.</p>
+<p>ينتج TTS في Hermes ملفات MP3. وهناك مساران:</p>
+<ul>
+<li><strong>مع وجود ffmpeg على PATH</strong> (موصى به) — تُحوَّل مخرجات TTS الصادرة وتصل كملاحظة صوتية حقيقية. التثبيت:
+<ul>
+<li>Windows: <code>winget install Gyan.FFmpeg</code></li>
+<li>macOS: <code>brew install ffmpeg</code></li>
+<li>Linux: عبر مدير الحزم</li>
+</ul>
+</li>
+<li><strong>من دون ffmpeg</strong> — تصل مخرجات TTS الصادرة كمرفق صوتي بصيغة MP3. يُشغَّل بشكل طبيعي، لكنه لا يبدو كملاحظة صوتية. ويُسجَّل تحذير لمرة واحدة في سجل الـ gateway لتكون على علم بذلك.</li>
+</ul>
+<p>يمكنك التحقق مما إذا كان الـ gateway قد عثر على ffmpeg عبر health endpoint:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="known-limitations">القيود المعروفة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="24-hour-conversation-window">نافذة المحادثة ذات الـ 24 ساعة</h3>
+<p>لا تسمح Meta بـ <strong>الرسائل الحرة</strong> إلا خلال نافذة مدتها 24 ساعة بعد آخر رسالة واردة من المستخدم. وخارج هذه النافذة، لا يقبل API الخاص بـ Meta إلا <strong>قالب رسالة (message template)</strong> معتمدًا مسبقًا.</p>
+<p><strong>ماذا يعني هذا عمليًا:</strong></p>
+<ul>
+<li>المحادثة التفاعلية (يراسل المستخدم البوت → يرد البوت خلال 24 ساعة → يرد المستخدم → ...) تعمل إلى ما لا نهاية. وهذا يغطي &gt;95% من الاستخدام المعتاد للبوتات.</li>
+<li><strong>مهام cron التي تُسلِّم إلى WhatsApp</strong> بعد فجوة &gt; 24 ساعة ستفشل مع رمز خطأ Graph <code>131047</code> (&quot;Re-engagement message&quot;).</li>
+<li><strong>النتائج غير المتزامنة لمهام <code>delegate_task</code> طويلة التشغيل</strong> التي تستغرق أكثر من 24 ساعة تفشل بالطريقة نفسها.</li>
+<li><strong>مشتركو webhook</strong> الذين يوجّهون أحداثًا خارجية إلى WhatsApp يفشلون عندما لا يكون المستخدم قد راسل البوت مؤخرًا.</li>
+</ul>
+<p>يُنبّه Hermes الوكيلَ إلى هذه النافذة في الـ system prompt الخاص به، ليعرف النموذج أن عليه ذكرها عند جدولة رسائل مؤجلة.</p>
+<p>دعم قوالب الرسائل (الحل البديل للإرسال خارج النافذة) غير مُنفَّذ بعد في Hermes. إذا كنت تحتاج إليه، فيُرجى <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>فتح issue</a> — فهو مُخطَّط له لكنه ينتظر مؤشرًا واضحًا على وجود طلب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-chats">المحادثات الجماعية</h3>
+<p>يدعم Cloud API المجموعات بشكل محدود (وفق فئات القدرات التي تحددها Meta). ويتعامل محوّل <code>whatsapp_cloud</code> في Hermes حاليًا مع <strong>الرسائل المباشرة فقط</strong> في الإصدار v1. إذا كنت تحتاج إلى المحادثات الجماعية، فاستخدم جسر Baileys.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-rate-limit">حدّ معدل الإرسال (rate limit)</h3>
+<p>الإنتاجية الافتراضية لدى Meta هي <strong>80 رسالة/ثانية لكل رقم هاتف تجاري</strong>، مع إمكانية الترقية. ولا يفرض Hermes حاليًا هذا الحد من جهة العميل — لذا قد تصطدم عمليات الإرسال بكميات كبيرة جدًا بحد Meta.</p>
+<hr>

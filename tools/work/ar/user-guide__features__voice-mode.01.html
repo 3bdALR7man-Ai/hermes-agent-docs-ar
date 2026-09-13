@@ -1,0 +1,107 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord-voice-channels">القنوات الصوتية في Discord</h2>
+<p>هذه هي الميزة الصوتية الأكثر انغماسًا: ينضم البوت إلى قناة صوتية في Discord، ويستمع إلى المستخدمين أثناء حديثهم، ويحوّل كلامهم إلى نص، ويعالجه عبر الوكيل، ثم ينطق الرد في القناة الصوتية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-discord-bot-permissions">1. صلاحيات بوت Discord</h4>
+<p>إذا كان لديك بالفعل بوت Discord مُعدّ للنصوص (راجع <a href="/docs/user-guide/messaging/discord">دليل إعداد Discord</a>)، فستحتاج إلى إضافة صلاحيات الصوت.</p>
+<p>انتقل إلى <a href="https://discord.com/developers/applications" data-ext>Discord Developer Portal</a> → تطبيقك → <strong>Installation</strong> → <strong>Default Install Settings</strong> → <strong>Guild Install</strong>:</p>
+<p><strong>أضف هذه الصلاحيات إلى صلاحيات النص الموجودة:</strong></p>
+<table><thead><tr><th>الصلاحية</th><th>الغرض</th><th>مطلوبة</th></tr></thead><tbody><tr><td><strong>Connect</strong></td><td>الانضمام إلى القنوات الصوتية</td><td>نعم</td></tr><tr><td><strong>Speak</strong></td><td>تشغيل صوت TTS في القنوات الصوتية</td><td>نعم</td></tr><tr><td><strong>Use Voice Activity</strong></td><td>اكتشاف متى يتحدث المستخدمون</td><td>موصى بها</td></tr></tbody></table>
+<p><strong>العدد الصحيح المحدّث للصلاحيات:</strong></p>
+<table><thead><tr><th>المستوى</th><th>العدد الصحيح</th><th>ما يتضمنه</th></tr></thead><tbody><tr><td>نص فقط</td><td><code>309237763136</code></td><td>View Channels و Send Messages و Read History و Embeds و Attachments و Threads و Reactions و Create Public Threads</td></tr><tr><td>نص + صوت</td><td><code>309240908864</code></td><td>كل ما سبق + Connect و Speak</td></tr></tbody></table>
+<p><strong>أعد دعوة البوت</strong> باستخدام رابط الصلاحيات المحدّث:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>استبدل <code>YOUR_APP_ID</code> بمعرّف التطبيق (Application ID) الخاص بك من Developer Portal.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>إعادة دعوة البوت إلى خادم موجود فيه بالفعل ستحدّث صلاحياته دون إزالته. ولن تفقد أي بيانات أو إعدادات.</p></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-privileged-gateway-intents">2. Privileged Gateway Intents</h4>
+<p>في <a href="https://discord.com/developers/applications" data-ext>Developer Portal</a> → تطبيقك → <strong>Bot</strong> → <strong>Privileged Gateway Intents</strong>، فعّل الثلاثة جميعها:</p>
+<table><thead><tr><th>الـ Intent</th><th>الغرض</th></tr></thead><tbody><tr><td><strong>Presence Intent</strong></td><td>اكتشاف حالة اتصال المستخدم (متصل/غير متصل)</td></tr><tr><td><strong>Server Members Intent</strong></td><td>تحويل أسماء المستخدمين في <code>DISCORD_ALLOWED_USERS</code> إلى معرّفات رقمية (مشروط)</td></tr><tr><td><strong>Message Content Intent</strong></td><td>قراءة محتوى الرسائل النصية في القنوات</td></tr></tbody></table>
+<p><strong>Message Content Intent</strong> مطلوب. أما <strong>Server Members Intent</strong> فلا يلزم إلا إذا كانت قائمة <code>DISCORD_ALLOWED_USERS</code> لديك تستخدم أسماء المستخدمين — وإذا كنت تستخدم معرّفات المستخدمين الرقمية، فيمكنك تركه معطّلًا (OFF). يأتي ربط SSRC → user_id في القنوات الصوتية من الـ opcode المسمى SPEAKING الذي يرسله Discord عبر websocket الصوت، و <strong>لا</strong> يتطلب Server Members Intent.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-opus-codec">3. ترميز Opus (Codec)</h4>
+<p>يجب تثبيت مكتبة ترميز Opus على الجهاز الذي يشغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يحمّل البوت الترميز تلقائيًا من:</p>
+<ul>
+<li><strong>macOS:</strong> <code>/opt/homebrew/lib/libopus.dylib</code></li>
+<li><strong>Linux:</strong> <code>libopus.so.0</code></li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-environment-variables">4. متغيرات البيئة</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>من المفترض أن يصبح البوت متصلًا في Discord خلال بضع ثوانٍ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands-1">الأوامر</h3>
+<p>استخدم هذه الأوامر في قناة Discord النصية التي يوجد فيها البوت:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>يجب أن تكون في قناة صوتية قبل تنفيذ <code>/voice join</code>. إذ ينضم البوت إلى القناة الصوتية نفسها التي أنت فيها.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-1">آلية العمل</h3>
+<p>عندما ينضم البوت إلى قناة صوتية، فإنه:</p>
+<ol>
+<li><strong>يستمع</strong> إلى تدفق الصوت الخاص بكل مستخدم على حدة</li>
+<li><strong>يكتشف الصمت</strong> — تبدأ المعالجة بعد 1.5s من الصمت يسبقها 0.5s من الكلام على الأقل</li>
+<li><strong>يحوّل</strong> الصوت إلى نص عبر Whisper STT (محليًا، أو عبر Groq، أو OpenAI)</li>
+<li><strong>يعالج</strong> النص عبر pipeline الوكيل الكامل (الجلسة، والأدوات، والذاكرة)</li>
+<li><strong>ينطق</strong> الرد في القناة الصوتية عبر TTS</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="text-channel-integration">التكامل مع القناة النصية</h3>
+<p>عندما يكون البوت في قناة صوتية:</p>
+<ul>
+<li>تظهر النصوص المُفرّغة في القناة النصية: <code>[Voice] @user: what you said</code></li>
+<li>تُرسل ردود الوكيل كنص في القناة وتُنطق أيضًا في القناة الصوتية</li>
+<li>القناة النصية هي القناة التي نُفّذ فيها <code>/voice join</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="echo-prevention">منع الصدى</h3>
+<p>يوقف البوت مستمع الصوت الخاص به مؤقتًا وتلقائيًا أثناء تشغيل ردود TTS، مما يمنعه من سماع خرجه الخاص وإعادة معالجته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h3>
+<p>لا يستطيع التفاعل صوتيًا إلا المستخدمون المدرجون في <code>DISCORD_ALLOWED_USERS</code>. أما صوت المستخدمين الآخرين فيُتجاهل بصمت.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configyaml">config.yaml</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stt-provider-comparison">مقارنة مزوّدي STT</h3>
+<table><thead><tr><th>المزوّد</th><th>النموذج</th><th>السرعة</th><th>الجودة</th><th>التكلفة</th><th>مفتاح API</th></tr></thead><tbody><tr><td><strong>محلي (Local)</strong></td><td><code>base</code></td><td>سريع (يعتمد على CPU/GPU)</td><td>جيدة</td><td>مجاني</td><td>لا</td></tr><tr><td><strong>محلي (Local)</strong></td><td><code>small</code></td><td>متوسط</td><td>أفضل</td><td>مجاني</td><td>لا</td></tr><tr><td><strong>محلي (Local)</strong></td><td><code>large-v3</code></td><td>بطيء</td><td>الأفضل</td><td>مجاني</td><td>لا</td></tr><tr><td><strong>Groq</strong></td><td><code>whisper-large-v3-turbo</code></td><td>سريع جدًا (~0.5s)</td><td>جيدة</td><td>فئة مجانية</td><td>نعم</td></tr><tr><td><strong>Groq</strong></td><td><code>whisper-large-v3</code></td><td>سريع (~1s)</td><td>أفضل</td><td>فئة مجانية</td><td>نعم</td></tr><tr><td><strong>OpenAI</strong></td><td><code>whisper-1</code></td><td>سريع (~1s)</td><td>جيدة</td><td>مدفوع</td><td>نعم</td></tr><tr><td><strong>OpenAI</strong></td><td><code>gpt-4o-transcribe</code></td><td>متوسط (~2s)</td><td>الأفضل</td><td>مدفوع</td><td>نعم</td></tr><tr><td><strong>OpenAI</strong></td><td><code>gpt-transcribe</code></td><td>سريع</td><td>الأفضل</td><td>مدفوع ($0.0045/min)</td><td>نعم</td></tr><tr><td><strong>Mistral</strong></td><td><code>voxtral-mini-latest</code></td><td>سريع</td><td>جيدة</td><td>مدفوع</td><td>نعم</td></tr><tr><td><strong>xAI</strong></td><td><code>grok-stt</code></td><td>سريع</td><td>جيدة</td><td>مدفوع</td><td>نعم</td></tr></tbody></table>
+<p>أولوية المزوّدين (مع fallback تلقائي): <strong>local</strong> &gt; <strong>groq</strong> &gt; <strong>openai</strong></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tts-provider-comparison">مقارنة مزوّدي TTS</h3>
+<table><thead><tr><th>المزوّد</th><th>الجودة</th><th>التكلفة</th><th>زمن الاستجابة</th><th>يتطلب مفتاحًا</th></tr></thead><tbody><tr><td><strong>Edge TTS</strong></td><td>جيدة</td><td>مجاني</td><td>~1s</td><td>لا</td></tr><tr><td><strong>ElevenLabs</strong></td><td>ممتازة</td><td>مدفوع</td><td>~2s</td><td>نعم</td></tr><tr><td><strong>OpenAI TTS</strong></td><td>جيدة</td><td>مدفوع</td><td>~1.5s</td><td>نعم</td></tr><tr><td><strong>NeuTTS</strong></td><td>جيدة</td><td>مجاني</td><td>يعتمد على CPU/GPU</td><td>لا</td></tr></tbody></table>
+<p>يستخدم NeuTTS كتلة الإعدادات <code>tts.neutts</code> الموضحة أعلاه.</p>
+<p>بالنسبة لـ <code>openai</code>، تقبل الأداة <code>text_to_speech</code> وسيطًا اختياريًا هو <code>instructions</code> يتيح قدرة تصميم الصوت في <code>gpt-4o-mini-tts</code> (النبرة، والعاطفة، والإيقاع، واللهجة، والهمس). ويُوجَّه الحقل نفسه أيضًا إلى خوادم تصميم الصوت المتوافقة مع OpenAI والمركّبة عبر <code>tts.openai.base_url</code> (مثل Qwen3-TTS-VoiceDesign عبر oMLX).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-audio-device-found-cli">&quot;No audio device found&quot; (في CLI)</h3>
+<p>مكتبة PortAudio غير مثبّتة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>إذا كنت تشغّل Hermes داخل Docker على سطح مكتب Linux، فستحتاج الحاوية أيضًا إلى الوصول إلى socket الصوت على المضيف. راجع ملاحظات <a href="/docs/user-guide/docker#optional-linux-desktop-audio-bridge">جسر الصوت في Docker</a> للاطلاع على إعداد متوافق مع PulseAudio/PipeWire.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-doesnt-respond-in-discord-server-channels">البوت لا يرد في قنوات خادم Discord</h3>
+<p>يتطلب البوت افتراضيًا إشارة @mention في قنوات الخادم. تأكد من أنك:</p>
+<ol>
+<li>تكتب <code>@</code> وتختار <strong>مستخدم البوت</strong> (مع #discriminator)، وليس <strong>الدور (role)</strong> الذي يحمل الاسم نفسه</li>
+<li>أو تستخدم الرسائل المباشرة بدلًا من ذلك — فلا حاجة إلى الإشارة</li>
+<li>أو تضبط <code>DISCORD_REQUIRE_MENTION=false</code> في <code>~/.hermes/.env</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-joins-vc-but-doesnt-hear-me">البوت ينضم إلى القناة الصوتية لكنه لا يسمعني</h3>
+<ul>
+<li>تحقق من أن معرّف مستخدم Discord الخاص بك موجود في <code>DISCORD_ALLOWED_USERS</code></li>
+<li>تأكد من أنك لست مكتوم الصوت في Discord</li>
+<li>يحتاج البوت إلى حدث SPEAKING من Discord قبل أن يتمكن من ربط صوتك — ابدأ الحديث خلال بضع ثوانٍ من الانضمام</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-hears-me-but-doesnt-respond">البوت يسمعني لكنه لا يرد</h3>
+<ul>
+<li>تحقق من توفر STT: ثبّت <code>faster-whisper</code> (لا يحتاج إلى مفتاح) أو اضبط <code>GROQ_API_KEY</code> / <code>VOICE_TOOLS_OPENAI_KEY</code></li>
+<li>تحقق من أن نموذج LLM مضبوط ويمكن الوصول إليه</li>
+<li>راجع سجلات الـ gateway: <code>tail -f ~/.hermes/logs/gateway.log</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-responds-in-text-but-not-in-voice-channel">البوت يرد نصيًا لكن ليس في القناة الصوتية</h3>
+<ul>
+<li>قد يكون مزوّد TTS متعطلًا — تحقق من مفتاح API والحصة المتاحة</li>
+<li>Edge TTS (مجاني، ولا يحتاج إلى مفتاح) هو الخيار الاحتياطي (fallback) الافتراضي</li>
+<li>تحقق من السجلات بحثًا عن أخطاء TTS</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="whisper-returns-garbage-text">Whisper يعيد نصًا لا معنى له</h3>
+<p>يلتقط مرشّح الهلوسة معظم الحالات تلقائيًا. إذا كنت لا تزال تحصل على نصوص مُفرّغة وهمية:</p>
+<ul>
+<li>استخدم بيئة أهدأ</li>
+<li>اضبط <code>silence_threshold</code> في الإعدادات (قيمة أعلى = حساسية أقل)</li>
+<li>جرّب نموذج STT مختلفًا</li>
+</ul>

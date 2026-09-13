@@ -1,0 +1,178 @@
+<header><h1>Curator</h1></header>
+<p>Curator هو دورة صيانة تعمل في الخلفية على <strong>المهارات التي أنشأها الوكيل</strong>. يتتبّع عدد مرات عرض كل مهارة واستخدامها وتعديلها (patch)، وينقل المهارات غير المستخدمة منذ مدة طويلة عبر الحالات <code>active → stale → archived</code>، ويُطلق دوريًا مراجعة قصيرة بواسطة نموذج مساعد (auxiliary model) تقترح عمليات دمج أو تُصلح الانحراف (drift) بالتعديلات.</p>
+<p>وُجد Curator كي لا تتراكم إلى ما لا نهاية المهارات التي تُنشأ عبر <a href="/docs/user-guide/features/skills#agent-managed-skills-skill_manage-tool">حلقة التحسين الذاتي</a>. ففي كل مرة يحل فيها الوكيل مشكلة جديدة ويحفظ مهارة، تستقر هذه المهارة في <code>~/.hermes/skills/</code>. ومن دون صيانة، ينتهي بك الأمر بعشرات المهارات الضيقة شبه المكررة التي تُثقل الكتالوج وتهدر الـ tokens.</p>
+<p>افتراضيًا (<code>prune_builtins: true</code>) يستطيع Curator أرشفة <strong>المهارات المدمجة المضمّنة غير المستخدمة</strong> (التي تأتي مع المستودع) بعد مرور <code>archive_after_days</code> دون استخدام، إلى جانب المهارات التي أنشأها الوكيل والتي يديرها في المقام الأول. أما المهارات المثبّتة من Hub (من <a href="https://agentskills.io" data-ext>agentskills.io</a>) فهي خارج نطاقه دائمًا. اضبط <code>curator.prune_builtins: false</code> لاستعادة السلوك القديم المقتصر على المهارات التي أنشأها الوكيل، حيث لا تُمس المهارات المضمّنة أبدًا. كذلك <strong>لا يحذف Curator أي شيء تلقائيًا أبدًا</strong> — فأسوأ ما قد يحدث هو الأرشفة في <code>~/.hermes/skills/.archive/</code>، وهي قابلة للاسترجاع.</p>
+<p>يتتبّع هذا العمل <a href="https://github.com/NousResearch/hermes-agent/issues/7816" data-ext>المسألة (issue) رقم #7816</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-runs">آلية التشغيل</h2>
+<p>يُطلَق Curator بناءً على فحص لعدم النشاط، لا عبر مهمة cron. فعند بدء جلسة CLI، وأثناء مهام الصيانة الدورية في الـ gateway، ومع مؤقّت الصيانة في Desktop/<code>hermes serve</code>، يتحقق Hermes مما إذا كان:</p>
+<ol>
+<li>قد مضى وقت كافٍ منذ آخر تشغيل لـ Curator (<code>interval_hours</code>، والقيمة الافتراضية <strong>7 أيام</strong>)، و</li>
+<li>الوكيل قد ظل خاملًا مدة كافية (<code>min_idle_hours</code>، والقيمة الافتراضية <strong>ساعتان</strong>).</li>
+</ol>
+<p>تتشارك Desktop وسائر الـ backends من نوع <code>hermes serve</code> مؤقّت الصيانة الحالي الذي يعمل كل ساعة (أول استطلاع بعد 90 ثانية)، بمعزل عن مهام cron. وتقيس هذه الـ backends عدم النشاط بدءًا من إقلاع العملية ومن أحدث نشاط محادثة في الـ profile نفسه، مع الاحتفاظ بالطابع الزمني لذلك النشاط بعد إغلاق الجلسة أو تنظيفها (reap)، وتتخطى Curator ما دام هناك دور قيد التنفيذ في ذلك الـ profile. ولا تمنع نافذةٌ متصلة لكنها غير نشطة عمليةَ الصيانة. ويستطلع هذا المؤقّت أيضًا Skill Sync الشخصي والخاص بالمؤسسة، وفقًا لشروط التفعيل الاختياري (opt-in) الخاصة بتلك الميزات. وإذا كان هناك messaging gateway قيد التشغيل للـ profile نفسه، فهو الذي يتولى هذه المهام بدلًا من ذلك.</p>
+<p>يخدم المؤقّت الـ profile الخاص بالـ backend التابع له. وتعمل الصيانة الجارية في خيط عامل (worker thread)؛ ولا يؤدي إغلاق الـ backend إلى مقاطعة تلك الدورة بشكل تعاوني. كما أن تشغيل عدة عمليات serve مستقلة للـ profile نفسه قد يُحدث حالة تسابق (race) على فحص الفاصل الزمني الخاص بـ Curator.</p>
+<p>إذا تحقق الشرطان، يُطلق نسخة متفرعة (fork) في الخلفية من <code>AIAgent</code> — وهو النمط نفسه المستخدم في تنبيهات التحسين الذاتي للذاكرة والمهارات. تعمل هذه النسخة المتفرعة ضمن prompt cache خاص بها ولا تمس المحادثة النشطة أبدًا.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>السلوك عند التشغيل الأول</div><div class="admonitionContent_BuS1"><p>في التثبيت الجديد تمامًا (أو في أول مرة يعمل فيها تثبيتٌ سابق لظهور Curator بعد <code>hermes update</code>)، <strong>لا يعمل Curator فورًا</strong>. إذ تضبط الملاحظة الأولى قيمة <code>last_run_at</code> على &quot;الآن&quot; وتؤجل أول دورة فعلية لمدة <code>interval_hours</code> كاملة. يمنحك هذا فاصلًا زمنيًا كاملًا لمراجعة مكتبة مهاراتك، وتثبيت (pin) أي شيء مهم، أو إلغاء الاشتراك كليًا قبل أن يمس Curator أي شيء.</p><p>إذا أردت أن ترى ما <em>سيفعله</em> Curator قبل أن يعمل فعليًا، فنفّذ <code>hermes curator run --dry-run</code> — إذ يُنتج تقرير المراجعة نفسه دون تعديل المكتبة.</p></div></div>
+<p>يتكوّن التشغيل من مرحلتين:</p>
+<ol>
+<li><strong>الانتقالات التلقائية</strong> (حتمية، دون LLM). تصبح المهارات غير المستخدمة طوال <code>stale_after_days</code> (14) في حالة <code>stale</code>؛ وتُنقل المهارات غير المستخدمة طوال <code>archive_after_days</code> (30) إلى <code>~/.hermes/skills/.archive/</code>. هذا هو سلوك التقليم (pruning) الذي يعمل دائمًا — إذ يُنفَّذ متى كان Curator مفعّلًا، دون أي تكلفة للنموذج المساعد.
+<ul>
+<li>تُتخطّى <strong>المهارات المثبّتة (pinned)</strong> و<strong>المهارات المشار إليها في أي مهمة cron</strong> (بما في ذلك المهام الموقوفة مؤقتًا أو المعطّلة) كليًا — إذ تُعامل معاملة المهارات المثبّتة في الانتقالات التلقائية، حتى لا يؤدي جدول بطيء أو موقوف إلى أرشفة مهارة تعتمد عليها مهمة ما. كما يعيد الدمج كتابة إشارات مهام cron إلى المهارات عندما يدمج المهارات المظلّية (umbrellas).</li>
+<li>تحصل <strong>المهارات التي لم تُستخدم قط</strong> (<code>use_count == 0</code>) على حد أدنى من المهلة: فلا تُؤرشف قبل أن يبلغ عمرها <code>stale_after_days</code> على الأقل. فانعدام الاستخدام يعني غياب الدليل، لا إثباتًا على أن المهارة يمكن الاستغناء عنها.</li>
+</ul>
+</li>
+<li><strong>الدمج بواسطة LLM</strong> (دورة واحدة للنموذج المساعد بسقف تكرارات مرتفع — إذ تستغرق عملية الفرز الكاملة عادةً 50–100 استدعاء API) — <strong>معطّل افتراضيًا</strong>. عند ضبط <code>curator.consolidate: true</code>، يستعرض الوكيل المتفرع المهارات التي أنشأها الوكيل، ويمكنه قراءة أيٍّ منها باستخدام <code>skill_view</code>، ثم يقرر لكل مهارة على حدة: إبقاءها، أو تعديلها (عبر <code>skill_manage</code>)، أو دمج المهارات المتداخلة في مهارات مظلّية (umbrellas) على مستوى الفئة، أو أرشفتها عبر أداة الطرفية. ويتعامل الدمج مع المهارة كحزمة كاملة: فإذا كانت تحتوي على <code>references/</code> أو <code>templates/</code> أو <code>scripts/</code> أو <code>assets/</code>، أو على روابط نسبية إلى هذه المسارات، فعلى Curator إما إبقاؤها مستقلة، أو نقل ملفات الدعم اللازمة إلى موضع جديد وإعادة كتابة المسارات، أو أرشفة الحزمة بالكامل دون تغيير — لا أن يسطّح <code>SKILL.md</code> وحده داخل ملف <code>references/</code> في مهارة أخرى.</li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>الدمج اختياري (opt-in)</div><div class="admonitionContent_BuS1"><p>افتراضيًا، يقتصر عمل Curator على <strong>التقليم</strong> — إذ تُعلّم دورة عدم النشاط الحتمية المهارات بأنها stale وتؤرشف المهارات غير المستخدمة منذ مدة طويلة. أما دورة <strong>الدمج</strong> بواسطة LLM، التي تتخذ قرارات اجتهادية (بناء المهارات المظلّية، ودمج المهارات المتداخلة)، فهي معطّلة افتراضيًا لأنها تستهلك tokens النموذج المساعد في كل تشغيل وتُجري تغييرات هيكلية واسعة على مكتبتك. فعّلها باستخدام <code>curator.consolidate: true</code>، أو شغّلها مرة واحدة عند الطلب باستخدام <code>hermes curator run --consolidate</code>.</p></div></div>
+<p>المهارات المثبّتة محمية من الانتقالات التلقائية لـ Curator ومن أداة <code>skill_manage</code> الخاصة بالوكيل على حد سواء. راجع <a href="#pinning-a-skill">تثبيت مهارة (pin)</a> أدناه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>توجد جميع الإعدادات في <code>config.yaml</code> تحت <code>curator:</code> (وليس في <code>.env</code> — فهذه ليست أسرارًا). القيم الافتراضية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>لتعطيله كليًا، اضبط <code>curator.enabled: false</code>. وللإبقاء على التقليم الدائم مع تفعيل الدمج بواسطة LLM، اضبط <code>curator.consolidate: true</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-the-review-on-a-cheaper-aux-model">تشغيل المراجعة على نموذج مساعد أرخص</h3>
+<p>دورة المراجعة بواسطة LLM في Curator هي خانة مهمة مساعدة (auxiliary task slot) عادية — <code>auxiliary.curator</code> — إلى جانب Vision و Compression و Session Search وغيرها. تعني &quot;Auto&quot; &quot;استخدم نموذج المحادثة الرئيسي&quot;؛ ويمكنك بدلًا من ذلك تجاوز هذه الخانة لتحديد مزوّد + نموذج بعينه لدورة المراجعة.</p>
+<p><strong>الطريقة الأسهل — <code>hermes model</code>:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أداة الاختيار نفسها متاحة في لوحة التحكم على الويب ضمن تبويب <strong>Models</strong>.</p>
+<p><strong>تعديل config.yaml مباشرةً (مكافئ):</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يؤدي ترك <code>provider: auto</code> (القيمة الافتراضية) إلى توجيه دورة المراجعة عبر نموذج المحادثة الرئيسي أيًّا كان، بما يطابق سلوك جميع المهام المساعدة الأخرى.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>الإعدادات القديمة</div><div class="admonitionContent_BuS1"><p>استخدمت الإصدارات السابقة كتلة <code>curator.auxiliary.{provider,model}</code> مخصصة لهذا الغرض وحده. لا يزال هذا المسار يعمل لكنه يُصدر سطرًا في السجل يُنبّه إلى أنه مهمل (deprecated) — لذا يُرجى الانتقال إلى <code>auxiliary.curator</code> الموضّح أعلاه كي يتشارك Curator البنية الداخلية نفسها (<code>hermes model</code>، وتبويب Models في لوحة التحكم، و <code>base_url</code>، و <code>api_key</code>، و <code>timeout</code>، و <code>extra_body</code>) مع سائر المهام المساعدة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli">CLI</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="backups-and-rollback">النسخ الاحتياطية والتراجع (rollback)</h2>
+<p>قبل كل دورة فعلية لـ Curator، يأخذ Hermes لقطة (snapshot) بصيغة tar.gz من <code>~/.hermes/skills/</code> ويحفظها في <code>~/.hermes/skills/.curator_backups/&lt;utc-iso&gt;/skills.tar.gz</code>. وإذا أرشفت دورةٌ ما أو دمجت شيئًا لم تكن تريد المساس به، يمكنك التراجع عن التشغيل بأكمله بأمر واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>والتراجع نفسه قابل للعكس: فقبل استبدال شجرة المهارات، يأخذ Hermes لقطة أخرى موسومة بـ <code>pre-rollback to &lt;target-id&gt;</code>، وبذلك يمكن إلغاء أي تراجع خاطئ بالعودة إلى تلك اللقطة باستخدام <code>--id</code>.</p>
+<p>يمكنك أيضًا أخذ لقطات يدوية في أي وقت باستخدام <code>hermes curator backup --reason &quot;before-refactor&quot;</code>. يُحفظ نص <code>--reason</code> في ملف <code>manifest.json</code> الخاص باللقطة ويظهر في <code>--list</code>.</p>
+<p>يُقلَّص عدد اللقطات إلى <code>curator.backup.keep</code> (القيمة الافتراضية 5) لإبقاء استخدام القرص محدودًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>اضبط <code>curator.backup.enabled: false</code> لتعطيل أخذ اللقطات تلقائيًا. أما الأمر اليدوي <code>hermes curator backup</code> فلا يعمل عند تعطيل النسخ الاحتياطية إلا إذا ضبطت <code>enabled: true</code> أولًا — إذ يتحكم هذا الخيار في المسارين بشكل متماثل، فلا توجد أي طريقة لتخطي لقطة ما قبل التشغيل عن غير قصد في عمليات التشغيل التي تُجري تعديلات.</p>
+<p>يسرد الأمر <code>hermes curator status</code> أيضًا المهارات الخمس الأقل استخدامًا في الآونة الأخيرة — وهي طريقة سريعة لمعرفة ما يُرجّح أن يصبح stale تاليًا.</p>
+<p>الأوامر الفرعية نفسها متاحة عبر الأمر <code>/curator</code> (slash command) داخل أي جلسة قيد التشغيل (CLI أو منصات الـ gateway).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="audit-ledger-and-single-edit-rollback">سجل التدقيق والتراجع عن تعديل واحد</h2>
+<p>تجيب لقطات التشغيل الكامل عن طلب &quot;تراجع عن كل ما فعلته آخر دورة لـ Curator&quot; — لكنك قد تريد أحيانًا معرفة <em>من غيّر ماذا</em> والتراجع عن تعديل واحد بعينه. فكل تعديل على المهارات — سواء الانتقالات التلقائية لـ Curator، أو استدعاءات <code>skill_manage</code> من الوكيل، أو عمليات الأرشفة/الاستعادة/الحذف النهائي التي تُجريها بنفسك عبر CLI — يُضيف إدخالًا واحدًا إلى سجل JSONL للإضافة فقط (append-only ledger) في <code>~/.hermes/skills/.curator_ledger.jsonl</code>:</p>
+<ul>
+<li><strong>actor</strong> — <code>curator</code> (نسخة المراجعة المتفرعة في الخلفية / الانتقالات التلقائية)، أو <code>agent</code> (استدعاءات أدوات الوكيل في الواجهة الأمامية)، أو <code>user</code> (أوامر CLI)</li>
+<li><strong>action</strong> — <code>create</code>، <code>edit</code>، <code>patch</code>، <code>delete</code>، <code>write_file</code>، <code>remove_file</code>، <code>archive</code>، <code>restore</code>، <code>purge</code>، <code>rollback</code></li>
+<li><strong>evidence</strong> — نية الحذف (<code>absorbed_into</code> في عمليات الدمج، وفارغة في عمليات التقليم، مع بيان ما إذا كان مسار الأرشفة القابلة للاسترجاع قد تولّى الأمر)، ومعرّف الجلسة التي أطلقت التعديل عند توفره</li>
+<li><strong>before/after</strong> — بيانات <code>{path, sha256}</code> لكل ملف. تُخزَّن محتويات الملفات بالعنونة حسب المحتوى (content-addressed، مع إزالة التكرار حسب الـ hash) تحت <code>~/.hermes/.curator_backups/blobs/</code>، لذا فإن مئة إدخال تمس الملف نفسه دون تغيير لا تكلّف سوى blob واحد.</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يستعيد التراجع عن إدخال واحد من مخزن الـ blobs الملفاتِ التي مسّها ذلك التعديل تحديدًا (ويزيل الملفات التي أنشأها) — ولا يتحرك أي شيء آخر في شجرة المهارات. وكما في التراجع عن الشجرة كاملة، يُسجّل أولًا إدخال أمان للحالة الراهنة في السجل، و<strong>يفشل بشكل آمن (fails closed)</strong>: فإذا تعذّرت كتابة لقطة الأمان، لا يتغير شيء. ولأن عمليات الحذف في الواجهة الأمامية تُسجَّل هي الأخرى، يستطيع <code>hermes curator rollback &lt;entry-id&gt;</code> إحياء مهارة محذوفة حذفًا نهائيًا.</p>
+<p>السجل أداة قياس (telemetry) وليس بوابة تحكم أبدًا — فإذا فشلت كتابة إدخال، يمضي التعديل رغم ذلك. عطّله باستخدام:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="archive-ttl-purge">الحذف النهائي للأرشيف وفق TTL</h2>
+<p>تُحفظ المهارات المؤرشفة إلى الأبد افتراضيًا. وإذا أردت تقييد حجم <code>~/.hermes/skills/.archive/</code>، فاضبط TTL ونفّذ الحذف النهائي (purge) صراحةً — فالحذف النهائي لا يعمل تلقائيًا أبدًا، وكل مهارة تُحذف نهائيًا تُسجَّل أولًا في السجل (مع الـ blobs)، وبذلك يترك حتى الحذف النهائي أثرًا قابلًا للتدقيق والاسترجاع:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-agent-created-means">ما المقصود بـ &quot;أنشأها الوكيل&quot; (agent-created)</h2>
+<p>لا يدير Curator إلا المهارات المعلَّمة صراحةً بأنها <strong>أنشأها الوكيل (agent-created)</strong> في
+<code>~/.hermes/skills/.usage.json</code>. وتستوفي المهارة الشرط عندما تتحقق جميع
+الشروط التالية:</p>
+<ol>
+<li>اسمها <strong>غير</strong> موجود في <code>~/.hermes/skills/.bundled_manifest</code> (المهارات المضمّنة التي تأتي مع المستودع).</li>
+<li>اسمها <strong>غير</strong> موجود في <code>~/.hermes/skills/.hub/lock.json</code> (المهارات المثبّتة من Hub).</li>
+<li>يحتوي إدخالها في <code>.usage.json</code> على <code>&quot;created_by&quot;: &quot;agent&quot;</code> أو <code>&quot;agent_created&quot;: true</code>.</li>
+</ol>
+<p>حاليًا، لا يضبط هذه العلامة سوى <strong>نسخة مراجعة التحسين الذاتي المتفرعة في الخلفية</strong>
+— وذلك عندما تُنشئ مهارة مظلّية جديدة أثناء دورة مراجعتها الدورية (كل 10
+أدوار للوكيل تقريبًا). تعمل النسخة المتفرعة في الخلفية بمصدر كتابة (write origin) قيمته <code>&quot;background_review&quot;</code>
+(عبر <code>tools/skill_provenance.py</code>)، وهو المسار الوحيد الذي يُطلق
+استدعاء <code>mark_agent_created()</code> في <code>skill_manage</code>.</p>
+<p>أما المهارات التي يُنشئها الوكيل في الواجهة الأمامية عبر <code>skill_manage(action=&quot;create&quot;)</code> أثناء
+المحادثة فهي <strong>لا</strong> تُعلَّم بأنها agent-created — إذ تُعد
+موجّهة من المستخدم، ويتركها Curator وشأنها عن قصد.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>مهاراتك المكتوبة يدويًا لا يديرها Curator</div><div class="admonitionContent_BuS1"><p>إذا أنشأت ملف <code>SKILL.md</code> يدويًا أو وجّهت Hermes إلى مجلد مهارات
+خارجي، فسيكون لتلك المهارة إدخال في <code>.usage.json</code> بقيمة <code>created_by: null</code>
+(أو دون هذا الحقل). لن يمسها Curator. وينطبق الأمر نفسه على
+المهارات التي أنشأها الوكيل في الواجهة الأمامية بناءً على طلبك.</p><p><strong>لمعرفة المهارات التي يديرها Curator فعليًا</strong>، نفّذ <code>hermes curator status</code>.
+إذا كان عدد المهارات agent-created يساوي 0، فلا توجد حاليًا أي مهارات ضمن نطاق
+Curator — وتُتخطّى دورة المراجعة بواسطة LLM ويعرض التقرير
+<code>Model: (not resolved) via (not resolved)</code> مع <code>Duration: 0s</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adopting-unmanaged-skills">تبنّي المهارات غير المُدارة</h3>
+<p>يعرض <code>hermes curator status</code> عدد المهارات <strong>غير المُدارة (unmanaged)</strong> إلى جانب عدد
+المهارات المُدارة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>هذه المهارات الـ 112 <em>مؤهلة</em> للإدارة، لكنها تبقى غير مرئية بشكل دائم لدورة الحياة،
+لأحد سببين:</p>
+<ul>
+<li><strong>pre-dates marker</strong> (أقدم من العلامة) — كُتب السجل قبل وجود <code>created_by</code>، لذا
+لا يحمل أي إشارة إلى المصدر إطلاقًا. ومن المستحيل فعلًا معرفة المؤلف
+من السجل.</li>
+<li><strong>foreground-created</strong> (أُنشئت في الواجهة الأمامية) — ترك استدعاء <code>skill_manage(create)</code> في الواجهة الأمامية العلامة
+غير مضبوطة عن قصد، لأن المهارات التي تطلبها ملك لك.</li>
+</ul>
+<p>لذلك قد تبدو مكتبة كبيرة مُدارة بالكامل بينما يتعذّر المساس بمعظمها.
+يسدّ الأمر <code>adopt</code> هذه الفجوة عن طريق <strong>التصريح</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يكتب التبنّي علامة <code>created_by: agent</code> نفسها التي تكتبها نسخة المراجعة المتفرعة
+في الخلفية. وهو <strong>لا</strong> يعيد ضبط عدّاد عدم النشاط — إذ تحتفظ المهارة المتبنّاة بقيمة
+<code>last_activity_at</code> الحالية، وبالتالي فإن تسليم مكتبة توقفت عن استخدامها أصلًا
+لا يمنحها مهلة جديدة مدتها 90 يومًا. توقّع أن تنتقل المهارات المتبنّاة الخاملة منذ مدة طويلة
+إلى <code>stale</code> (أو <code>archived</code>) في الدورة التالية؛ فهذا هو المقصود تمامًا.</p>
+<p>والتبنّي أيضًا هو ما يفتح الباب أمام <em>التحسين</em> الذاتي المستقل. فنسخة المراجعة المتفرعة
+في الخلفية ترفض تعديل أي مهارة لا يديرها Curator، لذا إذا لاحظت أن إحدى
+مهاراتك قديمة، فستُنبّه إلى ذلك وتوصي بتبنّيها بدلًا من
+تعديلها. ولا تتأثر أبدًا التعديلات في الواجهة الأمامية (الموجّهة من المستخدم) — إذ يمكنك أنت
+والوكيل دائمًا تعديل مهاراتك الخاصة عند الطلب.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span><code>created_by</code> علامة سياسة (policy flag)، لا ادعاءً بالمصدر</div><div class="admonitionContent_BuS1"><p>اسم الحقل المخزَّن هو <code>created_by</code>، لكنه يُستخدم بمعنى &quot;هل يحق للإدارة المستقلة
+المساس بهذا؟&quot; — لا بمعنى &quot;من كتب هذا الملف&quot;. هذان سؤالان
+مختلفان، وبالنسبة إلى السجلات الأقدم من العلامة، يستحيل ببساطة استرجاع إجابة سؤال التأليف.
+أُبقي على الاسم لأنه موجود بالفعل على القرص في كل ملف
+<code>.usage.json</code>؛ فاقرأه على أنه سياسة. يغيّر <code>hermes curator adopt</code> السياسة،
+ولا يقول شيئًا عن مؤلف الملف.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>المصدر يُصرَّح به ولا يُستنتج أبدًا</div><div class="admonitionContent_BuS1"><p>التبنّي يدوي عن قصد. فبيانات القياس لا تستطيع إثبات التأليف: المهارة
+التي خضعت لآلاف التعديلات تُثبت أن الوكيل <strong>يصونها</strong>، لا أن الوكيل
+<strong>كتبها</strong> — فـ Hermes يعدّل المهارات التي كتبها المستخدم نيابةً عنك باستمرار. ولو وُجدت
+قاعدة استدلالية تلقائية من قبيل &quot;تبدو من صنع الوكيل، فتبنَّها&quot; لانتهى بها الأمر إلى أرشفة
+شيء كتبته بيدك. يرفض <code>adopt</code> المهارات المضمّنة، والمثبّتة من Hub، والخارجية،
+والمدمجة المحمية، لأن لها مالكًا غيرك.</p></div></div>
+<p>أما المهارات التي أنشأها الوكيل فعلًا فتتبع دورة الحياة الكاملة:</p>
+<ul>
+<li><code>active</code> → (30 يومًا دون استخدام) <code>stale</code> → (90 يومًا دون استخدام) <code>archived</code></li>
+<li>المهارات المثبّتة (pinned) تتجاوز جميع الانتقالات التلقائية</li>
+<li>يمكن استرجاع المهارات المؤرشفة عبر <code>hermes curator restore &lt;name&gt;</code></li>
+</ul>
+<p>إذا أردت حماية مهارة بعينها من أي مساس — كمهارة
+كتبتها يدويًا وتعتمد عليها مثلًا — فاستخدم <code>hermes curator pin &lt;name&gt;</code>. راجع
+القسم التالي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pinning-a-skill">تثبيت مهارة (pin)</h2>
+<p>يحمي التثبيت المهارةَ من الحذف — سواء من دورات الأرشفة الآلية لـ Curator أو من استدعاء الوكيل للأداة <code>skill_manage(action=&quot;delete&quot;)</code>. بمجرد تثبيت مهارة:</p>
+<ul>
+<li>يتخطاها <strong>Curator</strong> أثناء الانتقالات التلقائية (<code>active → stale → archived</code>)، وتُوجَّه دورة المراجعة بواسطة LLM إلى تركها وشأنها.</li>
+<li>ترفض <strong>أداة <code>skill_manage</code> الخاصة بالوكيل</strong> تنفيذ <code>delete</code> عليها، وتُرشد المستخدم إلى <code>hermes curator unpin &lt;name&gt;</code>. أما التعديلات (patches و edits) فتمضي كالمعتاد، ما يتيح للوكيل تحسين محتوى المهارة المثبّتة كلما ظهرت مشكلات، دون الحاجة إلى دوامة التثبيت ثم إلغائه ثم إعادته.</li>
+</ul>
+<p>ثبّت المهارة أو ألغِ تثبيتها باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>تُخزَّن العلامة بصيغة <code>&quot;pinned&quot;: true</code> في إدخال المهارة داخل <code>~/.hermes/skills/.usage.json</code>، لذا تبقى محفوظة عبر الجلسات.</p>
+<p>المهارات المذكورة في قائمة <code>skills:</code> لأي مهمة cron محمية بالطريقة نفسها من <strong>الانتقالات التلقائية</strong> (فلا يحوّلها Curator أبدًا إلى stale أو archived ما دامت الإشارة إليها قائمة)، حتى عندما تكون المهمة موقوفة مؤقتًا أو معطّلة. وفضّل التثبيت الصريح إذا أردت أيضًا منع <code>skill_manage delete</code>.</p>
+<p>لا يمكن تثبيت إلا المهارات <strong>التي أنشأها الوكيل</strong> — إذ يرفض <code>hermes curator pin</code> العمل على المهارات المضمّنة والمثبّتة من Hub مع رسالة توضيحية إذا حاولت ذلك. ولا تخضع المهارات المثبّتة من Hub أبدًا لتعديلات Curator. أما المهارات المدمجة المضمّنة فلا تُمس إلا عند ضبط <code>curator.prune_builtins: true</code> (القيمة الافتراضية)، وحتى في هذه الحالة لا تُؤرشف إلا بعد مرور <code>archive_after_days</code> دون استخدام — ولا تُعدَّل أو تُدمج أو تُحذف أبدًا. اضبط <code>curator.prune_builtins: false</code> لاستثناء المهارات المضمّنة كليًا.</p>
+<p>يمكن أن تُحدَّد برمجيًا (hardcoded) مجموعة صغيرة من <strong>المهارات المدمجة المحمية</strong> بحيث لا يمكن أرشفتها ولا دمجها أبدًا، بغض النظر عن <code>curator.prune_builtins</code> أو حالة التثبيت أو تقدير LLM. فهذه المهارات تدعم جوانب أساسية من تجربة الاستخدام، وأرشفة إحداها بصمت ستحوّل slash command الخاص بها إلى خطأ &quot;Unknown command&quot; دون أي إشارة إليك. (المجموعة فارغة حاليًا — إذ تحوّلت <code>plan</code>، وهي أول أعضائها، إلى أمر مدمج <code>/plan</code> لا يرتبط بأي مهارة على القرص.) وتُستبعد المهارات المدمجة المحمية كليًا من قائمة المرشّحين لدى Curator، فلا تراها دورة الدمج أبدًا.</p>
+<p>إذا أردت ضمانًا أقوى من &quot;عدم الحذف&quot; — كتجميد محتوى المهارة بالكامل مع استمرار الوكيل في قراءتها مثلًا — فعدّل <code>~/.hermes/skills/&lt;name&gt;/SKILL.md</code> مباشرةً بمحررك. فالتثبيت يحمي من الحذف الذي تُجريه الأدوات، لا من وصولك أنت إلى نظام الملفات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage-telemetry">بيانات قياس الاستخدام (Telemetry)</h2>
+<p>يحتفظ Curator بملف مرافق (sidecar) في <code>~/.hermes/skills/.usage.json</code> يضم إدخالًا واحدًا لكل مهارة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تزداد العدّادات عندما:</p>
+<ul>
+<li><code>view_count</code>: يستدعي الوكيل <code>skill_view</code> على المهارة.</li>
+<li><code>use_count</code>: تُحمَّل المهارة في الـ prompt الخاص بمحادثة ما.</li>
+<li><code>patch_count</code>: يُنفَّذ <code>skill_manage patch/edit/write_file/remove_file</code> على المهارة.</li>
+</ul>
+<p>تُستثنى المهارات المضمّنة والمثبّتة من Hub صراحةً من كتابة بيانات القياس.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-run-reports">تقارير كل تشغيل</h2>
+<p>يكتب كل تشغيل لـ Curator مجلدًا يحمل طابعًا زمنيًا تحت <code>~/.hermes/logs/curator/</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>يُعد <code>REPORT.md</code> طريقة سريعة لمعرفة ما فعله تشغيل معيّن — أي المهارات انتقلت بين الحالات، وماذا قال المراجِع (LLM)، وأي المهارات عدّلها. وهو مفيد للتدقيق دون الحاجة إلى البحث بـ grep في <code>agent.log</code>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>لا توجد مرشّحات؟ سيعرض التقرير <code>(not resolved)</code></div><div class="admonitionContent_BuS1"><p>عندما لا تكون لدى Curator <strong>أي مهارات أنشأها الوكيل</strong> لمراجعتها، تُتخطّى دورة المراجعة بواسطة LLM
+كليًا. وسيعرض رأس التقرير
+<code>Model: (not resolved) via (not resolved)</code> مع <code>Duration: 0s</code> — وهذا <strong>لا</strong>
+يدل على خطأ في الإعدادات أو فشل في تحديد النموذج، بل يعني ببساطة أنه لم تكن
+هناك مرشّحات، فلم يُستدعَ أي نموذج. أما مرحلة الانتقالات التلقائية فتظل
+تعمل وتُبلغ عن أعدادها بشكل طبيعي.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rename-map-in-the-summary">خريطة إعادة التسمية في الملخّص</h3>
+<p>إذا دمج تشغيلٌ ما عدة مهارات تحت مهارة مظلّية (أو دمج مهارات شبه مكررة)، فإن الملخّص الذي يُطبع للمستخدم في نهاية التشغيل يتضمن خريطة صريحة لإعادة التسمية تعرض كل زوج <code>old-name → new-name</code> طبّقه Curator. ويأتي ذلك إضافةً إلى أسطر الانتقال الخاصة بكل مهارة، بحيث يمكنك عند حدوث موجة من إعادات التسمية ملاحظتها بنظرة سريعة دون مقارنة تقرير JSON. كما يظهر هذا التلميح أيضًا تحت <code>hermes curator pin</code> لتتمكن من تثبيت اسم المهارة المظلّية فورًا إذا أردت اعتماد التسمية الجديدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="restoring-an-archived-skill">استعادة مهارة مؤرشفة</h2>
+<p>إذا أرشف Curator شيئًا لا تزال تحتاج إليه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>ينقل هذا الأمر المهارة من <code>~/.hermes/skills/.archive/</code> إلى الشجرة النشطة ويعيد ضبط حالتها إلى <code>active</code>. وترفض عملية الاستعادة التنفيذ إذا ثُبّتت منذ ذلك الحين مهارة مضمّنة أو مهارة من Hub بالاسم نفسه (لأنها ستحجب النسخة الأصلية upstream).</p>

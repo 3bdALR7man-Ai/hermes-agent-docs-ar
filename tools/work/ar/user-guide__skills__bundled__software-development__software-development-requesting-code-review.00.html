@@ -1,0 +1,101 @@
+
+<header><h1>طلب مراجعة الكود</h1></header>
+<p>مراجعة ما قبل الالتزام (commit): فحص أمني، بوابات جودة، إصلاح تلقائي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/software-development/requesting-code-review</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent (مُقتبَسة من obra/superpowers و MorAlekss)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>code-review</code>, <code>security</code>, <code>verification</code>, <code>quality</code>, <code>pre-commit</code>, <code>auto-fix</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/software-development/software-development-subagent-driven-development"><code>subagent-driven-development</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development"><code>test-driven-development</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-github"><code>github</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>التحقق من الكود قبل الالتزام (Pre-Commit)</h1>
+<p>خط أنابيب تحقق آلي قبل وصول الكود. فحوصات ثابتة (static)، وبوابات جودة واعية
+بخط الأساس (baseline)، و subagent مراجع مستقل، وحلقة إصلاح تلقائي.</p>
+<p><strong>المبدأ الأساسي:</strong> لا يجب أن يراجع أي وكيل عمله بنفسه. السياق الجديد يجد ما فاتك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تستخدمها</h2>
+<ul>
+<li>بعد تنفيذ ميزة أو إصلاح خطأ، وقبل <code>git commit</code> أو <code>git push</code></li>
+<li>عندما يقول المستخدم «commit» أو «push» أو «ship» أو «done» أو «verify» أو «review before merge»</li>
+<li>بعد إكمال مهمة بتعديل ملفين أو أكثر في مستودع git</li>
+<li>بعد كل مهمة في subagent-driven-development (المراجعة ذات المرحلتين)</li>
+</ul>
+<p><strong>تخطَّها من أجل:</strong> التغييرات المقتصرة على التوثيق، أو تعديلات الإعدادات الصرفة، أو عندما يقول المستخدم «skip verification».</p>
+<p><strong>هذه المهارة مقابل github:</strong> هذه المهارة تتحقق من تغييراتك أنت قبل الالتزام.
+أما <code>github</code> فتراجع طلبات سحب (PR) أشخاص آخرين على GitHub بتعليقات مضمّنة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1--get-the-diff">الخطوة 1 — احصل على diff</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إن كانت فارغة، جرّب <code>git diff</code> ثم <code>git diff HEAD~1 HEAD</code>.</p>
+<p>إذا كانت <code>git diff --cached</code> فارغة بينما يُظهر <code>git diff</code> تغييرات، أخبر المستخدم بتنفيذ
+<code>git add &lt;files&gt;</code> أولًا. وإذا ظلت فارغة، شغّل <code>git status</code> — لا شيء ليُتحقّق منه.</p>
+<p>إذا تجاوز الـ diff 15,000 حرف، قسّمه حسب الملف:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2--static-security-scan">الخطوة 2 — فحص أمني ثابت (static)</h2>
+<p>افحص الأسطر المضافة فقط. أي تطابق يُعدّ مصدر قلق أمني يُغذّى إلى الخطوة 5.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3--baseline-tests-and-linting">الخطوة 3 — اختبارات وفحص أسلوب الكود (linting) على خط الأساس</h2>
+<p>اكتشف لغة المشروع وشغّل الأدوات المناسبة. سجّل عدد حالات الفشل
+قبل تغييراتك كـ <strong>baseline_failures</strong> (خزّن التغييرات بـ stash، شغّل، ثم استرجعها بـ pop).
+حالات الفشل الجديدة فقط الناتجة عن تغييراتك تمنع الالتزام.</p>
+<p><strong>أطر الاختبار</strong> (اكتشاف تلقائي حسب ملفات المشروع):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>فحص أسلوب الكود والتحقق من الأنواع (type checking)</strong> (شغّلها فقط إن كانت مثبّتة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>مقارنة خط الأساس:</strong> إذا كان خط الأساس نظيفًا وأدخلت تغييراتك حالات فشل،
+فذلك تراجع (regression). وإذا كان خط الأساس يحتوي فشلًا أصلًا، احسب الحالات الجديدة فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4--self-review-checklist">الخطوة 4 — قائمة تحقق للمراجعة الذاتية</h2>
+<p>فحص سريع قبل إرسال المهمة إلى المراجع:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="12"></x-keep> لا أسرار أو مفاتيح API أو بيانات اعتماد مضمّنة في الكود مباشرة</li>
+<li class="task-list-item"><x-keep id="13"></x-keep> التحقق من صحة المدخلات التي يقدّمها المستخدم</li>
+<li class="task-list-item"><x-keep id="14"></x-keep> استعلامات SQL تستخدم عبارات ذات معاملات (parameterized)</li>
+<li class="task-list-item"><x-keep id="15"></x-keep> عمليات الملفات تتحقق من المسارات (بلا traversal)</li>
+<li class="task-list-item"><x-keep id="16"></x-keep> الاستدعاءات الخارجية لديها معالجة أخطاء (try/catch)</li>
+<li class="task-list-item"><x-keep id="17"></x-keep> لا يوجد print/console.log للتصحيح متروك في الكود</li>
+<li class="task-list-item"><x-keep id="18"></x-keep> لا يوجد كود معلَّق (commented-out)</li>
+<li class="task-list-item"><x-keep id="19"></x-keep> الكود الجديد لديه اختبارات (إن وجدت مجموعة اختبارات)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5--independent-reviewer-subagent">الخطوة 5 — subagent مراجع مستقل</h2>
+<p>استدعِ <code>delegate_task</code> مباشرة — فهي غير متاحة داخل execute_code أو السكربتات.</p>
+<p>يحصل المراجع فقط على الـ diff ونتائج الفحص الثابت. لا سياق مشترك مع
+المنفّذ. فشل بشكل افتراضي (fail-closed): استجابة غير قابلة للتحليل = فشل.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6--evaluate-results">الخطوة 6 — تقييم النتائج</h2>
+<p>ادمج نتائج الخطوات 2 و3 و5.</p>
+<p><strong>نجاح الكل:</strong> انتقل إلى الخطوة 8 (الالتزام).</p>
+<p><strong>وجود أي فشل:</strong> أبلغ عمّا فشل، ثم انتقل إلى الخطوة 7 (الإصلاح التلقائي).</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7--auto-fix-loop">الخطوة 7 — حلقة الإصلاح التلقائي</h2>
+<p><strong>حد أقصى دورتان من الإصلاح وإعادة التحقق.</strong></p>
+<p>ابدأ سياق وكيل ثالث — ليس أنت (المنفّذ)، وليس المراجع.
+يصلح فقط المشكلات المُبلَّغ عنها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>بعد إتمام وكيل الإصلاح، أعد تشغيل الخطوات 1-6 (دورة تحقق كاملة).</p>
+<ul>
+<li>نجاح: انتقل إلى الخطوة 8</li>
+<li>فشل والمحاولات أقل من 2: كرّر الخطوة 7</li>
+<li>فشل بعد محاولتين: صعّد الأمر إلى المستخدم مع المشكلات المتبقية واقترح
+<code>git stash</code> أو <code>git reset</code> للتراجع</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8--commit">الخطوة 8 — الالتزام (Commit)</h2>
+<p>إذا نجح التحقق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تدل بادئة <code>[verified]</code> على أن مراجعًا مستقلًا وافق على هذا التغيير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-common-patterns-to-flag">المرجع: أنماط شائعة يجب رصدها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python">Python</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="javascript">JavaScript</h3>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-with-other-skills">التكامل مع المهارات الأخرى</h2>
+<p><strong>subagent-driven-development:</strong> شغّل هذه المهارة بعد كل مهمة كبوابة جودة.
+تعتمد المراجعة ذات المرحلتين (مطابقة المواصفات + جودة الكود) على خط الأنابيب هذا.</p>
+<p><strong>test-driven-development:</strong> يتحقق خط الأنابيب هذا من اتّباع انضباط TDD —
+وجود اختبارات، نجاح الاختبارات، عدم وجود تراجعات (regressions).</p>
+<p><strong>plan:</strong> يتحقق من مطابقة التنفيذ لمتطلبات الخطة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق شائعة</h2>
+<ul>
+<li><strong>diff فارغ</strong> — تحقّق من <code>git status</code>، وأخبر المستخدم أنه لا يوجد ما يُتحقّق منه</li>
+<li><strong>ليس مستودع git</strong> — تخطَّ ذلك وأخبر المستخدم</li>
+<li><strong>diff كبير (أكثر من 15 ألف حرف)</strong> — قسّمه حسب الملف، وراجع كل ملف على حدة</li>
+<li><strong>delegate_task يعيد استجابة ليست JSON</strong> — أعد المحاولة مرة واحدة بـ prompt أكثر صرامة، ثم اعتبرها فشلًا</li>
+<li><strong>إيجابيات كاذبة (false positives)</strong> — إذا رصد المراجع شيئًا مقصودًا، دوّن ذلك في prompt الإصلاح</li>
+<li><strong>لم يُعثر على إطار اختبار</strong> — تخطَّ فحص التراجع، ويستمر تنفيذ حكم المراجع رغم ذلك</li>
+<li><strong>أدوات linting غير مثبّتة</strong> — تخطَّ ذلك الفحص بصمت، دون فشل</li>
+<li><strong>الإصلاح التلقائي يُدخل مشكلات جديدة</strong> — يُحتسب كفشل جديد، وتستمر الدورة</li>
+</ul>

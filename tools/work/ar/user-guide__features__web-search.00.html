@@ -1,0 +1,150 @@
+<header><h1>البحث في الويب واستخراج المحتوى (Web Search &amp; Extract)</h1></header>
+<p>يتضمّن Hermes Agent أداتَي ويب قابلتَين للاستدعاء من النموذج، مدعومتَين بعدة مزوّدين:</p>
+<ul>
+<li><strong><code>web_search</code></strong> — البحث في الويب وإرجاع نتائج مرتّبة حسب الصلة</li>
+<li><strong><code>web_extract</code></strong> — جلب واستخراج المحتوى المقروء من عنوان URL واحد أو أكثر</li>
+</ul>
+<p>تُضبط الأداتان معًا عبر اختيار backend واحد. تُختار المزوّدات عبر <code>hermes tools</code> أو بتحديدها مباشرة في <code>config.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="backends">Backends</h2>
+<table><thead><tr><th>المزوّد</th><th>متغير البيئة</th><th>البحث</th><th>الاستخراج</th><th>المستوى المجاني</th></tr></thead><tbody><tr><td><strong>Firecrawl</strong> (الافتراضي)</td><td><code>FIRECRAWL_API_KEY</code> (اختياري — بلا مفتاح عند اختياره)</td><td>✔</td><td>✔</td><td>500 رصيد شهريًا · سحابة بلا مفتاح عند اختياره</td></tr><tr><td><strong>SearXNG</strong></td><td><code>SEARXNG_URL</code></td><td>✔</td><td>—</td><td>✔ مجاني (مستضاف ذاتيًا)</td></tr><tr><td><strong>Brave Search (المستوى المجاني)</strong></td><td><code>BRAVE_SEARCH_API_KEY</code></td><td>✔</td><td>—</td><td>2 000 استعلام شهريًا</td></tr><tr><td><strong>DDGS (DuckDuckGo)</strong></td><td>— (بلا مفتاح)</td><td>✔</td><td>—</td><td>✔ مجاني</td></tr><tr><td><strong>Exa</strong></td><td><code>EXA_API_KEY</code> (اختياري)</td><td>✔</td><td>✔</td><td>✔ عضو في الحلقة بلا مفتاح · 1 000 عملية بحث شهريًا مع مفتاح</td></tr><tr><td><strong>Parallel</strong></td><td><code>PARALLEL_API_KEY</code> (اختياري)</td><td>✔</td><td>✔</td><td>✔ عضو في الحلقة بلا مفتاح · مدفوع مع مفتاح</td></tr><tr><td><strong>Tavily</strong></td><td><code>TAVILY_API_KEY</code> (اختياري)</td><td>✔</td><td>✔</td><td>✔ اختياري بلا مفتاح عند اختياره</td></tr><tr><td><strong>Perplexity</strong></td><td><code>PERPLEXITY_API_KEY</code></td><td>✔</td><td>✔ (مقتطفات ذات صلة بالاستعلام)</td><td>مدفوع (تسعير Search API لكل طلب)</td></tr><tr><td><strong>Keenable</strong></td><td><code>KEENABLE_API_KEY</code> (اختياري)</td><td>✔</td><td>✔</td><td>✔ عضو في الحلقة بلا مفتاح · مدفوع مع مفتاح</td></tr><tr><td><strong>xAI (Grok)</strong></td><td><code>XAI_API_KEY</code> أو <code>hermes auth add xai-oauth</code></td><td>✔</td><td>—</td><td>مدفوع (SuperGrok أو حسب الـ token)</td></tr></tbody></table>
+<p>Brave Search وDDGS وxAI مخصّصة <strong>للبحث فقط</strong> — اقرن أيًا منها بـ Firecrawl أو Tavily أو Perplexity أو Keenable أو Exa أو Parallel عندما تحتاج أيضًا إلى <code>web_extract</code>. تستخدم DDGS <a href="https://pypi.org/project/ddgs/" data-ext>حزمة <code>ddgs</code> الخاصة بـ Python</a> في الخلفية؛ إذا لم تكن مثبّتة مسبقًا، نفّذ <code>pip install ddgs</code> (أو دع Hermes يثبّتها تلقائيًا عند أول استخدام). يشغّل xAI أداة <code>web_search</code> الخاصة بـ Grok على جانب الخادم عبر Responses API — النتائج مُولَّدة من LLM وليست مستندة إلى فهرس، لذا العناوين والأوصاف واختيار الروابط كلها ناتجة عن النموذج (راجع <a href="#xai-grok">تنبيه نموذج الثقة</a> أدناه).</p>
+<p><strong>الفصل حسب الإمكانية:</strong> يمكنك استخدام مزوّدين مختلفين للبحث والاستخراج كلٍّ على حدة — مثلًا SearXNG (مجانًا) للبحث وFirecrawl للاستخراج. راجع <a href="#per-capability-configuration">الإعداد حسب الإمكانية</a> أدناه.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>يعمل مباشرة دون إعداد — تناوب على المستوى المجاني بلا مفتاح</div><div class="admonitionContent_BuS1"><p>يعمل التثبيت الجديد <strong>بلا أي بيانات اعتماد للويب على الإطلاق</strong> فتحصل على <code>web_search</code> و<code>web_extract</code> جاهزتَين من دون إعداد: تتناوب الطلبات بالتساوي (round-robin) عبر المستويات المجانية العامة لمزوّدي الحلقة — <strong>Exa وParallel وFirecrawl وKeenable</strong> — بحيث يتوزّع الحِمل بالتساوي، ويُعاد تلقائيًا محاولة أي طلب يصطدم بحدّ المعدل على المزوّد التالي في الحلقة (بعدة قفزات، حتى يخدمه أحدها أو تُقيَّد جميعها). هذا المستوى هو خيار أخير بشكل صارم — أي backend مُعدّ أو أي مفتاح API موجود يتفوّق عليه دائمًا — ولا تحمل الطلبات أي معرّفات للمستخدم (سوى معرّف جلسة عشوائي لكل عملية، يتغيّر عند إعادة التشغيل). للحصول على خدمة مضمونة وغير مقيّدة، أعدّ مزوّدًا بمفتاح. عطّل المستوى بلا المفتاح تمامًا بضبط <code>web.keyless_fallback: false</code>.</p></div></div>
+<p><strong>الاختيار الصريح بين المجاني والمدفوع:</strong> في <code>hermes tools</code>، يظهر كلٌّ من Exa وParallel وKeenable كصفَّين — <strong>Free (بلا مفتاح)</strong> و<strong>Paid (بمفتاح API)</strong>. اختيار Free يُثبّت نقطة النهاية المجهولة لذلك المزوّد (حتى لو أضفت مفتاحًا لاحقًا)؛ واختيار Paid يُثبّت المسار المرتبط بالمفتاح (فإذا غاب المفتاح ينتج خطأ بدلًا من التراجع الصامت إلى المستوى المجاني). يُخزَّن الاختيار في <code>web.provider_tier.&lt;name&gt;: free|paid</code>؛ اتركه بلا ضبط للاختيار التلقائي (مفتاح موجود ← مدفوع، وإلا فالحلقة بلا مفتاح).</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>مشتركو Nous</div><div class="admonitionContent_BuS1"><p>إذا كان لديك اشتراك مدفوع في <a href="https://portal.nousresearch.com" data-ext>Nous Portal</a>، فإن البحث في الويب والاستخراج متاحان عبر <strong><a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a></strong> باستخدام Firecrawl المُدار — دون الحاجة إلى مفتاح API. يمكن للتثبيتات الجديدة تشغيل <code>hermes setup --portal</code> لتسجيل الدخول وتفعيل جميع أدوات الـ gateway دفعة واحدة؛ أما التثبيتات القائمة فيمكنها تفعيل الويب فقط عبر <code>hermes tools</code>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-web_extract-handles-long-pages">كيف تتعامل <code>web_extract</code> مع الصفحات الطويلة</h2>
+<p>تُعيد الـ backends نص markdown الخام للصفحة، وقد يكون ضخمًا (خيوط المنتديات، مواقع التوثيق، المقالات الإخبارية المزوَّدة بتعليقات مضمّنة). للحفاظ على قابلية استخدام نافذة السياق، تطبّق <code>web_extract</code> <strong>ميزانية أحرف محدّدة سلفًا (deterministic)</strong> — دون أي تلخيص من LLM:</p>
+<table><thead><tr><th>حجم الصفحة (بالأحرف)</th><th>ما الذي يحدث</th></tr></thead><tbody><tr><td>عند الميزانية أو أقل منها (الافتراضي 15 000)</td><td>تُعاد كاملة — يصل نص markdown الكامل إلى الوكيل</td></tr><tr><td>أكبر من الميزانية</td><td>نافذة من البداية+النهاية (~75% من البداية / ~25% من النهاية، مقطوعة عند حدود أسطر markdown) مع تذييل صريح <code>[TRUNCATED]</code>. يُخزَّن النص الكامل النظيف على القرص، ويخبر التذييل الوكيل بمسار الملف واستدعاء <code>read_file</code> الدقيق لتصفّح الجزء المحذوف من المنتصف</td></tr><tr><td>أكبر من 2 000 000</td><td>يُحدّ النص المخزَّن بسقف 2 ميغابايت</td></tr></tbody></table>
+<p>ميزانية الحروف لكل صفحة قابلة للضبط عبر <code>web.extract_char_limit</code> في <code>config.yaml</code> (الافتراضي <code>15000</code>، ومُقيَّدة بين 2 000 و500 000)، ويمكن للوكيل رفعها لكل استدعاء عبر وسيط الأداة <code>char_limit</code>.</p>
+<p>كل عملية إرسال لمزوّد مقيّدة أيضًا بمهلة زمنية فعلية (<code>web.extract_timeout</code> في <code>config.yaml</code>، الافتراضي <code>120</code> ثانية؛ <code>0</code> يعطّلها). إذا أبقى backend الاستجابة مفتوحة دون إنهائها، تُعاد أخطاء انتهاء المهلة لكل عنوان URL بدلًا من تعليق استدعاء الأداة إلى ما لا نهاية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-truncation-gets-in-the-way">عندما يعيق الاقتطاع العمل</h3>
+<p>إذا احتجت تحديدًا إلى الـ DOM الحي بدلًا من نص markdown المُستخرَج — كصفحة كثيفة الاعتماد على JS يعيد الاستخراج منها محتوى ضئيلًا — استخدم <code>browser_navigate</code> ثم <code>browser_snapshot</code> بدلًا من ذلك. تُعيد أداة المتصفح شجرة إتاحة الوصول (accessibility tree) الحية (وهي أيضًا مقيّدة بسقف اللقطة الخاص بها على الصفحات الضخمة).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="result-caching">التخزين المؤقت للنتائج</h2>
+<p>تُخدَّم استدعاءات الويب المتكرّرة ضمن نافذة زمنية قصيرة من التخزين المؤقت بدلًا من الـ backend المدفوع — ما يوفّر الرصيد ووقت الاستجابة في الحالتَين اللتَين يشيع فيهما التكرار: توزّع مهام subagents (عدة وكلاء مفوَّضين يبحثون في الموضوع نفسه) وإعادة تحقّق الوكيل من صفحة قرأها قبل دقائق.</p>
+<table><thead><tr><th>الاستدعاء</th><th>التخزين المؤقت</th><th>النطاق</th></tr></thead><tbody><tr><td><code>web_search</code> — الاستعلام نفسه (غير حساس لحالة الأحرف/المسافات)، والمزوّد نفسه</td><td>ذاكرة تخزين داخل الذاكرة (in-memory)</td><td>لكل عملية</td></tr><tr><td><code>web_extract</code> — عنوان URL نفسه، الصيغة نفسها، المزوّد نفسه</td><td>يُخزَّن النص الكامل تحت <code>~/.hermes/cache/web/</code></td><td>مشترك بين عمليات CLI وgateway وcron وsubagent</td></tr></tbody></table>
+<p>عمليات البحث المتطابقة المتزامنة (توزّع متوازٍ لـ subagents يطلق الاستعلام نفسه في آنٍ واحد) <strong>تُدمَج في طلب واحد للـ backend</strong> — يدفع المتصل الأول التكلفة، بينما يتشارك الباقون الاستجابة. تُجمَّع حدود البحث المطلوبة في فئات تصل إلى 10/20/50/100 بحيث تتشارك الطلبات شبه المتطابقة (<code>limit=5</code> مقابل <code>limit=8</code>) إدخالًا واحدًا، مع حصول كل متصل على العدد الذي طلبه.</p>
+<p>لا يُخزَّن مؤقتًا سوى الاستجابات الناجحة. تُعاد محاولة الفشل دائمًا مع الـ backend، ولا تُخزَّن أبدًا الاستجابات التي يخدمها الإنقاذ بلا مفتاح لمرة واحدة (يحاول الاستدعاء التالي الـ backend الذي اخترته من جديد)، ولا تُقدَّم أبدًا عناوين URL المطابقة لقائمة <code>security.website_blocklist</code> الخاصة بك من التخزين المؤقت. تُعيد الاستخراجات المخزَّنة مؤقتًا تشغيل خط أنابيب الاقتطاع المعتاد، لذا فإن ضبط <code>char_limit</code> مختلف في الاستدعاء الثاني يعمل على النسخة المخزَّنة نفسها.</p>
+<p><strong>عناوين URL الخاصة بالتطوير المحلي لا تُخزَّن مؤقتًا أبدًا.</strong> أي عنوان على <code>localhost</code> أو <code>127.0.0.1</code> أو <code>*.local</code> أو أسماء مضيفين ذات مقطع واحد في الشبكة المحلية، أو نطاقات IP خاصة/محلية الوصلة (<code>192.168.*</code>، <code>10.*</code>، <code>172.16-31.*</code>) يتجاوز ذاكرة الاستخراج المؤقتة كليًا — فخوادم التطوير وعمليات البناء ذات إعادة التحميل الفوري ومعاينات مخرجات دردشة الواجهة الرسومية تتغيّر مع كل حفظ، وأي نسخة مخزَّنة ستريك بناءً قديمًا. كل جلب لصفحة محلية يتم مباشرة. (لا يمكن الوصول إلى عناوين URL هذه أصلًا إلا حين يكون <code>security.allow_private_urls</code> مفعّلًا.)</p>
+<p><strong>هل تختبر عبر الإنترنت العام؟</strong> نشرات staging وعناوين tunnel هي DNS عام، لذا لا تلتقطها قاعدة التطوير المحلي — أدرجها في <code>web.cache_exempt_hosts</code> فتُجلَب مباشرة دائمًا أيضًا. تُطابَق الإدخالات مطابقة تامة، أو كحرف بدل <code>*.</code>، أو كلاحقة نطاق (<code>mysite.dev</code> تغطي أيضًا <code>preview.mysite.dev</code>):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا كنت تبحث في بيانات حيّة فعلًا (نتائج، أسعار، أخبار عاجلة) وتحتاج كل استدعاء طازجًا، فقلّل مدة الصلاحية (TTL) أو اضبط <code>web.cache_enabled: false</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-setup-via-hermes-tools">الإعداد السريع عبر <code>hermes tools</code></h3>
+<p>نفّذ <code>hermes tools</code>، وانتقل إلى <strong>Web Search &amp; Extract</strong>، واختر مزوّدًا. يطلب المعالج عنوان URL أو مفتاح API المطلوب ويكتبه في ملف الإعدادات لديك.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="firecrawl-default">Firecrawl (الافتراضي)</h3>
+<p>بحث واستخراج كاملا الميزات. مُوصى به لمعظم المستخدمين.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>احصل على مفتاح من <a href="https://firecrawl.dev" data-ext>firecrawl.dev</a>. يتضمّن المستوى المجاني 500 رصيد شهريًا.</p>
+<p><strong>Firecrawl مستضاف ذاتيًا:</strong> وجّهه إلى نسختك الخاصة بدلًا من واجهة السحابة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عند ضبط <code>FIRECRAWL_API_URL</code>، يصبح مفتاح API اختياريًا (عطّل مصادقة الخادم بضبط <code>USE_DB_AUTHENTICATION=false</code>).</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="searxng-free-self-hosted">SearXNG (مجاني، مستضاف ذاتيًا)</h3>
+<p>SearXNG هو محرّك بحث تلوي (metasearch) مفتوح المصدر يحترم الخصوصية ويجمع النتائج من أكثر من 70 محرّك بحث. <strong>لا يتطلب مفتاح API</strong> — يكفي أن توجّه Hermes إلى نسخة SearXNG قيد التشغيل.</p>
+<p>SearXNG مخصّص <strong>للبحث فقط</strong> — تتطلب <code>web_extract</code> مزوّد استخراج منفصلًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a--self-host-with-docker-recommended">الخيار أ — الاستضافة الذاتية باستخدام Docker (مُوصى به)</h4>
+<p>يمنحك هذا نسخة خاصة بلا حدود معدّل.</p>
+<p><strong>1. أنشئ دليل عمل:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>2. اكتب ملف <code>docker-compose.yml</code>:</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>3. شغّل الحاوية:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>4. فعّل صيغة JSON API:</strong></p>
+<p>يأتي SearXNG بمخرجات JSON معطّلة افتراضيًا. انسخ ملف الإعدادات المُولَّد وفعّلها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>افتح <code>~/searxng/searxng/settings.yml</code>.
+إذا كان <code>use_default_settings: true</code> موجودًا، فإن الملف يحتوي فقط على تجاوزاتك (overrides). أما بقية الإعدادات فتُورَث من الإعدادات الافتراضية المدمجة.
+لتفعيل استجابات JSON لصالح Hermes، أضف التجاوز التالي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يجب أن يبدو ملف <code>settings.yml</code> لديك مشابهًا لِـ:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong>5. أعد التشغيل لتطبيق التغييرات:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>6. تحقّق من أن الأمر يعمل:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يجب أن ترى شيئًا مثل <code>10 results</code>. إذا ظهر لك <code>403 Forbidden</code>، فهذا يعني أن صيغة JSON ما زالت معطّلة — راجع الخطوة 4 من جديد.</p>
+<p><strong>7. أعدّ Hermes:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>ثم اختر SearXNG كـ backend للبحث في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أو اضبطه عبر <code>hermes tools</code> ← Web Search &amp; Extract ← SearXNG.</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b--use-a-public-instance">الخيار ب — استخدام نسخة عامة</h4>
+<p>تُدرَج نسخ SearXNG العامة على <a href="https://searx.space/" data-ext>searx.space</a>. رشِّح النسخ التي تُظهر <strong>تفعيل صيغة JSON</strong> (موضّح في الجدول).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>النسخ العامة</div><div class="admonitionContent_BuS1"><p>النسخ العامة لديها حدود معدّل، ووقت تشغيل متفاوت، وقد تعطّل صيغة JSON في أي وقت. للاستخدام الإنتاجي، يُنصح بشدّة بالاستضافة الذاتية.</p></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="pair-searxng-with-an-extract-provider">اقرن SearXNG بمزوّد استخراج</h4>
+<p>يتولّى SearXNG البحث؛ وتحتاج مزوّدًا منفصلًا لِـ <code>web_extract</code>. استخدم المفاتيح الخاصة بكل إمكانية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>بهذا الإعداد، يستخدم Hermes SearXNG لجميع استعلامات البحث وFirecrawl لاستخراج عناوين URL — جامعًا بين البحث المجاني والاستخراج عالي الجودة.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tavily">Tavily</h3>
+<p>بحث واستخراج مُحسَّنان بالذكاء الاصطناعي. اختر Tavily في <code>hermes tools</code> (أو اضبط <code>web.backend: tavily</code>) لاستخدامه <strong>بلا مفتاح</strong> ودون حساب (مع تقييد المعدل). اضبط مفتاح API عندما تريد حدودًا أعلى.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>احصل على مفتاح من <a href="https://app.tavily.com/home" data-ext>app.tavily.com</a>. راجع <a href="https://docs.tavily.com/documentation/keyless" data-ext>Tavily بلا مفتاح</a>.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="perplexity">Perplexity</h3>
+<p>تُعيد <a href="https://docs.perplexity.ai/docs/search/quickstart" data-ext>Search API الخاصة بـ Perplexity</a> نتائج مرتّبة ومؤرَّخة من فهرس Perplexity الخاص (<code>web_search</code>). أما بالنسبة لِـ <code>web_extract</code> فتستخدم مسار <em>المقتطفات</em> ذات الصلة بالاستعلام نفسه المستخدَم في أداة سطر الأوامر الرسمية <code>pplx</code>: تحصل على المقاطع المهمّة من كل صفحة، مع وضع علامات الحذف <code>…</code>، بدلًا من نسخة حرفية كاملة للصفحة — اختر Firecrawl أو Exa أو Parallel كـ <code>web.extract_backend</code> عندما تحتاج الصفحة كاملة. بمفتاح فقط؛ لا يوجد مستوى مجهول.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>احصل على مفتاح من <a href="https://www.perplexity.ai/account/api" data-ext>perplexity.ai/account/api</a>. اضبط <code>PERPLEXITY_BASE_URL</code> للتوجيه عبر proxy.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exa">Exa</h3>
+<p>بحث عصبي (neural) بفهم دلالي. جيد للبحث العلمي وإيجاد محتوى ذي صلة مفاهيمية.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>احصل على مفتاح من <a href="https://exa.ai" data-ext>exa.ai</a>. يتضمّن المستوى المجاني 1 000 عملية بحث شهريًا.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parallel">Parallel</h3>
+<p>بحث واستخراج قائمان على الذكاء الاصطناعي بشكل أصيل مع إمكانات بحث عميق.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>احصل على الوصول من <a href="https://parallel.ai" data-ext>parallel.ai</a>.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="xai-grok">xAI (Grok)</h3>
+<p>يوجّه <code>web_search</code> عبر <a href="https://docs.x.ai/developers/tools/web-search" data-ext>أداة web_search</a> الخاصة بـ Grok من جانب الخادم على Responses API. يتولّى Grok عملية البحث الفعلية ويُعيد أفضل النتائج بصيغة JSON منظّمة.</p>
+<p>يعمل مع أي من مساري بيانات الاعتماد — دون متغيرات بيئة جديدة أو معالج إعداد جديد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>أو بالنسبة لمشتركي SuperGrok:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>ثم اختر xAI كـ backend للبحث:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>إعدادات اختيارية:</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><strong>للبحث فقط</strong> — اقرنه بـ Firecrawl أو Tavily أو Keenable أو Exa أو Parallel إذا احتجت أيضًا إلى <code>web_extract</code>. عند خطأ 401، ينفّذ المزوّد تحديثًا إجباريًا واحدًا لِـ OAuth token ثم يعيد المحاولة (يغطّي هذا حالات الإلغاء في منتصف النافذة الزمنية والـ tokens المبهمة التي لا يستطيع فحص انتهاء الصلاحية الاستباقي فك ترميزها)؛ أما بيانات الاعتماد عبر متغيرات البيئة فتتخطّى إعادة المحاولة.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>نموذج الثقة</div><div class="admonitionContent_BuS1"><p>على خلاف المزوّدين المستندين إلى فهرس (Brave وTavily وExa) الذين يُعيدون نتائج محرّك بحث حرفية، فإن xAI عبارة عن LLM يختار عناوين URL التي يعرضها ويكتب العناوين والأوصاف بنفسه. تؤثّر <em>محتويات</em> الاستعلام في المخرجات، لذا يمكن نظريًا لاستعلام مصاغ بخبث (مثلًا مُحقَن عبر مدخل غير موثوق التقطه الوكيل من مصدر أعلى) أن يوجّه Grok نحو إصدار عناوين URL يختارها المهاجم. تعامَل مع عناوين URL المُعادة بالطريقة نفسها التي تتعامل بها مع أي رابط مُولَّد من نموذج — تحقّق منه قبل الجلب، خصوصًا إذا جاء الاستعلام من مدخل غير موثوق.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعداد (Configuration)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-backend">Backend واحد</h3>
+<p>اضبط مزوّدًا واحدًا لجميع إمكانات الويب:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-capability-configuration">الإعداد حسب الإمكانية</h3>
+<p>استخدم مزوّدين مختلفين للبحث مقابل الاستخراج. يتيح لك هذا الجمع بين بحث مجاني (SearXNG) ومزوّد استخراج مدفوع، أو العكس:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>عندما تكون المفاتيح الخاصة بكل إمكانية فارغة، يعود كلاهما إلى <code>web.backend</code>. ولا يُكتشَف الـ backend تلقائيًا من أي مفتاح API أو عنوان URL موجود إلا حين لم يُكتَب أي اختيار للويب من قبل على الإطلاق — فبمجرد وجود اختيار، يستخدمه وقت التشغيل دائمًا، وإضافة مفتاح إلى <code>.env</code> لا يعيد توجيه حركة الويب.</p>
+<p><strong>ترتيب الأولوية (لكل إمكانية):</strong></p>
+<ol>
+<li><code>web.search_backend</code> / <code>web.extract_backend</code> (تحديد صريح لكل إمكانية)</li>
+<li><code>web.backend</code> (الاحتياطي المشترك؛ <code>nous</code> = Tool Gateway المُدار)</li>
+<li>الاكتشاف التلقائي من متغيرات البيئة (فقط في الإعدادات التي لم تُضبط قط)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-detection">الاكتشاف التلقائي</h3>
+<p>إذا لم يُختَر أي backend <strong>على الإطلاق من قبل</strong> (لم تُكتَب <code>web.backend</code> ولا أي مفتاح خاص بإمكانية سواء من قِبَلك أو من <code>hermes tools</code>)، يختار Hermes أول backend متاح استنادًا إلى بيانات الاعتماد المضبوطة:</p>
+<table><thead><tr><th>بيانات الاعتماد الموجودة</th><th>الـ backend المُختار تلقائيًا</th></tr></thead><tbody><tr><td><code>TAVILY_API_KEY</code></td><td>tavily</td></tr><tr><td><code>PERPLEXITY_API_KEY</code></td><td>perplexity</td></tr><tr><td><code>EXA_API_KEY</code></td><td>exa</td></tr><tr><td><code>PARALLEL_API_KEY</code></td><td>parallel</td></tr><tr><td><code>FIRECRAWL_API_KEY</code> أو <code>FIRECRAWL_API_URL</code> (أو جاهزية Nous Tool Gateway)</td><td>firecrawl</td></tr><tr><td><code>SEARXNG_URL</code></td><td>searxng</td></tr><tr><td><code>BRAVE_SEARCH_API_KEY</code></td><td>brave-free</td></tr><tr><td>حزمة <code>ddgs</code> قابلة للاستيراد</td><td>ddgs</td></tr><tr><td><em>(لا شيء مضبوط على الإطلاق)</em></td><td>حلقة بلا مفتاح: exa / parallel / firecrawl / keenable (بالتناوب)</td></tr></tbody></table>
+<p><strong>الحلقة المجانية بلا مفتاح:</strong> عندما لا يوجد <em>أي</em> من بيانات الاعتماد أعلاه، تتناوب الطلبات عبر المستويات المجانية العامة لمزوّدي الحلقة (Exa وParallel وFirecrawl وKeenable) بحيث تعمل أدوات الويب على تثبيت جديد دون أي إعداد — ويُعاد توجيه أي طلب مقيَّد بحدّ المعدل تلقائيًا إلى المزوّد التالي في الحلقة. ثبّت مزوّدًا واحدًا في <code>hermes tools</code> لإيقاف التناوب (تُستخدم الحلقة عندئذٍ فقط كتعاقب احتياطي عند التقييد). جميع المستويات المجانية مقيَّدة بمعدّل من طرف المزوّد تحت حِمل مفاجئ (burst)؛ أما الاستخدام العادي المستمر فيمرّ بسلاسة. اضبط <code>web.keyless_fallback: false</code> لإيقاف هذا المستوى — فمع إيقافه ودون بيانات اعتماد، تصبح أدوات الويب غير متاحة إلى أن يُعدّ مزوّد.</p>
+<p><strong>الإنقاذ بلا مفتاح لمرة واحدة للـ backends المرتبطة بمفتاح:</strong> عندما يفشل الـ backend الذي اخترته/المرتبط بمفتاح في استدعاء ما (مفتاح خاطئ، انقطاع خدمة، خطأ 5xx من الطرف الآخر)، يعيد ذلك الاستدعاء الواحد المحاولة تلقائيًا على الحلقة المجانية بلا مفتاح بدلًا من إعادة خطأ — وتُشير النتيجة إلى المزوّد الذي خدمها ولماذا (<code>rescued_from</code> / <code>backend_error</code>). لا يكون هذا التعويض ثابتًا أبدًا: يحاول الاستدعاء التالي مباشرة لِـ <code>web_search</code>/<code>web_extract</code> الـ backend الذي اخترته من جديد. عطّله بضبط <code>web.keyless_rescue: false</code> (وهو معطَّل أيضًا كلما كان <code>keyless_fallback</code> معطَّلًا).</p>
+<p>xAI Web Search <strong>لا</strong> يدخل في سلسلة الاكتشاف التلقائي — فوجود <code>XAI_API_KEY</code> مضبوطًا (أو تسجيل الدخول عبر xAI Grok OAuth) لا يوجّه تلقائيًا حركة الويب عبر xAI، لأن بيانات الاعتماد تلك تُستخدم أيضًا في الاستدلال (inference) وTTS وتوليد الصور وقد يريد المستخدم backend مختلفًا للويب. فعّله صراحة بضبط <code>web.backend: &quot;xai&quot;</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-your-setup">تحقّق من إعدادك</h2>
+<p>نفّذ <code>hermes setup</code> لمعرفة الـ backend الخاص بالويب المُكتشَف:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>أو تحقّق عبر CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>يطبع هذا الـ backend النشِط وحالته:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<hr>

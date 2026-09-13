@@ -1,0 +1,257 @@
+
+<header><h1>Neuroskill Bci</h1></header>
+<p>استخدم حالة الإدراك والمزاج الحية من BCI عبر NeuroSkill.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/health/neuroskill-bci</code></td></tr><tr><td>المسار</td><td><code>optional-skills/health/neuroskill-bci</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent + Nous Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>BCI</code>, <code>neurofeedback</code>, <code>health</code>, <code>focus</code>, <code>EEG</code>, <code>cognitive-state</code>, <code>biometrics</code>, <code>neuroskill</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>تكامل NeuroSkill BCI</h1>
+<p>اربط Hermes بمثيل <a href="https://neuroskill.com/" data-ext>NeuroSkill</a> قيد التشغيل لقراءة
+مقاييس الدماغ والجسم الحية من جهاز BCI القابل للارتداء. استخدم هذا لتقديم
+استجابات واعية بالحالة الإدراكية، واقتراح تدخّلات، وتتبّع الأداء الذهني
+عبر الزمن.</p>
+<blockquote>
+<p><strong>⚠️ للاستخدام البحثي فقط</strong> — NeuroSkill أداة بحثية مفتوحة المصدر. وهي
+ليست جهازًا طبيًا ولم تحصل على اعتماد من FDA أو CE أو أي جهة تنظيمية.
+لا تستخدم هذه المقاييس أبدًا للتشخيص أو العلاج السريري.</p>
+</blockquote>
+<p>راجع <code>references/metrics.md</code> لمرجع المقاييس الكامل، و<code>references/protocols.md</code>
+لبروتوكولات التدخّل، و<code>references/api.md</code> لواجهة WebSocket/HTTP API.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li><strong>Node.js 20+</strong> مثبّت (<code>node --version</code>)</li>
+<li><strong>تطبيق NeuroSkill لسطح المكتب</strong> قيد التشغيل مع جهاز BCI متصل</li>
+<li><strong>عتاد BCI</strong>: Muse 2 أو Muse S أو OpenBCI (تخطيط دماغ EEG رباعي القنوات + PPG + IMU عبر BLE)</li>
+<li><code>npx neuroskill status</code> يعيد بيانات دون أخطاء</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-setup">التحقق من الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا أعاد <code>npx neuroskill status</code> خطأً، أخبر المستخدم بما يلي:</p>
+<ul>
+<li>تأكد من أن تطبيق NeuroSkill لسطح المكتب مفتوح</li>
+<li>تأكد من أن جهاز BCI يعمل ومتصل عبر البلوتوث</li>
+<li>تحقق من جودة الإشارة — المؤشرات الخضراء في NeuroSkill (≥0.7 لكل قطب)</li>
+<li>إذا ظهرت رسالة <code>command not found</code>، ثبّت Node.js 20+</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-reference-npx-neuroskill-command">مرجع سطر الأوامر: <code>npx neuroskill &lt;command&gt;</code></h2>
+<p>تدعم كل الأوامر <code>--json</code> (JSON خام، آمن للأنابيب) و<code>--full</code> (ملخص بشري + JSON).</p>
+<table><thead><tr><th>الأمر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>status</code></td><td>لقطة كاملة للنظام: الجهاز، الدرجات، النطاقات، النسب، النوم، السجل</td></tr><tr><td><code>session [N]</code></td><td>تحليل جلسة واحدة مع اتجاهات النصف الأول مقابل الثاني (0=الأحدث)</td></tr><tr><td><code>sessions</code></td><td>سرد كل الجلسات المسجَّلة عبر جميع الأيام</td></tr><tr><td><code>search</code></td><td>بحث تشابه ANN عن لحظات تاريخية مشابهة عصبيًا</td></tr><tr><td><code>compare</code></td><td>مقارنة A/B بين جلستين مع فروق المقاييس وتحليل الاتجاه</td></tr><tr><td><code>sleep [N]</code></td><td>تصنيف مراحل النوم (Wake/N1/N2/N3/REM) مع تحليل</td></tr><tr><td><code>label &quot;text&quot;</code></td><td>إنشاء تعليق مُوسَّم بالوقت في اللحظة الحالية</td></tr><tr><td><code>search-labels &quot;query&quot;</code></td><td>بحث دلالي متجهي عبر التعليقات السابقة</td></tr><tr><td><code>interactive &quot;query&quot;</code></td><td>بحث رسم بياني عبر 4 طبقات متعدد الأنماط (نص → EXG → تعليقات)</td></tr><tr><td><code>listen</code></td><td>بث أحداث لحظي (الافتراضي 5 ثوانٍ، اضبطه بـ <code>--seconds N</code>)</td></tr><tr><td><code>umap</code></td><td>إسقاط UMAP ثلاثي الأبعاد لتضمينات الجلسات</td></tr><tr><td><code>calibrate</code></td><td>فتح نافذة المعايرة وبدء ملف تعريف</td></tr><tr><td><code>timer</code></td><td>تشغيل مؤقّت التركيز (إعدادات Pomodoro/Deep Work/Short Focus الجاهزة)</td></tr><tr><td><code>notify &quot;title&quot; &quot;body&quot;</code></td><td>إرسال إشعار من نظام التشغيل عبر تطبيق NeuroSkill</td></tr><tr><td><code>raw &#x27;{json}&#x27;</code></td><td>تمرير JSON خام مباشرةً إلى الخادم</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="global-flags">الخيارات العامة</h3>
+<table><thead><tr><th>الخيار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--json</code></td><td>مخرجات JSON خام (بلا ANSI، آمنة للأنابيب)</td></tr><tr><td><code>--full</code></td><td>ملخص بشري + JSON ملوّن</td></tr><tr><td><code>--port &lt;N&gt;</code></td><td>تجاوز منفذ الخادم (الافتراضي: اكتشاف تلقائي، غالبًا 8375)</td></tr><tr><td><code>--ws</code></td><td>فرض نقل WebSocket</td></tr><tr><td><code>--http</code></td><td>فرض نقل HTTP</td></tr><tr><td><code>--k &lt;N&gt;</code></td><td>عدد أقرب الجيران (لـ search وsearch-labels)</td></tr><tr><td><code>--seconds &lt;N&gt;</code></td><td>مدة الاستماع (الافتراضي: 5)</td></tr><tr><td><code>--trends</code></td><td>عرض اتجاهات المقاييس لكل جلسة (sessions)</td></tr><tr><td><code>--dot</code></td><td>مخرجات Graphviz DOT (interactive)</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-checking-current-state">1. التحقق من الحالة الحالية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-live-metrics">الحصول على المقاييس الحية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>استخدم دائمًا <code>--json</code></strong> لتحليل موثوق. المخرجات الافتراضية نص ملوّن قابل للقراءة البشرية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-fields-in-the-response">الحقول الأساسية في الاستجابة</h3>
+<p>يحتوي الكائن <code>scores</code> على كل المقاييس الحية (مقياس 0–1 ما لم يُذكر غير ذلك):</p>
+<div class="language-jsonc codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يشمل أيضًا: <code>device</code> (الحالة، البطارية، البرنامج الثابت)، <code>signal_quality</code> (لكل قطب 0–1)،
+<code>session</code> (المدة، epochs)، <code>embeddings</code>، <code>labels</code>، ملخص <code>sleep</code>، و<code>history</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interpreting-the-output">تفسير المخرجات</h3>
+<p>حلّل JSON وترجم المقاييس إلى لغة طبيعية. لا تُبلغ أبدًا بالأرقام الخام
+وحدها — أعطها معنى دائمًا:</p>
+<p><strong>افعل:</strong></p>
+<blockquote>
+<p>&quot;تركيزك جيد الآن عند 0.70 — هذا نطاق حالة التدفق. معدل ضربات
+القلب ثابت عند 68 نبضة/دقيقة و FAA لديك موجب، ما يشير إلى دافع اقتراب
+جيد. وقت رائع لتناول شيء معقّد.&quot;</p>
+</blockquote>
+<p><strong>لا تفعل:</strong></p>
+<blockquote>
+<p>&quot;Focus: 0.70, Relaxation: 0.40, HR: 68&quot;</p>
+</blockquote>
+<p>عتبات التفسير الأساسية (راجع <code>references/metrics.md</code> للدليل الكامل):</p>
+<ul>
+<li><strong>Focus &gt; 0.70</strong> ← نطاق حالة التدفق، احمِها</li>
+<li><strong>Focus &lt; 0.40</strong> ← اقترح استراحة أو بروتوكولًا</li>
+<li><strong>Drowsiness &gt; 0.60</strong> ← تحذير من الإرهاق، خطر نوم دقيق</li>
+<li><strong>Relaxation &lt; 0.30</strong> ← يلزم تدخّل لتخفيف التوتر</li>
+<li><strong>Cognitive Load &gt; 0.70 مستمر</strong> ← تفريغ ذهني أو استراحة</li>
+<li><strong>TBR &gt; 1.5</strong> ← هيمنة موجات ثيتا، تحكّم تنفيذي أقل</li>
+<li><strong>FAA &lt; 0</strong> ← انسحاب/وجدان سلبي — فكّر في إعادة توازن FAA</li>
+<li><strong>SNR &lt; 3 dB</strong> ← إشارة غير موثوقة، اقترح إعادة وضع الأقطاب</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-session-analysis">2. تحليل الجلسات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-session-breakdown">تحليل جلسة واحدة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يعيد مقاييس كاملة مع <strong>اتجاهات النصف الأول مقابل الثاني</strong> (<code>&quot;up&quot;</code>, <code>&quot;down&quot;</code>, <code>&quot;flat&quot;</code>).
+استخدم هذا لوصف كيف تطوّرت الجلسة:</p>
+<blockquote>
+<p>&quot;بدأ تركيزك عند 0.64 وارتفع إلى 0.76 مع نهاية الجلسة — اتجاه صاعد واضح.
+انخفض الحمل الإدراكي من 0.38 إلى 0.28، ما يشير إلى أن المهمة أصبحت أكثر
+تلقائية مع استقرارك فيها.&quot;</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-all-sessions">سرد كل الجلسات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-historical-search">3. البحث التاريخي</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="neural-similarity-search">بحث التشابه العصبي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يجد لحظات في السجل مشابهة عصبيًا باستخدام بحث HNSW عن أقرب الجيران التقريبي
+عبر تضمينات ZUNA ذات 128 بُعدًا. يعيد إحصاءات المسافة، والتوزيع الزمني
+(ساعة اليوم)، وأفضل الأيام المطابقة.</p>
+<p>استخدم هذا عندما يسأل المستخدم:</p>
+<ul>
+<li>&quot;متى كنت آخر مرة في حالة مثل هذه؟&quot;</li>
+<li>&quot;اعثر على أفضل جلسات تركيزي&quot;</li>
+<li>&quot;متى أنهار عادةً بعد الظهر؟&quot;</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="semantic-label-search">البحث الدلالي في التعليقات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يبحث في نص التعليقات باستخدام تضمينات متجهية (Xenova/bge-small-en-v1.5). يعيد
+التعليقات المطابقة مع مقاييس EXG المرتبطة بها وقت التعليق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-modal-graph-search">بحث الرسم البياني متعدد الأنماط</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>رسم بياني من 4 طبقات: الاستعلام → تعليقات نصية → نقاط EXG → تعليقات قريبة. استخدم <code>--k-text</code>،
+<code>--k-EXG</code>، <code>--reach &lt;minutes&gt;</code> لضبطه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-session-comparison">4. مقارنة الجلسات</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يعيد فروق المقاييس مع التغيّر المطلق والنسبي والاتجاه لنحو 50 مقياسًا.
+يشمل أيضًا مصفوفتَي <code>insights.improved[]</code> و<code>insights.declined[]</code>، وتصنيف
+النوم لكلتا الجلستين، ومعرّف مهمة UMAP.</p>
+<p>فسّر المقارنات ضمن سياقها — اذكر الاتجاهات لا الفروق فقط:</p>
+<blockquote>
+<p>&quot;أمس كان لديك فترتا تركيز قويتان (10 صباحًا و2 ظهرًا). اليوم لديك فترة
+واحدة بدأت نحو 11 صباحًا وما زالت مستمرة. مستوى انخراطك الإجمالي أعلى اليوم
+لكن كانت هناك ذروات توتر أكثر — قفز مؤشر التوتر لديك 15% وانخفض FAA
+إلى السالب بشكل أكثر تكرارًا.&quot;</p>
+</blockquote>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-sleep-data">5. بيانات النوم</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يعيد تصنيف مراحل النوم مرحلة بمرحلة (نوافذ 5 ثوانٍ) مع تحليل:</p>
+<ul>
+<li><strong>رموز المراحل</strong>: 0=يقظة، 1=N1، 2=N2، 3=N3 (نوم عميق)، 4=REM</li>
+<li><strong>التحليل</strong>: efficiency_pct، onset_latency_min، rem_latency_min، وعدد النوبات</li>
+<li><strong>الأهداف الصحية</strong>: N3 بين 15–25%، REM بين 20–25%، كفاءة &gt;85%، بدء النوم &lt;20 دقيقة</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>استخدم هذا عندما يذكر المستخدم النوم أو التعب أو التعافي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-labeling-moments">6. تعليق اللحظات</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>علِّق اللحظات تلقائيًا عندما:</p>
+<ul>
+<li>يُبلغ المستخدم عن اختراق أو استبصار</li>
+<li>يبدأ المستخدم نوعًا جديدًا من المهام (مثل &quot;الانتقال إلى مراجعة الكود&quot;)</li>
+<li>يُكمل المستخدم بروتوكولًا مهمًا</li>
+<li>يطلب المستخدم منك تعليم اللحظة الحالية</li>
+<li>يحدث انتقال ملحوظ في الحالة (الدخول في التدفق أو الخروج منه)</li>
+</ul>
+<p>تُخزَّن التعليقات في قاعدة بيانات وتُفهرس لاسترجاعها لاحقًا عبر أوامر <code>search-labels</code>
+و<code>interactive</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-real-time-streaming">7. البث اللحظي</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>يبث أحداث WebSocket الحية (EXG، PPG، IMU، الدرجات، التعليقات) للمدة
+المحدَّدة. يتطلب اتصال WebSocket (غير متاح مع <code>--http</code>).</p>
+<p>استخدم هذا لسيناريوهات المراقبة المستمرة أو لملاحظة تغيّرات المقاييس لحظيًا
+أثناء بروتوكول ما.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-umap-visualization">8. تصوير UMAP</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>إسقاط UMAP ثلاثي الأبعاد مُسرَّع بواسطة GPU لتضمينات ZUNA. يشير <code>separation_score</code>
+إلى مدى تميّز جلستين عصبيًا:</p>
+<ul>
+<li><strong>&gt; 1.5</strong> ← الجلستان متمايزتان عصبيًا (حالتا دماغ مختلفتان)</li>
+<li><strong>&lt; 0.5</strong> ← حالتا دماغ متشابهتان في كلتا الجلستين</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-proactive-state-awareness">9. الوعي الاستباقي بالحالة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-start-check">فحص بداية الجلسة</h3>
+<p>في بداية الجلسة، شغّل اختياريًا فحص حالة إذا ذكر المستخدم أنه
+يرتدي جهازه أو سأل عن حالته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>أدرج ملخصًا موجزًا للحالة:</p>
+<blockquote>
+<p>&quot;فحص سريع: التركيز في تصاعد عند 0.62، الاسترخاء جيد عند 0.55، وFAA
+لديك موجب — دافع الاقتراب نشط. يبدو أنها بداية جيدة.&quot;</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-proactively-mention-state">متى تذكر الحالة استباقيًا</h3>
+<p>اذكر الحالة الإدراكية <strong>فقط</strong> عندما:</p>
+<ul>
+<li>يسأل المستخدم صراحةً (&quot;كيف حالي؟&quot;، &quot;تحقق من تركيزي&quot;)</li>
+<li>يُبلغ المستخدم بصعوبة في التركيز أو توتر أو إرهاق</li>
+<li>يُتجاوَز حدّ حرج (drowsiness &gt; 0.70، focus &lt; 0.30 مستمر)</li>
+<li>يوشك المستخدم على القيام بأمر يتطلب جهدًا ذهنيًا ويسأل عن جاهزيته</li>
+</ul>
+<p><strong>لا تفعل ذلك:</strong> لا تقاطع حالة التدفق للإبلاغ عن المقاييس. إذا كان focus &gt; 0.75،
+احمِ الجلسة — الصمت هو الاستجابة الصحيحة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="10-suggesting-protocols">10. اقتراح البروتوكولات</h2>
+<p>عندما تشير المقاييس إلى حاجة، اقترح بروتوكولًا من <code>references/protocols.md</code>.
+اسأل دائمًا قبل البدء — لا تقاطع حالة التدفق أبدًا:</p>
+<blockquote>
+<p>&quot;تركيزك في انخفاض منذ 15 دقيقة و TBR في تصاعد يتجاوز 1.5 — علامات على
+هيمنة موجات ثيتا وإرهاق ذهني. أتريد أن أرشدك خلال Theta-Beta Neurofeedback
+Anchor؟ إنه تمرين مدته 90 ثانية يستخدم العدّ الإيقاعي والتنفس لكبح ثيتا
+ورفع بيتا.&quot;</p>
+</blockquote>
+<p>المحفّزات الأساسية:</p>
+<ul>
+<li><strong>Focus &lt; 0.40، TBR &gt; 1.5</strong> ← Theta-Beta Neurofeedback Anchor أو Box Breathing</li>
+<li><strong>Relaxation &lt; 0.30، مؤشر توتر مرتفع</strong> ← Cardiac Coherence أو 4-7-8 Breathing</li>
+<li><strong>Cognitive Load &gt; 0.70 مستمر</strong> ← Cognitive Load Offload (تفريغ ذهني)</li>
+<li><strong>Drowsiness &gt; 0.60</strong> ← Ultradian Reset أو Wake Reset</li>
+<li><strong>FAA &lt; 0 (سالب)</strong> ← FAA Rebalancing</li>
+<li><strong>حالة التدفق (focus &gt; 0.75، engagement &gt; 0.70)</strong> ← لا تقاطع</li>
+<li><strong>ثبات مرتفع + headache_index</strong> ← Neck Release Sequence</li>
+<li><strong>RMSSD منخفض (&lt; 25ms)</strong> ← Vagal Toning</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="11-additional-tools">11. أدوات إضافية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="focus-timer">مؤقّت التركيز</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>يُطلق نافذة مؤقّت التركيز بإعدادات Pomodoro (25/5) أو Deep Work (50/10) أو
+Short Focus (15/5) الجاهزة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="calibration">المعايرة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>يفتح نافذة المعايرة. مفيد عندما تكون جودة الإشارة ضعيفة أو يريد المستخدم
+تأسيس خط أساس شخصي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="os-notifications">إشعارات نظام التشغيل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="raw-json-passthrough">تمرير JSON خام</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>لأي أمر خادم لم يُربط بعد بأمر فرعي في سطر الأوامر.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-handling">معالجة الأخطاء</h2>
+<table><thead><tr><th>الخطأ</th><th>السبب المحتمل</th><th>الحل</th></tr></thead><tbody><tr><td><code>npx neuroskill status</code> يتجمّد</td><td>تطبيق NeuroSkill غير مُشغَّل</td><td>افتح تطبيق NeuroSkill لسطح المكتب</td></tr><tr><td><code>device.state: &quot;disconnected&quot;</code></td><td>جهاز BCI غير متصل</td><td>تحقق من البلوتوث وبطارية الجهاز</td></tr><tr><td>كل الدرجات تعيد 0</td><td>تلامس ضعيف للأقطاب</td><td>أعد وضع العصابة، رطّب الأقطاب</td></tr><tr><td>قيم <code>signal_quality</code> &lt; 0.7</td><td>أقطاب غير محكمة</td><td>اضبط التثبيت، نظّف تلامس الأقطاب</td></tr><tr><td>SNR &lt; 3 dB</td><td>إشارة مشوّشة</td><td>قلّل حركة الرأس، تحقق من البيئة</td></tr><tr><td><code>command not found: npx</code></td><td>Node.js غير مثبّت</td><td>ثبّت Node.js 20+</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-interactions">أمثلة على التفاعلات</h2>
+<p><strong>&quot;كيف حالي الآن؟&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>← فسّر الدرجات بشكل طبيعي، مع ذكر التركيز والاسترخاء والمزاج وأي نِسَب
+لافتة (FAA، TBR). اقترح إجراءً فقط إذا أشارت المقاييس إلى حاجة له.</p>
+<p><strong>&quot;لا أستطيع التركيز&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>← تحقق مما إذا كانت المقاييس تؤكد ذلك (ثيتا مرتفع، بيتا منخفض، TBR
+متصاعد، نعاس مرتفع).
+← إذا تأكد ذلك، اقترح بروتوكولًا مناسبًا من <code>references/protocols.md</code>.
+← إذا بدت المقاييس طبيعية، فقد تكون المشكلة تحفيزية لا عصبية.</p>
+<p><strong>&quot;قارن تركيزي اليوم بالأمس&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>← فسّر الاتجاهات لا الأرقام فقط. اذكر ما تحسّن وما تراجع والأسباب المحتملة.</p>
+<p><strong>&quot;متى كنت آخر مرة في حالة تدفق؟&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>← أبلغ عن الطوابع الزمنية، والمقاييس المرتبطة، وما كان يفعله المستخدم (من التعليقات).</p>
+<p><strong>&quot;كيف كان نومي؟&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>← أبلغ عن بنية النوم (نسبة N3، نسبة REM، الكفاءة)، وقارنها بالأهداف الصحية،
+ولاحظ أي مشكلات (epochs يقظة مرتفعة، REM منخفض).</p>
+<p><strong>&quot;علّم هذه اللحظة — للتو حصل معي اختراق&quot;</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>← أكّد حفظ التعليق. يمكنك اختياريًا ذكر المقاييس الحالية لتذكّر الحالة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2603.03212" data-ext>ورقة NeuroSkill البحثية — arXiv:2603.03212</a> (Kosmyna &amp; Hauptmann, MIT Media Lab)</li>
+<li><a href="https://github.com/NeuroSkill-com/skill" data-ext>تطبيق NeuroSkill لسطح المكتب</a> (GPLv3)</li>
+<li><a href="https://github.com/NeuroSkill-com/neuroloop" data-ext>NeuroLoop CLI Companion</a> (GPLv3)</li>
+<li><a href="https://www.media.mit.edu/projects/neuroskill/overview/" data-ext>مشروع MIT Media Lab</a></li>
+</ul>

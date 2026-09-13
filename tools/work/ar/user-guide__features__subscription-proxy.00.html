@@ -1,0 +1,96 @@
+<header><h1>Proxy الاشتراك (Subscription Proxy)</h1></header>
+<p>الـ subscription proxy خادم HTTP محلي يتيح للتطبيقات الخارجية —
+مثل OpenViking و Karakeep و Open WebUI، وأي تطبيق يتعامل مع chat completions
+المتوافقة مع OpenAI — استخدام اشتراكك لدى المزوّد الذي يديره Hermes بوصفه
+LLM endpoint خاصًا بها. يُرفق الـ proxy بيانات الاعتماد الصحيحة (ويحدّثها
+تلقائيًا)، فلا يحتاج التطبيق أبدًا إلى مفتاح API ثابت.</p>
+<p>يختلف هذا عن <a href="/docs/user-guide/features/api-server">خادم API</a>:</p>
+<table><thead><tr><th></th><th>خادم API</th><th>Subscription proxy</th></tr></thead><tbody><tr><td>ما الذي يقدّمه</td><td>وكيلك (مجموعة الأدوات الكاملة، والذاكرة، والمهارات)</td><td>inference خام من النموذج</td></tr><tr><td>حالة الاستخدام</td><td>&quot;استخدم Hermes كـ backend للمحادثة&quot;</td><td>&quot;استخدم اشتراكي في Portal من تطبيق آخر&quot;</td></tr><tr><td>المصادقة</td><td><code>API_SERVER_KEY</code> الخاص بك</td><td>أي bearer (يُرفق الـ proxy المفتاح الحقيقي)</td></tr><tr><td>استدعاءات الأدوات</td><td>نعم — الوكيل يشغّل الأدوات</td><td>لا — تمرير مباشر فقط</td></tr></tbody></table>
+<p>استخدم خادم API عندما تريد <strong>الوكيل</strong> كـ backend. واستخدم
+الـ proxy عندما تريد فقط <strong>النموذج</strong> عبر اشتراكك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-log-into-your-provider-one-time">1. سجّل الدخول إلى مزوّدك (مرة واحدة)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يفتح هذا الأمر متصفحك لإتمام تدفق OAuth الخاص بـ Nous Portal. ويخزّن Hermes
+الـ refresh token في <code>~/.hermes/auth.json</code> — وهو المكان نفسه الذي تُحفظ فيه جميع
+عمليات تسجيل الدخول إلى مزوّدي Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-start-the-proxy">2. شغّل الـ proxy</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>اتركه يعمل في الواجهة. استخدم <code>tmux</code> أو <code>nohup</code> أو وحدة systemd
+إذا أردت أن يستمر في العمل بعد تسجيل الخروج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-point-your-app-at-it">3. وجّه تطبيقك إليه</h3>
+<p>تأخذ إعدادات أي تطبيق متوافق مع OpenAI القيم الثلاث نفسها:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يتجاهل الـ proxy الترويسة <code>Authorization</code> القادمة من تطبيقك، ويُرفق
+بيانات اعتماد Portal الحقيقية الخاصة بك بالطلب المُرسل إلى المصدر (upstream). ويتم التحديث
+تلقائيًا عندما يقترب الـ bearer من انتهاء صلاحيته.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-providers">المزوّدون المتاحون</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>المتوفر حاليًا: <code>nous</code> (Nous Portal) و <code>xai</code> (xAI / Grok). ويمكن إضافة مزيد من
+مزوّدي OAuth عبر تنفيذ الواجهة البرمجية <code>UpstreamAdapter</code>
+في <code>hermes_cli/proxy/adapters/</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="check-status">التحقق من الحالة</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>إذا ظهرت لك الرسالة <code>not logged in</code>، فنفّذ <code>hermes portal</code>. وإذا ظهرت لك
+<code>credentials need attention</code>، فهذا يعني أن الـ refresh token قد أُلغي (وهو أمر نادر —
+يحدث إذا سجّلت الخروج من واجهة Portal على الويب) — ما عليك سوى إعادة تنفيذ
+<code>hermes portal</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="allowed-paths">المسارات المسموح بها</h2>
+<p>لا يُمرّر الـ proxy إلا المسارات التي يقدّمها المصدر فعليًا. بالنسبة إلى Nous
+Portal:</p>
+<table><thead><tr><th>المسار</th><th>الغرض</th></tr></thead><tbody><tr><td><code>/v1/chat/completions</code></td><td>Chat completions (مع البث ودونه)</td></tr><tr><td><code>/v1/completions</code></td><td>إكمال النصوص بالصيغة القديمة (Legacy)</td></tr><tr><td><code>/v1/embeddings</code></td><td>Embeddings (التضمينات)</td></tr><tr><td><code>/v1/models</code></td><td>قائمة النماذج</td></tr></tbody></table>
+<p>أما المسارات الأخرى (<code>/v1/images/generations</code>، و <code>/v1/audio/speech</code>، وغيرها) فتُرجع
+404 مع رسالة خطأ واضحة تشير إلى المسارات المسموح بها. وهذا يمنع العملاء
+الشاردة من تسريب طلبات غريبة إلى المصدر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-openviking-to-use-portal">إعداد OpenViking لاستخدام Portal</h2>
+<p><a href="https://github.com/volcengine/OpenViking" data-ext>OpenViking</a> قاعدة بيانات
+للسياق تحتاج إلى مزوّد LLM لنموذج VLM الخاص بها (نموذج الرؤية/اللغة
+المستخدم لاستخراج الذكريات) ولنموذج embedding. وباستخدام الـ proxy، يمكنك
+توجيه <code>vlm.api_base</code> الخاص بها إلى الـ proxy المحلي لديك:</p>
+<p>عدّل <code>~/.openviking/ov.conf</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>ثم شغّل الـ proxy في طرفية بجانب <code>openviking-server</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>أصبحت استدعاءات VLM في OpenViking تمر الآن عبر اشتراكك في Portal. أما جانب
+نموذج embedding فلا يزال يحتاج إلى مزوّد خاص به — صحيح أن Portal يقدّم
+<code>/v1/embeddings</code>، لكن اختيار النموذج يعتمد على ما تدعمه فئة اشتراكك؛
+راجع <code>portal.nousresearch.com/models</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-karakeep-or-any-bookmarksummarizer-app">إعداد Karakeep (أو أي تطبيق للإشارات المرجعية/التلخيص)</h2>
+<p>يستخدم <a href="https://karakeep.app/" data-ext>Karakeep</a> واجهة API متوافقة مع OpenAI من أجل
+تلخيص الإشارات المرجعية. في إعداداته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>ينطبق النمط نفسه على Open WebUI و LobeChat و NextChat وأي عميل آخر
+متوافق مع OpenAI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="exposing-on-lan">الإتاحة على الشبكة المحلية (LAN)</h2>
+<p>يرتبط الـ proxy افتراضيًا بالعنوان <code>127.0.0.1</code> (localhost فقط). للسماح للأجهزة
+الأخرى على شبكتك باستخدامه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>⚠ <strong>انتبه:</strong> أصبح بإمكان أي شخص على شبكتك الآن استخدام اشتراكك في Portal.
+فالـ proxy لا يملك مصادقة خاصة به — إذ يقبل أي bearer.
+استخدم جدار حماية أو VPN أو reverse proxy مع مصادقة مناسبة إذا كنت ستتيحه
+خارج شبكتك الموثوقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limits">حدود المعدل (Rate limits)</h2>
+<p>تنطبق حدود RPM/TPM الخاصة بفئة اشتراكك في Portal على الـ proxy بأكمله. فالـ
+proxy لا يوزّع الطلبات ولا يجمّع بيانات اعتماد متعددة — بل هو bearer واحد بكامل حصة
+اشتراكك. راقب الاستخدام على
+<a href="https://portal.nousresearch.com" data-ext>portal.nousresearch.com</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية (Architecture)</h2>
+<p>الـ proxy بسيط إلى أقصى حد عن قصد. لكل طلب:</p>
+<ol>
+<li>يستقبل <code>POST /v1/chat/completions</code> من تطبيقك</li>
+<li>يبحث عن بيانات الاعتماد الحالية للـ adapter (ويحدّثها إذا كانت على وشك الانتهاء)</li>
+<li>يمرّر جسم الطلب حرفيًا، مع <code>Authorization: Bearer &lt;minted-key&gt;</code></li>
+<li>يبث الاستجابة كما هي دون تغيير (مع الحفاظ على SSE)</li>
+</ol>
+<p>لا تحويل. ولا تسجيل لأجسام الطلبات. ولا حلقة وكيل (agent loop). فالـ
+proxy مجرد ممر مباشر يُرفق بيانات الاعتماد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="future-more-oauth-providers">المستقبل: مزيد من مزوّدي OAuth</h2>
+<p>نظام الـ adapters قابل للتوسعة عبر الإضافات. تتطلب إضافة مزوّد جديد (مثل
+HuggingFace، أو chat endpoint الخاص بـ GitHub Copilot، أو Anthropic عبر OAuth)
+تنفيذ <code>UpstreamAdapter</code> في
+<code>hermes_cli/proxy/adapters/&lt;provider&gt;.py</code> وتسجيله في
+<code>adapters/__init__.py</code>. أما المزوّدون غير المتوافقين مع OpenAI على
+مستوى البروتوكول (مثل Anthropic Messages API) فسيحتاجون إلى
+طبقة تحويل، وهذا خارج نطاق التصميم الحالي.</p>

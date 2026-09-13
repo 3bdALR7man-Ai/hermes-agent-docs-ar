@@ -1,0 +1,79 @@
+
+<header><h1>OpenHands</h1></header>
+<p>فوّض البرمجة إلى OpenHands CLI (مستقل عن النموذج، عبر LiteLLM).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/autonomous-ai-agents/openhands</code></td></tr><tr><td>المسار</td><td><code>optional-skills/autonomous-ai-agents/openhands</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Tim Koepsel (xzessmedia), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Coding-Agent</code>, <code>OpenHands</code>, <code>Model-Agnostic</code>, <code>LiteLLM</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code"><code>claude-code</code></a>, <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex"><code>codex</code></a>, <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-opencode"><code>opencode</code></a>, <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>OpenHands CLI</h1>
+<p>فوّض مهام البرمجة إلى <a href="https://github.com/All-Hands-AI/OpenHands" data-ext>OpenHands CLI</a> عبر أداة <code>terminal</code>. OpenHands مستقل عن النموذج: يعمل مع أي مزوّد مدعوم من LiteLLM (OpenAI، Anthropic، OpenRouter، DeepSeek، Ollama، vLLM، إلخ).</p>
+<p>هذه المهارة هي غلاف الوضع اللاواجهي (headless) للتفويض الدفعي / لمرة واحدة. الواجهة النصية التفاعلية (textual UI) لا تُستخدم من Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يريد المستخدم تفويض مهمة برمجية إلى OpenHands تحديدًا.</li>
+<li>يريد المستخدم وكيلًا برمجيًا يمكنه العمل على مزوّد غير Anthropic / غير OpenAI (DeepSeek، Qwen، Ollama، vLLM، Nous، إلخ) — المهارتان الشقيقتان <code>claude-code</code> و<code>codex</code> مرتبطتان بمزوّد واحد.</li>
+<li>تعديلات ملفات متعددة الخطوات + أوامر shell داخل مساحة عمل.</li>
+</ul>
+<p>لـ Claude الأصيل، فضّل <code>claude-code</code>. لـ OpenAI الأصيل، فضّل <code>codex</code>. للـ subagents الأصيلة في Hermes، استخدم <code>delegate_task</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ol>
+<li>
+<p>ثبّت الأداة الأصلية (تتطلب Python 3.12+ و<code>uv</code>):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تحقّق: <code>openhands --version</code> (حاليًا <code>OpenHands CLI 1.16.0</code> / <code>SDK v1.21.0</code> وقت كتابة هذا النص).</p>
+</li>
+<li>
+<p>اختر نموذجًا واضبط متغيرات البيئة لـ <code>--override-with-envs</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يستخدم <code>LLM_MODEL</code> الصيغة (slug) الكاملة لـ LiteLLM. عندما يكون المزوّد OpenRouter تكون الصيغة مسبوقة مرتين: <code>openrouter/&lt;vendor&gt;/&lt;model&gt;</code> (مثلًا <code>openrouter/anthropic/claude-sonnet-4.5</code>). لـ Anthropic الأصيل: <code>anthropic/claude-sonnet-4-5</code>. لـ OpenAI الأصيل: <code>openai/gpt-4o-mini</code>.</p>
+</li>
+<li>
+<p>اكتم شعار البدء حتى لا تسبق مخرجات JSON فنون ASCII:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">طريقة التشغيل</h2>
+<p>نفّذ دائمًا عبر أداة <code>terminal</code>. مرّر دائمًا <code>--headless --json --override-with-envs --exit-without-confirmation</code> للأتمتة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-task">مهمة لمرة واحدة</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-for-long-tasks">الخلفية للمهام الطويلة</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-a-previous-conversation">استئناف محادثة سابقة</h3>
+<p>يطبع OpenHands <code>Conversation ID: &lt;32-hex&gt;</code> وسطر <code>Hint: openhands --resume &lt;dashed-uuid&gt;</code> في نهاية كل تشغيل. استخدم الصيغة بالشرطات للاستئناف:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="real-flag-list">قائمة الخيارات الفعلية</h2>
+<p>تم التحقق منها مقابل <code>openhands --help</code> (CLI 1.16.0). أي شيء غير مذكور في هذا الجدول ليس خيارًا — مرّره عبر متغير بيئة أو ملف إعدادات.</p>
+<table><thead><tr><th>الخيار</th><th>الأثر</th></tr></thead><tbody><tr><td><code>--headless</code></td><td>بلا واجهة، يتطلب <code>-t</code> أو <code>-f</code>. يوافق تلقائيًا على كل الإجراءات (لا يوجد <code>--llm-approve</code> في هذا الوضع).</td></tr><tr><td><code>--json</code></td><td>تدفق أحداث JSONL (يتطلب <code>--headless</code>).</td></tr><tr><td><code>-t TEXT</code></td><td>نص المهمة.</td></tr><tr><td><code>-f PATH</code></td><td>قراءة المهمة من ملف.</td></tr><tr><td><code>--resume [ID]</code></td><td>استئناف محادثة. بلا معرّف ← عرض الأحدث.</td></tr><tr><td><code>--last</code></td><td>استئناف الأحدث (مع <code>--resume</code>).</td></tr><tr><td><code>--override-with-envs</code></td><td>تطبيق متغيرات <code>LLM_API_KEY</code> / <code>LLM_BASE_URL</code> / <code>LLM_MODEL</code>. بدونه، يستخدم OpenHands <code>~/.openhands/settings.json</code> ويتجاهل البيئة.</td></tr><tr><td><code>--exit-without-confirmation</code></td><td>عدم إظهار حوار تأكيد الخروج.</td></tr><tr><td><code>--always-approve</code> / <code>--yolo</code></td><td>الموافقة التلقائية على كل إجراء (الافتراضي في <code>--headless</code>).</td></tr><tr><td><code>--llm-approve</code></td><td>بوابة أمان قائمة على LLM (تفاعلية فقط — لا تعمل في الوضع اللاواجهي).</td></tr><tr><td><code>--version</code> / <code>-v</code></td><td>طباعة الإصدار والخروج.</td></tr></tbody></table>
+<p><strong>لا يوجد خيار <code>--model</code>، أو <code>--max-iterations</code>، أو <code>--workspace</code>، أو <code>--sandbox</code>، أو <code>--sandbox-type</code>.</strong> النموذج هو <code>LLM_MODEL</code>. ومساحة العمل هي <code>workdir</code> الذي تمرّره إلى أداة <code>terminal</code>. أما الـ sandbox / بيئة التشغيل فهما متغيرا البيئة <code>RUNTIME</code> و<code>SANDBOX_VOLUMES</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="json-event-schema">مخطط أحداث JSON</h2>
+<p>مع <code>--json --headless</code>، يُصدر OpenHands JSONL — كائن JSON واحد لكل سطر، بالإضافة إلى بضعة أسطر حالة ليست بصيغة JSON (<code>Initializing agent...</code>، <code>Agent is working</code>، <code>Agent finished</code>، صندوق الملخص النهائي، <code>Goodbye!</code>، <code>Conversation ID:</code>، <code>Hint:</code>). صفِّ الأسطر التي تبدأ بـ <code>{</code>.</p>
+<p>حقل <code>kind</code> على المستوى الأعلى يميّز الأحداث:</p>
+<ul>
+<li><code>MessageEvent</code> — دور نصي للمستخدم / الوكيل. <code>source</code> إما <code>user</code> أو <code>agent</code>.</li>
+<li><code>ActionEvent</code> — اختار الوكيل أداة. اقرأ <code>tool_name</code> (<code>file_editor</code>، <code>terminal</code>، <code>finish</code>) و<code>action.kind</code> (<code>FileEditorAction</code>، <code>TerminalAction</code>، <code>FinishAction</code>).</li>
+<li><code>ObservationEvent</code> — نتيجة أداة. <code>observation.is_error</code> هو مؤشر النجاح. <code>source</code> هو <code>environment</code>.</li>
+<li><code>FinishAction</code> داخل <code>ActionEvent</code> يحمل رسالة الوكيل النهائية في <code>action.message</code>.</li>
+</ul>
+<p>يطبع الـ CLI كل مخرجات stderr من LiteLLM/Authlib أولًا — انظر المزالق. حلّل فقط stdout، سطرًا سطرًا، متجاهلًا الأسطر التي لا تبدأ بـ <code>{</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>تحذيرات LiteLLM في كل استدعاء.</strong> يطبع الـ CLI تحذيرات <code>bedrock-runtime</code> و<code>sagemaker-runtime</code> إلى stderr لأن <code>botocore</code> غير مثبّت. بالإضافة إلى تحذير إهمال (deprecation) من Authlib. هذه ضوضاء لا إخفاقات. وجّه stderr إلى <code>/dev/null</code> أو صفِّها قبل عرضها للمستخدم.</li>
+<li><strong>ضجيج الشعار.</strong> بدون <code>OPENHANDS_SUPPRESS_BANNER=1</code>، يبدأ كل تشغيل بصندوق ASCII متعدد الأسطر <code>+--+</code> يُعلن عن الـ SDK. صدِّره دائمًا.</li>
+<li><strong><code>--override-with-envs</code> إلزامي للأتمتة.</strong> بدونه، يتجاهل OpenHands <code>LLM_API_KEY</code> / <code>LLM_BASE_URL</code> / <code>LLM_MODEL</code> ويعود إلى <code>~/.openhands/settings.json</code>. في تثبيت جديد هذا الملف غير موجود ويتجمد الـ CLI منتظرًا إعداد أول تشغيل.</li>
+<li><strong>صيغة اسم النموذج (slug) خاصة بـ LiteLLM، لا بالمزوّد.</strong> يعمل <code>openrouter/openai/gpt-4o-mini</code>؛ بينما <code>openai/gpt-4o-mini</code> مع توجيهه إلى OpenRouter لا يعمل. <code>anthropic/claude-sonnet-4-5</code> (بشرطة) هو Anthropic الأصيل؛ و<code>openrouter/anthropic/claude-sonnet-4.5</code> (بنقطة) عبر OpenRouter. أخطئ فيها ← خطأ LiteLLM 400 غامض.</li>
+<li><strong><code>pip install openhands-ai</code> الحزمة الخاطئة.</strong> تلك هي SDK القديمة V0. الـ CLI الجديد هو <code>uv tool install openhands --python 3.12</code>. لا توجد حزمة conda مدعومة.</li>
+<li><strong>صيغة معرّف الاستئناف دقيقة.</strong> ينتهي الـ CLI بـ <code>Conversation ID: f46573d9cfdb45e492ca189bde40019b</code> (بلا شرطات) ثم سطر <code>Hint: openhands --resume f46573d9-cfdb-45e4-92ca-189bde40019b</code> (بشرطات). استخدم الصيغة بالشرطات.</li>
+<li><strong>يتجاهل الوضع اللاواجهي <code>--llm-approve</code>.</strong> إذا مررته، تحصل على خطأ argparse. يفرض الوضع اللاواجهي الموافقة التلقائية دائمًا.</li>
+<li><strong>لا دعم لـ Windows من المصدر.</strong> تتطلب مستندات OpenHands استخدام WSL على Windows. لذا هذه المهارة مقيَّدة بـ <code>[linux, macos]</code> وفقًا لذلك.</li>
+<li><strong><code>~/.openhands/conversations/&lt;id&gt;/</code> يتراكم.</strong> كل تشغيل يحفظ مسارًا (trajectory). نظّفه إن كنت تشغّل دفعات.</li>
+<li><strong>تثبيت ثقيل (~200 حزمة).</strong> استخدم <code>uv tool install</code> (بيئة venv معزولة) لتجنّب تعارضات الاعتماديات مع المشروع النشط.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>إذا انتهى تدفق JSONL بـ <code>FinishAction</code> تذكر رسالته <code>action.message</code> <code>OPENHANDS_OK</code>، فالتثبيت يعمل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذات صلة</h2>
+<ul>
+<li><a href="https://github.com/All-Hands-AI/OpenHands" data-ext>OpenHands على GitHub</a></li>
+<li><a href="https://docs.openhands.dev/openhands/usage/cli/command-reference" data-ext>مرجع أوامر OpenHands CLI</a></li>
+<li>مهارات شقيقة: <code>claude-code</code> (Anthropic فقط)، <code>codex</code> (OpenAI فقط)، <code>opencode</code> (متعدد المزوّدين عبر OpenCode)، <code>hermes-agent</code> (subagents في Hermes عبر <code>delegate_task</code>).</li>
+</ul>

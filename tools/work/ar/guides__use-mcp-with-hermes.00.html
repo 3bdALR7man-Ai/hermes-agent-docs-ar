@@ -1,0 +1,273 @@
+<header><h1>استخدام MCP مع Hermes</h1></header>
+<p>يوضّح هذا الدليل كيفية استخدام MCP فعليًا مع Hermes Agent في سير العمل اليومي.</p>
+<p>إذا كانت صفحة الميزة تشرح ماهية MCP، فإن هذا الدليل يركّز على كيفية الاستفادة منه بسرعة وأمان.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-should-you-use-mcp">متى ينبغي أن تستخدم MCP؟</h2>
+<p>استخدم MCP عندما:</p>
+<ul>
+<li>تكون الأداة متوفرة بالفعل بصيغة MCP ولا تريد بناء أداة أصلية في Hermes</li>
+<li>تريد أن يعمل Hermes على نظام محلي أو بعيد عبر طبقة RPC نظيفة</li>
+<li>تريد تحكمًا دقيقًا في ما يُتاح من كل خادم على حدة</li>
+<li>تريد ربط Hermes بواجهات API داخلية، أو قواعد بيانات، أو أنظمة الشركة دون تعديل نواة Hermes</li>
+</ul>
+<p>لا تستخدم MCP عندما:</p>
+<ul>
+<li>تكون هناك أداة مدمجة في Hermes تؤدي المهمة جيدًا بالفعل</li>
+<li>يُتيح الخادم مجموعة ضخمة وخطيرة من الأدوات ولست مستعدًا لتصفيتها</li>
+<li>لا تحتاج إلا إلى تكامل واحد محدود جدًا، وتكون الأداة الأصلية أبسط وأكثر أمانًا</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mental-model">النموذج الذهني</h2>
+<p>فكّر في MCP على أنه طبقة مُحوِّل (adapter):</p>
+<ul>
+<li>يبقى Hermes هو الوكيل</li>
+<li>تساهم خوادم MCP بالأدوات</li>
+<li>يكتشف Hermes هذه الأدوات عند بدء التشغيل أو عند إعادة التحميل</li>
+<li>يستطيع النموذج استخدامها كأي أدوات عادية</li>
+<li>تتحكم أنت في مقدار ما يظهر من كل خادم</li>
+</ul>
+<p>هذه النقطة الأخيرة مهمة. فالاستخدام الجيد لـ MCP ليس مجرد “اربط كل شيء”، بل هو “اربط الشيء المناسب، بأصغر نطاق مفيد ممكن.”</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-install-mcp-support">الخطوة 1: تثبيت دعم MCP</h2>
+<p>إذا ثبّتَّ Hermes باستخدام سكربت التثبيت القياسي، فإن دعم MCP مضمّن بالفعل (إذ ينفّذ المُثبّت <code>uv pip install -e &quot;.[all]&quot;</code>).</p>
+<p>إذا ثبّتَّه دون الإضافات (extras) وتحتاج إلى إضافة MCP بشكل منفصل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>بالنسبة إلى الخوادم المعتمدة على npm، تأكد من توفّر Node.js و <code>npx</code>.</p>
+<p>وبالنسبة إلى كثير من خوادم MCP المكتوبة بـ Python، يُعد <code>uvx</code> خيارًا افتراضيًا جيدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-add-one-server-first">الخطوة 2: أضف خادمًا واحدًا أولًا</h2>
+<p>ابدأ بخادم واحد آمن.</p>
+<p>مثال: وصول إلى نظام الملفات مقتصر على مجلد مشروع واحد فقط.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ثم شغّل Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>والآن اطرح سؤالًا محددًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-verify-mcp-loaded">الخطوة 3: تحقّق من تحميل MCP</h2>
+<p>يمكنك التحقق من MCP بعدة طرق:</p>
+<ul>
+<li>يجب أن تُظهر لافتة Hermes أو شريط حالته تكامل MCP عند إعداده</li>
+<li>اسأل Hermes عن الأدوات المتاحة لديه</li>
+<li>استخدم <code>/reload-mcp</code> بعد تغيير الإعدادات</li>
+<li>راجع السجلات إذا فشل الاتصال بالخادم</li>
+</ul>
+<p>prompt عملي للاختبار:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-start-filtering-immediately">الخطوة 4: ابدأ التصفية فورًا</h2>
+<p>لا تنتظر إلى وقت لاحق إذا كان الخادم يُتيح عددًا كبيرًا من الأدوات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-whitelist-only-what-you-want">مثال: اسمح فقط بما تريده (whitelist)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>هذا عادةً أفضل خيار افتراضي للأنظمة الحساسة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="wsl2-bridge-hermes-in-wsl-to-windows-chrome">WSL2: ربط Hermes داخل WSL بمتصفح Chrome على Windows</h2>
+<p>هذا هو الإعداد العملي عندما:</p>
+<ul>
+<li>يعمل Hermes داخل WSL2</li>
+<li>يكون المتصفح الذي تريد التحكم فيه هو متصفح Chrome المعتاد الذي سجّلت الدخول إليه على Windows</li>
+<li>يكون <code>/browser connect</code> غير مريح أو غير موثوق من داخل WSL</li>
+</ul>
+<p>في هذا الإعداد، <strong>لا</strong> يتصل Hermes بـ Chrome مباشرةً. بل:</p>
+<ul>
+<li>يعمل Hermes داخل WSL</li>
+<li>يُشغّل Hermes خادم MCP محليًا من نوع stdio</li>
+<li>يُطلَق خادم MCP هذا عبر آلية التشغيل البيني في Windows (interop) باستخدام (<code>cmd.exe</code> أو <code>powershell.exe</code>)</li>
+<li>يرتبط خادم MCP بجلسة Chrome الحية لديك على Windows</li>
+</ul>
+<p>النموذج الذهني:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-this-mode-is-useful">لماذا يُعد هذا الوضع مفيدًا</h3>
+<ul>
+<li>تحتفظ بملف تعريف المتصفح الحقيقي على Windows، وملفات تعريف الارتباط (cookies)، وجلسات تسجيل الدخول</li>
+<li>يبقى Hermes في بيئة Unix المدعومة الخاصة به (WSL2)</li>
+<li>يُتاح التحكم في المتصفح كأدوات MCP بدلًا من الاعتماد على آلية نقل المتصفح في نواة Hermes</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-server">الخادم الموصى به</h3>
+<p>استخدم <code>chrome-devtools-mcp</code>.</p>
+<p>إذا كان Chrome على Windows لديك مفعّلًا فيه التصحيح عن بُعد المباشر (live remote debugging) مسبقًا من <code>chrome://inspect/#remote-debugging</code>، فأضفه على هذا النحو من داخل WSL:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>بعد حفظ الخادم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ثم ابدأ جلسة Hermes جديدة أو نفّذ:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="typical-prompt">prompt نموذجي</h3>
+<p>بعد التحميل، يستطيع Hermes استخدام أدوات المتصفح التي تحمل بادئة MCP مباشرةً. على سبيل المثال:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-browser-connect-is-the-wrong-tool">متى يكون <code>/browser connect</code> الأداة الخاطئة</h3>
+<p>إذا كان Hermes يعمل داخل WSL و Chrome يعمل على Windows، فقد يفشل <code>/browser connect</code> حتى لو كان Chrome مفتوحًا وقابلًا للتصحيح.</p>
+<p>الأسباب الشائعة:</p>
+<ul>
+<li>لا يستطيع WSL الوصول إلى الـ endpoint المحلي نفسه الذي يُتيحه Chrome لأدوات Windows</li>
+<li>مسارات التصحيح المباشر في إصدارات Chrome الأحدث ليست مماثلة للاتصال الكلاسيكي عبر <code>ws://localhost:9222</code></li>
+<li>يكون الارتباط بالمتصفح أسهل عبر أداة مساعدة تعمل على جانب Windows مثل <code>chrome-devtools-mcp</code></li>
+</ul>
+<p>في هذه الحالات، احتفظ بـ <code>/browser connect</code> للإعدادات التي تعمل في البيئة نفسها، واستخدم MCP لربط المتصفح من WSL إلى Windows.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="known-pitfalls">مشكلات معروفة</h3>
+<ul>
+<li>شغّل Hermes من مسار مُركَّب من Windows مثل <code>/mnt/c/Users/&lt;you&gt;</code> أو <code>/mnt/c/workspace/...</code> عند استخدام ملفات Windows التنفيذية من نوع stdio عبر MCP.</li>
+<li>إذا شغّلت Hermes من <code>/root</code> أو <code>/home/...</code>، فقد يُصدر Windows تحذيرًا بشأن المجلد الحالي من نوع <code>UNC</code> قبل بدء خادم MCP.</li>
+<li>إذا انتهت مهلة <code>chrome-devtools-mcp --autoConnect</code> أثناء حصر الصفحات، فقلّل عدد علامات التبويب العاملة في الخلفية أو المجمّدة في Chrome ثم أعد المحاولة.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-blacklist-dangerous-actions">مثال: حظر الإجراءات الخطيرة (blacklist)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-disable-utility-wrappers-too">مثال: تعطيل الـ wrappers المساعدة أيضًا</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-does-filtering-actually-affect">ما الذي تؤثر فيه التصفية فعليًا؟</h2>
+<p>هناك فئتان من الوظائف التي تُتاح عبر MCP في Hermes:</p>
+<ol>
+<li>أدوات MCP الأصلية الخاصة بالخادم</li>
+</ol>
+<ul>
+<li>تُصفّى باستخدام:
+<ul>
+<li><code>tools.include</code></li>
+<li><code>tools.exclude</code></li>
+</ul>
+</li>
+</ul>
+<ol start="2">
+<li>الـ wrappers المساعدة التي يضيفها Hermes</li>
+</ol>
+<ul>
+<li>تُصفّى باستخدام:
+<ul>
+<li><code>tools.resources</code></li>
+<li><code>tools.prompts</code></li>
+</ul>
+</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="utility-wrappers-you-may-see">الـ wrappers المساعدة التي قد تراها</h3>
+<p>الموارد (Resources):</p>
+<ul>
+<li><code>list_resources</code></li>
+<li><code>read_resource</code></li>
+</ul>
+<p>الـ Prompts:</p>
+<ul>
+<li><code>list_prompts</code></li>
+<li><code>get_prompt</code></li>
+</ul>
+<p>لا تظهر هذه الـ wrappers إلا إذا:</p>
+<ul>
+<li>كانت إعداداتك تسمح بها، و</li>
+<li>كانت جلسة خادم MCP تدعم هذه القدرات فعليًا</li>
+</ul>
+<p>لذا لن يتظاهر Hermes بأن لدى الخادم موارد أو prompts إن لم تكن لديه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-1-local-project-assistant">النمط 1: مساعد مشروع محلي</h3>
+<p>استخدم MCP مع خادم نظام ملفات أو خادم git محلي خاص بالمستودع عندما تريد أن يعمل Hermes ضمن مساحة عمل محدودة النطاق.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>أمثلة على prompts جيدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-2-repo-native-work-record-with-open-scaffold">النمط 2: سجل عمل أصلي داخل المستودع باستخدام Open Scaffold</h3>
+<p>استخدم <a href="https://github.com/graphanov/open-scaffold" data-ext>Open Scaffold</a> عندما تريد أن يقرأ Hermes سجل عمل الذكاء الاصطناعي الدائم الخاص بمستودع ما: المهمة الأساسية (mission)، والخطط، وملاحظات الأدلة، وحزم التسليم (handoff packets)، ونتائج المراجعة/البوابات (gates). يبقى Hermes هو الوكيل، ويبقى Open Scaffold هو السجل المحلي الخاص بالمستودع.</p>
+<p>أضف الخادم لمستودع واحد مُهيّأ باستخدام Open Scaffold:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>ثم أبقِ النطاق المُتاح موجّهًا نحو القراءة. اختر <code>select</code> في مطالبة <code>hermes mcp add</code>، أو عدّل <code>config.yaml</code> بعد ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>أمثلة على prompts جيدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>ملاحظات حول الحدود:</p>
+<ul>
+<li>يعمل Open Scaffold MCP محليًا في المقام الأول، وهو للقراءة فقط افتراضيًا.</li>
+<li>تتطلب أدوات الكتابة الخاصة به تشغيل الخادم مع <code>--allow-write</code>؛ لا تفعّل ذلك حتى تريد صراحةً أن يعدّل Hermes ملفات <code>.osc</code>.</li>
+<li>يسجّل Open Scaffold العمل ويضع له بوابات (gates)؛ لكنه لا يفوّض Hermes بالدمج (merge)، أو النشر، أو الـ deploy، أو إنشاء بيئات تشغيل (runtimes).</li>
+<li>ثبّت الإصدار عبر <code>open-scaffold@&lt;version&gt;</code> بدلًا من <code>@latest</code> إذا كنت تحتاج إلى مخططات أدوات (tool schemas) قابلة لإعادة الإنتاج.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-3-github-triage-assistant">النمط 3: مساعد لفرز مشكلات GitHub (triage)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>أمثلة على prompts جيدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-4-internal-api-assistant">النمط 4: مساعد لـ API داخلي</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>أمثلة على prompts جيدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>هذا هو نوع المواقف التي تكون فيها قائمة السماح الصارمة أفضل بكثير من قائمة الاستبعاد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-4-documentation--knowledge-servers">النمط 4: خوادم التوثيق / المعرفة</h3>
+<p>تُتيح بعض خوادم MCP prompts أو موارد أقرب إلى أصول معرفية مشتركة منها إلى إجراءات مباشرة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>أمثلة على prompts جيدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tutorial-end-to-end-setup-with-filtering">درس تطبيقي: إعداد متكامل من البداية إلى النهاية مع التصفية</h2>
+<p>إليك تسلسلًا عمليًا للخطوات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-1-add-github-mcp-with-a-tight-whitelist">المرحلة 1: أضف GitHub MCP مع قائمة سماح ضيقة</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>شغّل Hermes واسأل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-2-expand-only-when-needed">المرحلة 2: وسّع النطاق عند الحاجة فقط</h3>
+<p>إذا احتجت لاحقًا إلى تحديث الـ issues أيضًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>ثم أعد التحميل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-3-add-a-second-server-with-different-policy">المرحلة 3: أضف خادمًا ثانيًا بسياسة مختلفة</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>الآن يستطيع Hermes الجمع بينهما:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>وهنا تكمن قوة MCP: سير عمل يمتد عبر أنظمة متعددة دون تغيير نواة Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safe-usage-recommendations">توصيات للاستخدام الآمن</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prefer-allowlists-for-dangerous-systems">فضّل قوائم السماح للأنظمة الخطيرة</h3>
+<p>لأي شيء مالي، أو موجّه إلى العملاء، أو قد يكون مدمّرًا:</p>
+<ul>
+<li>استخدم <code>tools.include</code></li>
+<li>ابدأ بأصغر مجموعة ممكنة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disable-unused-utilities">عطّل الأدوات المساعدة غير المستخدمة</h3>
+<p>إذا كنت لا تريد أن يتصفّح النموذج الموارد أو الـ prompts التي يوفّرها الخادم، فعطّلها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="keep-servers-scoped-narrowly">أبقِ نطاق الخوادم ضيقًا</h3>
+<p>أمثلة:</p>
+<ul>
+<li>خادم نظام ملفات جذره مجلد مشروع واحد، وليس مجلد المنزل (home) بأكمله</li>
+<li>خادم git موجّه إلى مستودع واحد</li>
+<li>خادم API داخلي يُتيح افتراضيًا أدوات يغلب عليها طابع القراءة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reload-after-config-changes">أعد التحميل بعد تغيير الإعدادات</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p>افعل ذلك بعد تغيير:</p>
+<ul>
+<li>قوائم include/exclude</li>
+<li>خيارات التفعيل (enabled)</li>
+<li>مفاتيح تشغيل resources/prompts</li>
+<li>ترويسات المصادقة (auth headers) / متغيرات البيئة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting-by-symptom">استكشاف الأخطاء وإصلاحها حسب العَرَض</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-server-connects-but-the-tools-i-expected-are-missing">&quot;الخادم متصل لكن الأدوات التي توقعتها غير موجودة&quot;</h3>
+<p>الأسباب المحتملة:</p>
+<ul>
+<li>صُفّيت بواسطة <code>tools.include</code></li>
+<li>استُبعدت بواسطة <code>tools.exclude</code></li>
+<li>عُطّلت الـ wrappers المساعدة عبر <code>resources: false</code> أو <code>prompts: false</code></li>
+<li>الخادم لا يدعم الموارد أو الـ prompts فعليًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-server-is-configured-but-nothing-loads">&quot;الخادم مُعدّ لكن لا شيء يُحمَّل&quot;</h3>
+<p>تحقّق من أن:</p>
+<ul>
+<li><code>enabled: false</code> لم يُترك في الإعدادات</li>
+<li>الأمر أو بيئة التشغيل موجودة (<code>npx</code>، <code>uvx</code>، وغيرهما)</li>
+<li>الـ HTTP endpoint قابل للوصول</li>
+<li>متغيرات بيئة المصادقة أو الترويسات صحيحة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-do-i-see-fewer-tools-than-the-mcp-server-advertises">&quot;لماذا أرى أدوات أقل مما يُعلن عنه خادم MCP؟&quot;</h3>
+<p>لأن Hermes أصبح يحترم السياسة التي تحددها لكل خادم، ويعتمد تسجيلًا يراعي القدرات المدعومة. هذا سلوك متوقع، وعادةً ما يكون مرغوبًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-do-i-remove-an-mcp-server-without-deleting-the-config">&quot;كيف أزيل خادم MCP دون حذف إعداداته؟&quot;</h3>
+<p>استخدم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>يُبقي هذا الإعدادات محفوظة لكنه يمنع الاتصال والتسجيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-first-mcp-setups">إعدادات MCP الأولى الموصى بها</h2>
+<p>خوادم مناسبة للبدء لمعظم المستخدمين:</p>
+<ul>
+<li>filesystem</li>
+<li>git</li>
+<li>GitHub</li>
+<li>خوادم MCP من نوع fetch أو خوادم التوثيق</li>
+<li>API داخلي واحد محدود النطاق</li>
+</ul>
+<p>خوادم غير مناسبة للبدء:</p>
+<ul>
+<li>أنظمة الأعمال الضخمة التي تحتوي على كثير من الإجراءات المدمّرة دون أي تصفية</li>
+<li>أي شيء لا تفهمه جيدًا بما يكفي لتقييده</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/features/mcp">MCP (Model Context Protocol)</a></li>
+<li><a href="/docs/reference/faq">الأسئلة الشائعة</a></li>
+<li><a href="/docs/reference/slash-commands">Slash Commands</a></li>
+</ul>

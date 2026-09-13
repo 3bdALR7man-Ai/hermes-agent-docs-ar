@@ -1,0 +1,65 @@
+<header><h1>استكشاف الأخطاء: &quot;وكيلي يبدو أقل ذكاءً&quot;</h1></header>
+<p>أحيانًا يبدو Hermes أقل حدّة مما كان عليه بالأمس، أو ينسى شيئًا أخبرته به قبل عشرين دقيقة. هذا نادرًا ما يكون غامضًا — عادة ما يكون هناك سبب واحد محدد يمكن التحقق منه. راجع هذه القائمة بالترتيب: الخطوات مرتّبة حسب مدى تكرار كل منها كإجابة فعلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-check-which-model-the-session-is-actually-using">1. تحقّق من النموذج الذي تستخدمه الجلسة فعليًا</h2>
+<p><strong>العَرَض:</strong> الإجابات أقل عمقًا، وجودة الكود تراجعت، والاستدلال يبدو غير سليم — بشكل عام.</p>
+<p><strong>التحقق:</strong> شغّل <code>/model</code> بلا معطيات لعرض النموذج الحالي، أو <code>/status</code> لرؤية نموذج الجلسة، والمزوّد، والـ profile في عرض واحد.</p>
+<p><strong>ماذا يعني ذلك:</strong> تبديل النموذج هو تغيير في القدرات، ومن السهل أن تنتهي بك الحال على نموذج مختلف عمّا تظن:</p>
+<ul>
+<li>التبديل البسيط بـ <code>/model &lt;name&gt;</code> يكون <strong>مقتصرًا على الجلسة</strong> افتراضيًا (ما لم يُضبط <code>model.persist_switch_by_default: true</code>)، لذا قد لا يطابق النموذج الذي أنت عليه ما هو موجود في <code>config.yaml</code>.</li>
+<li>تغيير النموذج الرئيسي من صفحة Models في لوحة التحكم ينطبق على <strong>الجلسات الجديدة فقط</strong> — المحادثة المفتوحة بالفعل تستمر بأي نموذج بدأت به.</li>
+<li>إذا بدّلت إلى نموذج أسرع لمهمة بسيطة (نمط توصي به <a href="/docs/guides/tips#choose-the-right-model">نصائح وأفضل الممارسات</a>)، تذكّر التبديل مرة أخرى لأعمال الاستدلال المعقّدة.</li>
+</ul>
+<p>إذا كان النموذج خاطئًا، فإن <code>/model &lt;name&gt;</code> يصلحه لهذه الجلسة؛ أضف <code>--global</code> لحفظ التغيير بشكل دائم في <code>config.yaml</code>. لاحظ أن التبديل في منتصف الجلسة يصفّر ذاكرة الـ prompt المؤقتة (prompt cache)، لذا يعيد الدور التالي قراءة المحادثة بالسعر الكامل للمدخلات — في جلسة طويلة قد يكون البدء من جديد على النموذج الصحيح أرخص.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-check-context-usage">2. تحقّق من استخدام السياق</h2>
+<p><strong>العَرَض:</strong> بدأت الجلسة بقوة لكن الاستجابات تتباطأ، أو تُقتَطع، أو تفقد تتبّع التفاصيل السابقة.</p>
+<p><strong>التحقق:</strong> شغّل <code>/usage</code> لرؤية استخدام الـ token وحالة نافذة السياق، أو <code>/context</code> لعرض مرئي لما يشغل النافذة (system prompt، وتعريفات الأدوات، والمهارات، والذاكرة، والمحادثة) مقابل المساحة الحرّة.</p>
+<p><strong>ماذا يعني ذلك:</strong> تتراكم في المحادثات الطويلة الرسائل ومخرجات الأدوات، فتقترب من حدود السياق. عندما تلاحظ تراجعًا في جلسة طويلة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يلخّص <code>/compress</code> سجلّ المحادثة، فيقلّل عدد الـ tokens بشكل كبير مع الحفاظ على السياق الأساسي. يبقي <code>/compress here [N]</code> آخر N تبادلات كما هي حرفيًا ويلخّص الباقي، وموضوع تركيز (<code>/compress focus &lt;topic&gt;</code>) يضيّق ما يحتفظ به الملخّص الكامل.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="3"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>/compress</code> بانتظام أثناء الجلسات الطويلة بدلًا من انتظار ظهور مشاكل، واستخدم <code>/usage</code> بشكل دوري لمعرفة موقفك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-verify-the-detected-context-length">3. تحقّق من طول السياق المُكتشف</h2>
+<p><strong>العَرَض:</strong> تظهر مشاكل السياق مبكرًا بشكل مفاجئ — تصل أول محادثة طويلة إلى الحدود بالفعل، أو يبدأ الضغط (compression) في وقت أبكر بكثير مما ينبغي أن تسمح به نافذة النموذج المُعلَنة.</p>
+<p><strong>التحقق:</strong> انظر إلى سطر بدء تشغيل CLI — فهو يعرض طول السياق المُكتشف (مثال: <code>📊 Context limit: 128000 tokens</code>). يمكنك أيضًا التحقق باستخدام <code>/usage</code> أثناء الجلسة.</p>
+<p><strong>ماذا يعني ذلك:</strong> ربما اكتشف Hermes تلقائيًا طول سياق خاطئًا لنموذجك. اضبطه صراحة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أو بالنسبة لـ endpoints المخصّصة، لكل نموذج على حدة في إدخال المزوّد:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لمستخدمي Ollama: إذا ضبطت قيمة <code>num_ctx</code> مخصّصة، اضبط طول السياق المطابق في Hermes — فـ <code>/api/show</code> في Ollama يُبلغ عن الحد <em>الأقصى</em> لسياق النموذج، وليس عن قيمة <code>num_ctx</code> الفعلية التي ضبطتها. على gateway قيد التشغيل، تُطبَّق التعديلات على <code>model.context_length</code> أو أي مفتاح من <code>compression.*</code> عند الرسالة التالية — دون حاجة لإعادة تشغيل.</p>
+<p>راجع <a href="/docs/integrations/providers#context-length-detection">اكتشاف طول السياق (Context Length Detection)</a> لمعرفة كيفية عمل الاكتشاف التلقائي وجميع خيارات التجاوز (override).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-i-told-it-something-and-it-forgot--the-frozen-memory-snapshot">4. &quot;أخبرته بشيء ثم نسيه&quot; — لقطة الذاكرة المجمّدة</h2>
+<p><strong>العَرَض:</strong> طلبت من Hermes تذكّر شيء ما أثناء هذه الجلسة، وأكّد الحفظ، لكن لاحقًا في <em>نفس</em> الجلسة يبدو أنه لا يعرفه.</p>
+<p><strong>التحقق:</strong> لا شيء معطّل — تحقّق من التوقيت. تُكتب الذاكرة المحفوظة في منتصف الجلسة إلى القرص فورًا، لكن الـ system prompt لن يعكسها إلا في الجلسة التالية.</p>
+<p><strong>ماذا يعني ذلك:</strong> هذا سلوك موثَّق ومقصود. تُحقَن الذاكرة في الـ system prompt كـ<strong>لقطة مجمّدة عند بدء الجلسة</strong>، ولا يتغيّر هذا الحقن مطلقًا في منتصف الجلسة — فهذا يحافظ على ذاكرة البادئة المؤقتة (prefix cache) للنموذج من أجل الأداء. عندما يضيف الوكيل أو يزيل إدخالات ذاكرة أثناء الجلسة، تُحفظ التغييرات على القرص فورًا لكنها تظهر في الـ system prompt فقط عند بدء الجلسة التالية. تعرض استجابات الأدوات دائمًا الحالة الحيّة، لذا فإن عملية الحفظ نفسها مؤكَّدة وحقيقية.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="4"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>اللقطة المجمّدة عمليًا: قول &quot;تذكّر X&quot; أثناء جلسة يعني أن X مضمون التوفّر في الجلسة <strong>التالية</strong>. أما ضمن الجلسة الحالية، فتبقى الحقيقة موجودة في سجل المحادثة نفسه — ولا ينساها الوكيل إلا إذا كان ذلك الجزء من المحادثة قد خضع للضغط (compression) منذ ذلك الحين (راجع الخطوة 7).</p></div></div>
+<p>راجع <a href="/docs/user-guide/features/memory#how-memory-appears-in-the-system-prompt">الذاكرة الدائمة (Persistent Memory)</a> للاطّلاع على الآلية الكاملة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-memory-is-bounded-and-curated--not-a-transcript">5. الذاكرة محدودة الحجم ومُنسَّقة — وليست نصًا كاملًا للمحادثة</h2>
+<p><strong>العَرَض:</strong> لا يتذكّر Hermes تفصيلًا من جلسة الأسبوع الماضي، رغم أنكما ناقشتماه باستفاضة.</p>
+<p><strong>التحقق:</strong> سعة الذاكرة ومحتوياتها. يعرض رأس الذاكرة في الـ system prompt نسبة الاستخدام (مثال: <code>[67% — 1,474/2,200 chars]</code>)، ويعرض <code>hermes journey list</code> كل إدخال ذاكرة ومهارة محفوظَين.</p>
+<p><strong>ماذا يعني ذلك:</strong> الذاكرة الدائمة محدودة الحجم عمدًا — 2,200 حرف (~800 token) لملف MEMORY.md و1,375 حرفًا (~500 token) لملف USER.md. تحتفظ بحقائق أساسية منسَّقة، لا بنصوص المحادثات الكاملة. ما يستحق الحفظ هو التفضيلات، وحقائق البيئة، والاتفاقيات، والتصحيحات؛ أما تفاصيل النقاش الخام فلا تُخزَّن هناك بحكم التصميم.</p>
+<p>بالنسبة لاستدعاء &quot;هل ناقشنا X الأسبوع الماضي؟&quot;، يمتلك الوكيل آلية منفصلة: يستعلم <code>session_search</code> عن كل الجلسات السابقة (المخزَّنة في SQLite مع بحث نصي كامل) ويمكنه إيجاد أشياء نوقشت قبل أسابيع حتى لو لم تكن ضمن الذاكرة النشطة. فقط اطلب — &quot;ابحث في جلساتنا السابقة عن نقاش النشر (deploy)&quot;.</p>
+<p>يمكنك أيضًا المساعدة مباشرة: قل &quot;تذكّر هذا للمرة القادمة&quot; بعد جلسة مثمرة، أو &quot;نظّم ذاكرتك&quot; عندما تقترب من سعتها القصوى ليدمج الوكيل الإدخالات. راجع <a href="/docs/guides/tips#memory--skills">نصائح الذاكرة والمهارات</a> و<a href="/docs/user-guide/features/memory#capacity-management">إدارة السعة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-check-that-skills-and-tools-are-loaded">6. تحقّق من أن المهارات والأدوات محمَّلة</h2>
+<p><strong>العَرَض:</strong> كان Hermes يتعامل مع سير عمل معيّن باحترافية، وأصبح الآن يتعامل معه بسذاجة، أو يقول إنه لا يستطيع فعل شيء كان يفعله سابقًا.</p>
+<p><strong>التحقق:</strong></p>
+<ul>
+<li><code>/skills</code> — تصفّح المهارات المثبَّتة (قد تكون مهارة اعتمد عليها الوكيل قد أُزيلت).</li>
+<li><code>/reload-skills</code> — إعادة فحص <code>~/.hermes/skills/</code> بحثًا عن مهارات مثبَّتة حديثًا أو مُزالة.</li>
+<li><code>/tools list</code> — رؤية الأدوات المتاحة؛ تبقى الأداة التي عُطّلت سابقًا بـ <code>/tools disable</code> خارج مجموعة أدوات الوكيل لهذه الجلسة.</li>
+<li><code>/context all</code> — قائمة بتكلفة كل مهارة وكل مجموعة أدوات (toolset)، وتُستخدم أيضًا كجرد لما هو محمَّل فعليًا.</li>
+</ul>
+<p><strong>ماذا يعني ذلك:</strong> المهارات هي المعرفة الإجرائية للوكيل — سير عمل متعدد الخطوات وتعليمات خاصة بأدوات معينة. إذا كانت مهارة مفقودة أو تم تقليص مجموعة أدوات (toolset) (مثلًا، بدأت جلسة بـ <code>hermes chat -t &quot;terminal&quot;</code> لتقليل حجم الـ prompt)، فإن لدى الوكيل فعليًا أدوات أقل ليعمل بها في تلك الجلسة. أعد تفعيل الأدوات بـ <code>/tools enable</code>، أو استدعِ المهارة صراحة باسمها (<code>/github-pr-workflow</code>) للتأكد من أنها تُحمَّل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-compression-side-effects">7. الآثار الجانبية للضغط (Compression)</h2>
+<p><strong>العَرَض:</strong> بعد جلسة طويلة (أو مباشرة بعد تشغيل <code>/compress</code>)، يتذكّر Hermes الخطوط العريضة لكنه فقد التفاصيل الدقيقة من بداية المحادثة.</p>
+<p><strong>التحقق:</strong> هل حدث الضغط أم لا — يعرض <code>/usage</code> و<code>/context</code> إحصاءات الضغط وحالة السياق على منصات المراسلة، ويُبلّغ <code>/compress</code> اليدوي دائمًا عن نتيجته.</p>
+<p><strong>ماذا يعني ذلك:</strong> يستبدل الضغط سجل المحادثة الأقدم بملخّص — وهذا هو الهدف منه، وهو يبادل بالضرورة التفاصيل بمساحة إضافية. تعرّف على شكله:</p>
+<ul>
+<li>الرسائل الأخيرة محمية: افتراضيًا تبقى آخر 20 رسالة دون ضغط (<code>protect_last_n</code>) ويُثبَّت التبادل الافتتاحي (<code>protect_first_n: 3</code>) حتى يبقى الهدف الأصلي ظاهرًا.</li>
+<li>الضغط غير إتلافي: مع الإعداد الافتراضي <code>compression.in_place: true</code>، تحتفظ الجلسة بمعرّف دائم واحد وتُؤرشف الأدوار السابقة للضغط أرشفة ناعمة — تبقى قابلة للبحث عبر <code>session_search</code> وقابلة للاسترجاع، ولا تُحذف.</li>
+<li>مع <code>in_place: false</code> (السلوك القديم)، يُحوِّل كل ضغط إلى <strong>جلسة جديدة مرتبطة بالقديمة</strong> — تصبح الجلسة المُسمّاة <code>&quot;my project&quot; → &quot;my project #2&quot; → &quot;my project #3&quot;</code>. إذا استأنفت بالاسم، فإن <code>hermes -c &quot;my project&quot;</code> يختار تلقائيًا أحدث نسخة.</li>
+<li>موضوع التركيز يضيّق ما يحتفظ به الملخّص الكامل: يحافظ <code>/compress focus auth-refactor</code> على تفاصيل ذلك الخيط على حساب الباقي.</li>
+</ul>
+<p>إذا كان تفصيل خضع للضغط مهمًا، اطلب من الوكيل البحث عنه (يصل <code>session_search</code> إلى الأدوار المؤرشفة)، أو ألصق الحقائق الأساسية مجددًا في المحادثة.</p>
+<p>راجع <a href="/docs/user-guide/configuration#context-compression">ضغط السياق (Context Compression)</a> لمرجع الإعدادات الكامل و<a href="/docs/user-guide/sessions#auto-lineage-on-compression">التسلسل التلقائي عند الضغط (Auto-Lineage on Compression)</a> لمعرفة كيفية تسلسل الجلسات المُسمّاة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>العَرَض</th><th>الأمر الأول</th><th>السبب المحتمل</th></tr></thead><tbody><tr><td>كل شيء يبدو أقل قدرة</td><td><code>/model</code></td><td>الجلسة على نموذج مختلف عمّا تظن</td></tr><tr><td>تراجع في جلسة طويلة</td><td><code>/usage</code></td><td>ضغط على السياق — اضغط أو ابدأ من جديد</td></tr><tr><td>وصول الحدود مبكرًا بشكل مفاجئ</td><td>سطر بدء تشغيل CLI / <code>/usage</code></td><td>طول سياق مُكتشف تلقائيًا خاطئ</td></tr><tr><td>نسي ما قلته في هذه الجلسة</td><td>— (بحكم التصميم)</td><td>لقطة ذاكرة مجمّدة — تظهر في الجلسة التالية</td></tr><tr><td>نسي نقاش الأسبوع الماضي</td><td>اطلب منه <code>session_search</code></td><td>الذاكرة محدودة الحجم، حقائق منسَّقة فقط</td></tr><tr><td>فقد قدرة معيّنة</td><td><code>/skills</code>، <code>/tools list</code></td><td>مهارة أو مجموعة أدوات غير محمَّلة في هذه الجلسة</td></tr><tr><td>فقد تفصيلًا قديمًا بعد جلسة طويلة</td><td><code>/usage</code>، <code>/context</code></td><td>لخّص الضغط السجلّ الأقدم</td></tr></tbody></table>

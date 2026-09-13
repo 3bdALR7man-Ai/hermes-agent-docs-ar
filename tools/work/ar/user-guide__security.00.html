@@ -1,0 +1,148 @@
+<header><h1>الأمان</h1></header>
+<p>صُمم Hermes Agent وفق نموذج أمان متعدد الطبقات (defense-in-depth). تغطي هذه الصفحة كل حدود الأمان — من الموافقة على الأوامر إلى عزل الحاوية (container) إلى تفويض المستخدم على منصات المراسلة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>يتكون نموذج الأمان من ثماني طبقات:</p>
+<ol>
+<li><strong>تفويض المستخدم</strong> — من يمكنه التحدث إلى الوكيل (قوائم السماح، اقتران DM)</li>
+<li><strong>الموافقة على الأوامر الخطرة</strong> — إشراك الإنسان في القرار للعمليات المدمّرة</li>
+<li><strong>أمان كتابة الملفات</strong> — قائمة حظر و write sandbox اختياري لـ <code>write_file</code>/<code>patch</code></li>
+<li><strong>عزل الحاوية</strong> — عزل باستخدام Docker/Singularity/Modal بإعدادات مُحصّنة</li>
+<li><strong>تصفية بيانات اعتماد MCP</strong> — عزل متغيرات البيئة لعمليات MCP الفرعية</li>
+<li><strong>فحص ملفات السياق</strong> — كشف حقن الـ prompt في ملفات المشروع</li>
+<li><strong>العزل بين الجلسات</strong> — لا يمكن لجلسة الوصول إلى بيانات أو حالة جلسة أخرى؛ ومسارات تخزين مهام cron محصّنة ضد هجمات اجتياز المسار (path traversal)</li>
+<li><strong>تعقيم المدخلات</strong> — يجري التحقق من معاملات دليل العمل في terminal backends مقابل قائمة سماح لمنع حقن الـ shell</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dangerous-command-approval">الموافقة على الأوامر الخطرة</h2>
+<p>قبل تنفيذ أي أمر، يتحقق Hermes منه مقابل قائمة منسّقة من الأنماط الخطرة. وإذا وُجدت مطابقة، يجب على المستخدم الموافقة عليها صراحة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-modes">أوضاع الموافقة</h3>
+<p>يدعم نظام الموافقة ثلاثة أوضاع، تُضبط عبر <code>approvals.mode</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>المجموعة الكاملة من المفاتيح:</p>
+<table><thead><tr><th>المفتاح</th><th>الافتراضي</th><th>ما الذي يتحكم فيه</th></tr></thead><tbody><tr><td><code>mode</code></td><td><code>smart</code></td><td>سياسة الموافقة لأوامر الـ shell الخطرة — انظر الجدول أدناه.</td></tr><tr><td><code>timeout</code></td><td><code>300</code></td><td>عدد الثواني التي ينتظرها Hermes للحصول على رد الموافقة قبل انتهاء المهلة.</td></tr><tr><td><code>cron_mode</code></td><td><code>deny</code></td><td>كيف تتصرف <a href="/docs/user-guide/features/cron">مهام cron</a> دون تدخل بشري عندما تُثير مطالبة أمر خطر. <code>deny</code> يحجب الأمر (يجب على الوكيل إيجاد مسار آخر)؛ <code>approve</code> يوافق تلقائيًا على كل شيء في سياق cron.</td></tr><tr><td><code>single_query_mode</code></td><td><code>deny</code></td><td>كيف تتصرف جلسات <a href="/docs/user-guide/cli"><code>hermes chat -q</code></a> ذات الطلب الواحد عندما تُثير مطالبة أمر خطر. تُنفّذ جلسة <code>-q</code> دورًا واحدًا ثم تخرج دون وجود مستخدم ينتظر للرد على المطالبات؛ <code>deny</code> يحجب الأمر (يجب على الوكيل إيجاد مسار آخر)، و<code>approve</code> يوافق تلقائيًا على كل شيء في سياق الطلب الواحد. يطابق سلوك <code>cron_mode</code>.</td></tr><tr><td><code>unattended_mode</code></td><td><code>deny</code></td><td>كيف تتصرف الجلسات على المنصات البرمجية غير المراقَبة (webhook، msgraph_webhook، api_server) عندما تُثير مطالبة أمر خطر. لا يوجد على هذه الواجهات إنسان يمكنه الرد على <code>/approve</code>، فبدلًا من الانتظار طوال مهلة الموافقة الكاملة، يحجب <code>deny</code> الأمر فورًا (يجب على الوكيل إيجاد مسار آخر) بينما يوافق <code>approve</code> تلقائيًا على كل شيء في السياق غير المراقَب. يطابق سلوك <code>cron_mode</code>.</td></tr><tr><td><code>mcp_reload_confirm</code></td><td><code>true</code></td><td>عند تفعيله، يطلب <code>/reload-mcp</code> الموافقة قبل إعادة بناء مجموعة أدوات MCP. إعادة البناء تُبطل ذاكرة تخزين الـ prompt المؤقتة لدى المزوّد (مخططات الأدوات موجودة داخل system prompt)، لذا تُرسَل الرسالة التالية بكامل token المدخل من جديد. المستخدمون الذين ينقرون <strong>الموافقة دائمًا</strong> يقلبون هذا المفتاح إلى <code>false</code>.</td></tr><tr><td><code>destructive_slash_confirm</code></td><td><code>true</code></td><td>عند تفعيله، تطلب slash commands المدمّرة للجلسة (<code>/clear</code>، <code>/new</code>، <code>/reset</code>، <code>/undo</code>) موافقة قبل التخلص من حالة المحادثة. مربع حوار بثلاثة خيارات (موافقة مرة واحدة / الموافقة دائمًا / إلغاء) موجّه عبر أزرار نعم/لا الأصلية على Telegram وDiscord وSlack؛ وبديل نصي في باقي الأماكن. المستخدمون الذين ينقرون <strong>الموافقة دائمًا</strong> يقلبون هذا المفتاح إلى <code>false</code>. تحترم TUI أيضًا هذا الإعداد بالنسبة لنافذتها المنبثقة (modal) الخاصة بـ <code>/clear</code> و<code>/new</code> و<code>/reset</code>؛ ويتخطى <code>HERMES_TUI_NO_CONFIRM=1</code> تلك النافذة قسرًا بغضّ النظر عن القيمة المضبوطة.</td></tr></tbody></table>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>smart</strong> (الافتراضي)</td><td>استخدام LLM مساعد لتقييم المخاطر. الأوامر منخفضة المخاطر (مثل <code>python -c &quot;print(&#x27;hello&#x27;)&quot;</code>) تُوافَق تلقائيًا لذلك الأمر فقط. الأوامر الخطرة فعلًا تُرفض تلقائيًا. الحالات غير المؤكدة تتصعّد إلى مطالبة يدوية.</td></tr><tr><td><strong>manual</strong></td><td>مطالبة المستخدم دائمًا بالموافقة على الأوامر الخطرة.</td></tr><tr><td><strong>off</strong></td><td>تعطيل جميع فحوصات الموافقة — يعادل التشغيل بـ <code>--yolo</code>. تُنفَّذ جميع الأوامر دون مطالبات.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>ضبط <code>approvals.mode: off</code> يعطّل جميع مطالبات الأمان. استخدمه فقط في بيئات موثوقة (CI/CD، الحاويات، إلخ).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="yolo-mode">وضع YOLO</h3>
+<p>وضع YOLO يتجاوز <strong>جميع</strong> مطالبات الموافقة على الأوامر الخطرة للجلسة الحالية. يمكن تفعيله بثلاث طرق:</p>
+<ol>
+<li><strong>خيار CLI</strong>: ابدأ جلسة بـ <code>hermes --yolo</code> أو <code>hermes chat --yolo</code></li>
+<li><strong>slash command</strong>: اكتب <code>/yolo</code> أثناء الجلسة لتبديله تشغيلًا/إيقافًا</li>
+<li><strong>متغير بيئة</strong>: اضبط <code>HERMES_YOLO_MODE=1</code></li>
+</ol>
+<p>الأمر <code>/yolo</code> عبارة عن <strong>مفتاح تبديل (toggle)</strong> — كل استخدام له يقلب الوضع تشغيلًا أو إيقافًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>وضع YOLO متاح في كل من جلسات CLI وgateway. داخليًا، يضبط متغير البيئة <code>HERMES_YOLO_MODE</code> الذي يُتحقق منه قبل كل تنفيذ أمر.</p>
+<p>عند تفعيل YOLO، يعرض Hermes تذكيرين بصريين دائمين حتى يصعب نسيان أن مطالبات الموافقة متجاوَزة:</p>
+<ul>
+<li>شريط أحمر عند بدء الجلسة إذا كان YOLO مفعّلًا مسبقًا: <code>⚠ YOLO mode — all approval prompts bypassed</code>. يختفي عند إيقاف YOLO حتى يبقى الشريط الافتراضي غير مزدحم.</li>
+<li>جزء <code>⚠ YOLO</code> في شريط الحالة عبر جميع مستويات العرض، يتحدّث حيًّا مع تبديلك YOLO تشغيلًا أو إيقافًا (في المُعرِض النصي المنسّق والبديل النصي البسيط).</li>
+</ul>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>خطر</div><div class="admonitionContent_BuS1"><p>وضع YOLO يعطّل <strong>جميع</strong> فحوصات أمان الأوامر الخطرة للجلسة — <strong>باستثناء</strong> القائمة الصارمة الثابتة (hardline blocklist) (انظر أدناه). استخدمه فقط عندما تثق تمامًا بالأوامر المُولَّدة (مثل سكربتات أتمتة مُختبَرة جيدًا في بيئات قابلة للتخلص منها).</p></div></div>
+<p>بالنسبة لـ slash commands المدمّرة للجلسة (<code>/clear</code>، <code>/new</code> / <code>/reset</code>، <code>/undo</code>، <code>/quit --delete</code> — و<code>/exit --delete</code> اسم مستعار له)، يطلب CLI أيضًا تأكيدًا قبل تنفيذها. انظر <a href="/docs/reference/slash-commands#confirmation-prompts-for-destructive-commands">مرجع Slash Commands — مطالبات التأكيد للأوامر المدمّرة</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supervised-gateway-lifecycle-restriction">قيد دورة حياة الـ gateway المُشرَف عليه</h3>
+<p>تملك أداة الـ terminal حماية منفصلة لا يمكن تجاوزها ضد إيقاف
+أو إعادة تشغيل الـ gateway من داخل عمليته المُشرَف عليها ذاتها. إعادة تشغيل ذاتية قد
+تُنهي الأداة قبل أن تكمل عملها وتتسبب في حلقة supervisor/إعادة استئناف تلقائي.
+موافقة المستخدم، ووضع YOLO، و<code>force=True</code> لا تتجاوز هذه الحماية.</p>
+<p>على macOS، تُقيَّد أوامر <code>launchctl submit</code> و<code>launchctl bootstrap</code> المُنفَّذة
+<strong>بغضّ النظر عن job label</strong>. هذا قيد تسجيل تحفظي
+يهدف إلى ضبط أدوات إعادة التشغيل غير المباشرة ذات التسميات المحايدة، وليس
+فحصًا لملف الـ plist المستهدف. كما يرفض المهام المجدولة المستقلة
+التي تحمل <code>RunAtLoad=false</code> ولا تحمل مفتاح <code>KeepAlive</code>؛ والرفض لا <strong>يثبت</strong> أن
+المهمة تستخدم KeepAlive أو تتحكم في Hermes.</p>
+<p>لصيانة LaunchAgent المُصرَّح بها، استخدم shell منفصلًا خارج الـ
+gateway قيد التشغيل. بعض أوامر <code>load</code>/<code>unload</code> المستقلة تمر حاليًا عبر الفحوصات
+القائمة على label، لكن ذلك ليس استثناءً مُتحقَّقًا من الهدف ولا طريقة مدعومة لتفادي رفض
+<code>bootstrap</code>. أمر <code>launchctl print</code> للقراءة فقط ليس عملية دورة حياة. بعد
+الصيانة الخارجية، ميّز بين ملف الـ plist على القرص والمهمة المُحمَّلة:
+تحقّق من الـ plist واقرأ الجدول الزمني المُحمَّل قبل الإفادة بأن التفعيل تمّ.</p>
+<p>رفض الأداة يعني أن الأمر لم يُنفَّذ عبر تلك الاستدعاءة. أما امتناع
+المساعد عن إصدار الاستدعاء فقرار نموذج منفصل؛ وتغيير النماذج
+لا يغيّر سياسة حماية الـ terminal.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hardline-blocklist-always-on-floor">القائمة الصارمة الثابتة (الحدّ الأدنى الدائم)</h3>
+<p>بعض الأوامر كارثية إلى درجة — كمحو نظام الملفات بشكل لا رجعة فيه، وقنابل fork، والكتابة المباشرة على جهاز الكتلة (block device) — أن Hermes يرفض تشغيلها <strong>بغضّ النظر</strong> عن:</p>
+<ul>
+<li>تفعيل <code>--yolo</code> / <code>/yolo</code></li>
+<li><code>approvals.mode: off</code></li>
+<li>مهام cron العاملة في وضع <code>approve</code> دون إشراف</li>
+<li>نقر المستخدم صراحةً على "السماح دائمًا"</li>
+</ul>
+<p>القائمة الصارمة هي الحدّ الأدنى الأدنى من <code>--yolo</code>. تُفعَّل <strong>قبل</strong> أن تصل طبقة الموافقة أصلًا إلى رؤية الأمر، ولا يوجد أي خيار تجاوز لها. الأنماط المشمولة حاليًا (غير شاملة؛ تُحدَّث بالتزامن مع <code>tools/approval.py::UNRECOVERABLE_BLOCKLIST</code>):</p>
+<table><thead><tr><th>النمط</th><th>لماذا هو صارم</th></tr></thead><tbody><tr><td><code>rm -rf /</code> والمتغيرات الواضحة</td><td>يمحو جذر نظام الملفات</td></tr><tr><td><code>rm -rf --no-preserve-root /</code></td><td>المتغير الصريح "نعم أقصد الجذر"</td></tr><tr><td><code>:(){ :|:&amp; };:</code> (قنبلة fork في bash)</td><td>يُثقل المضيف حتى إعادة التشغيل</td></tr><tr><td><code>mkfs.*</code> على جهاز جذر مُركَّب</td><td>يُهيّئ النظام الحيّ</td></tr><tr><td><code>dd if=/dev/zero of=/dev/sd*</code></td><td>يصفّر قرصًا فعليًا</td></tr><tr><td>تمرير روابط غير موثوقة عبر أنبوب (pipe) إلى <code>sh</code> عند أعلى مستوى نظام الملفات الجذري</td><td>متجه هجوم تنفيذ كود عن بُعد أوسع من أن يُوافَق عليه</td></tr></tbody></table>
+<p>إذا صادفت القائمة الصارمة، تُعيد استدعاءة الأداة خطأً توضيحيًا إلى الوكيل ولا يُشغَّل شيء. وإذا احتاج سير عمل مشروع لأحد هذه الأوامر (كأن تكون مشغّل خط أنابيب محو وإعادة تثبيت مثلًا)، شغّله خارج الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-defined-deny-rules-approvalsdeny">قواعد الحظر المُعرَّفة من المستخدم (<code>approvals.deny</code>)</h3>
+<p>القائمة الصارمة الثابتة قائمة ثابتة ومُضمَّنة في الكود. أما <code>approvals.deny</code> فهي نظيرتها القابلة للتحرير من قبل المستخدم: قائمة أنماط glob تحجب أوامر terminal المطابقة دون قيد أو شرط — <strong>قبل</strong> استشارة <code>--yolo</code> و<code>/yolo</code> و<code>approvals.mode: off</code>. استخدمها لتشغيل وضع yolo مع استثناءات: "دع الوكيل يفعل كل شيء، ما عدا هذه الأشياء المحددة، دائمًا."</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>التفاصيل:</p>
+<ul>
+<li>الأنماط عبارة عن أنماط <a href="https://docs.python.org/3/library/fnmatch.html" data-ext>fnmatch</a> (<code>*</code>، <code>?</code>، <code>[...]</code>) تُطابَق <strong>بغضّ النظر عن حالة الأحرف</strong> مقابل نص الأمر بالكامل ومقابل مرشحي الأمر القابل للتنفيذ كل على حدة. <code>git push --force*</code> يطابق <code>git push --force origin main</code> لكنه لا يطابق <code>git push origin main</code>.</li>
+<li>المطابقة تعمل على نفس متغيرات الأمر المُطبَّعة/المُفكَّكة التشفير التي يستخدمها كاشف الأنماط الخطرة، لذا لا تمر خدع الاقتباس البسيطة (<code>git pu&quot;&quot;sh --force</code>) دون أن تُلاحَظ القاعدة.</li>
+<li>مرشحو التنفيذ يحتفظون بالمسار الحرفي ويطابقون أيضًا اسمه الأساسي (basename): <code>sudo *</code> يغطي <code>/usr/bin/sudo -n id</code> و<code>./sudo -n id</code>. أما قاعدة خاصة بمسار محدد مثل <code>/usr/bin/sudo *</code> فلا <strong>تصبح</strong> قاعدة لكل ثنائي يحمل اسم <code>sudo</code>.</li>
+<li>التحليل الواعي بعلامات الاقتباس يكشف الأوامر التالية للتعيينات، وإعادة التوجيه (redirection) في البداية، و<code>;</code>، و<code>&amp;&amp;</code>، و<code>||</code>، وخطوط الأنابيب، والمجموعات، وإحلالات الأوامر، وانتقالات <code>if</code>/<code>then</code>/<code>else</code>/<code>do</code> العادية. المشغّلات المدعومة تشمل <code>sudo</code>، و<code>env</code>، و<code>command</code>، و<code>exec</code>، و<code>nohup</code>، و<code>setsid</code>، و<code>time</code>، و<code>nice</code>، و<code>timeout</code>، و<code>stdbuf</code>، و<code>ionice</code>، و<code>chrt</code>، و<code>taskset</code>، و<code>chroot</code>. تُتخطَّى معاملات الخيارات المعروفة؛ وعمليات البحث <code>command -v</code>/<code>-V</code> ليست تنفيذًا. تُفحَص حمولات <code>-c</code> الخاصة بالـ shell بشكل تكراري. تستخدم سلاسل التنفيذ والمعاملات الحرفية داخل <code>env -S</code> / <code>--split-string</code> اقتباس وهروب GNU (بما في ذلك حدود الكلمات <code>\_</code> وإنهاء <code>\c</code>)، مع إلحاق باقي معاملات الأمر؛ وتبقى علامات الترقيم الخاصة بالـ shell داخل تلك المعاملات مجرد بيانات ما لم يستهلكها فعليًا <code>-c</code> خاص بالـ shell. قيم <code>env -a</code> / <code>--argv0</code> هي معاملات، لا أسماء تنفيذية. لا تُدخِل تعليقات الـ shell وGNU split-string أي مرشحين للتنفيذ.</li>
+<li>في مرشحي التنفيذ الإضافيين، يُطوى المسافات البيضاء <strong>بين</strong> الكلمات، لكن محتوى المعامل المقتبَس ومسارات المعاملات تبقى كما هي. لذا فقاعدة دقيقة مثل <code>git status</code> تطابق أيضًا <code>env git\tstatus; echo done</code> (حيث يمثل <code>\t</code> علامة جدولة). أما الإشارات المقتبَسة مثل <code>echo &#x27;sudo -n id&#x27;</code> فلا تُرقَّى إلى أوامر. أنماط الإدخال الكامل الحالية مثل <code>*sudo*</code> ما زالت تطابق عمدًا الإشارات في أي مكان.</li>
+<li><strong>اقتباس YAML:</strong> اقتبس الأنماط دائمًا. علامة <code>*</code> بادئة غير مقتبَسة تُعامَل كاسم مستعار YAML وتفشل في التحليل؛ ولـ <code>{</code> و<code>!</code> و<code>: </code> معانيها الخاصة في YAML. علامات الاقتباس المفردة أكثر أمانًا للمحتوى الشبيه بالـ shell.</li>
+<li>تُطبَّق قواعد الحظر المُعرَّفة من المستخدم على جميع terminal backends، بما فيها الحاويات المعزولة، قبل أي اختصار موافقة خاص بـ backend معيّن.</li>
+<li>الأمر المحظور يُعيد خطأ BLOCKED إلى الوكيل يُخبره بعدم إعادة المحاولة أو إعادة الصياغة. لا يُشغَّل شيء.</li>
+</ul>
+<p>كما هو الحال مع باقي إعدادات الموافقة، تسري التغييرات فورًا (ذاكرة تخزين الإعدادات المؤقتة مرتبطة بتاريخ التعديل mtime) — دون الحاجة لإعادة تشغيل الجلسة.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>نموذج التهديد</div><div class="admonitionContent_BuS1"><p>قواعد الحظر سياسة لأوامر الـ shell، وليست مفسّر shell كامل ولا sandbox على مستوى قدرات نظام التشغيل. التطبيع لا يحلّ متغيرات عشوائية (بما فيها امتداد GNU <code>env -S</code> من نوع <code>${NAME}</code>)، ولا الأسماء المستعارة (aliases)، ولا الدوال، ولا الثنائيات المُعاد تسميتها، ولا السكربتات، ولا برامج المفسِّر، ولا كل قواعد نحو الـ shell/المشغّل (مثل صيغة أنماط case، أو خيارات المشغّل المُجمَّعة، أو الخيارات المضمَّنة داخل سلسلة <code>env -S</code>). لا تستخدم قاعدة حظر مبنية على اسم أساسي كضمان لعدم إمكانية الوصول إلى قدرة ما بوسائل أخرى. للاحتواء، استخدم صلاحيات نظام التشغيل و backend معزولًا بحدود مناسبة للتركيبات (mounts) وبيانات الاعتماد والوصول للشبكة. سلوك المطابقة هذا لا يغيّر وضع الموافقة المُهيَّأ ولا القيمة الافتراضية لقائمة الحظر الفارغة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-timeout">مهلة الموافقة</h3>
+<p>عند ظهور مطالبة أمر خطر، يُمنح المستخدم مقدارًا قابلًا للضبط من الوقت للرد. وإذا لم يصل أي رد ضمن المهلة، يُرفض الأمر <strong>افتراضيًا</strong> (fail-closed).</p>
+<p>اضبط المهلة في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-triggers-approval">ما الذي يُثير الموافقة</h3>
+<p>الأنماط التالية تُثير مطالبات الموافقة (مُعرَّفة في <code>tools/approval.py</code>):</p>
+<table><thead><tr><th>النمط</th><th>الوصف</th></tr></thead><tbody><tr><td><code>rm -r</code> / <code>rm --recursive</code></td><td>حذف تكراري</td></tr><tr><td><code>rm ... /</code></td><td>حذف في المسار الجذر</td></tr><tr><td><code>chmod 777/666</code> / <code>o+w</code> / <code>a+w</code></td><td>صلاحيات كتابة للجميع/للآخرين</td></tr><tr><td><code>chmod --recursive</code> بصلاحيات غير آمنة</td><td>كتابة تكرارية للجميع/للآخرين (بالعلم الطويل)</td></tr><tr><td><code>chown -R root</code> / <code>chown --recursive root</code></td><td>تغيير ملكية تكراري إلى root</td></tr><tr><td><code>mkfs</code></td><td>تهيئة نظام ملفات</td></tr><tr><td><code>dd if=</code></td><td>نسخ قرص</td></tr><tr><td><code>&gt; /dev/sd</code></td><td>الكتابة إلى جهاز كتلة</td></tr><tr><td><code>DROP TABLE/DATABASE</code></td><td>SQL DROP</td></tr><tr><td><code>DELETE FROM</code> (بدون WHERE)</td><td>SQL DELETE بدون WHERE</td></tr><tr><td><code>TRUNCATE TABLE</code></td><td>SQL TRUNCATE</td></tr><tr><td><code>&gt; /etc/</code></td><td>الكتابة فوق إعدادات النظام</td></tr><tr><td><code>systemctl stop/restart/disable/mask</code></td><td>إيقاف/إعادة تشغيل/تعطيل/حجب خدمات النظام</td></tr><tr><td><code>kill -9 -1</code></td><td>إنهاء جميع العمليات</td></tr><tr><td><code>pkill -9</code></td><td>إنهاء قسري للعمليات</td></tr><tr><td>أنماط قنابل fork</td><td>قنابل fork</td></tr><tr><td><code>bash -c</code> / <code>sh -c</code> / <code>zsh -c</code> / <code>ksh -c</code></td><td>تنفيذ أمر shell عبر خيار <code>-c</code> (بما في ذلك الخيارات المدمَجة مثل <code>-lc</code>)</td></tr><tr><td><code>python -e</code> / <code>perl -e</code> / <code>ruby -e</code> / <code>node -c</code></td><td>تنفيذ سكربت عبر خيار <code>-e</code>/<code>-c</code></td></tr><tr><td><code>curl ... | sh</code> / <code>wget ... | sh</code></td><td>تمرير محتوى بعيد عبر أنبوب إلى shell</td></tr><tr><td><code>bash &lt;(curl ...)</code> / <code>sh &lt;(wget ...)</code></td><td>تنفيذ سكربت بعيد عبر إحلال العمليات</td></tr><tr><td><code>tee</code> إلى <code>/etc/</code>، <code>~/.ssh/</code>، <code>~/.hermes/.env</code></td><td>الكتابة فوق ملف حساس عبر tee</td></tr><tr><td><code>&gt;</code> / <code>&gt;&gt;</code> إلى <code>/etc/</code>، <code>~/.ssh/</code>، <code>~/.hermes/.env</code></td><td>الكتابة فوق ملف حساس عبر إعادة التوجيه</td></tr><tr><td><code>xargs rm</code></td><td>xargs مع rm</td></tr><tr><td><code>find -exec rm</code> / <code>find -delete</code></td><td>find بإجراءات مدمّرة</td></tr><tr><td><code>cp</code>/<code>mv</code>/<code>install</code> إلى <code>/etc/</code></td><td>نسخ/نقل ملف إلى إعدادات النظام</td></tr><tr><td><code>sed -i</code> / <code>sed --in-place</code> على <code>/etc/</code></td><td>تحرير مباشر لإعدادات النظام</td></tr><tr><td><code>pkill</code>/<code>killall</code> hermes/gateway</td><td>منع الإنهاء الذاتي</td></tr><tr><td><code>gateway run</code> مع <code>&amp;</code>/<code>disown</code>/<code>nohup</code>/<code>setsid</code></td><td>يمنع تشغيل gateway خارج مدير الخدمات</td></tr><tr><td><code>docker stop/kill/restart</code>، <code>docker compose down/stop/kill/restart</code></td><td>دورة حياة الحاوية (يشمل أيضًا الأعلام العامة و<code>docker-compose</code>)</td></tr><tr><td><code>docker -H</code>/<code>--host</code>/<code>--context</code>، <code>DOCKER_HOST=</code>/<code>DOCKER_CONTEXT=</code></td><td>إعادة توجيه خادم Docker — يستهدف الأمر خادمًا مختلفًا (غالبًا بعيدًا)</td></tr><tr><td><code>docker context use</code></td><td>يبدّل الخادم الافتراضي لجميع أوامر docker المستقبلية</td></tr><tr><td><code>podman --remote</code>/<code>-r</code>/<code>--url</code>/<code>--connection</code>/<code>--identity</code>، <code>CONTAINER_HOST=</code></td><td>إعادة توجيه خادم Podman البعيد</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p><strong>تجاوز الحاوية</strong>: عند التشغيل ضمن backends من نوع <code>docker</code> أو <code>singularity</code> أو <code>modal</code> أو <code>daytona</code> أو <code>vercel_sandbox</code>، <strong>تُتخطَّى</strong> فحوصات الأوامر الخطرة لأن الحاوية نفسها هي حدّ الأمان. الأوامر المدمّرة داخل الحاوية لا يمكنها إلحاق الضرر بالمضيف.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-flow-cli">مسار الموافقة (CLI)</h3>
+<p>في CLI التفاعلي، تُظهر الأوامر الخطرة مطالبة موافقة مضمَّنة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>الخيارات الأربعة:</p>
+<ul>
+<li><strong>once</strong> — السماح بهذا التنفيذ فقط</li>
+<li><strong>session</strong> — السماح بهذا النمط لبقية الجلسة</li>
+<li><strong>always</strong> — الإضافة إلى قائمة السماح الدائمة (تُحفَظ في <code>config.yaml</code>)</li>
+<li><strong>deny</strong> (الافتراضي) — حجب الأمر</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-flow-gatewaymessaging">مسار الموافقة (Gateway/المراسلة)</h3>
+<p>على منصات المراسلة، يرسل الوكيل تفاصيل الأمر الخطر إلى المحادثة وينتظر رد المستخدم:</p>
+<ul>
+<li>الرد بـ <strong>yes</strong> أو <strong>y</strong> أو <strong>approve</strong> أو <strong>ok</strong> أو <strong>go</strong> للموافقة</li>
+<li>الرد بـ <strong>no</strong> أو <strong>n</strong> أو <strong>deny</strong> أو <strong>cancel</strong> للرفض</li>
+</ul>
+<p>يُضبط متغير البيئة <code>HERMES_EXEC_ASK=1</code> تلقائيًا عند تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permanent-allowlist">قائمة السماح الدائمة</h3>
+<p>الأوامر المُوافَق عليها بـ"always" تُحفَظ في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تُحمَّل هذه الأنماط عند بدء التشغيل وتُوافَق عليها بصمت في جميع الجلسات المستقبلية.</p>
+<p>يجب أن يكون الإعداد قائمة نصية. التثبيتات القديمة التي خزّنت قائمة على شكل
+سلسلة YAML/JSON مقتبَسة تستعيد تلك القائمة عند التحميل وتُسجِّل تحذيرًا
+لإعادة حفظها عبر <code>hermes config edit</code>. القيم غير الصحيحة الأخرى تُتجاهَل مع
+تحذير؛ ولا تتحول أبدًا إلى موافقات على مستوى الحرف. التحميل لا يعيد كتابة
+ملف إعداداتك.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>hermes config edit</code> لمراجعة أو إزالة أنماط من قائمة السماح الدائمة الخاصة بك.</p></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="36"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>تُقرأ القائمة عند بدء تشغيل Hermes. النمط الذي تزيله أثناء تشغيل جلسة
+بالفعل يبقى مُوافَقًا عليه في تلك الجلسة حتى تكتب الملف من جديد
+(في المرة التالية التي تجيب فيها <code>always</code> على مطالبة) أو تعيد تشغيل Hermes. إذا
+أزلته لأسباب أمنية، أعد التشغيل.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mining-approval-history-hermes-approvals-suggest">استخراج سجلّ الموافقات (<code>hermes approvals suggest</code>)</h3>
+<p>بدلًا من الإجابة على المطالبة نفسها جلسة تلو الأخرى، يمكنك استخراج
+قرارات الموافقة السابقة وتحويلها إلى اقتراحات لقائمة السماح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يفحص الأمر قاعدة بيانات الجلسات (<code>~/.hermes/state.db</code>) بحثًا عن
+الأوامر المصنَّفة خطرة التي نُفِّذت فعليًا — أي التي وافقت عليها —
+ويجمّعها في أنماط (<code>git push *</code>، أو مفتاح الفئة الخطرة
+للأوامر المركّبة)، ويرتّبها حسب تكرار الموافقة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>قواعد الأمان:</p>
+<ul>
+<li><strong>لا شيء يُطبَّق تلقائيًا أبدًا</strong> — التشغيل الافتراضي للقراءة فقط؛
+<code>--apply N[,M...]</code> الصريح وحده يكتب إلى <code>config.yaml</code>.</li>
+<li><strong>لا تُقتَرح الفئات المدمّرة أبدًا</strong>، بغضّ النظر عن عدد مرات
+الموافقة عليها: عمليات الحذف التكراري، و<code>sudo</code>، والكتابة على القرص/الجهاز، وتحرير بيانات الاعتماد
+وإعدادات النظام، والتمرير عبر أنبوب إلى shell، وSQL DROP/TRUNCATE، وإنهاء العمليات،
+وكل فئة صارمة — كلها مستبعدة بشكل قاطع. <code>rm -rf build/</code> حتى لو وُوفق عليه 100
+مرة، لا يُنتج أبدًا إدخال <code>rm</code>.</li>
+<li>الاقتراحات المشمولة فعلًا في <code>command_allowlist</code> الخاصة بك تُتخطَّى.</li>
+</ul>
+<p>خيارات مفيدة: <code>--days N</code> (نطاق السجل الزمني، الافتراضي 90)، و<code>--min-count N</code>
+(الحد الأدنى من الموافقات للتأهل، الافتراضي 2)، و<code>--limit N</code>، و<code>--db PATH</code>.</p>

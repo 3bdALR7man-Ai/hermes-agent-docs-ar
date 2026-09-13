@@ -1,0 +1,114 @@
+<header><h1>Spotify</h1></header>
+<p>يستطيع Hermes التحكم في Spotify مباشرةً — التشغيل، وقائمة الانتظار، والبحث، وقوائم التشغيل، والمقاطع/الألبومات المحفوظة، وسجل الاستماع — باستخدام Web API الرسمية من Spotify مع PKCE OAuth. تُخزَّن الـ tokens في <code>~/.hermes/auth.json</code> وتُجدَّد تلقائيًا عند تلقي الخطأ 401؛ لذا لا تحتاج إلى تسجيل الدخول إلا مرة واحدة لكل جهاز (تنتهي صلاحية refresh tokens بعد نحو 6 أشهر؛ وعندها أعد تشغيل <code>hermes auth spotify</code>).</p>
+<p>على خلاف تكاملات OAuth المدمجة في Hermes (Google و GitHub Copilot و Codex)، يتطلب Spotify من كل مستخدم تسجيل تطبيق مطوّر خفيف خاص به، إذ لا يسمح Spotify للأطراف الثالثة بنشر تطبيق OAuth عام يمكن لأي شخص استخدامه. تستغرق العملية نحو دقيقتين، ويرشدك <code>hermes auth spotify</code> خلالها خطوة بخطوة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>حساب Spotify. يكفي الحساب <strong>المجاني (Free)</strong> لأدوات البحث وقوائم التشغيل والمكتبة والنشاط. أما <strong>Premium</strong> فمطلوب للتحكم في التشغيل (التشغيل، والإيقاف المؤقت، والتخطي، والانتقال إلى موضع، ومستوى الصوت، والإضافة إلى قائمة الانتظار، ونقل التشغيل).</li>
+<li>تثبيت Hermes Agent وتشغيله.</li>
+<li>لأدوات التشغيل: <strong>جهاز Spotify Connect نشط</strong> — يجب أن يكون تطبيق Spotify مفتوحًا على جهاز واحد على الأقل (هاتف، أو سطح مكتب، أو مشغّل ويب، أو مكبّر صوت) كي تجد Web API ما تتحكم فيه. إذا لم يكن هناك جهاز نشط، فستتلقى <code>403 Forbidden</code> مع رسالة &quot;no active device&quot;؛ افتح Spotify على أي جهاز وأعد المحاولة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-hermes-tools-or-first-run-setup">دفعة واحدة: <code>hermes tools</code> أو إعداد التشغيل الأول</h3>
+<p>هذا أسرع مسار. شغّل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>مرّر إلى <code>🎵 Spotify</code>، واضغط مفتاح المسافة لتفعيله، ثم <code>s</code> للحفظ. يتوفر مفتاح التبديل نفسه أيضًا أثناء تدفق التشغيل الأول <code>hermes setup</code> / <code>hermes setup tools</code>. يبقى Spotify اختياريًا يتطلب التفعيل، لذا فإن تفعيله هناك يشغّل إعدادات المزوّد نفسها التي يشغّلها <code>hermes tools</code>.</p>
+<p>ينقلك Hermes مباشرةً إلى تدفق OAuth — وإذا لم يكن لديك تطبيق Spotify بعد، يرشدك إلى إنشائه في المكان نفسه. وبمجرد الانتهاء، يكون الـ toolset مفعّلًا ومصادَقًا عليه في خطوة واحدة.</p>
+<p>إذا كنت تفضّل تنفيذ الخطوات بشكل منفصل (أو كنت تعيد المصادقة لاحقًا)، فاستخدم التدفق ذا الخطوتين أدناه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-step-flow">التدفق ذو الخطوتين</h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-toolset">1. فعّل الـ toolset</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>فعّل <code>🎵 Spotify</code>، واحفظ، وعندما يُفتح المعالج المضمّن، أغلقه (Ctrl+C). يبقى الـ toolset مفعّلًا؛ ولا يُؤجَّل إلا خطوة المصادقة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-run-the-login-wizard">2. شغّل معالج تسجيل الدخول</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لا تظهر أدوات Spotify السبع في toolset الوكيل إلا بعد الخطوة 1 — فهي معطّلة افتراضيًا كي لا يُرسل المستخدمون الذين لا يريدونها مخططات أدوات إضافية مع كل استدعاء API.</p>
+<p>إذا لم يكن <code>HERMES_SPOTIFY_CLIENT_ID</code> مضبوطًا، يرشدك Hermes إلى تسجيل التطبيق مباشرةً:</p>
+<ol>
+<li>يفتح <code>https://developer.spotify.com/dashboard</code> في متصفحك</li>
+<li>يطبع القيم الدقيقة التي عليك لصقها في نموذج &quot;Create app&quot; لدى Spotify</li>
+<li>يطلب منك إدخال Client ID الذي تحصل عليه</li>
+<li>يحفظه في <code>~/.hermes/.env</code> كي تتخطى عمليات التشغيل اللاحقة هذه الخطوة</li>
+<li>ينتقل مباشرةً إلى تدفق الموافقة في OAuth</li>
+</ol>
+<p>بعد موافقتك، تُكتب الـ tokens ضمن <code>providers.spotify</code> في <code>~/.hermes/auth.json</code>. لا يتغير مزوّد inference النشط — فمصادقة Spotify مستقلة عن مزوّد LLM لديك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-the-spotify-app-what-the-wizard-asks-for">إنشاء تطبيق Spotify (ما يطلبه المعالج)</h3>
+<p>عندما تُفتح لوحة التحكم، انقر على <strong>Create app</strong> واملأ الحقول التالية:</p>
+<table><thead><tr><th>الحقل</th><th>القيمة</th></tr></thead><tbody><tr><td>App name</td><td>أي اسم (مثل <code>hermes-agent</code>)</td></tr><tr><td>App description</td><td>أي وصف (مثل <code>personal Hermes integration</code>)</td></tr><tr><td>Website</td><td>اتركه فارغًا</td></tr><tr><td>Redirect URI</td><td><code>http://127.0.0.1:43827/spotify/callback</code></td></tr><tr><td>Which API/SDKs?</td><td>حدّد <strong>Web API</strong></td></tr></tbody></table>
+<p>وافق على الشروط وانقر على <strong>Save</strong>. في الصفحة التالية انقر على <strong>Settings</strong> → انسخ <strong>Client ID</strong> والصقه في مطالبة Hermes. هذه هي القيمة الوحيدة التي يحتاج إليها Hermes — فـ PKCE لا يستخدم client secret.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-over-ssh--in-a-headless-environment">التشغيل عبر SSH / في بيئة بلا واجهة (headless)</h3>
+<p>إذا كان <code>SSH_CLIENT</code> أو <code>SSH_TTY</code> مضبوطًا، يتخطى Hermes فتح المتصفح تلقائيًا في كل من المعالج وخطوة OAuth. انسخ عنوان URL للوحة التحكم وعنوان URL للتفويض اللذين يطبعهما Hermes، وافتحهما في متصفح على جهازك المحلي، وتابع كالمعتاد — إذ يظل مستمع HTTP المحلي يعمل على المضيف البعيد على المنفذ <code>43827</code>. ولا يستطيع متصفح حاسوبك المحمول الوصول إلى الـ loopback البعيد دون تمرير محلي (local-forward) عبر SSH:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لإعدادات jump-box / bastion وغيرها من المزالق (mosh و tmux وتعارض المنافذ)، راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يعرض ما إذا كانت الـ tokens موجودة وموعد انتهاء صلاحية access token. التجديد تلقائي: فعندما يعيد أي استدعاء لـ Spotify API الخطأ 401، يستبدل العميل refresh token ويعيد المحاولة مرة واحدة. تبقى refresh tokens محفوظة عبر عمليات إعادة تشغيل Hermes، لذا لا تحتاج إلى إعادة المصادقة إلا إذا ألغيت صلاحية التطبيق في إعدادات حساب Spotify أو شغّلت <code>hermes auth logout spotify</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-it">الاستخدام</h2>
+<p>بعد تسجيل الدخول، يحصل الوكيل على 7 أدوات لـ Spotify. تحدّث إلى الوكيل بشكل طبيعي — وسيختار الأداة والإجراء المناسبين. وللحصول على أفضل سلوك، يحمّل الوكيل مهارة مرافقة تعلّمه أنماط الاستخدام المعتمدة (بحث واحد ثم تشغيل، ومتى لا يلزم الاستدعاء المسبق لـ <code>get_state</code>، وما إلى ذلك).</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-reference">مرجع الأدوات</h3>
+<p>تقبل جميع الإجراءات التي تغيّر التشغيل الوسيط الاختياري <code>device_id</code> لاستهداف جهاز محدد. وإذا أُغفل، يستخدم Spotify الجهاز النشط حاليًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_playback"><code>spotify_playback</code></h4>
+<p>التحكم في التشغيل وفحصه، إضافةً إلى جلب سجل المقاطع التي شُغّلت مؤخرًا.</p>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th><th>يتطلب Premium؟</th></tr></thead><tbody><tr><td><code>get_state</code></td><td>حالة التشغيل الكاملة (المقطع، والجهاز، والتقدم، والتشغيل العشوائي/التكرار)</td><td>لا</td></tr><tr><td><code>get_currently_playing</code></td><td>المقطع الحالي فقط (يعيد نتيجة فارغة عند 204 — انظر أدناه)</td><td>لا</td></tr><tr><td><code>play</code></td><td>بدء التشغيل/استئنافه. اختياري: <code>context_uri</code>، <code>uris</code>، <code>offset</code>، <code>position_ms</code></td><td>نعم</td></tr><tr><td><code>pause</code></td><td>إيقاف التشغيل مؤقتًا</td><td>نعم</td></tr><tr><td><code>next</code> / <code>previous</code></td><td>تخطي المقطع</td><td>نعم</td></tr><tr><td><code>seek</code></td><td>الانتقال إلى <code>position_ms</code></td><td>نعم</td></tr><tr><td><code>set_repeat</code></td><td><code>state</code> = <code>track</code> / <code>context</code> / <code>off</code></td><td>نعم</td></tr><tr><td><code>set_shuffle</code></td><td><code>state</code> = <code>true</code> / <code>false</code></td><td>نعم</td></tr><tr><td><code>set_volume</code></td><td><code>volume_percent</code> = 0-100</td><td>نعم</td></tr><tr><td><code>recently_played</code></td><td>آخر المقاطع التي شُغّلت. اختياري: <code>limit</code>، <code>before</code>، <code>after</code> (Unix ms)</td><td>لا</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_devices"><code>spotify_devices</code></h4>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th></tr></thead><tbody><tr><td><code>list</code></td><td>كل أجهزة Spotify Connect المرئية لحسابك</td></tr><tr><td><code>transfer</code></td><td>نقل التشغيل إلى <code>device_id</code>. الخيار الاختياري <code>play: true</code> يبدأ التشغيل عند النقل</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-assistant-managed-speakers">مكبّرات الصوت التي يديرها Home Assistant</h3>
+<p>إذا كان Home Assistant يدير مكبّرات صوت تدعم Spotify Connect أصلًا (مثل Sonos أو Echo أو Nest أو غيرها من المكبّرات الداعمة لـ Connect)، فإنها تظهر في <code>spotify_devices list</code> تلقائيًا متى استطاع Spotify رؤيتها. لا يحتاج Hermes إلى جسر Home Assistant ↔ Spotify في هذا المسار — إذ يتولى Spotify توجيه الأجهزة بشكل أصلي.</p>
+<p>اطلب من Hermes نقل التشغيل باستخدام الاسم المعروض للمكبّر (مثلًا: “انقل Spotify إلى مكبّر صوت المطبخ”)، أو استدعِ <code>spotify_devices list</code> ومرّر قيمة <code>device_id</code> الدقيقة إلى <code>spotify_devices transfer</code> عند كتابة السكربتات. إذا لم يظهر المكبّر، فافتح تطبيق Spotify أو تكامل Spotify الخاص بالمكبّر مرة واحدة كي يسجّله Spotify كهدف Connect نشط.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_queue"><code>spotify_queue</code></h4>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th><th>يتطلب Premium؟</th></tr></thead><tbody><tr><td><code>get</code></td><td>المقاطع الموجودة حاليًا في قائمة الانتظار</td><td>لا</td></tr><tr><td><code>add</code></td><td>إلحاق <code>uri</code> بقائمة الانتظار</td><td>نعم</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_search"><code>spotify_search</code></h4>
+<p>البحث في الكتالوج. الوسيط <code>query</code> مطلوب. اختياري: <code>types</code> (مصفوفة من <code>track</code> / <code>album</code> / <code>artist</code> / <code>playlist</code> / <code>show</code> / <code>episode</code>)، و <code>limit</code>، و <code>offset</code>، و <code>market</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_playlists"><code>spotify_playlists</code></h4>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th><th>الوسائط المطلوبة</th></tr></thead><tbody><tr><td><code>list</code></td><td>قوائم تشغيل المستخدم</td><td>—</td></tr><tr><td><code>get</code></td><td>قائمة تشغيل واحدة مع مقاطعها</td><td><code>playlist_id</code></td></tr><tr><td><code>create</code></td><td>قائمة تشغيل جديدة</td><td><code>name</code> (+ اختياريًا <code>description</code>، <code>public</code>، <code>collaborative</code>)</td></tr><tr><td><code>add_items</code></td><td>إضافة مقاطع</td><td><code>playlist_id</code>، <code>uris</code> (اختياريًا <code>position</code>)</td></tr><tr><td><code>remove_items</code></td><td>إزالة مقاطع</td><td><code>playlist_id</code>، <code>uris</code> (+ اختياريًا <code>snapshot_id</code>)</td></tr><tr><td><code>update_details</code></td><td>إعادة التسمية / التعديل</td><td><code>playlist_id</code> + أيٌّ من <code>name</code>، <code>description</code>، <code>public</code>، <code>collaborative</code></td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_albums"><code>spotify_albums</code></h4>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th><th>الوسائط المطلوبة</th></tr></thead><tbody><tr><td><code>get</code></td><td>البيانات الوصفية للألبوم</td><td><code>album_id</code></td></tr><tr><td><code>tracks</code></td><td>قائمة مقاطع الألبوم</td><td><code>album_id</code></td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="spotify_library"><code>spotify_library</code></h4>
+<p>وصول موحّد إلى المقاطع المحفوظة والألبومات المحفوظة. اختر المجموعة عبر الوسيط <code>kind</code>.</p>
+<table><thead><tr><th>الإجراء</th><th>الغرض</th></tr></thead><tbody><tr><td><code>list</code></td><td>عرض محتويات المكتبة مقسّمًا إلى صفحات</td></tr><tr><td><code>save</code></td><td>إضافة <code>ids</code> / <code>uris</code> إلى المكتبة</td></tr><tr><td><code>remove</code></td><td>إزالة <code>ids</code> / <code>uris</code> من المكتبة</td></tr></tbody></table>
+<p>المطلوب: <code>kind</code> = <code>tracks</code> أو <code>albums</code>، إضافةً إلى <code>action</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="feature-matrix-free-vs-premium">مصفوفة الميزات: Free مقابل Premium</h3>
+<p>تعمل الأدوات المخصصة للقراءة فقط مع الحسابات المجانية (Free). أما أي شيء يغيّر التشغيل أو قائمة الانتظار فيتطلب Premium.</p>
+<table><thead><tr><th>يعمل مع Free</th><th>يتطلب Premium</th></tr></thead><tbody><tr><td><code>spotify_search</code> (الكل)</td><td><code>spotify_playback</code> — play, pause, next, previous, seek, set_repeat, set_shuffle, set_volume</td></tr><tr><td><code>spotify_playback</code> — get_state, get_currently_playing, recently_played</td><td><code>spotify_queue</code> — add</td></tr><tr><td><code>spotify_devices</code> — list</td><td><code>spotify_devices</code> — transfer</td></tr><tr><td><code>spotify_queue</code> — get</td><td></td></tr><tr><td><code>spotify_playlists</code> (الكل)</td><td></td></tr><tr><td><code>spotify_albums</code> (الكل)</td><td></td></tr><tr><td><code>spotify_library</code> (الكل)</td><td></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scheduling-spotify--cron">الجدولة: Spotify + cron</h2>
+<p>بما أن أدوات Spotify أدوات Hermes عادية، يمكن لمهمة cron تعمل في جلسة Hermes تشغيل الموسيقى وفق أي جدول زمني، دون الحاجة إلى كتابة كود جديد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="morning-wake-up-playlist">قائمة تشغيل للاستيقاظ صباحًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ما يحدث في الساعة 7 صباحًا كل يوم عمل:</p>
+<ol>
+<li>يُطلق Cron جلسة Hermes بلا واجهة.</li>
+<li>يقرأ الوكيل الـ prompt، ويستدعي <code>spotify_devices list</code> للعثور على &quot;kitchen speaker&quot; بالاسم، ثم <code>spotify_devices transfer</code> → <code>spotify_playback set_volume</code> → <code>spotify_playback set_shuffle</code> → <code>spotify_search</code> + <code>spotify_playback play</code>.</li>
+<li>تبدأ الموسيقى على المكبّر المستهدف. التكلفة الإجمالية: جلسة واحدة، وبضعة استدعاءات أدوات، دون أي تدخل بشري.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="wind-down-at-night">الاسترخاء ليلًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gotchas">مزالق</h3>
+<ul>
+<li><strong>يجب وجود جهاز نشط عند انطلاق مهمة cron.</strong> إذا لم يكن هناك عميل Spotify قيد التشغيل (هاتف/سطح مكتب/مكبّر Connect)، تعيد إجراءات التشغيل <code>403 no active device</code>. بالنسبة إلى قوائم التشغيل الصباحية، الحيلة هي استهداف جهاز يعمل دائمًا (Sonos أو Echo أو مكبّر ذكي) بدلًا من هاتفك.</li>
+<li><strong>يلزم Premium لأي شيء يغيّر التشغيل</strong> — التشغيل، والإيقاف المؤقت، والتخطي، ومستوى الصوت، ونقل التشغيل. أما مهام cron للقراءة فقط (مثل مهمة مجدولة &quot;أرسل لي بالبريد المقاطع التي شغّلتها مؤخرًا&quot;) فتعمل بلا مشكلات مع Free.</li>
+<li><strong>يرث وكيل cron الـ toolsets النشطة لديك.</strong> يجب تفعيل Spotify في <code>hermes tools</code> كي ترى جلسة cron أدوات Spotify.</li>
+<li><strong>تعمل مهام cron مع <code>skip_memory=True</code></strong> كي لا تكتب في مخزن الذاكرة لديك.</li>
+</ul>
+<p>المرجع الكامل لـ cron: <a href="/docs/user-guide/features/cron">مهام Cron</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sign-out">تسجيل الخروج</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يزيل الـ tokens من <code>~/.hermes/auth.json</code>. ولمسح إعدادات التطبيق أيضًا، احذف <code>HERMES_SPOTIFY_CLIENT_ID</code> (و <code>HERMES_SPOTIFY_REDIRECT_URI</code> إن كنت قد ضبطته) من <code>~/.hermes/.env</code>، أو شغّل المعالج مجددًا.</p>
+<p>لإلغاء صلاحية التطبيق من جانب Spotify، زر صفحة <a href="https://www.spotify.com/account/apps/" data-ext>التطبيقات المرتبطة بحسابك</a> وانقر على <strong>REMOVE ACCESS</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong><code>403 Forbidden — Player command failed: No active device found</code></strong> — تحتاج إلى أن يكون Spotify قيد التشغيل على جهاز واحد على الأقل. افتح تطبيق Spotify على هاتفك أو سطح المكتب أو مشغّل الويب، وشغّل أي مقطع لثانية واحدة لتسجيل الجهاز، ثم أعد المحاولة. يعرض <code>spotify_devices list</code> الأجهزة المرئية حاليًا.</p>
+<p><strong><code>403 Forbidden — Premium required</code></strong> — أنت تستخدم حسابًا مجانيًا (Free) وتحاول تنفيذ إجراء يغيّر التشغيل. راجع مصفوفة الميزات أعلاه.</p>
+<p><strong><code>204 No Content</code> عند <code>get_currently_playing</code></strong> — لا شيء قيد التشغيل حاليًا على أي جهاز. هذه استجابة Spotify العادية وليست خطأً؛ ويعرضها Hermes كنتيجة فارغة توضيحية (<code>is_playing: false</code>).</p>
+<p><strong><code>INVALID_CLIENT: Invalid redirect URI</code></strong> — لا يطابق redirect URI في إعدادات تطبيق Spotify لديك ما يستخدمه Hermes. القيمة الافتراضية هي <code>http://127.0.0.1:43827/spotify/callback</code>. إما أن تضيفها إلى قائمة redirect URIs المسموح بها في تطبيقك، أو أن تضبط <code>HERMES_SPOTIFY_REDIRECT_URI</code> في <code>~/.hermes/.env</code> على القيمة التي سجّلتها.</p>
+<p><strong><code>429 Too Many Requests</code></strong> — حدّ المعدل (rate limit) لدى Spotify. يعيد Hermes رسالة خطأ واضحة؛ انتظر دقيقة وأعد المحاولة. إذا استمر ذلك، فالأرجح أنك تشغّل حلقة متقاربة في سكربت — إذ تُعاد تهيئة حصة Spotify كل 30 ثانية تقريبًا.</p>
+<p><strong>يتكرر ظهور <code>401 Unauthorized</code></strong> — أُلغيت صلاحية refresh token الخاص بك (عادةً لأنك أزلت التطبيق من حسابك، أو لأن التطبيق حُذف). شغّل <code>hermes auth spotify</code> مجددًا.</p>
+<p><strong>المعالج لا يفتح المتصفح</strong> — إذا كنت متصلًا عبر SSH أو تعمل داخل حاوية دون شاشة، يكتشف Hermes ذلك ويتخطى الفتح التلقائي. انسخ عنوان URL للوحة التحكم الذي يطبعه وافتحه يدويًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-custom-scopes">متقدم: نطاقات (scopes) مخصصة</h2>
+<p>افتراضيًا، يطلب Hermes النطاقات اللازمة لكل الأدوات المضمّنة. يمكنك تجاوز ذلك إذا أردت تقييد الوصول:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>مرجع النطاقات: <a href="https://developer.spotify.com/documentation/web-api/concepts/scopes" data-ext>نطاقات Spotify Web API</a>. إذا طلبت نطاقات أقل مما تحتاج إليه أداة ما، فستفشل استدعاءات تلك الأداة بالخطأ 403.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-custom-client-id--redirect-uri">متقدم: client ID / redirect URI مخصصان</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>أو اضبطهما بشكل دائم في <code>~/.hermes/.env</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يجب إدراج redirect URI في قائمة السماح ضمن إعدادات تطبيق Spotify لديك. تعمل القيمة الافتراضية لدى الجميع تقريبًا — فلا تغيّرها إلا إذا كان المنفذ 43827 مشغولًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-things-live">أين تُخزَّن الأشياء</h2>
+<table><thead><tr><th>الملف</th><th>المحتويات</th></tr></thead><tbody><tr><td><code>~/.hermes/auth.json</code> → <code>providers.spotify</code></td><td>access token، و refresh token، وموعد انتهاء الصلاحية، والنطاق (scope)، و redirect URI</td></tr><tr><td><code>~/.hermes/.env</code></td><td><code>HERMES_SPOTIFY_CLIENT_ID</code>، واختياريًا <code>HERMES_SPOTIFY_REDIRECT_URI</code></td></tr><tr><td>تطبيق Spotify</td><td>مملوك لك على <a href="https://developer.spotify.com/dashboard" data-ext>developer.spotify.com/dashboard</a>؛ ويحتوي على Client ID وقائمة السماح الخاصة بـ redirect URI</td></tr></tbody></table>

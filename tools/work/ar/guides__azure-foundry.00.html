@@ -1,0 +1,193 @@
+<header><h1>Microsoft Foundry</h1></header>
+<p>يدعم المزوّد <code>azure-foundry</code> في Hermes Agent كلًّا من Microsoft Foundry (المعروفة سابقًا باسم Azure AI Foundry) و Azure OpenAI. ويمكن لمورد Foundry واحد استضافة نماذج بصيغتي نقل مختلفتين (wire formats):</p>
+<ul>
+<li><strong>نمط OpenAI</strong> — <code>POST /v1/chat/completions</code> على endpoints مثل <code>https://&lt;resource&gt;.openai.azure.com/openai/v1</code>. ويُستخدم مع GPT-4.x، و GPT-5.x، و Llama، و Mistral، ومعظم النماذج مفتوحة الأوزان.</li>
+<li><strong>نمط Anthropic</strong> — <code>POST /v1/messages</code> على endpoints مثل <code>https://&lt;resource&gt;.services.ai.azure.com/anthropic</code>. ويُستخدم عندما تقدّم Microsoft Foundry نماذج Claude بصيغة Anthropic Messages API.</li>
+</ul>
+<p>يستكشف معالج الإعداد الـ endpoint لديك ويكتشف تلقائيًا بروتوكول النقل (transport) الذي يستخدمه، والـ deployments المتاحة، وطول السياق لكل نموذج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>مورد Microsoft Foundry أو Azure OpenAI يحتوي على deployment واحد على الأقل</li>
+<li>رابط endpoint الخاص بالـ deployment</li>
+<li><strong>إما</strong> مفتاح API (من Azure Portal ضمن &quot;Keys and Endpoint&quot;) <strong>أو</strong> دور RBAC ‏<strong>Azure AI User</strong> على مورد Foundry إذا كنت تخطط لاستخدام Microsoft Entra ID (المسار دون مفاتيح الذي توصي به Microsoft). وقد تعرض بعض المستأجرين (tenants) هذا الدور باسم <strong>Foundry User</strong> خلال فترة طرح Microsoft لإعادة التسمية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>سيقوم المعالج بما يلي:</p>
+<ol>
+<li><strong>فحص مسار الرابط</strong> — يُتعرَّف على الروابط المنتهية بـ <code>/anthropic</code> على أنها مسارات Claude في Microsoft Foundry.</li>
+<li><strong>استكشاف <code>GET &lt;base&gt;/models</code></strong> — إذا أعاد الـ endpoint قائمة نماذج بتنسيق OpenAI، ينتقل Hermes إلى <code>chat_completions</code> ويملأ منتقيًا مسبقًا بمعرّفات الـ deployments المُعادة.</li>
+<li><strong>استكشاف تنسيق Anthropic Messages</strong> — خيار احتياطي للـ endpoints التي لا تتيح <code>/models</code> لكنها تقبل تنسيق Anthropic Messages.</li>
+<li><strong>الرجوع إلى الإدخال اليدوي</strong> — تظل الـ endpoints الخاصة/المقيّدة التي ترفض كل عمليات الاستكشاف تعمل؛ إذ تختار وضع الـ API وتكتب اسم الـ deployment يدويًا.</li>
+</ol>
+<p>يُحدَّد طول السياق للنموذج المختار عبر سلسلة البيانات الوصفية القياسية في Hermes (<code>models.dev</code>، والبيانات الوصفية للمزوّد، والقيم الاحتياطية الثابتة لكل عائلة نماذج) ويُخزَّن في <code>config.yaml</code> حتى يتمكن النموذج من تحديد حجم الـ context window الخاص به بشكل صحيح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="microsoft-entra-id-keyless-rbac--recommended">Microsoft Entra ID (دون مفاتيح، RBAC) — موصى به</h2>
+<p>توصي Microsoft بـ <a href="https://learn.microsoft.com/azure/ai-foundry/foundry-models/how-to/configure-entra-id" data-ext>المصادقة دون مفاتيح باستخدام Microsoft Entra ID</a> لأحمال عمل Foundry في بيئة الإنتاج. ويدعم Hermes استخدام Entra ID مع <strong>كلتا</strong> واجهتي الـ API:</p>
+<ul>
+<li><strong>نمط OpenAI</strong> (<code>api_mode: chat_completions</code> / <code>codex_responses</code>) — GPT-4/5، و Llama، و Mistral، و DeepSeek، وغيرها.</li>
+<li><strong>نمط Anthropic</strong> (<code>api_mode: anthropic_messages</code>) — نماذج Claude على Microsoft Foundry.</li>
+</ul>
+<p>يُطبَّق RBAC في Foundry على مستوى كل مورد (يمنح <code>Azure AI User</code> الوصول إلى الواجهتين معًا؛ وقد تعرض بعض المستأجرين <code>Foundry User</code>)، وتوثّق Microsoft نطاق الـ inference نفسه (<code>https://ai.azure.com/.default</code>) لكلتيهما. أما من الداخل:</p>
+<ul>
+<li>يستخدم نمط OpenAI عقد <code>api_key=</code> القابل للاستدعاء (callable) المدعوم أصلًا في OpenAI Python SDK — إذ يُصدر الـ SDK رمز JWT جديدًا لكل طلب تلقائيًا.</li>
+<li>يستخدم نمط Anthropic كائن <code>httpx.Client</code> مع hook لأحداث الطلب يثبّته <code>agent.azure_identity_adapter.build_bearer_http_client</code>، لأن Anthropic SDK لا يقبل <code>auth_token</code> قابلًا للاستدعاء بشكل أصيل. يعيد الـ hook كتابة <code>Authorization: Bearer &lt;fresh-jwt&gt;</code> لكل طلب صادر. RBAC نفسه من Microsoft، ونطاق Foundry نفسه — والفرق الوحيد هو عقد الـ SDK.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-use-entra-id">لماذا تستخدم Entra ID؟</h3>
+<ul>
+<li>لا توجد مفاتيح API طويلة الأجل تحتاج إلى تبديلها أو إبطالها.</li>
+<li>وصول قائم على RBAC — امنح <code>Azure AI User</code> على مورد Foundry أو اسحبه، دون الحاجة إلى إعادة كتابة الإعدادات.</li>
+<li>تُقسَّم سجلات الوصول والتدقيق بحسب الجهة المُسنَد إليها الدور، بدلًا من أن يتشارك جميع المستدعين مفتاحًا ثابتًا واحدًا.</li>
+<li>واجهة مصادقة واحدة لكلٍّ من Azure VMs، و AKS pods، و App Service، و Functions، و Container Apps، و Foundry Agent Service عبر الهوية المُدارة (managed identity).</li>
+<li>مسارات workload identity و service principal لـ CI/CD pipelines.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-setup-azure-side">إعداد لمرة واحدة (من جهة Azure)</h3>
+<ol>
+<li>في Azure Portal، افتح مورد Foundry لديك → <strong>Access control (IAM)</strong> → <strong>Add → Add role assignment</strong>.</li>
+<li>اختر الدور <strong>Azure AI User</strong> (أو <strong>Foundry User</strong> إذا كان المستأجر لديك يعرض الدور بالاسم الجديد).</li>
+<li>أسنده إلى:
+<ul>
+<li><strong>حساب المستخدم الخاص بك</strong> للتطوير المحلي باستخدام <code>az login</code>.</li>
+<li><strong>هوية مُدارة أو workload identity</strong> لموارد الحوسبة المستضافة على Azure (موصى به لبيئة الإنتاج).</li>
+<li><strong>هوية الوكيل الخاصة بوكيل مستضاف في Foundry Agent Service</strong> عندما يعمل Hermes داخل وكيل مستضاف.</li>
+<li><strong>service principal</strong> لـ CI/CD pipelines عندما لا تتوفر workload identity.</li>
+</ul>
+</li>
+<li>انتظر نحو 5 دقائق حتى ينتشر الدور.</li>
+</ol>
+<p>المكافئ باستخدام Azure CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-setup-hermes-side">إعداد لمرة واحدة (من جهة Hermes)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُجري المعالج اختبارًا تمهيديًا (preflight) محدود المدة (مهلة 10 ثوانٍ). وعند الفشل يعرض خيار &quot;save anyway, validate later&quot; — وهو مفيد عند الإعداد على جهاز لا يملك بيانات الاعتماد بعد لكنه سيملكها وقت التشغيل (مثل تجهيز الإعدادات لنشر يعتمد على هوية مُدارة).</p>
+<p>يُثبَّت <code>azure-identity</code> تلقائيًا عند أول استخدام عبر آلية التثبيت عند الحاجة في Hermes. ولتثبيته مسبقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-written-to-configyaml">الإعدادات المكتوبة في <code>config.yaml</code></h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>لا يدير Hermes سوى إعداد واحد خاص بـ Entra في <code>config.yaml</code>:</p>
+<ul>
+<li><strong><code>scope</code></strong> — نطاق مورد OAuth. قيمته الافتراضية هي نطاق الـ inference الموثّق من Microsoft (<code>https://ai.azure.com/.default</code>). لا تغيّره إلا إذا كان موردك قد جُهّز لجمهور (audience) غير قياسي.</li>
+</ul>
+<p>أما كل ما عدا ذلك (المستأجر، وسرّ الـ service principal، وملف الـ federated token، وجهة الإصدار (authority) للسحابة السيادية، وتفضيلات الـ broker) فيقرؤه <code>azure-identity</code> مباشرةً من متغيرات البيئة القياسية <code>AZURE_*</code> — راجع <a href="#credential-resolution-order">ترتيب تحديد بيانات الاعتماد</a> أدناه. اضبطها في <code>~/.hermes/.env</code> أو في بيئة النشر لديك، تمامًا كما يصف مرجع SDK من Microsoft.</p>
+<p>لا تُحفظ أي أسرار في <code>~/.hermes/.env</code> في وضع Entra — إذ يخزّن <code>azure-identity</code> الـ tokens مؤقتًا داخل العملية (وفي سلسلة مفاتيح نظام التشغيل / <code>~/.IdentityService</code> حيثما كان ذلك متاحًا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-resolution-order">ترتيب تحديد بيانات الاعتماد</h3>
+<p>في <code>azure-identity</code>، تمرّ <code>DefaultAzureCredential</code> على هذه السلسلة مع كل طلب token، وتتوقف عند أول بيانات اعتماد تُعيد token:</p>
+<ol>
+<li><strong>Environment credential</strong> — <code>AZURE_TENANT_ID</code> + <code>AZURE_CLIENT_ID</code> + <code>AZURE_CLIENT_SECRET</code> (أو <code>AZURE_CLIENT_CERTIFICATE_PATH</code> / <code>AZURE_FEDERATED_TOKEN_FILE</code>).</li>
+<li><strong>Workload Identity</strong> — <code>AZURE_FEDERATED_TOKEN_FILE</code> (‏federated tokens في AKS / OIDC).</li>
+<li><strong>Managed Identity</strong> — endpoint ‏IMDS (<code>169.254.169.254</code>) للأجهزة الافتراضية؛ و <code>IDENTITY_ENDPOINT</code> لـ App Service / Functions / Container Apps. أما الوكلاء المستضافون في Foundry Agent Service فيستخدمون هوية الوكيل الخاصة بالوكيل المستضاف.</li>
+<li><strong>Visual Studio Code</strong> — إضافة Azure account.</li>
+<li><strong>Azure CLI</strong> — جلسة <code>az login</code>.</li>
+<li><strong>Azure Developer CLI</strong> — <code>azd auth login</code>.</li>
+<li><strong>Azure PowerShell</strong> — <code>Connect-AzAccount</code>.</li>
+<li><strong>Broker</strong> (على Windows / WSL فقط) — Web Account Manager.</li>
+</ol>
+<p>تُستثنى بيانات الاعتماد التفاعلية عبر المتصفح افتراضيًا في تشغيلات Hermes غير المراقَبة؛ لذا استخدم بدلًا منها Azure CLI، أو Azure Developer CLI، أو الهوية المُدارة، أو workload identity، أو بيانات اعتماد service principal.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="deployment-patterns">أنماط النشر</h3>
+<p><strong>التطوير المحلي:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>Azure VM / Functions / App Service / Container Apps (هوية مُدارة يعيّنها النظام):</strong></p>
+<ol>
+<li>فعّل الهوية التي يعيّنها النظام (system-assigned) على مورد الحوسبة.</li>
+<li>امنح الهوية الدور <code>Azure AI User</code> (أو <code>Foundry User</code>) على مورد Foundry.</li>
+<li>اضبط <code>model.auth_mode: entra_id</code> في config.yaml — دون الحاجة إلى متغيرات بيئة.</li>
+</ol>
+<p><strong>Azure VM / Functions / App Service / Container Apps (هوية مُدارة يعيّنها المستخدم):</strong></p>
+<ul>
+<li>اضبط <code>AZURE_CLIENT_ID</code> على معرّف العميل (client ID) الخاص بالهوية التي يعيّنها المستخدم (user-assigned) حتى تختار <code>DefaultAzureCredential</code> الهوية الصحيحة.</li>
+</ul>
+<p><strong>وكيل مستضاف في Foundry Agent Service:</strong></p>
+<ul>
+<li>أنشئ الوكيل المستضاف وامنح هوية ذلك الوكيل الدور <code>Azure AI User</code> (أو <code>Foundry User</code>) على مورد Foundry. يستخدم Hermes ‏<code>ManagedIdentityCredential</code> من داخل الوكيل المستضاف؛ ويجب أن يُسنَد الدور إلى هوية الوكيل، لا إلى المشروع الأب أو المستخدم الخاص بك فقط.</li>
+</ul>
+<p><strong>AKS Workload Identity (بديلًا عن AAD Pod Identity):</strong></p>
+<ul>
+<li>أضف إلى حساب الخدمة (service account) الخاص بالـ pod تعليقًا توضيحيًا (annotation) بمعرّف العميل الخاص بالـ workload identity.</li>
+<li>يُكتشف ملف الـ federated token الخاص بالـ pod تلقائيًا عبر <code>AZURE_FEDERATED_TOKEN_FILE</code>.</li>
+<li>يعمل <code>model.auth_mode: entra_id</code> دون أي تغييرات إضافية في الإعدادات.</li>
+</ul>
+<p><strong>service principal في CI:</strong></p>
+<ul>
+<li>اضبط <code>AZURE_TENANT_ID</code>، و <code>AZURE_CLIENT_ID</code>، و <code>AZURE_CLIENT_SECRET</code> في بيئة الـ runner.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="sovereign-clouds-government-china">السحابات السيادية (Government، China)</h4>
+<p>صدّر <code>AZURE_AUTHORITY_HOST</code> (مثل <code>https://login.microsoftonline.us</code> لـ Azure Government، و <code>https://login.partner.microsoftonline.cn</code> لـ Azure China). ويقرؤه <code>azure-identity</code> مباشرةً.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="health-checks">فحوصات السلامة</h3>
+<p>يُجري <code>hermes doctor</code> اختبارًا مدته 10 ثوانٍ على <code>DefaultAzureCredential</code> عندما يكون <code>model.auth_mode: entra_id</code> مضبوطًا، ويُبلغ عن بيانات الاعتماد الداخلية التي نجحت (وجود متغيرات البيئة، وإمكانية الوصول إلى endpoint الهوية المُدارة، وغير ذلك).</p>
+<p>يعرض <code>hermes auth</code> كتلة حالة منظّمة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h3>
+<ul>
+<li><strong>تستخدم endpoints نمط Anthropic ‏event hook من httpx.</strong> لا يقبل Anthropic Python SDK قيمة <code>auth_token</code> قابلة للاستدعاء بشكل أصيل (≤ 0.86.0). لذا يثبّت Hermes ‏hook لأحداث الطلب على <code>httpx.Client</code> مخصص يُصدر رمز JWT جديدًا لكل طلب صادر ويعيد كتابة <code>Authorization: Bearer &lt;jwt&gt;</code>. وهذا مكافئ وظيفيًا لعقد <code>Callable[[], str]</code> الأصيل في OpenAI SDK، لكنه يضيف طبقة وسيطة واحدة. وإذا أضاف Anthropic SDK دعمًا كاملًا للمصادقة القابلة للاستدعاء في إصدار مستقبلي، فسينتقل Hermes إليه بشفافية.</li>
+<li><strong>المهام الدفعية و <code>multiprocessing.Pool</code>.</strong> مزوّد token الخاص بـ Entra عبارة عن closure لا يمكن تسلسله (pickle) عبر حدود العمليات. لذا يُسقط <code>batch_runner.py</code> تلقائيًا الكائن القابل للاستدعاء من إعدادات الـ worker، ويترك كل عملية worker تعيد بناء المزوّد الخاص بها من <code>config.yaml</code> — دون أي إجراء من المستخدم، لكن كل worker يمرّ على السلسلة مرة واحدة عند بدء التشغيل.</li>
+<li><strong>لا يُحفظ bearer JWT في <code>auth.json</code>.</strong> لا يكرّر Hermes الـ cache الداخلي للـ tokens في <code>azure-identity</code>؛ وفي حالات البدء البارد (cold start) يمرّ على سلسلة بيانات الاعتماد عند أول عملية inference.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-written-to-configyaml-1">الإعدادات (المكتوبة في <code>config.yaml</code>)</h2>
+<p>بعد تشغيل المعالج سترى شيئًا مثل ما يلي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>وفي <code>~/.hermes/.env</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-style-endpoints-gpt-llama-etc">Endpoints بنمط OpenAI (GPT، و Llama، وغيرها)</h2>
+<p>يقبل endpoint الإصدار v1 العام (GA) في Azure OpenAI عميل Python القياسي <code>openai</code> مع تغييرات طفيفة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>سلوك مهم:</p>
+<ul>
+<li><strong>تُوجَّه نماذج GPT-5.x و codex وسلسلة o تلقائيًا إلى Responses API.</strong> تنشر Microsoft Foundry نماذج GPT-5 / codex / o1 / o3 / o4 بحيث لا تعمل إلا عبر Responses API — واستدعاء <code>/chat/completions</code> عليها يُعيد <code>400 &quot;The requested operation is unsupported.&quot;</code>. يكتشف Hermes عائلات النماذج هذه من أسمائها ويرقّي <code>api_mode</code> إلى <code>codex_responses</code> بشفافية، حتى عندما يظل <code>config.yaml</code> يحتوي على <code>api_mode: chat_completions</code>. أما GPT-4، و GPT-4o، و Llama، و Mistral، وغيرها من الـ deployments فتبقى على <code>/chat/completions</code>.</li>
+<li><strong>يُستخدم <code>max_completion_tokens</code> تلقائيًا.</strong> يتطلب Azure OpenAI (مثل OpenAI المباشر) المعامل <code>max_completion_tokens</code> لنماذج gpt-4o وسلسلة o و gpt-5.x. ويرسل Hermes المعامل الصحيح بناءً على الـ endpoint.</li>
+<li><strong>الـ endpoints السابقة للإصدار v1 التي تتطلب <code>api-version</code>.</strong> إذا كان لديك رابط أساسي قديم مثل <code>https://&lt;resource&gt;.openai.azure.com/openai?api-version=2025-04-01-preview</code>، يستخرج Hermes سلسلة الاستعلام ويمرّرها عبر <code>default_query</code> مع كل طلب (وإلا فإن OpenAI SDK يُسقطها عند ضمّ المسارات).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="anthropic-style-endpoints-claude-via-microsoft-foundry">Endpoints بنمط Anthropic (Claude عبر Microsoft Foundry)</h2>
+<p>بالنسبة إلى deployments الخاصة بـ Claude، استخدم المسار بنمط Anthropic:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>سلوك مهم:</p>
+<ul>
+<li><strong>يُحذف <code>/v1</code> من الرابط الأساسي.</strong> يُلحق Anthropic SDK المسار <code>/v1/messages</code> بكل رابط طلب — لذا يزيل Hermes أي <code>/v1</code> في نهاية الرابط قبل تسليمه إلى الـ SDK لتجنّب المسارات التي يتكرر فيها <code>/v1</code>.</li>
+<li><strong>يُرسل <code>api-version</code> عبر <code>default_query</code>، ولا يُلحق بالرابط.</strong> يتطلب Azure Anthropic سلسلة استعلام <code>api-version</code>. ودمجها في الرابط الأساسي يُنتج مسارات تالفة مثل <code>/anthropic?api-version=.../v1/messages</code> ويُعيد 404. لذا يمرّر Hermes ‏<code>api-version=2025-04-15</code> عبر <code>default_query</code> في Anthropic SDK بدلًا من ذلك.</li>
+<li><strong>تُستخدم مصادقة Bearer بدلًا من <code>x-api-key</code>.</strong> يتطلب مسار Azure المتوافق مع Anthropic الترويسة <code>Authorization: Bearer &lt;key&gt;</code> بدلًا من الترويسة الأصيلة في Anthropic <code>x-api-key</code>. يكتشف Hermes وجود <code>azure.com</code> في الرابط الأساسي ويوجّه مفتاح API عبر الحقل <code>auth_token</code> في الـ SDK حتى تصل الترويسة الصحيحة إلى الخادم الوجهة.</li>
+<li><strong>يُحتفظ بترويسة beta الخاصة بـ context window بحجم 1M.</strong> لا يزال Azure يقيّد سياق Claude بحجم 1M token ‏(Opus 4.6/4.7، و Sonnet 4.6) خلف الترويسة <code>anthropic-beta: context-1m-2025-08-07</code>. ويحتفظ Hermes بترويسة beta هذه على مسارات Azure (وتُحذف من طلبات Anthropic OAuth الأصيلة لأن بعض الاشتراكات ترفضها، لكن Azure يتطلبها).</li>
+<li><strong>تجديد OAuth token معطّل.</strong> تستخدم deployments في Azure مفاتيح API ثابتة. وتُتخطّى صراحةً حلقة تجديد OAuth token الخاصة بـ <code>~/.claude/.credentials.json</code> والمطبّقة على Anthropic Console عند استخدام endpoints في Azure، وذلك لمنع OAuth token الخاص بـ Claude Code من الكتابة فوق مفتاح Azure في منتصف الجلسة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="alternative-provider-anthropic--azure-base-url">بديل: <code>provider: anthropic</code> + رابط Azure الأساسي</h2>
+<p>إذا كان لديك <code>provider: anthropic</code> مضبوطًا مسبقًا وتريد فقط توجيهه إلى Microsoft Foundry لاستخدام Claude، فيمكنك الاستغناء عن المزوّد <code>azure-foundry</code> كليًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>مع ضبط <code>AZURE_ANTHROPIC_KEY</code> في <code>~/.hermes/.env</code>. يكتشف Hermes وجود <code>azure.com</code> في الرابط الأساسي ويتجاوز سلسلة OAuth token الخاصة بـ Claude Code، بحيث يُستخدم مفتاح Azure مباشرةً مع مصادقة <code>x-api-key</code>.</p>
+<p><code>key_env</code> هو اسم الحقل القياسي بصيغة snake_case؛ وتُقبل <code>api_key_env</code> (وكذلك صيغتا camelCase <code>keyEnv</code> / <code>apiKeyEnv</code>) كأسماء بديلة. وإذا ضُبط كلٌّ من <code>key_env</code> و <code>AZURE_ANTHROPIC_KEY</code>/<code>ANTHROPIC_API_KEY</code>، فالأولوية لمتغير البيئة الذي يحمل الاسم المحدد في <code>key_env</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-discovery">اكتشاف النماذج</h2>
+<p><strong>لا</strong> يوفّر Azure أي endpoint يعتمد على مفتاح API وحده لسرد deployments النماذج <em>المنشورة</em> لديك. إذ يتطلب سرد الـ deployments مصادقة Azure Resource Manager ‏(<code>az cognitiveservices account deployment list</code>) بجهة Azure AD، وليس مفتاح API الخاص بالـ inference.</p>
+<p>ما يستطيع Hermes فعله:</p>
+<ul>
+<li>تتيح endpoints الإصدار v1 من Azure OpenAI ‏(<code>&lt;resource&gt;.openai.azure.com/openai/v1</code>) المسار <code>GET /models</code> مع كتالوج النماذج <strong>المتاحة</strong> للمورد. ويستخدم Hermes هذه القائمة لملء منتقي النماذج مسبقًا.</li>
+<li>مسارات <code>/anthropic</code> في Microsoft Foundry: تُكتشف عبر مسار الرابط، ويُدخَل اسم النموذج يدويًا.</li>
+<li>الـ endpoints الخاصة / المحمية بجدار ناري: إدخال يدوي مع رسالة ودّية &quot;couldn&#x27;t probe&quot;.</li>
+</ul>
+<p>يمكنك دائمًا كتابة اسم الـ deployment مباشرةً — فلا يتحقق Hermes منه مقابل القائمة المُعادة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>الغرض</th></tr></thead><tbody><tr><td><code>AZURE_FOUNDRY_API_KEY</code></td><td>مفتاح API الأساسي لـ Microsoft Foundry / Azure OpenAI (وضع api_key)</td></tr><tr><td><code>AZURE_FOUNDRY_BASE_URL</code></td><td>رابط الـ endpoint (يُضبط عبر <code>hermes model</code>؛ ويُستخدم متغير البيئة كقيمة احتياطية)</td></tr><tr><td><code>AZURE_ANTHROPIC_KEY</code></td><td>يستخدمه <code>provider: anthropic</code> + رابط Azure الأساسي (بديلًا عن <code>ANTHROPIC_API_KEY</code>)</td></tr><tr><td><code>AZURE_TENANT_ID</code></td><td>مستأجر Entra ID لمسارات service principal</td></tr><tr><td><code>AZURE_CLIENT_ID</code></td><td>معرّف العميل في Entra ID ‏(service principal، أو workload identity، أو هوية مُدارة يعيّنها المستخدم)</td></tr><tr><td><code>AZURE_CLIENT_SECRET</code></td><td>سرّ الـ service principal</td></tr><tr><td><code>AZURE_CLIENT_CERTIFICATE_PATH</code></td><td>شهادة الـ service principal (بديلًا عن السرّ)</td></tr><tr><td><code>AZURE_FEDERATED_TOKEN_FILE</code></td><td>مسار الـ federated token الخاص بـ Workload Identity ‏(AKS)</td></tr><tr><td><code>AZURE_AUTHORITY_HOST</code></td><td>تجاوز مضيف جهة الإصدار (authority) للسحابة السيادية</td></tr><tr><td><code>IDENTITY_ENDPOINT</code> / <code>MSI_ENDPOINT</code></td><td>endpoint الهوية المُدارة لـ App Service و Functions و Container Apps؛ أما الأجهزة الافتراضية فتستخدم عادةً IMDS بدلًا منه</td></tr></tbody></table>
+<p>يقرأ Azure SDK متغيرات البيئة <code>AZURE_*</code> مباشرةً. ولا يفحصها Hermes أبدًا إلا للإبلاغ عن المصادر الموجودة في مخرجات <code>hermes doctor</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>الخطأ 401 Unauthorized مع deployments نماذج gpt-5.x.</strong>
+يقدّم Azure نماذج gpt-5.x على <code>/chat/completions</code>، وليس على <code>/responses</code>. يتعامل Hermes مع ذلك تلقائيًا عندما يحتوي الرابط على <code>openai.azure.com</code>، لكن إذا ظهر لك الخطأ 401 مع نص <code>Invalid API key</code>، فتحقّق من أن <code>api_mode</code> في <code>config.yaml</code> مضبوط على <code>chat_completions</code>.</p>
+<p><strong>الخطأ 404 على <code>/v1/messages?api-version=.../v1/messages</code>.</strong>
+هذا هو خطأ الرابط التالف الذي كان يظهر في إعدادات Azure Anthropic قبل الإصلاح. حدّث Hermes — إذ صار المعامل <code>api-version</code> يُمرَّر الآن عبر <code>default_query</code> بدلًا من دمجه في الرابط الأساسي، فلا يستطيع الـ SDK إفساده أثناء ضمّ الروابط.</p>
+<p><strong>يعرض المعالج الرسالة &quot;Auto-detection incomplete.&quot;</strong>
+رفض الـ endpoint كلًّا من استكشاف <code>/models</code> واستكشاف Anthropic Messages. وهذا أمر طبيعي مع الـ endpoints الخاصة خلف جدار ناري أو المقيّدة بقائمة سماح لعناوين IP. انتقل إلى اختيار وضع الـ API يدويًا واكتب اسم الـ deployment — سيظل كل شيء يعمل، لكن Hermes لن يتمكن من ملء المنتقي مسبقًا.</p>
+<p><strong>اختيار بروتوكول نقل خاطئ.</strong>
+شغّل <code>hermes model</code> مجددًا وسيعيد المعالج الاستكشاف. وإذا ظل الاستكشاف يختار الوضع الخاطئ، فيمكنك تعديل <code>config.yaml</code> مباشرةً:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p><strong>Entra ID: الرسالة &quot;credential chain exhausted&quot; أو الخطأ 401 Unauthorized بعد التبديل إلى <code>auth_mode: entra_id</code>.</strong></p>
+<ul>
+<li>شغّل <code>az login</code> لتجديد جلسة المطوّر (ربما انتهت صلاحية الـ token المخزّن مؤقتًا).</li>
+<li>تحقّق من أن إسناد الدور <code>Azure AI User</code> (أو <code>Foundry User</code>) قد سرى: يجب أن يُظهره <code>az role assignment list --assignee &lt;user-or-identity-id&gt;</code> على مورد Foundry لديك. وقد يستغرق انتشار الدور ما يصل إلى 5 دقائق.</li>
+<li>بالنسبة إلى الهويات المُدارة التي يعيّنها المستخدم، تأكّد جيدًا من أن <code>AZURE_CLIENT_ID</code> يطابق الهوية المرتبطة بمورد الحوسبة.</li>
+<li>شغّل <code>hermes doctor</code> — إذ يُبلغ اختبار Azure Entra عمّا إذا نجح الحصول على الـ token، ويتضمن تلميحًا للمعالجة.</li>
+</ul>
+<p><strong>Entra ID: الاختبار التمهيدي في المعالج يتعلّق أو تنتهي مهلته.</strong>
+الاختبار التمهيدي ذو الـ 10 ثوانٍ فحصٌ غير مُلزِم. اختر &quot;Save anyway and validate later&quot; وشغّل <code>hermes doctor</code> بعد النشر في البيئة المستهدفة. ومن الأسباب الشائعة تعذّر الوصول إلى خدمة الـ token أو حالة تسجيل دخول محلية قديمة — يُفضَّل استخدام workload identity في CI، واضبط <code>AZURE_TENANT_ID</code>+<code>AZURE_CLIENT_ID</code>+<code>AZURE_CLIENT_SECRET</code> عند استخدام service principal، أو شغّل <code>az login</code> للتطوير المحلي.</p>
+<p><strong>الخطأ 401 على endpoint بنمط Anthropic مع Entra ID.</strong>
+تحقّق من أن الدور نفسه <code>Azure AI User</code> (أو <code>Foundry User</code>) مُسنَد على مورد Foundry (فهو يغطي المسارين <code>/openai/v1</code> و <code>/anthropic</code> معًا). وإذا نجح استكشاف نمط OpenAI أثناء تشغيل المعالج لكن فشلت طلبات <code>claude-*</code> وقت التشغيل، فالسبب الأكثر شيوعًا هو بقاء قيمة قديمة لـ <code>model.entra.scope</code> من تشغيل سابق للمعالج — احذف السطر <code>entra.scope</code> من <code>config.yaml</code> حتى يعود وقت التشغيل إلى النطاق الافتراضي <code>https://ai.azure.com/.default</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><a href="/docs/reference/environment-variables">متغيرات البيئة (Environment Variables)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+<li><a href="/docs/guides/aws-bedrock">AWS Bedrock</a> — التكامل الرئيسي الآخر مع مزوّد سحابي</li>
+<li><a href="https://learn.microsoft.com/azure/ai-foundry/foundry-models/how-to/configure-entra-id" data-ext>Microsoft: إعداد Entra ID لـ Foundry</a> — الوثائق الأصلية للمسار دون مفاتيح</li>
+</ul>

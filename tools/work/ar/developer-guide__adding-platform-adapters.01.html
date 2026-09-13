@@ -1,0 +1,82 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step-checklist-built-in-path">قائمة التحقق خطوة بخطوة (المسار المدمج)</h2>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>قائمة التحقق هذه مخصّصة لإضافة منصة مباشرةً إلى الشيفرة الأساسية لـ Hermes — وهو ما يقوم به عادةً المساهمون الأساسيون للمنصات المدعومة رسميًا. أما منصات المجتمع والأطراف الثالثة فيجب أن تستخدم <a href="#plugin-path-recommended">مسار الإضافة</a> المشروح أعلاه.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-platform-enum">1. تعداد Platform</h3>
+<p>أضف منصتك إلى التعداد (enum) <code>Platform</code> في <code>gateway/config.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-adapter-file">2. ملف الـ Adapter</h3>
+<p>أنشئ <code>plugins/platforms/newplat/adapter.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>بالنسبة إلى الرسائل الواردة، أنشئ <code>MessageEvent</code> واستدعِ <code>self.handle_message(event)</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-gateway-config-gatewayconfigpy">3. إعدادات الـ Gateway (<code>gateway/config.py</code>)</h3>
+<p>ثلاث نقاط تعديل:</p>
+<ol>
+<li><strong><code>get_connected_platforms()</code></strong> — أضف فحصًا لبيانات الاعتماد المطلوبة لمنصتك</li>
+<li><strong><code>load_gateway_config()</code></strong> — أضف عنصرًا إلى خريطة متغيرات بيئة الـ token: <code>Platform.NEWPLAT: &quot;NEWPLAT_TOKEN&quot;</code></li>
+<li><strong><code>_apply_env_overrides()</code></strong> — اربط جميع متغيرات البيئة <code>NEWPLAT_*</code> بالإعدادات</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-gateway-runner-gatewayrunpy--gatewayrun_py-siblings">4. مشغّل الـ Gateway (<code>gateway/run.py</code> + الملفات الشقيقة <code>gateway/run_*.py</code>)</h3>
+<p>ست نقاط تعديل:</p>
+<ol>
+<li><strong>جدول <code>_BUILTIN_ADAPTERS</code></strong> (<code>gateway/run.py</code>) — أضف عنصر <code>Platform.NEWPLAT: (module, class, check_fn, error_msg)</code>؛ إذ تستشير <code>_instantiate_adapter()</code> (<code>gateway/run_adapters.py</code>) سجل الإضافات أولًا ثم هذا الجدول — فلا توجد سلسلة <code>elif</code> تحتاج إلى توسيعها. وتربط الدالة المغلّفة <code>_create_adapter()</code> كل adapter يُنشأ بنجاح بمشغّل الـ gateway الخاص به.</li>
+<li><strong>خريطة allowed_users في <code>_is_user_authorized()</code></strong> — <code>Platform.NEWPLAT: &quot;NEWPLAT_ALLOWED_USERS&quot;</code></li>
+<li><strong>خريطة allow_all في <code>_is_user_authorized()</code></strong> — <code>Platform.NEWPLAT: &quot;NEWPLAT_ALLOW_ALL_USERS&quot;</code></li>
+<li><strong>فحص سياسة الوصول عند بدء التشغيل</strong> (<code>gateway/run_startup.py</code>) — أضف <code>&quot;NEWPLAT&quot;</code> إلى <code>_ALLOWLIST_ENV_PLATFORMS</code> (يُشتق منها كلٌّ من <code>NEWPLAT_ALLOWED_USERS</code> و <code>NEWPLAT_ALLOW_ALL_USERS</code>)</li>
+<li><strong><code>_BUILTIN_ALLOW_ALL_VARS</code> الخاصة ببدء التشغيل</strong> (<code>gateway/run_startup.py</code>) — مشتقة من الـ tuple نفسه <code>_ALLOWLIST_ENV_PLATFORMS</code>؛ لا حاجة إلى إضافة أي شيء</li>
+<li><strong>مجموعة frozenset ‏<code>_UPDATE_ALLOWED_PLATFORMS</code></strong> — أضف <code>Platform.NEWPLAT</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-cross-platform-delivery">5. التسليم عبر المنصات</h3>
+<ol>
+<li><strong><code>gateway/platforms/webhook.py</code></strong> — أضف <code>&quot;newplat&quot;</code> إلى tuple أنواع التسليم</li>
+<li><strong><code>cron/scheduler_delivery.py</code></strong> — أضفها إلى frozenset ‏<code>_KNOWN_DELIVERY_PLATFORMS</code> وإلى خريطة المنصات في <code>_deliver_result()</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-cli-integration">6. التكامل مع CLI</h3>
+<ol>
+<li><strong><code>hermes_cli/config.py</code></strong> — أضف جميع المتغيرات <code>NEWPLAT_*</code> إلى <code>_EXTRA_ENV_KEYS</code></li>
+<li><strong><code>hermes_cli/gateway.py</code></strong> — أضف عنصرًا إلى قائمة <code>_PLATFORMS</code> يتضمّن key و label و emoji و token_var و setup_instructions و vars</li>
+<li><strong><code>hermes_cli/platforms.py</code></strong> — أضف عنصر <code>PlatformInfo</code> يتضمّن label و default_toolset (تستخدمه واجهات TUI الخاصة بـ <code>skills_config</code> و <code>tools_config</code>)</li>
+<li><strong><code>hermes_cli/setup.py</code></strong> — أضف الدالة <code>_setup_newplat()</code> (يمكنها التفويض إلى <code>gateway.py</code>) وأضف tuple إلى قائمة منصات المراسلة</li>
+<li><strong><code>hermes_cli/status.py</code></strong> — أضف عنصرًا لاكتشاف المنصة: <code>&quot;NewPlat&quot;: (&quot;NEWPLAT_TOKEN&quot;, &quot;NEWPLAT_HOME_CHANNEL&quot;)</code></li>
+<li><strong><code>hermes_cli/dump.py</code></strong> — أضف <code>&quot;newplat&quot;: &quot;NEWPLAT_TOKEN&quot;</code> إلى قاموس اكتشاف المنصات</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-tools">7. الأدوات</h3>
+<ol>
+<li><strong><code>tools/send_message_tool.py</code></strong> — أضف <code>&quot;newplat&quot;: Platform.NEWPLAT</code> إلى خريطة المنصات</li>
+<li><strong><code>tools/cronjob_tools.py</code></strong> — أضف <code>newplat</code> إلى النص الذي يصف أهداف التسليم</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-toolsets">8. Toolsets</h3>
+<ol>
+<li><strong><code>toolsets.py</code></strong> — أضف تعريف toolset باسم <code>&quot;hermes-newplat&quot;</code> مع <code>_HERMES_CORE_TOOLS</code></li>
+<li><strong><code>toolsets.py</code></strong> — أضف <code>&quot;hermes-newplat&quot;</code> إلى قائمة includes الخاصة بـ <code>&quot;hermes-gateway&quot;</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-optional-platform-hints">9. اختياري: تلميحات المنصة</h3>
+<p><strong><code>agent/prompt_builder.py</code></strong> — إذا كانت لمنصتك قيود عرض محددة (عدم دعم markdown، حدود لطول الرسائل، إلخ)، فأضف عنصرًا إلى القاموس <code>PLATFORM_HINTS</code>. يحقن ذلك إرشادات خاصة بالمنصة في system prompt:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>لا تحتاج كل المنصات إلى تلميحات — أضف تلميحًا فقط إذا كان يجب أن يختلف سلوك الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="10-tests">10. الاختبارات</h3>
+<p>أنشئ <code>tests/gateway/test_newplat.py</code> بحيث يغطي:</p>
+<ul>
+<li>إنشاء الـ adapter من الإعدادات</li>
+<li>بناء أحداث الرسائل</li>
+<li>دالة الإرسال (مع محاكاة (mock) الـ API الخارجية)</li>
+<li>الميزات الخاصة بالمنصة (التشفير، التوجيه، إلخ)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="11-documentation">11. الوثائق</h3>
+<table><thead><tr><th>الملف</th><th>ما يجب إضافته</th></tr></thead><tbody><tr><td><code>website/docs/user-guide/messaging/newplat.md</code></td><td>صفحة إعداد كاملة للمنصة</td></tr><tr><td><code>website/docs/user-guide/messaging/index.md</code></td><td>جدول مقارنة المنصات، ومخطط البنية المعمارية، وجدول toolsets، وقسم الأمان، ورابط الخطوات التالية</td></tr><tr><td><code>website/docs/reference/environment-variables.md</code></td><td>جميع متغيرات البيئة NEWPLAT_*</td></tr><tr><td><code>website/docs/reference/toolsets-reference.md</code></td><td>الـ toolset المسمى hermes-newplat</td></tr><tr><td><code>website/docs/integrations/index.md</code></td><td>رابط المنصة</td></tr><tr><td><code>website/sidebars.ts</code></td><td>عنصر في الشريط الجانبي لصفحة الوثائق</td></tr><tr><td><code>website/docs/developer-guide/architecture.md</code></td><td>عدد الـ adapters + قائمتها</td></tr><tr><td><code>website/docs/developer-guide/gateway-internals.md</code></td><td>قائمة ملفات الـ adapters</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parity-audit">تدقيق التكافؤ</h2>
+<p>قبل اعتبار PR الخاص بالمنصة الجديدة مكتملًا، أجرِ تدقيق تكافؤ (parity audit) مقارنةً بمنصة راسخة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>كرّر ذلك لملفات <code>.md</code> و <code>.ts</code>. وافحص كل فجوة — هل هي تعداد للمنصات (يحتاج إلى تحديث) أم إشارة خاصة بمنصة معيّنة (تجاهلها)؟</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-poll-adapters">Adapters تعتمد Long-Poll</h3>
+<p>إذا كان الـ adapter الخاص بك يستخدم long-polling (مثل Telegram أو Weixin)، فاستخدم مهمة حلقة استطلاع (polling loop):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="callbackwebhook-adapters">Adapters تعتمد Callback/Webhook</h3>
+<p>إذا كانت المنصة تدفع الرسائل إلى الـ endpoint الخاص بك (مثل WeCom Callback)، فشغّل خادم HTTP:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>بالنسبة إلى المنصات ذات المهل الزمنية الضيقة للاستجابة (مثل حدّ الـ 5 ثوانٍ في WeCom)، أرسل إشعار الاستلام فورًا دائمًا، ثم سلّم ردّ الوكيل لاحقًا بشكل استباقي عبر الـ API. تستغرق جلسات الوكيل من 3 إلى 30 دقيقة — لذا لا يمكن عمليًا الرد مباشرةً ضمن نافذة استجابة الـ callback.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-locks">أقفال الـ Token</h3>
+<p>إذا كان الـ adapter يحتفظ باتصال دائم ببيانات اعتماد فريدة، فأضف قفلًا محدود النطاق (scoped lock) لمنع استخدام اثنين من الـ profiles لبيانات الاعتماد نفسها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations">التطبيقات المرجعية</h2>
+<table><thead><tr><th>الـ Adapter</th><th>النمط</th><th>التعقيد</th><th>مرجع جيد لـ</th></tr></thead><tbody><tr><td><code>bluebubbles.py</code></td><td>REST + webhook</td><td>متوسط</td><td>تكامل بسيط مع REST API</td></tr><tr><td><code>weixin.py</code></td><td>Long-poll + CDN</td><td>مرتفع</td><td>معالجة الوسائط، التشفير</td></tr><tr><td><code>plugins/platforms/wecom/callback_adapter.py</code></td><td>Callback/webhook</td><td>متوسط</td><td>خادم HTTP، تشفير AES، تطبيقات متعددة</td></tr><tr><td><code>plugins/platforms/irc/adapter.py</code></td><td>Long-poll + بروتوكول IRC</td><td>مرتفع</td><td>adapter إضافة متكامل الميزات مع قفل token محدود النطاق</td></tr></tbody></table>

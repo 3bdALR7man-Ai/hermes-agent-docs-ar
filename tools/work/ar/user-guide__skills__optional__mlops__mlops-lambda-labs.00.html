@@ -1,0 +1,209 @@
+
+<header><h1>Lambda Labs</h1></header>
+<p>نُسخ سحابية من وحدات معالجة رسومية (GPU) عند الطلب لتدريب نماذج التعلّم الآلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/lambda-labs</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/lambda-labs</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>lambda-cloud-client&gt;=1.0.0</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Infrastructure</code>, <code>GPU Cloud</code>, <code>Training</code>, <code>Inference</code>, <code>Lambda Labs</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Lambda Labs GPU Cloud</h1>
+<p>دليل لتشغيل أحمال عمل التعلّم الآلي على سحابة Lambda Labs للـ GPU باستخدام نُسخ عند الطلب وعناقيد (clusters) 1-Click.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-lambda-labs">متى تستخدم Lambda Labs</h2>
+<p><strong>استخدم Lambda Labs عندما:</strong></p>
+<ul>
+<li>تحتاج إلى نُسخ GPU مخصّصة بوصول SSH كامل</li>
+<li>تشغّل مهام تدريب طويلة (من ساعات إلى أيام)</li>
+<li>تريد تسعيرًا بسيطًا بلا رسوم egress</li>
+<li>تحتاج إلى تخزين دائم بين الجلسات</li>
+<li>تحتاج إلى عناقيد (clusters) عالية الأداء متعددة العقد (16-512 وحدة GPU)</li>
+<li>تريد حزمة أدوات تعلّم آلي مثبّتة مسبقًا (Lambda Stack مع PyTorch وCUDA وNCCL)</li>
+</ul>
+<p><strong>الميزات الرئيسية:</strong></p>
+<ul>
+<li><strong>تنوّع وحدات GPU</strong>: B200، H100، GH200، A100، A10، A6000، V100</li>
+<li><strong>Lambda Stack</strong>: PyTorch وTensorFlow وCUDA وcuDNN وNCCL مثبّتة مسبقًا</li>
+<li><strong>أنظمة ملفات دائمة</strong>: تحافظ على البيانات عبر إعادة تشغيل النُسخ</li>
+<li><strong>عناقيد 1-Click</strong>: عناقيد Slurm من 16 إلى 512 وحدة GPU مع InfiniBand</li>
+<li><strong>تسعير بسيط</strong>: الدفع بالدقيقة، بلا رسوم egress</li>
+<li><strong>مناطق عالمية</strong>: أكثر من 12 منطقة حول العالم</li>
+</ul>
+<p><strong>استخدم البدائل بدلًا من ذلك:</strong></p>
+<ul>
+<li><strong>Modal</strong>: لأحمال عمل serverless ذاتية التوسّع</li>
+<li><strong>SkyPilot</strong>: لتنسيق متعدد السحب وتحسين التكلفة</li>
+<li><strong>RunPod</strong>: لنُسخ spot أرخص و endpoints من نوع serverless</li>
+<li><strong>Vast.ai</strong>: لسوق GPU بأدنى الأسعار</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="account-setup">إعداد الحساب</h3>
+<ol>
+<li>أنشئ حسابًا على <a href="https://lambda.ai" data-ext>https://lambda.ai</a></li>
+<li>أضف طريقة دفع</li>
+<li>أنشئ مفتاح API من لوحة التحكم</li>
+<li>أضف مفتاح SSH (مطلوب قبل تشغيل النُسخ)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-via-console">التشغيل عبر لوحة التحكم (console)</h3>
+<ol>
+<li>انتقل إلى <a href="https://cloud.lambda.ai/instances" data-ext>https://cloud.lambda.ai/instances</a></li>
+<li>انقر على &quot;Launch instance&quot;</li>
+<li>اختر نوع GPU والمنطقة</li>
+<li>اختر مفتاح SSH</li>
+<li>أرفق نظام ملفات إن أردت</li>
+<li>شغّل النسخة وانتظر من 3 إلى 15 دقيقة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connect-via-ssh">الاتصال عبر SSH</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gpu-instances">نُسخ GPU</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-gpus">وحدات GPU المتاحة</h3>
+<table><thead><tr><th>GPU</th><th>VRAM</th><th>السعر/GPU/ساعة</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td>B200 SXM6</td><td>180 GB</td><td>$4.99</td><td>أكبر النماذج، وأسرع تدريب</td></tr><tr><td>H100 SXM</td><td>80 GB</td><td>$2.99-3.29</td><td>تدريب نماذج كبيرة</td></tr><tr><td>H100 PCIe</td><td>80 GB</td><td>$2.49</td><td>H100 بتكلفة أقل</td></tr><tr><td>GH200</td><td>96 GB</td><td>$1.49</td><td>نماذج كبيرة بوحدة GPU واحدة</td></tr><tr><td>A100 80GB</td><td>80 GB</td><td>$1.79</td><td>تدريب إنتاجي</td></tr><tr><td>A100 40GB</td><td>40 GB</td><td>$1.29</td><td>تدريب قياسي</td></tr><tr><td>A10</td><td>24 GB</td><td>$0.75</td><td>الاستدلال (inference) وfine-tuning</td></tr><tr><td>A6000</td><td>48 GB</td><td>$0.80</td><td>نسبة VRAM/سعر جيدة</td></tr><tr><td>V100</td><td>16 GB</td><td>$0.55</td><td>تدريب اقتصادي</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="instance-configurations">إعدادات النُسخ</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-times">أوقات التشغيل</h3>
+<ul>
+<li>GPU واحدة: 3-5 دقائق</li>
+<li>عدة GPU: 10-15 دقيقة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lambda-stack">Lambda Stack</h2>
+<p>تأتي كل النُسخ مع Lambda Stack مثبّتة مسبقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-installation">التحقق من التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-api">واجهة Python البرمجية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authentication">المصادقة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-available-instances">سرد النُسخ المتاحة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-instance">تشغيل نسخة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-running-instances">سرد النُسخ قيد التشغيل</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminate-instance">إنهاء نسخة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssh-key-management">إدارة مفاتيح SSH</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-with-curl">CLI باستخدام curl</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-instance-types">سرد أنواع النُسخ</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-instance-1">تشغيل نسخة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminate-instance-1">إنهاء نسخة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="persistent-storage">التخزين الدائم</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filesystems">أنظمة الملفات</h3>
+<p>تحافظ أنظمة الملفات على البيانات عبر إعادة تشغيل النُسخ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-filesystem">إنشاء نظام ملفات</h3>
+<ol>
+<li>انتقل إلى Storage في لوحة تحكم Lambda</li>
+<li>انقر على &quot;Create filesystem&quot;</li>
+<li>اختر المنطقة (يجب أن تطابق منطقة النسخة)</li>
+<li>سمِّه وأنشئه</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="attach-to-instance">الإرفاق بنسخة</h3>
+<p>يجب إرفاق أنظمة الملفات وقت تشغيل النسخة:</p>
+<ul>
+<li>عبر لوحة التحكم: اختر نظام الملفات عند التشغيل</li>
+<li>عبر API: أدرج <code>file_system_names</code> في طلب التشغيل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssh-configuration">إعداد SSH</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="add-ssh-key">إضافة مفتاح SSH</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-keys">مفاتيح متعددة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="import-from-github">الاستيراد من GitHub</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssh-tunneling">أنفاق SSH (SSH Tunneling)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jupyterlab">JupyterLab</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-from-console">التشغيل من لوحة التحكم</h3>
+<ol>
+<li>انتقل إلى صفحة Instances</li>
+<li>انقر على &quot;Launch&quot; في عمود Cloud IDE</li>
+<li>يفتح JupyterLab في المتصفح</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-access">الوصول اليدوي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="training-workflows">سير عمل التدريب</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-gpu-training">تدريب بوحدة GPU واحدة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-gpu-training-single-node">تدريب بعدة وحدات GPU (عقدة واحدة)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checkpoint-to-filesystem">حفظ نقطة تفتيش (checkpoint) على نظام الملفات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-click-clusters">عناقيد 1-Click</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h3>
+<p>عناقيد Slurm عالية الأداء تتضمّن:</p>
+<ul>
+<li>من 16 إلى 512 وحدة GPU من طراز NVIDIA H100 أو B200</li>
+<li>NVIDIA Quantum-2 400 Gb/s InfiniBand</li>
+<li>GPUDirect RDMA بسرعة 3200 Gb/s</li>
+<li>حزمة تعلّم آلي موزّعة مثبّتة مسبقًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="included-software">البرمجيات المضمّنة</h3>
+<ul>
+<li>Ubuntu 22.04 LTS + Lambda Stack</li>
+<li>NCCL، Open MPI</li>
+<li>PyTorch مع DDP وFSDP</li>
+<li>TensorFlow</li>
+<li>تعريفات OFED</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="storage">التخزين</h3>
+<ul>
+<li>24 TB من NVMe لكل عقدة حوسبة (مؤقت)</li>
+<li>أنظمة ملفات Lambda للبيانات الدائمة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-node-training">التدريب متعدد العقد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="networking">الشبكات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bandwidth">النطاق الترددي</h3>
+<ul>
+<li>بين النُسخ (نفس المنطقة): حتى 200 Gbps</li>
+<li>الصادر إلى الإنترنت: 20 Gbps كحد أقصى</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="firewall">جدار الحماية</h3>
+<ul>
+<li>افتراضيًا: المنفذ 22 (SSH) فقط مفتوح</li>
+<li>اضبط منافذ إضافية في لوحة تحكم Lambda</li>
+<li>حركة ICMP مسموحة افتراضيًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="private-ips">عناوين IP خاصة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير عمل شائع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-fine-tuning-llm">سير العمل 1: fine-tuning لنموذج LLM</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-batch-inference">سير العمل 2: الاستدلال الدفعي (Batch Inference)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cost-optimization">تحسين التكلفة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="choose-right-gpu">اختر وحدة GPU المناسبة</h3>
+<table><thead><tr><th>المهمة</th><th>GPU الموصى بها</th></tr></thead><tbody><tr><td>fine-tuning لنموذج LLM (7B)</td><td>A100 40GB</td></tr><tr><td>fine-tuning لنموذج LLM (70B)</td><td>8x H100</td></tr><tr><td>الاستدلال (Inference)</td><td>A10, A6000</td></tr><tr><td>التطوير</td><td>V100, A10</td></tr><tr><td>أقصى أداء</td><td>B200</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reduce-costs">خفض التكاليف</h3>
+<ol>
+<li><strong>استخدم أنظمة الملفات</strong>: تجنّب إعادة تنزيل البيانات</li>
+<li><strong>احفظ نقاط تفتيش بشكل متكرر</strong>: استأنف التدريب المنقطع</li>
+<li><strong>حدّد الحجم المناسب</strong>: لا تفرط في توفير وحدات GPU</li>
+<li><strong>أنهِ الخاملة</strong>: لا يوجد إيقاف تلقائي، أنهِها يدويًا</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="monitor-usage">راقب الاستخدام</h3>
+<ul>
+<li>تعرض لوحة التحكم استخدام GPU في الوقت الفعلي</li>
+<li>واجهة API للمراقبة البرمجية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">مشاكل شائعة</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td>النسخة لا تعمل</td><td>تحقّق من توفّر المنطقة، جرّب وحدة GPU مختلفة</td></tr><tr><td>رفض الاتصال عبر SSH</td><td>انتظر تهيئة النسخة (3-15 دقيقة)</td></tr><tr><td>فقدان البيانات بعد الإنهاء</td><td>استخدم أنظمة ملفات دائمة</td></tr><tr><td>نقل بيانات بطيء</td><td>استخدم نظام ملفات في نفس المنطقة</td></tr><tr><td>عدم اكتشاف GPU</td><td>أعد تشغيل النسخة، تحقّق من التعريفات</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/lambda-labs/references/advanced-usage.md" data-ext>استخدام متقدّم</a></strong> - التدريب متعدد العقد، أتمتة API</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/lambda-labs/references/troubleshooting.md" data-ext>استكشاف الأخطاء وإصلاحها</a></strong> - المشاكل الشائعة وحلولها</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>التوثيق</strong>: <a href="https://docs.lambda.ai" data-ext>https://docs.lambda.ai</a></li>
+<li><strong>لوحة التحكم</strong>: <a href="https://cloud.lambda.ai" data-ext>https://cloud.lambda.ai</a></li>
+<li><strong>التسعير</strong>: <a href="https://lambda.ai/instances" data-ext>https://lambda.ai/instances</a></li>
+<li><strong>الدعم</strong>: <a href="https://support.lambdalabs.com" data-ext>https://support.lambdalabs.com</a></li>
+<li><strong>المدوّنة</strong>: <a href="https://lambda.ai/blog" data-ext>https://lambda.ai/blog</a></li>
+</ul>

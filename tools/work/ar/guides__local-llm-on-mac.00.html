@@ -1,0 +1,91 @@
+<header><h1>تشغيل LLMs محليًا على Mac</h1></header>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>لمستخدمي تطبيق سطح المكتب: هناك طريق بنقرة واحدة</div><div class="admonitionContent_BuS1"><p>في تطبيق Hermes لسطح المكتب، يتولى <strong>Settings → Providers → Local Models</strong> تثبيت
+خادم llama.cpp محلي وإدارته نيابةً عنك — بما في ذلك تنزيل النماذج، وملاءمتها
+للذاكرة المتاحة، وضبط حجم السياق. راجع <a href="/docs/user-guide/local-models">Local Models</a>.
+هذا الدليل مخصص للإعداد اليدوي: MLX، أو الإصدارات المبنية يدويًا (custom builds)، أو الخوادم التي تريد
+تشغيلها بنفسك.</p></div></div>
+<p>يرشدك هذا الدليل خطوة بخطوة إلى تشغيل خادم LLM محلي على macOS مع API متوافق مع OpenAI. ستحصل على خصوصية كاملة، ودون أي تكاليف API، وعلى أداء جيد بشكل مفاجئ على معالجات Apple Silicon.</p>
+<p>نغطي نوعين من الـ backends:</p>
+<table><thead><tr><th>الـ Backend</th><th>التثبيت</th><th>نقطة القوة</th><th>الصيغة</th></tr></thead><tbody><tr><td><strong>llama.cpp</strong></td><td><code>brew install llama.cpp</code></td><td>أسرع زمن للوصول إلى أول token، مع KV cache مُكمَّم (quantized) لتقليل استهلاك الذاكرة</td><td>GGUF</td></tr><tr><td><strong>omlx</strong></td><td><a href="https://omlx.ai" data-ext>omlx.ai</a></td><td>أسرع توليد للـ tokens، مع تحسين أصلي لـ Metal</td><td>MLX (safetensors)</td></tr></tbody></table>
+<p>يوفّر كلاهما endpoint متوافقًا مع OpenAI على المسار <code>/v1/chat/completions</code>. ويعمل Hermes مع أي منهما — ما عليك سوى توجيهه إلى <code>http://localhost:8080</code> أو <code>http://localhost:8000</code>.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>لـ Apple Silicon فقط</div><div class="admonitionContent_BuS1"><p>يستهدف هذا الدليل أجهزة Mac المزودة بمعالجات Apple Silicon (‏M1 وما بعده). ستعمل أجهزة Mac بمعالجات Intel مع llama.cpp ولكن دون تسريع GPU — لذا توقّع أداءً أبطأ بكثير.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-a-model">اختيار النموذج</h2>
+<p>للبدء، نوصي بـ <strong>Qwen3.5-9B</strong> — فهو نموذج قوي في الاستدلال ويتسع بسهولة في ذاكرة موحّدة (unified memory) سعتها 8GB أو أكثر عند استخدام التكميم (quantization).</p>
+<table><thead><tr><th>النسخة</th><th>الحجم على القرص</th><th>الذاكرة المطلوبة (سياق 128K)</th><th>الـ Backend</th></tr></thead><tbody><tr><td>Qwen3.5-9B-Q4_K_M (GGUF)</td><td>5.3 GB</td><td>نحو 10 GB مع KV cache مُكمَّم</td><td>llama.cpp</td></tr><tr><td>Qwen3.5-9B-mlx-lm-mxfp4 (MLX)</td><td>~5 GB</td><td>~12 GB</td><td>omlx</td></tr></tbody></table>
+<p><strong>قاعدة تقريبية للذاكرة:</strong> حجم النموذج + KV cache. يبلغ حجم نموذج 9B بتكميم Q4 نحو 5 GB. ويضيف KV cache عند سياق 128K مع تكميم Q4 نحو 4-5 GB. أما مع KV cache الافتراضي (f16)، فيتضخم ذلك إلى نحو 16 GB. تُعد خيارات تكميم KV cache في llama.cpp الحيلة الأساسية للأنظمة محدودة الذاكرة.</p>
+<p>بالنسبة إلى النماذج الأكبر (27B، 35B)، ستحتاج إلى ذاكرة موحّدة سعتها 32 GB أو أكثر. ويُعد نموذج 9B الخيار الأمثل للأجهزة ذات الذاكرة 8-16 GB.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-llamacpp">الخيار A: llama.cpp</h2>
+<p>يُعد llama.cpp أكثر بيئات تشغيل LLM المحلية قابليةً للنقل. وعلى macOS يستخدم Metal لتسريع GPU مباشرةً دون أي إعداد إضافي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install">التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يتيح لك هذا الأمر <code>llama-server</code> على مستوى النظام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="download-the-model">تنزيل النموذج</h3>
+<p>تحتاج إلى نموذج بصيغة GGUF. وأسهل مصدر لذلك هو Hugging Face عبر <code>huggingface-cli</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ثم نزّل النموذج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>النماذج المقيّدة الوصول (Gated models)</div><div class="admonitionContent_BuS1"><p>تتطلب بعض النماذج على Hugging Face المصادقة. نفّذ <code>huggingface-cli login</code> أولًا إذا ظهر لك الخطأ 401 أو 404.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-server">تشغيل الخادم</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>إليك وظيفة كل خيار:</p>
+<table><thead><tr><th>الخيار</th><th>الغرض</th></tr></thead><tbody><tr><td><code>-ngl 99</code></td><td>نقل جميع الطبقات إلى GPU (‏Metal). استخدم رقمًا كبيرًا لضمان عدم بقاء أي طبقة على CPU.</td></tr><tr><td><code>-c 131072</code></td><td>حجم context window (‏128K token). قلّل هذه القيمة إذا كانت الذاكرة لديك محدودة.</td></tr><tr><td><code>-np 1</code></td><td>عدد الخانات (slots) المتوازية. أبقِه على 1 للاستخدام من قِبل مستخدم واحد — فزيادة الخانات تقسّم ميزانية الذاكرة.</td></tr><tr><td><code>-fa on</code></td><td>Flash attention. يقلل استهلاك الذاكرة ويسرّع الـ inference في السياقات الطويلة.</td></tr><tr><td><code>--cache-type-k q4_0</code></td><td>تكميم key cache إلى 4-bit. <strong>هذا هو الخيار الأكبر أثرًا في توفير الذاكرة.</strong></td></tr><tr><td><code>--cache-type-v q4_0</code></td><td>تكميم value cache إلى 4-bit. ومع الخيار السابق، يقلل هذا ذاكرة KV cache بنحو 75% مقارنةً بـ f16.</td></tr><tr><td><code>--host 0.0.0.0</code></td><td>الاستماع على جميع الواجهات الشبكية. استخدم <code>127.0.0.1</code> إذا لم تكن بحاجة إلى الوصول عبر الشبكة.</td></tr></tbody></table>
+<p>يكون الخادم جاهزًا عندما ترى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-optimization-for-constrained-systems">تحسين الذاكرة للأنظمة المحدودة</h3>
+<p>يُعد الخياران <code>--cache-type-k q4_0 --cache-type-v q4_0</code> أهم تحسين للأنظمة ذات الذاكرة المحدودة. إليك أثرهما عند سياق 128K:</p>
+<table><thead><tr><th>نوع KV cache</th><th>ذاكرة KV cache (سياق 128K، نموذج 9B)</th></tr></thead><tbody><tr><td>f16 (الافتراضي)</td><td>~16 GB</td></tr><tr><td>q8_0</td><td>~8 GB</td></tr><tr><td><strong>q4_0</strong></td><td><strong>~4 GB</strong></td></tr></tbody></table>
+<p>على جهاز Mac بذاكرة 8 GB، استخدم KV cache بنوع <code>q4_0</code> واختر نموذجًا أصغر لا يزال قادرًا على استيعاب الحد الأدنى للسياق في Hermes وهو 64K. وعلى 16 GB، يمكنك استخدام سياق 128K بارتياح. أما على 32 GB أو أكثر، فيمكنك تشغيل نماذج أكبر أو عدة خانات متوازية.</p>
+<p>إذا استمر نفاد الذاكرة، فقلّل السياق شرط أن يبقى عند الحد الأدنى في Hermes وهو 64K أو أعلى منه؛ وإلا فانتقل إلى نموذج أصغر أو تكميم أصغر (Q3_K_M بدلًا من Q4_K_M).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-it">اختباره</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-the-model-name">الحصول على اسم النموذج</h3>
+<p>إذا نسيت اسم النموذج، فاستعلم من endpoint النماذج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-mlx-via-omlx">الخيار B: ‏MLX عبر omlx</h2>
+<p>يُعد <a href="https://omlx.ai" data-ext>omlx</a> تطبيقًا أصليًا لنظام macOS يدير نماذج MLX ويقدّمها عبر خادم. وMLX هو إطار تعلّم الآلة الخاص بـ Apple، والمحسَّن خصيصًا لبنية الذاكرة الموحّدة في Apple Silicon.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-1">التثبيت</h3>
+<p>نزّله وثبّته من <a href="https://omlx.ai" data-ext>omlx.ai</a>. يوفّر واجهة رسومية (GUI) لإدارة النماذج وخادمًا مدمجًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="download-the-model-1">تنزيل النموذج</h3>
+<p>استخدم تطبيق omlx لتصفّح النماذج وتنزيلها. ابحث عن <code>Qwen3.5-9B-mlx-lm-mxfp4</code> ونزّله. تُخزَّن النماذج محليًا (عادةً في <code>~/.omlx/models/</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-server-1">تشغيل الخادم</h3>
+<p>يقدّم omlx النماذج افتراضيًا على <code>http://127.0.0.1:8000</code>. ابدأ التقديم من واجهة التطبيق، أو استخدم CLI إن كان متاحًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-it-1">اختباره</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-available-models">عرض النماذج المتاحة</h3>
+<p>يستطيع omlx تقديم عدة نماذج في آن واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="benchmarks-llamacpp-vs-mlx">اختبارات الأداء: llama.cpp مقابل MLX</h2>
+<p>اختُبر كلا الـ backends على الجهاز نفسه (Apple M5 Max، بذاكرة موحّدة 128 GB) مع تشغيل النموذج نفسه (Qwen3.5-9B) بمستويات تكميم متقاربة (Q4_K_M لصيغة GGUF، وmxfp4 لـ MLX). استُخدمت خمسة prompts متنوعة، وثلاث مرات تشغيل لكل منها، واختُبر الـ backends بالتتابع لتجنّب التنافس على الموارد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="results">النتائج</h3>
+<table><thead><tr><th>المقياس</th><th>llama.cpp (Q4_K_M)</th><th>MLX (mxfp4)</th><th>الأفضل</th></tr></thead><tbody><tr><td><strong>TTFT (المتوسط)</strong></td><td><strong>67 ms</strong></td><td>289 ms</td><td>llama.cpp (أسرع بـ 4.3 مرة)</td></tr><tr><td><strong>TTFT (p50)</strong></td><td><strong>66 ms</strong></td><td>286 ms</td><td>llama.cpp (أسرع بـ 4.3 مرة)</td></tr><tr><td><strong>التوليد (المتوسط)</strong></td><td>70 tok/s</td><td><strong>96 tok/s</strong></td><td>MLX (أسرع بنسبة 37%)</td></tr><tr><td><strong>التوليد (p50)</strong></td><td>70 tok/s</td><td><strong>96 tok/s</strong></td><td>MLX (أسرع بنسبة 37%)</td></tr><tr><td><strong>الزمن الكلي (512 token)</strong></td><td>7.3s</td><td><strong>5.5s</strong></td><td>MLX (أسرع بنسبة 25%)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-means">ماذا يعني ذلك</h3>
+<ul>
+<li>
+<p>يتفوّق <strong>llama.cpp</strong> في معالجة الـ prompt — إذ يوصلك pipeline الخاص به، القائم على flash attention مع KV cache المُكمَّم، إلى أول token خلال نحو 66ms. إذا كنت تبني تطبيقات تفاعلية تهمّ فيها سرعة الاستجابة الملموسة (بوتات المحادثة، والإكمال التلقائي)، فهذه ميزة ذات قيمة حقيقية.</p>
+</li>
+<li>
+<p>أما <strong>MLX</strong> فيولّد الـ tokens أسرع بنحو 37% بمجرد أن يبدأ. وفي أحمال العمل الدفعية، أو التوليد الطويل، أو أي مهمة يهمّ فيها زمن الإنجاز الكلي أكثر من زمن الاستجابة الأولي، ينتهي MLX أسرع.</p>
+</li>
+<li>
+<p>كلا الـ backends <strong>ثابتان للغاية</strong> في الأداء — فالتباين بين مرات التشغيل كان ضئيلًا جدًا، ويمكنك الاعتماد على هذه الأرقام.</p>
+</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-one-should-you-pick">أيهما تختار؟</h3>
+<table><thead><tr><th>حالة الاستخدام</th><th>التوصية</th></tr></thead><tbody><tr><td>المحادثة التفاعلية، والأدوات منخفضة زمن الاستجابة</td><td>llama.cpp</td></tr><tr><td>التوليد الطويل، والمعالجة المجمّعة</td><td>MLX (omlx)</td></tr><tr><td>الذاكرة المحدودة (8-16 GB)</td><td>llama.cpp (لا مثيل لـ KV cache المُكمَّم فيه)</td></tr><tr><td>تقديم عدة نماذج في آن واحد</td><td>omlx (دعم مدمج لتعدد النماذج)</td></tr><tr><td>أقصى توافق (بما في ذلك Linux)</td><td>llama.cpp</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="connect-to-hermes">الربط مع Hermes</h2>
+<p>بعد تشغيل الخادم المحلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>اختر <strong>Custom endpoint</strong> واتبع التعليمات. سيُطلب منك إدخال الـ URL الأساسي واسم النموذج — استخدم القيم الخاصة بالـ backend الذي أعددته أعلاه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="timeouts">مهلات الانتظار (Timeouts)</h2>
+<p>يكتشف Hermes الـ endpoints المحلية تلقائيًا (localhost، وعناوين IP في الشبكة المحلية LAN) ويخفّف مهلات البث (streaming) الخاصة به. لا حاجة إلى أي إعداد في معظم الحالات.</p>
+<p>إذا واجهت أخطاء انتهاء المهلة رغم ذلك (مثل السياقات الكبيرة جدًا على عتاد بطيء)، يمكنك تجاوز مهلة القراءة أثناء البث:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<table><thead><tr><th>المهلة</th><th>القيمة الافتراضية</th><th>الضبط التلقائي محليًا</th><th>تجاوزها عبر متغير البيئة</th></tr></thead><tbody><tr><td>قراءة البث (على مستوى socket)</td><td>120s</td><td>تُرفع إلى 1800s</td><td><code>HERMES_STREAM_READ_TIMEOUT</code></td></tr><tr><td>اكتشاف البث المتوقف</td><td>180s</td><td>مُعطَّل تمامًا</td><td><code>HERMES_STREAM_STALE_TIMEOUT</code></td></tr><tr><td>استدعاء API (دون بث)</td><td>1800s</td><td>لا حاجة إلى تغيير</td><td><code>HERMES_API_TIMEOUT</code></td></tr></tbody></table>
+<p>مهلة قراءة البث هي الأكثر احتمالًا للتسبب في مشكلات — فهي المهلة القصوى على مستوى socket لاستلام الجزء التالي من البيانات. وأثناء مرحلة prefill في السياقات الكبيرة، قد لا تُنتج النماذج المحلية أي مخرجات لدقائق بينما تعالج الـ prompt. ويتعامل الاكتشاف التلقائي مع ذلك بشكل شفاف.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>الصمت في الدور الأول غالبًا مرحلة prefill، لا تعليق</div><div class="admonitionContent_BuS1"><p>يرسل Hermes الـ system prompt ومخططات الأدوات (tool schemas) في كل استدعاء، لذا قد يتضمن الدور الأول على العتاد الأبطأ دقائق من الصمت بينما يعالج النموذج هذا الـ prompt قبل أن يولّد أي شيء. هذه مرحلة prefill قيد العمل، وليست جلسة متوقفة. راجع <a href="/docs/guides/local-ollama-setup#slow-first-response-prefill">بطء الاستجابة الأولى (prefill)</a> في دليل Ollama للاطلاع على طرق التخفيف، مثل إبقاء النموذج محمّلًا وتقليص الـ prompt الثابت باستخدام <code>hermes prompt-size</code>.</p></div></div>

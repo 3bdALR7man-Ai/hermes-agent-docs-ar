@@ -1,0 +1,72 @@
+<header><h1>ntfy</h1></header>
+<p><a href="https://ntfy.sh/" data-ext>ntfy</a> خدمة إشعارات بسيطة من نوع pub-sub تعتمد على HTTP. تعمل مع الخادم العام المجاني <code>ntfy.sh</code> أو مع أي نسخة مستضافة ذاتيًا (self-hosted)، وتدعم أي عميل قادر على إرسال طلبات HTTP — الهواتف والمتصفحات والسكربتات والساعات.</p>
+<p>تُعدّ ntfy قناة push خفيفة وممتازة لـ Hermes: اشترك في موضوع (topic) من <a href="https://ntfy.sh/docs/subscribe/phone/" data-ext>تطبيق ntfy للهاتف</a>، وأرسل رسائل إلى الموضوع لتتحدث مع الوكيل، واستلم الرد على هاتفك.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>ntfy</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>اسم موضوع (أي سلسلة نصية فريدة — <code>hermes-myname-2026</code> مناسب تمامًا)</li>
+<li><a href="https://ntfy.sh/docs/subscribe/phone/" data-ext>تطبيق ntfy للهاتف</a> مثبّتًا ومشتركًا في ذلك الموضوع</li>
+<li>اختياري: خادم ntfy مستضاف ذاتيًا، أو token حساب على <code>ntfy.sh</code> للمواضيع الخاصة أو المحجوزة</li>
+</ul>
+<p>هذا كل شيء. لا SDK، ولا daemon، ولا Node.js. يستخدم المحوِّل (adapter) مكتبة <code>httpx</code> التي هي أصلًا من اعتماديات Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-hermes">ضبط Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-setup-wizard">عبر معالج الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اختر <strong>ntfy</strong> واتبع التعليمات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-environment-variables">عبر متغيرات البيئة</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>NTFY_TOPIC</code></td><td>نعم</td><td>الموضوع الذي يُشترك فيه (الرسائل الواردة)</td></tr><tr><td><code>NTFY_SERVER_URL</code></td><td>اختياري</td><td>URL الخادم (الافتراضي: <code>https://ntfy.sh</code>) — وجّهه إلى ntfy مستضاف ذاتيًا من أجل الخصوصية</td></tr><tr><td><code>NTFY_TOKEN</code></td><td>اختياري</td><td>Bearer token (مثل <code>tk_xyz</code>) أو <code>user:pass</code> للمصادقة الأساسية (Basic auth)</td></tr><tr><td><code>NTFY_PUBLISH_TOPIC</code></td><td>اختياري</td><td>موضوع مختلف للردود الصادرة (الافتراضي هو <code>NTFY_TOPIC</code>)</td></tr><tr><td><code>NTFY_MARKDOWN</code></td><td>اختياري</td><td>اضبطه على <code>true</code> لإرسال الردود مع الترويسة <code>X-Markdown: true</code></td></tr><tr><td><code>NTFY_ALLOWED_USERS</code></td><td>مستحسن</td><td>أسماء المواضيع المسموح بها مفصولة بفواصل (تُعامَل كمعرّفات مستخدمين؛ راجع ما يلي)</td></tr><tr><td><code>NTFY_ALLOW_ALL_USERS</code></td><td>اختياري</td><td>اضبطه على <code>true</code> للسماح لكل ناشر — آمن فقط مع المواضيع الخاصة المحمية بـ tokens قراءة</td></tr><tr><td><code>NTFY_HOME_CHANNEL</code></td><td>اختياري</td><td>الموضوع الافتراضي لتسليم cron والإشعارات</td></tr><tr><td><code>NTFY_HOME_CHANNEL_NAME</code></td><td>اختياري</td><td>تسمية مقروءة للقناة الرئيسية</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="identity-model--read-this-before-deploying">نموذج الهوية — اقرأ هذا قبل النشر</h2>
+<p>لا تملك ntfy هوية مستخدم مُصادَق عليها بشكل أصلي. فالحقل <code>title</code> في الرسالة المنشورة <strong>يتحكم فيه الناشر</strong> ويمكن أن يحمل أي قيمة يريدها المرسل. لا يستخدم محوِّل Hermes الحقل <code>title</code> للتفويض — لأن ذلك سيتيح لأي ناشر يعرف الموضوع انتحال هوية مستخدم مسموح له.</p>
+<p>بدلًا من ذلك، <strong>اسم الموضوع نفسه هو الهوية</strong>. تُعامَل كل رسالة تُنشر إلى الموضوع على أنها واردة من المستخدم المنطقي نفسه (الموضوع). لذا فإن <code>NTFY_ALLOWED_USERS</code> يكون عادةً اسم الموضوع نفسه فقط — قائمة سماح من إدخال واحد تتحكم في الوصول إلى القناة بأكملها.</p>
+<p>هذا يعني أن <strong>أي شخص يعرف الموضوع يستطيع التحدث مع الوكيل</strong>. لجعل ذلك حدًّا حقيقيًا للثقة:</p>
+<ul>
+<li><strong>استضف ntfy ذاتيًا</strong> وأحكِم إغلاق الموضوع باستخدام <a href="https://docs.ntfy.sh/config/#access-control" data-ext>Access Control</a>. عندها لا يستطيع النشر إلا العملاء المفوَّضون الذين يملكون token القراءة/الكتابة.</li>
+<li>أو <strong>استخدم موضوعًا خاصًا على ntfy.sh</strong> (تتطلب <a href="https://docs.ntfy.sh/publish/#reserved-topics" data-ext>المواضيع المحجوزة</a> حسابًا) واحمِه بـ <code>NTFY_TOKEN</code>.</li>
+<li>أو <strong>اختر اسم موضوع طويلًا يصعب تخمينه</strong> (<code>hermes-7d4f9c8b-2026</code>) وتعامل معه كسرّ مشترك. هذا أخف إعداد، لكن اسم الموضوع قد يتسرب عبر أي سجلات أو لقطات شاشة.</li>
+</ul>
+<p>في كل الأحوال، لا تمرّر بيانات حساسة عبر ntfy ما لم يكن الموضوع نفسه خاضعًا للتحكم في الوصول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--talk-to-your-agent-from-your-phone">البدء السريع — تحدّث مع وكيلك من هاتفك</h2>
+<ol>
+<li>اختر اسم موضوع: <code>hermes-myname-2026</code></li>
+<li>على هاتفك: ثبّت <a href="https://ntfy.sh/docs/subscribe/phone/" data-ext>تطبيق ntfy</a>، وانقر <strong>+</strong>، ثم أدخل <code>hermes-myname-2026</code></li>
+<li>على المضيف:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+<li>من تطبيق ntfy، أرسل رسالة إلى الموضوع. سيصلك رد الوكيل كإشعار push.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-ntfy-with-cron-jobs">استخدام ntfy مع مهام cron</h2>
+<p>بمجرد ضبط <code>NTFY_HOME_CHANNEL</code>، يمكن لمهام cron التسليم إلى ntfy:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>أو استهدف موضوعًا محددًا صراحةً عبر الحقل <code>deliver:</code> في مهمة cron، أو من سكربت shell باستخدام <a href="/docs/guides/pipe-script-output">أداة <code>hermes send</code> CLI</a>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يعمل ذلك حتى عندما يعمل cron خارج عملية الـ gateway — إذ تسجّل الإضافة (plugin) الدالة <code>standalone_sender_fn</code> التي تفتح اتصال HTTP خاصًا بها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-hosting-ntfy">استضافة ntfy ذاتيًا</h2>
+<p>إذا كنت تريد تحكمًا كاملًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ثم وجّه Hermes إليه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تمنحك الاستضافة الذاتية التحكم في الوصول إلى المواضيع، وسياسات الاحتفاظ بالرسائل، والمرفقات، ووسوم الإيموجي. راجع <a href="https://docs.ntfy.sh/install/" data-ext>توثيق خادم ntfy</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="markdown-formatting">تنسيق Markdown</h2>
+<p>تعرض عملاء ntfy تنسيق markdown عندما يضبط الناشر الترويسة <code>X-Markdown: true</code>. لتفعيله لردود Hermes الصادرة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أو في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يدعم تطبيق الهاتف مجموعة فرعية من CommonMark — الخط العريض، والمائل، والقوائم، والروابط، وكتل الشيفرة المسوَّرة. راجع <a href="https://docs.ntfy.sh/publish/#markdown-formatting" data-ext>توثيق markdown في ntfy</a> لمعرفة المجموعة الدقيقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="outgoing-only-setup-notifications-without-inbound">إعداد للإرسال فقط (إشعارات دون رسائل واردة)</h2>
+<p>إذا كنت تريد من Hermes أن <em>يدفع</em> الإشعارات إلى ntfy فقط (ملخصات cron، والتنبيهات) دون أن يقبل أي رسائل بالمقابل، فاضبط كلًّا من <code>NTFY_TOPIC</code> و <code>NTFY_PUBLISH_TOPIC</code> على القيمة نفسها وتجاهل <code>NTFY_ALLOWED_USERS</code> كليًا. في غياب قائمة السماح، لا يرد الوكيل أبدًا على الرسائل الواردة — يستلم هاتفك الإشعارات، لكن المحادثة تكون باتجاه واحد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limits">الحدود</h2>
+<ul>
+<li><strong>حجم الرسالة</strong>: تحدّ ntfy متن الرسالة بـ 4096 حرفًا. يقتطع Hermes النص مع إصدار تحذير عند تجاوز ذلك.</li>
+<li><strong>لا مؤشرات للكتابة</strong>: لا يوفّر البروتوكول مؤشرًا كهذا؛ لذا فإن <code>send_typing</code> لا يفعل شيئًا.</li>
+<li><strong>لا سلاسل رسائل ولا مرفقات</strong>: ntfy مجرد إشعارات push بسيطة. تبقى الردود الطويلة في متن الرسالة، دون توزيعها على سلاسل.</li>
+<li><strong>لا هوية مستخدم أصلية</strong>: راجع قسم نموذج الهوية أعلاه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>فشل المصادقة / 401</strong> — قيمة <code>NTFY_TOKEN</code> خاطئة، أو أن الـ token لا يملك صلاحيات النشر/الاشتراك على هذا الموضوع. يوقف المحوِّل حلقة إعادة الاتصال عند 401، وستُظهر حالة وقت التشغيل للـ gateway ‏<code>fatal: ntfy_unauthorized</code>. أصلح الـ token وأعد تشغيل الـ gateway.</p>
+<p><strong>الموضوع غير موجود / 404</strong> — <code>NTFY_TOPIC</code> غير موجود على الخادم المضبوط. في ntfy.sh تُنشأ المواضيع تلقائيًا عند أول نشر، لذا فإن 404 تعني أنك تشير إلى خادم مستضاف ذاتيًا لم يُجهَّز فيه الموضوع. يوقف المحوِّل حلقة إعادة الاتصال مع <code>fatal: ntfy_topic_not_found</code>.</p>
+<p><strong>متصل لكن لا تصل رسائل</strong> — تحقّق من أن <code>NTFY_ALLOWED_USERS</code> يتضمن اسم الموضوع نفسه. وفق نموذج الهوية في ntfy، الموضوع هو المستخدم؛ وترك قائمة السماح فارغة يؤدي إلى رفض كل شيء.</p>
+<p><strong>إعادة الاتصال كل 60 ثانية</strong> — القيمة الافتراضية لـ keepalive في البث هي 55 ثانية؛ وقد تواجه ntfy مشكلات شبكة متقطعة. يطبّق المحوِّل تراجعًا أُسّيًا (exponential backoff) ‏(2 → 5 → 10 → 30 → 60 ثانية) ويعيد العدّاد إلى 0 بمجرد أن يبقى البث نشطًا لمدة ≥60 ثانية.</p>

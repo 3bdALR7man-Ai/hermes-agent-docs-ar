@@ -1,0 +1,156 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-session-dm-mode-topic">وضع الرسائل المباشرة متعدد الجلسات (<code>/topic</code>)</h2>
+<p>رسائل مباشرة متعددة الجلسات على غرار ChatGPT — بوت واحد ومحادثات متوازية كثيرة. وعلى خلاف <code>extra.dm_topics</code> المذكور أعلاه والذي يديره المشغّل، فإن هذا الوضع <strong>يقوده المستخدم</strong>: لا إعدادات ولا أسماء مواضيع مُعلنة مسبقًا. إذ يفعّله المستخدم النهائي بإرسال <code>/topic</code>، ثم ينقر زر <strong>+</strong> في Telegram لإنشاء ما يشاء من المواضيع، ويكون كلٌّ منها جلسة Hermes مستقلة تمامًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="topic-subcommands">الأوامر الفرعية لـ <code>/topic</code></h3>
+<table><thead><tr><th>الصيغة</th><th>السياق</th><th>التأثير</th></tr></thead><tbody><tr><td><code>/topic</code></td><td>المحادثة المباشرة الجذرية، والوضع غير مفعّل بعد</td><td>فحص قدرات BotFather، وتفعيل وضع الجلسات المتعددة، وإنشاء موضوع System مثبّت</td></tr><tr><td><code>/topic</code></td><td>المحادثة المباشرة الجذرية، والوضع مفعّل بالفعل</td><td>عرض الحالة: الجلسات غير المرتبطة المتاحة للاستعادة</td></tr><tr><td><code>/topic</code></td><td>داخل موضوع</td><td>عرض الجلسة المرتبطة بالموضوع الحالي</td></tr><tr><td><code>/topic help</code></td><td>أي سياق</td><td>عرض طريقة الاستخدام مباشرةً</td></tr><tr><td><code>/topic off</code></td><td>المحادثة المباشرة الجذرية</td><td>تعطيل وضع الجلسات المتعددة ومسح جميع ارتباطات المواضيع لهذه المحادثة</td></tr><tr><td><code>/topic &lt;session-id&gt;</code></td><td>داخل موضوع</td><td>استعادة جلسة Telegram سابقة إلى الموضوع الحالي</td></tr></tbody></table>
+<p>لا يُسمح إلا للمستخدمين المصرّح لهم (قائمة السماح عبر <code>TELEGRAM_ALLOWED_USERS</code> / إعدادات مصادقة المنصة) بتنفيذ <code>/topic</code>. أما المرسل غير المصرّح له فيتلقى رفضًا بدلًا من التفعيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-topics-vs-multi-session-dm-mode">مواضيع الرسائل المباشرة مقابل وضع الرسائل المباشرة متعدد الجلسات</h3>
+<table><thead><tr><th></th><th><code>extra.dm_topics</code> (يعتمد على الإعدادات)</th><th><code>/topic</code> (يقوده المستخدم)</th></tr></thead><tbody><tr><td>من يفعّله</td><td>المشغّل، في <code>config.yaml</code></td><td>المستخدم النهائي، بإرسال <code>/topic</code></td></tr><tr><td>قائمة المواضيع</td><td>مجموعة ثابتة مُعلنة في الإعدادات</td><td>ينشئ المستخدم المواضيع ويحذفها بحرية</td></tr><tr><td>أسماء المواضيع</td><td>يختارها المشغّل</td><td>يختارها المستخدم؛ وتُعاد تسميتها تلقائيًا لتطابق عنوان جلسة Hermes</td></tr><tr><td>سلوك المحادثة المباشرة الجذرية</td><td>محادثة عادية (ردهة إذا كان <code>ignore_root_dm: true</code>)</td><td>تصبح ردهة للنظام (تُرفض الرسائل التي ليست أوامر)</td></tr><tr><td>حالة الاستخدام الأساسية</td><td>مساحات عمل دائمة مع ربط اختياري بالمهارات</td><td>جلسات متوازية مرتجلة</td></tr><tr><td>التخزين الدائم</td><td><code>extra.dm_topics</code> في الإعدادات</td><td>جدولا SQLite <code>telegram_dm_topic_mode</code> + <code>telegram_dm_topic_bindings</code></td></tr></tbody></table>
+<p>يمكن للميزتين التعايش على البوت نفسه — فتشغّل <code>/topic</code> من الرسائل المباشرة لمستخدم ما، بينما يواصل <code>extra.dm_topics</code> إدارة المواضيع التي أعلنها المشغّل في محادثات أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h3>
+<p>في <strong>@BotFather</strong>، افتح بوتك → <strong>Bot Settings → Threads Settings</strong>:</p>
+<ol>
+<li>فعّل <strong>Threaded Mode</strong> (يفعّل <code>has_topics_enabled</code>)</li>
+<li><strong>لا</strong> تعطّل إمكانية إنشاء المستخدمين للمواضيع (يُبقي <code>allows_users_to_create_topics</code> مفعّلًا)</li>
+</ol>
+<p>عندما ينفّذ المستخدم <code>/topic</code> لأول مرة، يستدعي Hermes <code>getMe</code> للتحقق من كلا الخيارين. وإذا كان أيٌّ منهما معطّلًا، يرسل Hermes لقطة شاشة لصفحة Threads Settings في BotFather ويشرح ما يجب تبديله — ولا يحدث أي تفعيل حتى تُستوفى المتطلبات المسبقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="activation-flow">مسار التفعيل</h3>
+<p>من المحادثة المباشرة الجذرية، أرسل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>سيقوم Hermes بما يلي:</p>
+<ol>
+<li>فحص <code>getMe().has_topics_enabled</code> و <code>allows_users_to_create_topics</code></li>
+<li>إذا كان كلاهما true، يفعّل وضع المواضيع متعدد الجلسات لهذه المحادثة المباشرة</li>
+<li>إنشاء موضوع <strong>System</strong> وتثبيته لعرض الحالة/الأوامر (بأفضل جهد)</li>
+<li>الرد بقائمة من جلسات Telegram السابقة غير المرتبطة التي يمكن للمستخدم استعادتها</li>
+</ol>
+<p>بعد التفعيل، تصبح <strong>المحادثة المباشرة الجذرية ردهة</strong>: إذ تُرفض الـ prompts العادية مع إرشاد يوجّه إلى <strong>All Messages</strong>. وتظل أوامر النظام (<code>/status</code>، <code>/sessions</code>، <code>/usage</code>، <code>/help</code>، إلخ) تعمل في المحادثة الجذرية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-a-new-topic-end-user-flow">إنشاء موضوع جديد (مسار المستخدم النهائي)</h3>
+<ol>
+<li>افتح المحادثة المباشرة مع البوت في Telegram</li>
+<li>انقر <strong>All Messages</strong> أعلى واجهة البوت، ثم أرسل أي رسالة</li>
+<li>يُنشئ Telegram موضوعًا جديدًا لتلك الرسالة</li>
+<li>يرد Hermes داخل ذلك الموضوع — وأصبح الموضوع الآن جلسة مستقلة</li>
+</ol>
+<p>يحصل كل موضوع على سجل محادثة وحالة نموذج وتنفيذ أدوات ومعرّف جلسة خاصة به. ومفتاح العزل هو <code>agent:main:telegram:dm:{chat_id}:{thread_id}</code> — وهو مطابق لآلية العزل في مواضيع الرسائل المباشرة المعتمدة على الإعدادات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-renamed-topics">إعادة تسمية المواضيع تلقائيًا</h3>
+<p>عندما يولّد Hermes عنوان جلسة لموضوع ما (عبر pipeline العنوان التلقائي، بعد أول تبادل للرسائل)، يُعاد تسمية موضوع Telegram نفسه ليطابقه — فمثلًا يصبح &quot;New Topic&quot; هو &quot;Database migration plan&quot;. وتتم إعادة التسمية بأفضل جهد: إذ تُسجَّل حالات الفشل لكنها لا تعطّل الجلسة.</p>
+<p>لتعطيل ذلك والإبقاء على أسماء المواضيع التي اخترتها يدويًا دون تغيير، اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<p>عند تفعيل هذا الخيار، يظل Hermes يولّد عنوانًا داخليًا للجلسة (يستخدمه <code>hermes sessions</code> والـ TUI وغيرهما)، لكنه لا يعدّل اسم موضوع Telegram أبدًا. وهذا مفيد عندما تنظّم المواضيع يدويًا في Threaded Mode الخاص بـ BotFather ولا تريد أن يستبدل كل رد أول العنوان.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="new-inside-a-topic">الأمر <code>/new</code> داخل موضوع</h3>
+<p>يعيد ضبط جلسة الموضوع الحالي (معرّف جلسة جديد وسجل جديد) دون المساس بالمواضيع الأخرى. ويرد Hermes بتذكير بأن إنشاء موضوع آخر (عبر <strong>All Messages</strong>) هو ما تحتاجه عادةً للعمل المتوازي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="restoring-a-previous-session">استعادة جلسة سابقة</h3>
+<p>داخل موضوع، أرسل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>يربط هذا الموضوع الحالي بجلسة Hermes موجودة بدلًا من البدء من جديد. وهو مفيد لمواصلة محادثة بدأت قبل تفعيل وضع المواضيع. القيود:</p>
+<ul>
+<li>يجب أن تنتمي الجلسة المستهدفة إلى مستخدم Telegram نفسه</li>
+<li>يجب ألا تكون الجلسة المستهدفة مرتبطة بموضوع آخر بالفعل</li>
+</ul>
+<p>يؤكد Hermes ذلك بعرض عنوان الجلسة، ويعيد عرض آخر رسالة من المساعد لتوفير السياق.</p>
+<p>لمعرفة معرّفات الجلسات، أرسل <code>/topic</code> (دون وسيط) في المحادثة المباشرة الجذرية — وسيعرض Hermes جلسات Telegram غير المرتبطة الخاصة بالمستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="topic-inside-a-topic-no-argument">الأمر <code>/topic</code> داخل موضوع (دون وسيط)</h3>
+<p>يعرض ارتباط الموضوع الحالي: عنوان الجلسة، ومعرّف الجلسة، وتلميحات حول استخدام <code>/new</code> مقابل إنشاء موضوع آخر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="under-the-hood">ما وراء الكواليس</h3>
+<ul>
+<li>يُحفظ التفعيل في <code>telegram_dm_topic_mode(profile_name, chat_id, user_id, enabled, ...)</code> داخل <code>state.db</code>. والمفتاح الأساسي هو <code>(profile_name, chat_id)</code> كي لا تُفسد البوتات متعددة الإرسال / الموجّهة حسب الـ profile التي تتشارك <code>state.db</code> واحدًا بيانات بعضها عندما يراسل مستخدم Telegram نفسه عدة بوتات (فـ <code>chat_id</code> الخاص هو معرّف المستخدم وهو متطابق عبر البوتات).</li>
+<li>يُحفظ كل ارتباط موضوع في <code>telegram_dm_topic_bindings(profile_name, chat_id, thread_id, session_id, ...)</code> بمفتاح أساسي <code>(profile_name, chat_id, thread_id)</code> مع <code>ON DELETE CASCADE</code> على <code>session_id</code> — لذا فإن حذف جلسة يمسح ارتباط موضوعها تلقائيًا</li>
+<li>ترحيل SQLite الخاص بوضع المواضيع <strong>اختياري</strong>: إذ يُنفَّذ عند أول استدعاء لـ <code>/topic</code>، ولا يُنفَّذ أبدًا عند بدء gateway. وإلى أن ينفّذ مستخدم <code>/topic</code> في هذا الـ profile، يبقى <code>state.db</code> دون تغيير. ويضيف المخطط v3 العمود <code>profile_name</code>؛ ولا تُرحَّل الصفوف القديمة إلا إلى نطاق الأسماء <code>default</code></li>
+<li>تبحث كل رسالة مباشرة واردة عن ارتباط <code>(profile_name, chat_id, thread_id)</code> الخاص بها باستخدام الـ profile <strong>المُوجَّه</strong> (<code>source.profile</code>، وليس الـ profile النشط على مستوى العملية). فإن وُجد، يوجّه البحث الرسالة إلى الجلسة المرتبطة عبر <code>SessionStore.switch_session()</code> كي يبقى الربط بين مفتاح الجلسة ومعرّف الجلسة متسقًا على القرص</li>
+<li>يعيد <code>/new</code> داخل موضوع كتابة صف الارتباط ليشير إلى معرّف الجلسة الجديد، فتبقى الرسالة التالية على الجلسة الجديدة</li>
+<li>المواضيع المُعلنة في <code>extra.dm_topics</code> <strong>لا تُعاد تسميتها تلقائيًا أبدًا</strong> — إذ يُحتفظ بالاسم الذي اختاره المشغّل حتى عند تفعيل وضع الجلسات المتعددة</li>
+<li>اضبط <code>extra.disable_topic_auto_rename: true</code> لإيقاف إعادة التسمية التلقائية لـ <strong>جميع</strong> المواضيع في المحادثة (بما فيها المواضيع المرتجلة المُنشأة عبر Threaded Mode)</li>
+<li>يُعامل الموضوع General (المثبّت في الأعلى) في محادثة مباشرة مفعّل فيها وضع المنتدى على أنه الردهة الجذرية، بغض النظر عمّا إذا كان Telegram يسلّم رسائله مع <code>message_thread_id=1</code> أو دون thread_id</li>
+<li>تذكيرات الردهة الجذرية محدودة المعدل برسالة واحدة كل 30 ثانية لكل زوج <strong>(profile، محادثة)</strong> — فالمستخدم الذي ينسى أن وضع المواضيع مفعّل ويكتب عشرة prompts في المحادثة الجذرية لن يتلقى عشرة ردود، كما أن اثنين من الـ profiles متعددة الإرسال يتشاركان معرّف محادثة لا يحجب أحدهما تذكيرات الآخر</li>
+<li>لقطات شاشة إعداد BotFather محدودة المعدل بإرسال واحد كل 5 دقائق لكل زوج <strong>(profile، محادثة)</strong> — فمحاولات <code>/topic</code> المتكررة بينما لا تزال Threads Settings معطّلة لن تعيد رفع الصورة نفسها</li>
+<li>الأمر <code>/bg &lt;prompt&gt;</code> الذي يبدأ داخل موضوع يسلّم نتيجته إلى الموضوع نفسه؛ ولا تُطلق الجلسات الخلفية إعادة التسمية التلقائية للموضوع الذي تنتمي إليه</li>
+<li>يخضع <code>/topic</code> نفسه لفحص تفويض المستخدم في البوت — فتتلقى الرسائل المباشرة غير المصرّح لها رفضًا بدلًا من التفعيل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling-multi-session-mode">تعطيل وضع الجلسات المتعددة</h3>
+<p>أرسل <code>/topic off</code> في المحادثة المباشرة الجذرية. فيعطّل Hermes الصف في نطاق الأسماء <strong>الخاص بهذا الـ profile</strong>، ويمسح ارتباطات <code>(thread_id → session_id)</code> الخاصة بذلك الـ profile لهذه المحادثة، وتعود المحادثة المباشرة الجذرية محادثة Hermes عادية. ولا تُحذف المواضيع الموجودة في Telegram — بل تتوقف فقط عن معاملتها كجلسات مستقلة. أعد تنفيذ <code>/topic</code> لاحقًا لإعادة تفعيله.</p>
+<p>إذا احتجت إلى التنظيف يدويًا (مثل إعادة ضبط جماعية عبر محادثات كثيرة)، فحدّد الصفوف حسب <code>profile_name</code> (استخدم <code>default</code> في التثبيتات ذات الـ profile الواحد):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="downgrading-hermes">الرجوع إلى إصدار أقدم من Hermes</h3>
+<p>إذا رجعت إلى إصدار من Hermes أقدم من <code>/topic</code>، فستتوقف الميزة ببساطة عن العمل — إذ يبقى الجدولان <code>telegram_dm_topic_mode</code> و <code>telegram_dm_topic_bindings</code> في <code>state.db</code> لكن الشيفرة الأقدم تتجاهلهما. وتعود الرسائل المباشرة إلى العزل الأصلي لكل سلسلة (فلا يزال كل <code>message_thread_id</code> يحصل على جلسته الخاصة عبر <code>build_session_key</code>)، لذا تستمر مواضيع Telegram الحالية لديك في العمل كجلسات متوازية. ولا تعود المحادثة المباشرة الجذرية ردهة — إذ تذهب الرسائل فيها إلى الوكيل كما كانت من قبل. وعند الترقية مجددًا، يُعاد تفعيل وضع الجلسات المتعددة من حيث توقف تمامًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-forum-topic-skill-binding">ربط المهارات بمواضيع منتديات المجموعات</h2>
+<p>تحصل المجموعات الكبرى المفعّل فيها <strong>وضع Topics</strong> (ويُسمى أيضًا &quot;forum topics&quot;) على عزل للجلسات لكل موضوع بالفعل — إذ يُربط كل <code>thread_id</code> بمحادثة خاصة به. لكن قد ترغب في <strong>تحميل مهارة تلقائيًا</strong> عند وصول رسائل في موضوع مجموعة محدد، تمامًا كما يعمل ربط المهارات بمواضيع الرسائل المباشرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-case-1">حالة الاستخدام</h3>
+<p>مجموعة كبرى لفريق تضم مواضيع منتدى لمسارات عمل مختلفة:</p>
+<ul>
+<li>موضوع <strong>Engineering</strong> → يحمّل مهارة <code>software-development</code> تلقائيًا</li>
+<li>موضوع <strong>Research</strong> → يحمّل مهارة <code>arxiv</code> تلقائيًا</li>
+<li>موضوع <strong>General</strong> → دون مهارة، مساعد متعدد الأغراض</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-2">الإعدادات</h3>
+<p>أضف ارتباطات المواضيع تحت <code>platforms.telegram.extra.group_topics</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<p><strong>الحقول:</strong></p>
+<table><thead><tr><th>الحقل</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>chat_id</code></td><td>نعم</td><td>المعرّف الرقمي للمجموعة الكبرى (رقم سالب يبدأ بـ <code>-100</code>)</td></tr><tr><td><code>name</code></td><td>لا</td><td>تسمية مقروءة للموضوع (لأغراض إعلامية فقط)</td></tr><tr><td><code>thread_id</code></td><td>نعم</td><td>معرّف موضوع منتدى Telegram — يظهر في روابط <code>t.me/c/&lt;group_id&gt;/&lt;thread_id&gt;</code></td></tr><tr><td><code>skill</code></td><td>لا</td><td>المهارة التي تُحمَّل تلقائيًا في الجلسات الجديدة ضمن هذا الموضوع</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-1">آلية العمل</h3>
+<ol>
+<li>عند وصول رسالة في موضوع مجموعة مُعيَّن، يبحث Hermes عن <code>chat_id</code> و <code>thread_id</code> في إعدادات <code>group_topics</code></li>
+<li>إذا كان للإدخال المطابق حقل <code>skill</code>، تُحمَّل تلك المهارة تلقائيًا للجلسة — تمامًا كما في ربط المهارات بمواضيع الرسائل المباشرة</li>
+<li>المواضيع التي لا تملك المفتاح <code>skill</code> تحصل على عزل الجلسات فقط (السلوك الحالي، دون تغيير)</li>
+<li>قيم <code>thread_id</code> أو قيم <code>chat_id</code> غير المُعيَّنة تُتجاوز بصمت — دون خطأ ودون مهارة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="differences-from-dm-topics">الفروق عن مواضيع الرسائل المباشرة</h3>
+<table><thead><tr><th></th><th>مواضيع الرسائل المباشرة (DM Topics)</th><th>مواضيع المجموعات (Group Topics)</th></tr></thead><tbody><tr><td>مفتاح الإعدادات</td><td><code>extra.dm_topics</code></td><td><code>extra.group_topics</code></td></tr><tr><td>إنشاء المواضيع</td><td>يُنشئ Hermes المواضيع عبر API إذا كان <code>thread_id</code> مفقودًا</td><td>يُنشئ المشرف المواضيع في واجهة Telegram</td></tr><tr><td><code>thread_id</code></td><td>يُملأ تلقائيًا بعد الإنشاء</td><td>يجب ضبطه يدويًا</td></tr><tr><td><code>icon_color</code> / <code>icon_custom_emoji_id</code></td><td>مدعوم</td><td>غير منطبق (المشرف يتحكم في المظهر)</td></tr><tr><td>ربط المهارات</td><td>✓</td><td>✓</td></tr><tr><td>عزل الجلسات</td><td>✓</td><td>✓ (مدمج بالفعل في مواضيع المنتديات)</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="68"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لمعرفة <code>thread_id</code> الخاص بموضوع ما، افتح الموضوع في Telegram Web أو Desktop وانظر إلى URL: <code>https://t.me/c/1234567890/5</code> — فالرقم الأخير (<code>5</code>) هو <code>thread_id</code>. أما <code>chat_id</code> للمجموعات الكبرى فهو معرّف المجموعة مسبوقًا بـ <code>-100</code> (مثلًا، المجموعة <code>1234567890</code> تصبح <code>-1001234567890</code>).</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recent-bot-api-features">أحدث ميزات Bot API</h2>
+<ul>
+<li><strong>Bot API 9.4 (فبراير 2026):</strong> Private Chat Topics — يمكن للبوتات إنشاء مواضيع منتدى في محادثات الرسائل المباشرة الثنائية عبر <code>createForumTopic</code>. ويستخدم Hermes ذلك في ميزتين منفصلتين: <a href="#private-chat-topics-bot-api-94">مواضيع المحادثات الخاصة</a> التي يديرها المشغّل (تعتمد على الإعدادات، بقائمة مواضيع ثابتة)، و<a href="#multi-session-dm-mode-topic">وضع الرسائل المباشرة متعدد الجلسات</a> الذي يقوده المستخدم (يُفعَّل بـ <code>/topic</code>، مع عدد غير محدود من المواضيع التي ينشئها المستخدم).</li>
+<li><strong>سياسة الخصوصية:</strong> يشترط Telegram الآن أن تكون للبوتات سياسة خصوصية. اضبط واحدة عبر BotFather باستخدام <code>/setprivacy_policy</code>، وإلا فقد يولّد Telegram نصًا مؤقتًا تلقائيًا. وهذا مهم بشكل خاص إذا كان بوتك موجّهًا للعامة.</li>
+<li><strong>Bot API 9.5 (مارس 2026): البث الأصلي عبر <code>sendMessageDraft</code>.</strong> يدعم Hermes واجهة API الأصلية لمسودات البث في Telegram كآلية نقل اختيارية للمحادثات الخاصة. ويبقى الافتراضي هو مسار <code>editMessageText</code> القديم، لأن معاينات المسودات قد تنهار وتُعاد رسمها بشكل ملحوظ في بعض عملاء Telegram.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="streaming-transport-gatewaystreamingtransport">آلية نقل البث (<code>gateway.streaming.transport</code>)</h3>
+<p>عند تفعيل البث (<code>gateway.streaming.enabled: true</code>)، يختار Hermes واحدة من أربع آليات نقل:</p>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>auto</code> (الافتراضي)</td><td>بث المسودات الأصلي في المحادثات المدعومة (حاليًا الرسائل المباشرة في Telegram)؛ والمسار القديم المعتمد على التعديل في غير ذلك. ويعود بسلاسة إلى البديل إذا فشل إطار مسودة.</td></tr><tr><td><code>draft</code></td><td>فرض المسودات الأصلية. ويسجّل خفضًا للمستوى ويعود إلى التعديل إذا كانت المحادثة لا تدعم المسودات (مثل المجموعات/المواضيع).</td></tr><tr><td><code>edit</code></td><td>الاستطلاع التدريجي القديم عبر <code>editMessageText</code> لكل أنواع المحادثات.</td></tr><tr><td><code>off</code></td><td>تعطيل البث كليًا (الرد النهائي فقط، دون تحديثات تدريجية).</td></tr></tbody></table>
+<p>في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<p><strong>ما ستراه في الرسائل المباشرة مع <code>edit</code> (الافتراضي)</strong> — يرسل gateway رسالة معاينة عادية ويحدّثها تدريجيًا عبر <code>editMessageText</code>، متجنبًا تأثير انهيار/تراجع معاينة المسودة في Telegram.</p>
+<p><strong>ما ستراه في الرسائل المباشرة مع <code>auto</code> أو <code>draft</code></strong> — يعرض Telegram معاينة مسودة متحركة تتحدّث token تلو الآخر. وعند انتهاء الرد، يُسلَّم كرسالة عادية وتختفي معاينة المسودة بشكل طبيعي في العميل. وليس للمسودات معرّف رسالة، لذا فإن الإجابة النهائية هي ما يبقى في سجل محادثتك.</p>
+<p><strong>ماذا عن المجموعات والمجموعات الكبرى ومواضيع المنتديات؟</strong> يقصر Telegram استخدام <code>sendMessageDraft</code> على المحادثات الخاصة (الرسائل المباشرة). ويعود gateway بشفافية إلى المسار المعتمد على التعديل في كل ما عدا ذلك — بتجربة المستخدم نفسها كما في السابق.</p>
+<p><strong>ماذا لو فشل إطار مسودة؟</strong> أي فشل (خطأ شبكة عابر، أو رفض من جهة الخادم، أو تثبيت أقدم لـ python-telegram-bot) يعيد ذلك الرد إلى المسار المعتمد على التعديل لبقية البث. ويحصل الرد التالي على محاولة جديدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rendering-rich-messages-tables-and-link-previews">العرض: الرسائل الغنية والجداول ومعاينات الروابط</h2>
+<p><strong>الرسائل الغنية (Bot API 10.1).</strong> الردود النهائية التي تحتوي على بنى يُضعف مسار MarkdownV2 القديم عرضها — الجداول، وقوائم المهام، وكتل <code>&lt;details&gt;</code> القابلة للطي، والمعادلات الرياضية الكتلية — تُرسل عبر <a href="https://core.telegram.org/bots/api#sendrichmessage" data-ext><code>sendRichMessage</code></a> الأصلية في Telegram باستخدام <strong>markdown الخام</strong> الخاص بالوكيل، فتُعرض بشكل أصلي دون تسطيح من جهة العميل. وفي الرسائل المباشرة، يُبقي الإعداد الافتراضي <code>rich_drafts: false</code> معاينة البث عادية — إذ تستخدم آلية نقل المسودات المؤقتة في Telegram مع العرض القديم (فتبقى الجداول والبنى الأخرى الخاصة بالرسائل الغنية كـ markdown خام في المعاينة) — ثم يُحفظ الرد المكتمل عبر <code>sendRichMessage</code>. ويؤدي ضبط <code>rich_drafts: true</code> إلى أن تستخدم المعاينة الحية <code>sendRichMessageDraft</code> أيضًا. ويمكن لعمليات البث المعتمدة على التعديل إنهاء معاينة موجودة في مكانها عبر <code>editMessageText</code> باستخدام المعامل <code>rich_message</code>. أما الردود العادية (النثر البسيط، والخط العريض/المائل، والقوائم البسيطة) فتبقى على مسار MarkdownV2 للحفاظ على اتساق وزن الخط والتباعد عبر العملاء.</p>
+<p>يُتخطى المسار الغني تلقائيًا عندما يتجاوز المحتوى حد النص الغني البالغ 32,768 حرفًا، وأي رفض من Telegram (endpoint غير مدعوم في إصدار أقدم من <code>python-telegram-bot</code>، أو خطأ في المحلل، أو كتل/أعمدة بحجم زائد) <strong>يعود بشفافية</strong> إلى مسار MarkdownV2 — فلا تضيع رسالتك أبدًا. أما الأخطاء العابرة/أخطاء الشبكة فإنها <em>لا</em> يُعاد إرسالها بصمت (فلا تتكرر الرسالة النهائية).</p>
+<p><strong>البديل الاحتياطي MarkdownV2.</strong> عندما يكون المسار الغني غير متاح لرسالة ما، يحوّل Hermes الـ markdown إلى MarkdownV2. وبما أن MarkdownV2 لا يملك صيغة جداول أصلية، تُطبَّع الجداول المكتوبة بالخطوط العمودية (pipe tables):</p>
+<ul>
+<li><strong>الجداول الصغيرة</strong> تُسطَّح إلى <strong>نقاط مجمّعة حسب الصفوف</strong> — إذ يصبح كل صف قائمة نقطية مقروءة تحت عناوين الأعمدة. وهذا مناسب لجداول من 2–4 أعمدة وخلايا قصيرة.</li>
+<li><strong>الجداول الأكبر أو الأعرض</strong> تُعرض بدلًا من ذلك في <strong>كتلة شيفرة مسوّرة (fenced code block)</strong> بأعمدة محاذاة كي لا ينهار شيء.</li>
+</ul>
+<p>الرسائل الغنية <strong>اختيارية</strong>. ويبقى الافتراضي على مسار MarkdownV2 القديم لأن عملاء Telegram الحاليين قد يجعلون نسخ الرسائل الغنية في Bot API كنص عادي أمرًا صعبًا، وهو ما يكون مزعجًا بشكل خاص مع مقتطفات الأوامر وعند نقل العمل إلى الهاتف المحمول. لتفعيل العرض الأصلي للجداول/قوائم المهام/كتل details/المعادلات الرياضية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<p>هذا الإعداد مخصص للتوافق مع طريقة العرض والنسخ في العميل؛ إذ يعود Hermes تلقائيًا بالفعل إلى البديل عندما يرفض Telegram استدعاء API الغنية. ويتحكم <code>rich_drafts</code> في ما إذا كانت معاينة البث في الرسائل المباشرة <em>تُعرض</em> بتنسيق غني (<code>sendRichMessageDraft</code>)، ويبقى معطّلًا افتراضيًا لأن Telegram Desktop/macOS قد يعرض إطارات المسودات الغنية متراكبة بصريًا إلى أن يُعاد رسم المحادثة؛ ومع تعطيله، تُبث المعاينة بشكل عادي ويصل الرد النهائي مع ذلك كرسالة غنية (Rich Message) أصلية. وإذا كنت تريد فقط سلوك الجداول القديم &quot;always code-block&quot; مع إبقاء الرسائل الغنية مفعّلة، فعطّل تطبيع الجداول بضبط <code>telegram.pretty_tables: false</code> في <code>config.yaml</code> (الافتراضي: <code>true</code>).</p>
+<p><strong>معاينات الروابط.</strong> يولّد Telegram معاينات الروابط تلقائيًا لعناوين URL في رسائل البوت. وإذا كنت تفضّل منعها (مخرجات <code>/tools</code> الطويلة، أو رد الوكيل الذي يذكر عشرة روابط، إلخ):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<p>عند التفعيل، يُرفق Hermes الخيار <code>LinkPreviewOptions(is_disabled=True)</code> الخاص بـ Telegram بكل رسالة صادرة، ويعود إلى المعامل القديم <code>disable_web_page_preview</code> في إصدارات <code>python-telegram-bot</code> الأقدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-allowlisting">قوائم السماح للمجموعات</h2>
+<p>لمجموعات Telegram ومحادثات المنتديات بوابتان مستقلتان يمكنك ضبطهما:</p>
+<ul>
+<li><strong>معرّفات المستخدمين المرسلين</strong> (<code>group_allow_from</code> / <code>TELEGRAM_GROUP_ALLOWED_USERS</code>) — قائمة سماح على مستوى المرسل تنطبق فقط على رسائل المجموعات/المنتديات. استخدمها عندما تريد أن يتمكن مستخدمون محددون من استدعاء البوت في المجموعات دون إضافتهم إلى <code>TELEGRAM_ALLOWED_USERS</code> (مما سيمنحهم أيضًا وصولًا عبر الرسائل المباشرة).</li>
+<li><strong>معرّفات المحادثات</strong> (<code>group_allowed_chats</code> / <code>TELEGRAM_GROUP_ALLOWED_CHATS</code>) — قائمة سماح على مستوى المحادثة. إذ يستطيع أي عضو في هذه المجموعات/المنتديات التفاعل مع البوت. وهذا مفيد لبوتات الفرق/الدعم حيث تكون العضوية في المجموعة بحد ذاتها مؤشر الوصول.</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<p>متغيرات البيئة المكافئة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>يشمل <code>TELEGRAM_ALLOWED_USERS</code> جميع أنواع المحادثات (الرسائل المباشرة، والمجموعات، والمنتديات).</li>
+<li>لا يفوّض <code>TELEGRAM_GROUP_ALLOWED_USERS</code> المرسلين المدرجين إلا في المجموعات/المنتديات. ولا يزال لا يمكنهم مراسلة البوت مباشرةً ما لم يُدرجوا في <code>TELEGRAM_ALLOWED_USERS</code>.</li>
+<li>المحادثة المدرجة في <code>TELEGRAM_GROUP_ALLOWED_CHATS</code> تفوّض كل أعضاء تلك المحادثة، بغض النظر عن المرسل.</li>
+<li>استخدم <code>*</code> في أيٍّ من هذه المتغيرات للسماح بأي مرسل/محادثة.</li>
+<li>تُضاف هذه الطبقة فوق محفزات الإشارة/الأنماط الموجودة، وفوق <code>group_topics</code> + <code>ignored_threads</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="migration-from-before-pr-17686">الترحيل من الإصدارات السابقة لـ PR #17686</h3>
+<p>قبل هذا الفصل، كان <code>TELEGRAM_GROUP_ALLOWED_USERS</code> الخيار الوحيد، وكان المستخدمون يضعون فيه <strong>معرّفات المحادثات</strong>. وللحفاظ على التوافق مع الإصدارات السابقة، لا تزال القيم التي تشبه معرّفات المحادثات (التي تبدأ بـ <code>-</code>) في <code>TELEGRAM_GROUP_ALLOWED_USERS</code> تُعامل كمعرّفات محادثات، ويُسجَّل تحذير إهمال (deprecation) مرة واحدة. الترحيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guest-mention-bypass-guest_mode">تجاوز قائمة السماح للضيوف عبر @mention (<code>guest_mode</code>)</h3>
+<p>في الإعداد المعتاد، يكون <code>group_allowed_chats</code> بوابة صارمة: إذ تُهمل بصمت الرسائل الواردة من مجموعات خارج القائمة، حتى لو أشار عضو إلى البوت صراحةً عبر @mention. وهذا هو الافتراضي الصحيح لبوتات الدعم / الفرق.</p>
+<p>أما في الإعدادات الأقل رسمية — كمحادثات مجموعات الأصدقاء التي تريد فيها أن يكون البوت <strong>صامتًا في معظم الأحيان</strong> لكن <strong>متاحًا أحيانًا عند استدعائه صراحةً</strong> — ففعّل <code>guest_mode</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
+<p>متغير البيئة المكافئ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
+<p>القيمة الافتراضية: <code>false</code>.</p>
+<p>مع <code>guest_mode: true</code>، لا تُعالَج الرسالة الواردة من مجموعة غير مدرجة في قائمة السماح <strong>إلا</strong> إذا أشارت إلى البوت صراحةً عبر @mention. والإشارة مطلوبة في كل دور — فلا يوجد استمرار للجلسة في تفاعلات الضيوف، لذا لا ينخرط البوت تلقائيًا أبدًا في سلسلة محادثة مجموعة أصدقاء لم يُستدعَ إليها.</p>
+<p>تعمل الرسائل المباشرة والمجموعات المدرجة في قائمة السماح تمامًا كما في السابق.</p>

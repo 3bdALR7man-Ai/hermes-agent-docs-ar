@@ -1,0 +1,181 @@
+<header><h1>Webhooks</h1></header>
+<p>استقبل الأحداث من الخدمات الخارجية (GitHub وGitLab وJIRA وStripe وغيرها) وشغّل وكيل Hermes تلقائيًا. يشغّل محوِّل (adapter) الـ webhook خادم HTTP يقبل طلبات POST، ويتحقق من توقيعات HMAC، ويحوّل الحمولات (payloads) إلى prompts للوكيل، ثم يوجّه الردود عائدةً إلى المصدر أو إلى منصة أخرى مضبوطة.</p>
+<p>يعالج الوكيل الحدث ويمكنه الرد بنشر تعليقات على طلبات PR، أو إرسال رسائل إلى Telegram/Discord، أو تسجيل النتيجة في السجل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="video-tutorial">درس تطبيقي بالفيديو</h2>
+<div style="position:relative;width:100%;aspect-ratio:16 / 9;margin-bottom:1.5rem"><x-keep id="22"></x-keep></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<ol>
+<li>فعّله عبر <code>hermes gateway setup</code> أو عبر متغيرات البيئة</li>
+<li>عرّف المسارات (routes) في <code>config.yaml</code> <strong>أو</strong> أنشئها ديناميكيًا باستخدام <code>hermes webhook subscribe</code></li>
+<li>وجّه خدمتك إلى <code>http://your-server:8644/webhooks/&lt;route-name&gt;</code></li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<p>توجد طريقتان لتفعيل محوِّل الـ webhook.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-setup-wizard">عبر معالج الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اتبع التعليمات لتفعيل الـ webhooks، وضبط المنفذ، وتعيين سرّ HMAC عام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-environment-variables">عبر متغيرات البيئة</h3>
+<p>أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-the-server">التحقق من الخادم</h3>
+<p>بمجرد تشغيل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>الاستجابة المتوقعة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-routes">ضبط المسارات</h2>
+<p>تحدّد المسارات كيفية التعامل مع مصادر الـ webhook المختلفة. كل مسار هو إدخال مُسمّى ضمن <code>platforms.webhook.extra.routes</code> في ملف <code>config.yaml</code>. يمكن أيضًا كتابة إعدادات المحوِّل (<code>port</code>، <code>host</code>، <code>secret</code>، <code>routes</code>) مباشرة ضمن <code>platforms.webhook:</code> — فكلتا الصيغتين تصلان إلى المحوِّل؛ وإذا ظهر المفتاح نفسه في الموضعين، فالأولوية للقيمة المتداخلة ضمن <code>extra:</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="route-properties">خصائص المسار</h3>
+<table><thead><tr><th>الخاصية</th><th>مطلوبة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>events</code></td><td>لا</td><td>قائمة بأنواع الأحداث المقبولة (مثل <code>[&quot;pull_request&quot;]</code>). إذا كانت فارغة، تُقبَل جميع الأحداث. يُقرأ نوع الحدث من <code>X-GitHub-Event</code> أو <code>X-GitLab-Event</code> أو <code>event_type</code> في الحمولة.</td></tr><tr><td><code>secret</code></td><td><strong>نعم</strong></td><td>سرّ HMAC للتحقق من التوقيع. يرجع احتياطيًا إلى <code>secret</code> العام إذا لم يُضبط على المسار. اضبطه على <code>&quot;INSECURE_NO_AUTH&quot;</code> للاختبار فقط (يتخطى التحقق).</td></tr><tr><td><code>profile</code></td><td>لا</td><td>الـ profile المفوَّض بتنفيذ هذا المسار عند تفعيل <code>gateway.multiplex_profiles</code>. احذفه للمسار الخاص بالـ profile الافتراضي فقط؛ واضبطه على اسم profile (مثل <code>coder</code>) لربط المسار وسرّه بـ <code>/p/coder/webhooks/&lt;route&gt;</code>.</td></tr><tr><td><code>prompt</code></td><td>لا</td><td>سلسلة قالب تتيح الوصول إلى الحمولة بصيغة النقاط (مثل <code>{pull_request.title}</code>). إذا حُذفت، تُفرَّغ حمولة JSON كاملة في الـ prompt. حقول الحمولة غير موثوقة — راجع <a href="#authenticated-does-not-mean-trusted">المصادقة لا تعني الثقة</a>.</td></tr><tr><td><code>filters</code></td><td>لا</td><td>مرشحات تصريحية للحمولة تُقيَّم بعد المصادقة وتحليل المتن وتصفية الأحداث، وقبل أي عمل للوكيل أو للتسليم المباشر. تُعيد الحمولات غير المطابقة <code>{&quot;status&quot;:&quot;ignored&quot;,&quot;reason&quot;:&quot;filter&quot;}</code> مع HTTP 200.</td></tr><tr><td><code>script</code></td><td>لا</td><td>سكربت تصفية/تحويل ضمن <code>~/.hermes/scripts/</code>. تُمرَّر حمولة الـ webhook بصيغة JSON عبر stdin. إذا كانت stdout كائن JSON فإنه يحل محل الحمولة قبل تطبيق القالب؛ وإذا كانت نصًا فتُتاح بوصفها <code>script_output</code>؛ أما stdout الفارغة، أو <code>[SILENT]</code>، أو رمز خروج غير صفري فتؤدي إلى تجاهل الـ webhook.</td></tr><tr><td><code>skills</code></td><td>لا</td><td>قائمة بأسماء المهارات المراد تحميلها لتشغيل الوكيل.</td></tr><tr><td><code>toolsets</code></td><td>لا</td><td>قائمة بمفاتيح toolset (مثل <code>[&quot;terminal&quot;, &quot;file&quot;, &quot;web&quot;]</code>) <strong>تحل محل</strong> toolset الخاص بالـ webhook على مستوى المنصة، وذلك للتشغيلات التي يطلقها هذا المسار فقط. تُضبط بتحرير الإعدادات يدويًا فقط — ولا يمكن ضبطها عبر <code>hermes webhook subscribe</code>، كي لا تتمكن الاشتراكات التي ينشئها الوكيل من منح نفسها أدوات ذات صلاحيات مرتفعة. يُتحقَّق من الأسماء بالطريقة نفسها المتبعة مع إدخالات <code>platform_toolsets</code> (تُحذف الأسماء المجهولة أو المقيّدة بالمنصة). راجع <a href="#per-route-toolsets">Toolsets لكل مسار</a>.</td></tr><tr><td><code>deliver</code></td><td>لا</td><td>وجهة إرسال الرد: <code>github_comment</code>، <code>telegram</code>، <code>discord</code>، <code>slack</code>، <code>signal</code>، <code>sms</code>، <code>whatsapp</code>، <code>matrix</code>، <code>mattermost</code>، <code>homeassistant</code>، <code>email</code>، <code>dingtalk</code>، <code>feishu</code>، <code>wecom</code>، <code>weixin</code>، <code>bluebubbles</code>، <code>qqbot</code>، أو <code>log</code> (الافتراضي).</td></tr><tr><td><code>deliver_extra</code></td><td>لا</td><td>إعدادات تسليم إضافية — تعتمد المفاتيح على نوع <code>deliver</code> (مثل <code>repo</code>، <code>pr_number</code>، <code>chat_id</code>). تدعم القيم قوالب <code>{dot.notation}</code> نفسها المستخدمة في <code>prompt</code>.</td></tr><tr><td><code>deliver_only</code></td><td>لا</td><td>إذا كانت <code>true</code>، يُتخطّى الوكيل كليًا — ويصبح قالب <code>prompt</code> بعد عرضه هو نص الرسالة الحرفي الذي يُسلَّم. بلا أي تكلفة LLM، وتسليم في أقل من ثانية. راجع <a href="#direct-delivery-mode">وضع التسليم المباشر</a> لحالات الاستخدام. يتطلب أن تكون <code>deliver</code> وجهة حقيقية (وليست <code>log</code>).</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-example">مثال كامل</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="payload-filters">مرشحات الحمولة</h3>
+<p>استخدم <code>filters</code> عندما يرسل مزوّد ما تدفقًا واسعًا من الأحداث، بينما يجب أن توقظ بعض الحمولات فقط الوكيل أو تُطلق تسليم <code>deliver_only</code>. تعمل المرشحات بعد التحقق من التوقيع وتحليل المتن و <code>events</code>، لكن قبل عرض الـ prompt، والتحقق من عدم التكرار (idempotency)، وإرسال المهمة إلى الوكيل، أو التسليم المباشر.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>المعاملات المدعومة:</p>
+<ul>
+<li><code>exists: true|false</code></li>
+<li><code>missing: true</code></li>
+<li><code>equals</code> / <code>not_equals</code></li>
+<li><code>contains</code> للسلاسل النصية والقوائم ومفاتيح القواميس</li>
+<li><code>in</code> للقوائم المضمّنة</li>
+<li><code>in_file</code> لمصفوفات JSON، أو كائنات JSON (تُستخدم مفاتيحها)، أو الملفات النصية المفصولة بأسطر جديدة</li>
+<li><code>regex</code></li>
+<li>مجموعات <code>all</code> و <code>any</code> و <code>not</code></li>
+</ul>
+<p>تستخدم مسارات الحقول صيغة النقاط. يقرأ <code>payload.foo</code> من كائن <code>payload</code> في المستوى الأعلى عند وجوده، أو من جذر متن الـ webhook في حالة الحمولات المسطّحة. يطابق <code>event</code> / <code>event_type</code> نوع الحدث الذي جرى تحديده، ويقرأ <code>headers.&lt;Name&gt;</code> ترويسات الطلب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="script-filters-and-transforms">مرشحات وتحويلات السكربتات</h3>
+<p>استخدم <code>script</code> عندما لا تكفي المرشحات التصريحية. يجب أن توجد السكربتات ضمن <code>~/.hermes/scripts/</code> الخاص بالـ profile النشط؛ إذ تُحَلّ المسارات النسبية هناك، ويُحظَر اجتياز المسارات إلى خارج ذلك المجلد. تعمل سكربتات <code>.sh</code> و <code>.bash</code> باستخدام bash، بينما تعمل جميع الامتدادات الأخرى باستخدام مفسّر Python الحالي.</p>
+<p>تُرسَل حمولة المسار إلى stdin بصيغة JSON:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>نتائج السكربت:</p>
+<ul>
+<li>إذا كانت stdout كائن JSON، فإنه يحل محل الحمولة التي يستخدمها <code>prompt</code> و <code>deliver_extra</code>.</li>
+<li>إذا كانت stdout نصًا ليس بصيغة JSON، فإنه يُضاف إلى الحمولة بوصفه <code>script_output</code>.</li>
+<li>stdout الفارغة، أو <code>[SILENT]</code> بالضبط، أو <code>{&quot;__hermes_ignore__&quot;: true}</code>، أو انتهاء المهلة، أو غياب السكربت، أو رمز خروج غير صفري — كل ذلك يعيد HTTP 200 مع <code>{&quot;status&quot;:&quot;ignored&quot;,&quot;reason&quot;:&quot;script&quot;}</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-templates">قوالب الـ Prompt</h3>
+<p>تستخدم الـ prompts صيغة النقاط للوصول إلى الحقول المتداخلة في حمولة الـ webhook:</p>
+<ul>
+<li><code>{pull_request.title}</code> يُحَلّ إلى <code>payload[&quot;pull_request&quot;][&quot;title&quot;]</code></li>
+<li><code>{repository.full_name}</code> يُحَلّ إلى <code>payload[&quot;repository&quot;][&quot;full_name&quot;]</code></li>
+<li><code>{__raw__}</code> — رمز خاص يفرّغ <strong>الحمولة كاملة</strong> بصيغة JSON مُنسّقة بمسافات بادئة (مقتطعة عند 4000 حرف). مفيد لتنبيهات المراقبة أو الـ webhooks العامة التي يحتاج فيها الوكيل إلى السياق الكامل.</li>
+<li>تُترك المفاتيح المفقودة كسلسلة <code>{key}</code> الحرفية (دون خطأ)</li>
+<li>تُسلسَل القواميس والقوائم المتداخلة بصيغة JSON وتُقتطع عند 2000 حرف</li>
+</ul>
+<p>يمكنك الجمع بين <code>{__raw__}</code> ومتغيرات القالب العادية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>إذا لم يُضبط قالب <code>prompt</code> لمسار ما، تُفرَّغ الحمولة كاملة بصيغة JSON مُنسّقة بمسافات بادئة (مقتطعة عند 4000 حرف).</p>
+<p>تعمل قوالب صيغة النقاط نفسها في قيم <code>deliver_extra</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="forum-topic-delivery">التسليم إلى مواضيع المنتديات</h3>
+<p>عند تسليم ردود الـ webhook إلى Telegram، يمكنك استهداف موضوع منتدى (forum topic) محدد بتضمين <code>message_thread_id</code> (أو <code>thread_id</code>) في <code>deliver_extra</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>إذا لم يُحدَّد <code>chat_id</code> في <code>deliver_extra</code>، يرجع التسليم احتياطيًا إلى القناة الرئيسية المضبوطة للمنصة المستهدفة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="github-pr-review">مراجعة GitHub PR (خطوة بخطوة)</h2>
+<p>يُعِدّ هذا الشرح مراجعة تلقائية للشيفرة على كل pull request.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-the-webhook-in-github">1. أنشئ الـ webhook في GitHub</h3>
+<ol>
+<li>انتقل إلى مستودعك → <strong>Settings</strong> → <strong>Webhooks</strong> → <strong>Add webhook</strong></li>
+<li>اضبط <strong>Payload URL</strong> على <code>http://your-server:8644/webhooks/github-pr</code></li>
+<li>اضبط <strong>Content type</strong> على <code>application/json</code></li>
+<li>اضبط <strong>Secret</strong> بحيث يطابق إعدادات مسارك (مثل <code>github-webhook-secret</code>)</li>
+<li>ضمن <strong>Which events?</strong>، اختر <strong>Let me select individual events</strong> وحدّد <strong>Pull requests</strong></li>
+<li>انقر <strong>Add webhook</strong></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-add-the-route-config">2. أضف إعدادات المسار</h3>
+<p>أضف المسار <code>github-pr</code> إلى ملف <code>~/.hermes/config.yaml</code> كما هو موضح في المثال أعلاه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-ensure-gh-cli-is-authenticated">3. تأكد من مصادقة أداة <code>gh</code> CLI</h3>
+<p>يستخدم نوع التسليم <code>github_comment</code> أداة GitHub CLI لنشر التعليقات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-test-it">4. اختبره</h3>
+<p>افتح pull request على المستودع. سيُطلَق الـ webhook، ويعالج Hermes الحدث، ثم ينشر تعليق مراجعة على الـ PR.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gitlab-webhook-setup">إعداد Webhook في GitLab</h2>
+<p>تعمل webhooks في GitLab بطريقة مشابهة، لكنها تستخدم آلية مصادقة مختلفة. إذ يرسل GitLab السرّ كترويسة <code>X-Gitlab-Token</code> عادية (مطابقة تامة للسلسلة النصية، وليس HMAC).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-the-webhook-in-gitlab">1. أنشئ الـ webhook في GitLab</h3>
+<ol>
+<li>انتقل إلى مشروعك → <strong>Settings</strong> → <strong>Webhooks</strong></li>
+<li>اضبط <strong>URL</strong> على <code>http://your-server:8644/webhooks/gitlab-mr</code></li>
+<li>أدخل <strong>Secret token</strong> الخاص بك</li>
+<li>اختر <strong>Merge request events</strong> (وأي أحداث أخرى تريدها)</li>
+<li>انقر <strong>Add webhook</strong></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-add-the-route-config-1">2. أضف إعدادات المسار</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-options">خيارات التسليم</h2>
+<p>يتحكم الحقل <code>deliver</code> في وجهة رد الوكيل بعد معالجة حدث الـ webhook.</p>
+<table><thead><tr><th>نوع التسليم</th><th>الوصف</th></tr></thead><tbody><tr><td><code>log</code></td><td>يسجّل الرد في مخرجات سجل الـ gateway. هذا هو الافتراضي، وهو مفيد للاختبار.</td></tr><tr><td><code>github_comment</code></td><td>ينشر الرد كتعليق على PR/issue عبر <code>gh</code> CLI. يتطلب <code>deliver_extra.repo</code> و <code>deliver_extra.pr_number</code>. يجب أن تكون أداة <code>gh</code> CLI مثبّتة ومُصادَقًا عليها على مضيف الـ gateway ‏(<code>gh auth login</code>).</td></tr><tr><td><code>telegram</code></td><td>يوجّه الرد إلى Telegram. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>discord</code></td><td>يوجّه الرد إلى Discord. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>slack</code></td><td>يوجّه الرد إلى Slack. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>signal</code></td><td>يوجّه الرد إلى Signal. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>sms</code></td><td>يوجّه الرد إلى SMS عبر Twilio. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>whatsapp</code></td><td>يوجّه الرد إلى WhatsApp. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>matrix</code></td><td>يوجّه الرد إلى Matrix. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>mattermost</code></td><td>يوجّه الرد إلى Mattermost. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>homeassistant</code></td><td>يوجّه الرد إلى Home Assistant. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>email</code></td><td>يوجّه الرد إلى البريد الإلكتروني (Email). يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>dingtalk</code></td><td>يوجّه الرد إلى DingTalk. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>feishu</code></td><td>يوجّه الرد إلى Feishu/Lark. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>wecom</code></td><td>يوجّه الرد إلى WeCom. يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>weixin</code></td><td>يوجّه الرد إلى Weixin (WeChat). يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr><tr><td><code>bluebubbles</code></td><td>يوجّه الرد إلى BlueBubbles (iMessage). يستخدم القناة الرئيسية، أو حدّد <code>chat_id</code> في <code>deliver_extra</code>.</td></tr></tbody></table>
+<p>للتسليم عبر المنصات، يجب أن تكون المنصة المستهدفة مفعّلة ومتصلة في الـ gateway أيضًا. إذا لم يُحدَّد <code>chat_id</code> في <code>deliver_extra</code>، يُرسَل الرد إلى القناة الرئيسية المضبوطة لتلك المنصة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="direct-delivery-mode">وضع التسليم المباشر</h2>
+<p>افتراضيًا، يُطلق كل طلب POST إلى الـ webhook تشغيلًا للوكيل — إذ تصبح الحمولة prompt، ويعالجها الوكيل، ثم يُسلَّم رده. وهذا يستهلك tokens من الـ LLM مع كل حدث.</p>
+<p>في حالات الاستخدام التي تريد فيها فقط <strong>دفع إشعار بسيط</strong> — دون تفكير، ودون حلقة وكيل، مجرد تسليم الرسالة — اضبط <code>deliver_only: true</code> على المسار. يصبح قالب <code>prompt</code> بعد عرضه هو متن الرسالة الحرفي، ويرسله المحوِّل مباشرة إلى وجهة التسليم المضبوطة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-direct-delivery">متى تستخدم التسليم المباشر</h3>
+<ul>
+<li><strong>دفع من خدمة خارجية</strong> — webhook من Supabase/Firebase يُطلَق عند تغيير في قاعدة البيانات → إشعار مستخدم في Telegram فورًا</li>
+<li><strong>تنبيهات المراقبة</strong> — webhook تنبيه من Datadog/Grafana → دفعه إلى قناة Discord</li>
+<li><strong>تنبيهات بين الوكلاء</strong> — الوكيل A يُخطر مستخدم الوكيل B بأن مهمة طويلة قد انتهت</li>
+<li><strong>اكتمال مهمة في الخلفية</strong> — انتهاء مهمة cron → نشر النتيجة في Slack</li>
+</ul>
+<p>الفوائد:</p>
+<ul>
+<li><strong>صفر tokens من الـ LLM</strong> — لا يُستدعى الوكيل أبدًا</li>
+<li><strong>تسليم في أقل من ثانية</strong> — استدعاء واحد للمحوِّل، دون حلقة تفكير</li>
+<li><strong>الأمان نفسه المتبع في وضع الوكيل</strong> — تظل مصادقة HMAC، وحدود المعدل (rate limits)، والتحقق من عدم التكرار، وحدود حجم المتن سارية جميعها</li>
+<li><strong>استجابة متزامنة</strong> — يعيد طلب POST القيمة <code>200 OK</code> بمجرد نجاح التسليم، أو <code>502</code> إذا رفضته الوجهة، كي تتمكن خدمتك المصدر من إعادة المحاولة بذكاء</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-telegram-push-from-supabase">مثال: دفع إشعار إلى Telegram من Supabase</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>توقّع دالة Supabase الطرفية (edge function) الحمولة باستخدام HMAC-SHA256 وترسلها عبر POST إلى <code>https://your-server:8644/webhooks/antenna-matches</code>. يتحقق محوِّل الـ webhook من التوقيع، ويعرض القالب انطلاقًا من الحمولة، ويسلّمها إلى Telegram، ثم يعيد <code>200 OK</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-dynamic-subscription-via-cli">مثال: اشتراك ديناميكي عبر CLI</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-codes">رموز الاستجابة</h3>
+<table><thead><tr><th>الحالة</th><th>المعنى</th></tr></thead><tbody><tr><td><code>200 OK</code></td><td>سُلِّم بنجاح. المتن: <code>{&quot;status&quot;: &quot;delivered&quot;, &quot;route&quot;: &quot;...&quot;, &quot;target&quot;: &quot;...&quot;, &quot;delivery_id&quot;: &quot;...&quot;}</code></td></tr><tr><td><code>200 OK</code> (status=duplicate)</td><td>معرّف <code>X-GitHub-Delivery</code> مكرر ضمن مدة صلاحية (TTL) التحقق من عدم التكرار (ساعة واحدة). لا يُعاد التسليم.</td></tr><tr><td><code>401 Unauthorized</code></td><td>توقيع HMAC غير صالح أو مفقود.</td></tr><tr><td><code>400 Bad Request</code></td><td>متن JSON مشوّه.</td></tr><tr><td><code>404 Not Found</code></td><td>اسم مسار غير معروف.</td></tr><tr><td><code>413 Payload Too Large</code></td><td>تجاوز المتن <code>max_body_bytes</code>.</td></tr><tr><td><code>429 Too Many Requests</code></td><td>تجاوز حد المعدل الخاص بالمسار.</td></tr><tr><td><code>502 Bad Gateway</code></td><td>رفض المحوِّل المستهدف الرسالة أو أطلق استثناءً. يُسجَّل الخطأ على جانب الخادم؛ ويكون متن الاستجابة رسالة عامة <code>Delivery failed</code> لتجنب تسريب تفاصيل المحوِّل الداخلية.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-gotchas">مزالق الإعداد</h3>
+<ul>
+<li>يتطلب <code>deliver_only: true</code> أن تكون <code>deliver</code> وجهة حقيقية. يُرفَض <code>deliver: log</code> (أو حذف <code>deliver</code>) عند بدء التشغيل — إذ يرفض المحوِّل البدء إذا وجد مسارًا مضبوطًا بشكل خاطئ.</li>
+<li>يُتجاهَل الحقل <code>skills</code> في وضع التسليم المباشر (لا يعمل أي وكيل، لذا لا يوجد ما تُحقن فيه المهارات).</li>
+<li>يستخدم عرض القوالب صيغة <code>{dot.notation}</code> نفسها المستخدمة في وضع الوكيل، بما في ذلك الرمز <code>{__raw__}</code>.</li>
+<li>يستخدم التحقق من عدم التكرار ترويسة <code>X-GitHub-Delivery</code> / <code>X-Request-ID</code> نفسها — تعيد المحاولات بالمعرّف نفسه <code>status=duplicate</code> ولا يُعاد التسليم.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dynamic-subscriptions">الاشتراكات الديناميكية (CLI)</h2>
+<p>إضافة إلى المسارات الثابتة في <code>config.yaml</code>، يمكنك إنشاء اشتراكات webhook ديناميكيًا باستخدام أمر CLI ‏<code>hermes webhook</code>. وهذا مفيد بشكل خاص عندما يحتاج الوكيل نفسه إلى إعداد مُشغِّلات تعتمد على الأحداث.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-subscription">إنشاء اشتراك</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>يعيد هذا الأمر URL الـ webhook وسرّ HMAC مُولَّدًا تلقائيًا. اضبط خدمتك لإرسال طلبات POST إلى ذلك الـ URL.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-subscriptions">سرد الاشتراكات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="remove-a-subscription">إزالة اشتراك</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-a-subscription">اختبار اشتراك</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-dynamic-subscriptions-work">كيف تعمل الاشتراكات الديناميكية</h3>
+<ul>
+<li>تُخزَّن الاشتراكات في <code>~/.hermes/webhook_subscriptions.json</code></li>
+<li>يعيد محوِّل الـ webhook تحميل هذا الملف فوريًا مع كل طلب وارد (مشروطًا بتغيّر mtime، بتكلفة إضافية لا تُذكر)</li>
+<li>تتقدّم المسارات الثابتة من <code>config.yaml</code> دائمًا على المسارات الديناميكية التي تحمل الاسم نفسه</li>
+<li>تستخدم الاشتراكات الديناميكية صيغة المسارات وإمكاناتها نفسها المتاحة للمسارات الثابتة (الأحداث، وقوالب الـ prompt، والمهارات، والتسليم)</li>
+<li>لا حاجة إلى إعادة تشغيل الـ gateway — اشترك وسيصبح الاشتراك نشطًا فورًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-driven-subscriptions">اشتراكات يُنشئها الوكيل</h3>
+<p>يمكن للوكيل إنشاء اشتراكات عبر أداة الطرفية عندما تُوجّهه مهارة <code>webhook-subscriptions</code>. اطلب من الوكيل &quot;set up a webhook for GitHub issues&quot; (إعداد webhook لـ GitHub issues) وسينفّذ أمر <code>hermes webhook subscribe</code> المناسب.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-route-toolsets">Toolsets لكل مسار</h2>
+<p>تستخدم تشغيلات الوكيل عبر الـ webhook افتراضيًا toolset مقيّدًا عمدًا (<code>web_search</code>، <code>web_extract</code>، <code>vision_analyze</code>، <code>clarify</code>)، لأن حمولات الـ webhook قد تحمل محتوى غير موثوق من أطراف ثالثة — ولا ينبغي أبدًا أن يتمكن عنوان PR عام أو تعليق على issue من شق طريقه إلى طرفيتك عبر حقن الـ prompt (prompt injection).</p>
+<p>بالنسبة إلى المسارات <strong>الموثوقة</strong> — مثل daemon مراقبة على localhost يدفع تنبيهات النظام، أو نظام CI داخلي — يمكنك منح toolset أوسع لذلك المسار وحده، دون توسيع صلاحيات بقية مسارات الـ webhook:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>بالنسبة إلى الاشتراكات الديناميكية، أضف المفتاح <code>toolsets</code> بتحرير <code>~/.hermes/webhook_subscriptions.json</code> مباشرة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>خصائص السلوك والأمان:</p>
+<ul>
+<li>قائمة المسار <strong>تحل محل</strong> تحديد toolset الخاص بالـ webhook على مستوى المنصة لتشغيلات ذلك المسار (ولا تُدمج معه).</li>
+<li>يُتحقَّق من الأسماء عبر المسار نفسه المتبع مع إعدادات <code>platform_toolsets</code> — تُحذف الأسماء المجهولة وtoolsets المقيّدة بالمنصة.</li>
+<li><code>hermes webhook subscribe</code> <strong>لا</strong> يقبل عمدًا أي خيار لـ toolsets. فمنح أدوات ذات صلاحيات مرتفعة يتم بتحرير ملف الإعدادات يدويًا، لذا لا يستطيع وكيل ينشئ اشتراكه الخاص وقت التشغيل أن يمنح نفسه <code>terminal</code>.</li>
+<li>لا تمنح toolsets ذات صلاحيات مرتفعة إلا للمسارات التي تتحكم بمرسليها تحكمًا كاملًا، مع سرّ HMAC حقيقي. فأي شخص يستطيع إرسال حمولة موقّعة توقيعًا صالحًا عبر POST إلى ذلك المسار يُشغّل فعليًا وكيلًا يملك تلك الأدوات.</li>
+</ul>
+<hr>

@@ -1,0 +1,87 @@
+<header><h1>البحث في X (Twitter)</h1></header>
+<p>تتيح أداة <code>x_search</code> للوكيل البحث مباشرةً في منشورات X (Twitter) والملفات الشخصية والسلاسل (threads). وهي تعتمد على أداة <code>x_search</code> المدمجة لدى xAI في Responses API على <code>https://api.x.ai/v1/responses</code> — إذ يُجري Grok نفسه البحث على جانب الخادم ويُعيد نتائج مُركَّبة مع استشهادات تشير إلى المنشورات الأصلية.</p>
+<p><strong>استخدمها بدلًا من <code>web_search</code></strong> عندما تريد تحديدًا النقاشات أو ردود الفعل أو الادعاءات الحالية <strong>على X</strong>. أما لصفحات الويب العامة، فاستمر في استخدام <code>web_search</code> / <code>web_extract</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="x_search-vs-xurl"><code>x_search</code> مقابل <code>xurl</code></h2>
+<p>يستطيع Hermes إتاحة واجهتين مختلفتين للتعامل مع X:</p>
+<table><thead><tr><th>الواجهة</th><th>استخدمها لـ</th><th>لا تستخدمها لـ</th></tr></thead><tbody><tr><td><code>x_search</code></td><td>الاستكشاف العام على X للقراءة فقط: النقاشات الحالية، وردود الفعل، والادعاءات، والملفات الشخصية، والسلاسل، والإجابات المُركَّبة مع الاستشهادات.</td><td>النشر، أو الرد، أو الإعجاب، أو الرسائل المباشرة (DM)، أو رفع الوسائط، أو الحذف، أو إثبات أن حالة حساب X مُصادَق عليه قد تغيّرت.</td></tr><tr><td>مهارة <code>xurl</code></td><td>أعمال X API الدقيقة أو التي تتطلب مصادقة: <code>post</code> و <code>reply</code> و <code>read</code> و <code>like</code> و <code>dm</code>، والخطوط الزمنية (timelines)، والإشارات (mentions)، ورفع الوسائط، والقراءات الخاصة بحساب معيّن، و endpoints الخام في الإصدار v2.</td><td>الأبحاث العامة الواسعة على X التي يُركّب Grok نتائجها، عندما تكون <code>x_search</code> متاحة ولا حاجة إلى سياق حساب مُصادَق عليه.</td></tr></tbody></table>
+<p>في سير العمل المختلط، استخدم <code>x_search</code> لاكتشاف المنشورات العامة المرشّحة، ثم انتقل إلى <code>xurl read</code> أو أمر <code>xurl</code> دقيق آخر بعد أن يتضح المنشور أو المستخدم أو الإجراء المستهدف. يجب تأكيد أي إجراء على X يغيّر الحالة عبر مخرجات <code>xurl</code> أو استجابة X API؛ فإجابة <code>x_search</code> ليست دليلًا أبدًا على أن عملية كتابة قد حدثت.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="2"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا كنت تدفع لـ Portal مقابل نموذج xAI على أي حال، فإن استدعاءات Live Search تُحتسب على مفتاح xAI نفسه المُعدّ للمحادثة. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authentication">المصادقة</h2>
+<p>تُسجَّل <code>x_search</code> عندما يتوفر <strong>أيٌّ</strong> من مساري بيانات اعتماد xAI:</p>
+<table><thead><tr><th>بيانات الاعتماد</th><th>المصدر</th><th>الإعداد</th></tr></thead><tbody><tr><td><strong>SuperGrok / X Premium+ OAuth</strong></td><td>تسجيل الدخول عبر المتصفح على <code>accounts.x.ai</code>، مع تحديث تلقائي</td><td><code>hermes auth add xai-oauth</code> — راجع <a href="/docs/guides/xai-grok-oauth">xAI Grok OAuth (SuperGrok / X Premium+)</a></td></tr><tr><td><strong><code>XAI_API_KEY</code></strong> (المُفضَّل)</td><td>مفتاح xAI API مدفوع</td><td>يُضبط في <code>~/.hermes/.env</code></td></tr></tbody></table>
+<p>يتصل كلاهما بالـ endpoint نفسه وبالحمولة (payload) نفسها — والفرق الوحيد هو الـ bearer token. <strong>عند إعداد كليهما، تكون الأولوية لـ <code>XAI_API_KEY</code> الصريح</strong> — فالـ bearer الخاص بـ OAuth الاشتراك يُفوِّض الوصول إلى <code>/v1/responses</code> لكنه يجيب عن x_search بوضع شرح Grok محدود القدرات ودون استشهادات، بينما يُعيد مفتاح API منشورات حقيقية. لاحظ أن هذا يعني أن x_search تعمل وفق فوترة API المحسوبة حسب الاستخدام عند ضبط مفتاح؛ احذف <code>XAI_API_KEY</code> للرجوع إلى حصة اشتراكك (مع التحفّظ المتعلق بالإجابات محدودة القدرات).</p>
+<p>تُشغّل الدالة <code>check_fn</code> الخاصة بالأداة محلّل بيانات اعتماد xAI في كل مرة تُعاد فيها بناء قائمة أدوات النموذج. تعني القيمة <code>True</code> أن الـ bearer يمكن جلبه، وأنه غير فارغ، وأنه (إن كان منتهي الصلاحية) قد جُدِّد بنجاح. أما الـ tokens الملغاة التي فشل تجديدها فتُخفي الأداة من الـ schema؛ فببساطة لا يستطيع النموذج رؤيتها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling-the-tool">تفعيل الأداة</h2>
+<p>تُفعَّل تلقائيًا عند وجود بيانات اعتماد xAI (OAuth token أو <code>XAI_API_KEY</code>). عطّلها صراحةً عبر <code>hermes tools</code> → Search → x_search إذا كنت لا تريدها.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يعرض المُنتقي خيارين لبيانات الاعتماد:</p>
+<ol>
+<li><strong>xAI Grok OAuth (SuperGrok / Premium+)</strong> — يفتح المتصفح على <code>accounts.x.ai</code> إذا لم تكن مسجّل الدخول بالفعل</li>
+<li><strong>xAI API key</strong> — يطلب منك إدخال <code>XAI_API_KEY</code></li>
+</ol>
+<p>أيٌّ من الخيارين يستوفي شرط التفعيل. يمكنك اختيار بيانات الاعتماد المتوفرة لديك أصلًا؛ فالأداة تعمل بالطريقة نفسها مع كليهما. وإذا انتهى بك الأمر إلى إعداد كليهما، يُفضَّل OAuth وقت الاستدعاء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُرسَل <code>reasoning_effort</code> إلى xAI Responses API في صورة
+<code>reasoning: {effort: ...}</code>. اتركه دون ضبط للنماذج التي لا تدعم
+التفكير القابل للضبط. تفشل القيم غير الصالحة قبل إرسال أي طلب إلى API.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-parameters">معاملات الأداة</h2>
+<p>يستدعي الوكيل <code>x_search</code> بهذه الوسائط:</p>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>query</code></td><td>string (مطلوب)</td><td>ما تريد البحث عنه على X.</td></tr><tr><td><code>allowed_x_handles</code></td><td>string array</td><td>قائمة اختيارية بالمعرّفات (handles) المراد تضمينها <strong>حصريًا</strong> (10 كحد أقصى). تُزال علامة <code>@</code> البادئة.</td></tr><tr><td><code>excluded_x_handles</code></td><td>string array</td><td>قائمة اختيارية بالمعرّفات المراد استبعادها (10 كحد أقصى). لا يمكن استخدامها مع <code>allowed_x_handles</code> في الوقت نفسه.</td></tr><tr><td><code>from_date</code></td><td>string</td><td>تاريخ بداية اختياري بصيغة <code>YYYY-MM-DD</code>.</td></tr><tr><td><code>to_date</code></td><td>string</td><td>تاريخ نهاية اختياري بصيغة <code>YYYY-MM-DD</code>.</td></tr><tr><td><code>enable_image_understanding</code></td><td>boolean</td><td>يطلب من xAI تحليل الصور المرفقة بالمنشورات المطابقة.</td></tr><tr><td><code>enable_video_understanding</code></td><td>boolean</td><td>يطلب من xAI تحليل مقاطع الفيديو المرفقة بالمنشورات المطابقة.</td></tr></tbody></table>
+<p>تُعيد الأداة JSON يحتوي على:</p>
+<ul>
+<li><code>answer</code> — استجابة نصية مُركَّبة من Grok</li>
+<li><code>citations</code> — الاستشهادات التي يُعيدها الحقل ذو المستوى الأعلى في Responses API</li>
+<li><code>inline_citations</code> — تعليقات <code>url_citation</code> التوضيحية المستخرجة من نص الرسالة (يحتوي كلٌّ منها على <code>url</code> و <code>title</code> و <code>start_index</code> و <code>end_index</code>)</li>
+<li><code>degraded</code> — تكون <code>true</code> عندما يكون أي مرشّح تضييق (<code>allowed_x_handles</code> أو <code>excluded_x_handles</code> أو <code>from_date</code> أو <code>to_date</code>) مضبوطًا وتعود قناتا الاستشهادات كلتاهما فارغتين. في هذه الحالة تكون <code>answer</code> قد رُكِّبت من معرفة النموذج الذاتية لا من فهرس X، لذا تعامل معها على أنها بلا مصدر. وتكون <code>false</code> في غير ذلك (بما في ذلك حالة &quot;عدم ضبط أي مرشّحات&quot; — فالإجابة الواسعة بلا مصدر مجرد إجابة، وليست إخفاقًا في المرشّح)</li>
+<li><code>degraded_reason</code> — نص قصير يذكر المرشّحات التي كانت نشطة، أو <code>null</code> عندما تكون قيمة <code>degraded</code> هي <code>false</code></li>
+<li><code>credential_source</code> — <code>&quot;xai-oauth&quot;</code> إذا حُلّت بيانات الاعتماد عبر OAuth، و <code>&quot;xai&quot;</code> إذا حُلّت عبر مفتاح API</li>
+<li><code>model</code>، <code>query</code>، <code>provider</code>، <code>tool</code>، <code>success</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="date-validation">التحقق من التواريخ</h3>
+<p>يُتحقَّق من <code>from_date</code> / <code>to_date</code> على جانب العميل قبل استدعاء HTTP:</p>
+<ul>
+<li>يجب أن يكون كلاهما، إن وُفِّرا، قابلًا للتحليل بصيغة <code>YYYY-MM-DD</code>.</li>
+<li>عند ضبط كليهما، يجب أن يكون <code>from_date</code> في تاريخ <code>to_date</code> نفسه أو قبله.</li>
+<li>يجب ألا يكون <code>from_date</code> بعد تاريخ اليوم بتوقيت UTC — إذ لا يمكن وجود منشورات في نافذة زمنية لم تبدأ بعد، لذا سيُعيد الاستدعاء حتمًا صفر استشهادات.</li>
+<li>يُسمح بأن يكون <code>to_date</code> في المستقبل (فقد يطلب المستدعون لسبب مشروع نطاق &quot;من الأمس إلى الغد&quot; لالتقاط المنشورات فور وصولها).</li>
+</ul>
+<p>تظهر إخفاقات التحقق في صورة نتيجة أداة منظّمة <code>{&quot;error&quot;: &quot;...&quot;}</code>، ولا تتحول أبدًا إلى استدعاء HTTP إلى xAI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example">مثال</h2>
+<p>عند التحدث إلى الوكيل:</p>
+<blockquote>
+<p>ماذا يقول الناس على X عن ميزات الصور الجديدة في Grok؟ ركّز على الردود من @xai.</p>
+</blockquote>
+<p>سيقوم الوكيل بما يلي:</p>
+<ol>
+<li>يستدعي <code>x_search</code> مع <code>query=&quot;reactions to new Grok image features&quot;</code> و <code>allowed_x_handles=[&quot;xai&quot;]</code></li>
+<li>يتلقى إجابة مُركَّبة إضافةً إلى قائمة استشهادات ترتبط بمنشورات محددة</li>
+<li>يردّ بالإجابة والمراجع</li>
+</ol>
+<p>إذا كان طلب المستخدم التالي &quot;ردّ على أفضلها&quot; أو &quot;أعجب بذلك المنشور&quot;، فعلى الوكيل أن ينتقل إلى مهارة <code>xurl</code>، ويتأكد من المنشور المستهدف بدقة، ويستخدم إجراء X API. تبقى <code>x_search</code> أداةً للاستكشاف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-xai-credentials-available">&quot;No xAI credentials available&quot;</h3>
+<p>تُظهر الأداة هذه الرسالة عندما يفشل مسارا المصادقة كلاهما. إما أن تضبط <code>XAI_API_KEY</code> في <code>~/.hermes/.env</code> أو تنفّذ <code>hermes auth add xai-oauth</code> وتُكمل تسجيل الدخول عبر المتصفح. ثم أعد تشغيل جلستك ليعيد الوكيل قراءة سجل الأدوات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="x_search-is-not-enabled-for-this-model">&quot;<code>x_search</code> is not enabled for this model&quot;</h3>
+<p>لا يملك النموذج المُعدّ في <code>x_search.model</code> صلاحية الوصول إلى أداة <code>x_search</code> على جانب الخادم. انتقل إلى <code>grok-4.5</code> (الافتراضي) أو إلى نموذج Grok آخر يدعمها. راجع <a href="https://docs.x.ai/" data-ext>توثيق xAI</a> للاطلاع على القائمة الحالية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-doesnt-appear-in-the-schema">الأداة لا تظهر في الـ schema</h3>
+<p>هناك سببان محتملان:</p>
+<ol>
+<li><strong>الـ toolset غير مفعّل.</strong> نفّذ <code>hermes tools</code> وتأكد من تحديد <code>🐦 X (Twitter) Search</code>.</li>
+<li><strong>لا توجد بيانات اعتماد xAI.</strong> تُعيد check_fn القيمة False، لذا يبقى الـ schema مخفيًا. نفّذ <code>hermes auth status</code> للتأكد من حالة تسجيل الدخول عبر xai-oauth، وتحقّق من ضبط <code>XAI_API_KEY</code> (إذا كنت تستخدم مسار مفتاح API).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="degraded-true--answer-with-no-citations"><code>degraded: true</code> — إجابة بلا استشهادات</h3>
+<p>عندما تستخدم <code>allowed_x_handles</code> أو <code>excluded_x_handles</code> أو نطاقًا زمنيًا وتعود الاستجابة مع <code>degraded: true</code>، فهذا يعني أن فهرس X لدى xAI لم يُعِد أي منشورات مطابقة، لكن Grok أنتج مع ذلك إجابة مُركَّبة من بيانات تدريبه الخاصة. الإجابة بلا مصدر — لا تتعامل معها كنتيجة حقيقية من X.</p>
+<p>أسباب تستحق التحقق منها:</p>
+<ul>
+<li><strong>خطأ إملائي في المعرّف.</strong> أزل علامة <code>@</code>، وراجع الإملاء مجددًا، وتأكد من وجود الحساب.</li>
+<li><strong>نطاق زمني ضيق جدًا</strong> أو يتخطى منشورات اليوم؛ وسّعه وأعد المحاولة.</li>
+<li><strong>فجوة في فهرس xAI.</strong> تفشل بعض الحسابات النشطة أحيانًا في الظهور في <code>x_search</code> حتى عندما تنشر بانتظام. أعد المحاولة بعد بضع دقائق، أو استخدم مهارة <code>xurl</code> للقراءة المباشرة عبر X API عندما تحتاج إلى الخط الزمني لمعرّف محدد بعينه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><a href="/docs/guides/xai-grok-oauth">xAI Grok OAuth (SuperGrok / Premium+)</a> — دليل إعداد OAuth</li>
+<li><a href="/docs/user-guide/skills/bundled/social-media/social-media-xurl">مهارة xurl</a> — أداة CLI الرسمية لـ X API لإجراءات الحساب المُصادَق عليها</li>
+<li><a href="/docs/user-guide/features/web-search">البحث في الويب واستخراج المحتوى</a> — للبحث العام في الويب (خارج X)</li>
+<li><a href="/docs/reference/tools-reference">مرجع الأدوات</a> — الكتالوج الكامل للأدوات</li>
+</ul>

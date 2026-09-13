@@ -1,0 +1,145 @@
+
+<header><h1>Hermes Agent Skill Authoring</h1></header>
+<p>تأليف ملفات SKILL.md داخل المستودع: الترويسة والبنية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/software-development/hermes-agent-skill-authoring</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>skills</code>, <code>authoring</code>, <code>hermes-agent</code>, <code>conventions</code>, <code>skill-md</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review"><code>requesting-code-review</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="3"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>تأليف مهارات Hermes-Agent (داخل المستودع)</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>يوجد مكانان يمكن أن يعيش فيهما ملف SKILL.md:</p>
+<ol>
+<li><strong>محلي للمستخدم:</strong> <code>~/.hermes/skills/&lt;maybe-category&gt;/&lt;name&gt;/SKILL.md</code> — شخصي، غير مُشارَك. يُنشأ عبر <code>skill_manage(action=&#x27;create&#x27;)</code>.</li>
+<li><strong>داخل المستودع (هذه المهارة عن هذه الحالة):</strong> <code>skills/&lt;category&gt;/&lt;name&gt;/SKILL.md</code> أو <code>optional-skills/&lt;category&gt;/&lt;name&gt;/SKILL.md</code> داخل مستودع hermes-agent — مُلتزَم به (committed)، يُشحَن مع الحزمة. استخدم <code>write_file</code> + <code>git add</code>. لا يستهدف <code>skill_manage(action=&#x27;create&#x27;)</code> هذه الشجرة.</li>
+</ol>
+<p>يجب أن تلبّي المهارات داخل المستودع <strong>معايير التأليف الصارمة (hardline)</strong> الخاصة بالمستودع (راجع AGENTS.md، قسم &quot;Skill authoring standards (HARDLINE)&quot; — هذا القسم هو مصدر الحقيقة؛ هذه المهارة هي الشرح التنفيذي). يرفض المراجعون طلبات الدمج (PRs) التي تخالفها، فتحقيقها من البداية أرخص من عملية إصلاح لاحقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم منك إضافة مهارة &quot;في هذا الفرع / المستودع / الالتزام (commit)&quot;</li>
+<li>أنت تُلزِم (commit) سير عمل قابلًا لإعادة الاستخدام ينبغي أن يُشحَن مع hermes-agent</li>
+<li>أنت تحرّر مهارة موجودة تحت <code>skills/</code> أو <code>optional-skills/</code> (استخدم <code>patch</code> للتعديلات الصغيرة، و<code>write_file</code> لإعادة الكتابة؛ لا يزال <code>skill_manage</code> يعمل مع patch للمهارات داخل المستودع، لكن ليس مع <code>create</code>)</li>
+<li>لا تستخدمها لـ: المهارات الشخصية في <code>~/.hermes/skills/</code> (استخدم <code>skill_manage</code> فقط)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decide-the-tier-first-bundled-vs-optional">حدّد المستوى أولًا: مضمّنة أم اختيارية</h2>
+<ul>
+<li><strong>مضمّنة (<code>skills/&lt;category&gt;/</code>)</strong> — سلوك يومي، مفيد على نطاق واسع لأنواع مستخدمين كثيرة، أثر خفيف. المعيار الصارم: يمكنك القول &quot;سيُحمِّل مستخدم هذه المهارة في 5+ جلسات شهريًا&quot; دون مبالغة.</li>
+<li><strong>اختيارية (<code>optional-skills/&lt;category&gt;/</code>)</strong> — متخصّصة، خاصة بقطاع (blockchain، الألعاب، التمويل، تطبيق واحد)، مهارات مهمة/وظيفة متكررة، أو أي شيء ثقيل. تُثبَّت عبر <code>hermes skills install official/&lt;category&gt;/&lt;skill&gt;</code>.</li>
+</ul>
+<p><strong>عند الشك، اجعلها اختيارية.</strong> الترقية لاحقًا سهلة؛ التخفيض عبء إضافي. &quot;ستكون مفيدة لأي شخص قد يحتاجها يومًا&quot; حجة لمستوى الاختيارية، لا للمضمّن.</p>
+<p>اختر الفئة حسب طبيعة الأداة، لا حسب الشعور بها (أداة CLI لوكيل ذكاء اصطناعي تذهب إلى <code>autonomous-ai-agents/</code> حتى لو &quot;شعرت أنها إنتاجية&quot;). أكّد الفئات الموجودة بـ <code>search_files(pattern=&#x27;*&#x27;, target=&#x27;files&#x27;, path=&#x27;skills&#x27;)</code> ولا تخترع فئات عليا جديدة بشكل عرضي.</p>
+<p><strong>لا مهارات موجِّهة / فهرسية / محورية.</strong> المهارة التي يكون محتواها الأساسي جدول توجيه يشير إلى مهارات شقيقة تضيف خطوة تحويل زائدة وتكرّر عوامل <code>When to Use</code> الخاصة بالمهارات الشقيقة نفسها. إذا كانت المهارة ستصبح فارغة بدون إشارات &quot;حمّل المهارة X بدلًا من ذلك&quot;، لا تكتبها — الكتالوج وعوامل تحفيز كل مهارة شقيقة يقومان بتلك المهمة بالفعل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-frontmatter">الترويسة المطلوبة</h2>
+<p>مصدر الحقيقة للمُدقِّق: <code>tools/skill_manager_tool.py::_validate_frontmatter</code>. متطلبات المُدقِّق الصارمة:</p>
+<ul>
+<li>تبدأ بـ <code>---</code> كأول بايتات (بلا سطر فارغ في المقدّمة).</li>
+<li>تُغلَق بـ <code>\n---\n</code> قبل المتن.</li>
+<li>تُحلَّل كخريطة YAML.</li>
+<li>حقل <code>name</code> موجود.</li>
+<li>حقل <code>description</code> موجود (سقف المُدقِّق 1024 حرفًا — لكن راجع المعيار الصارم في المستودع أدناه، وهو أكثر صرامة بكثير).</li>
+<li>متن غير فارغ بعد <code>---</code> الختامية.</li>
+</ul>
+<p>الشكل القياسي في المستودع (كل الحقول متوقّعة، حتى حيث لا يفرضها المُدقِّق):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="description-rules-hardline--the-validators-1024-is-not-the-standard">قواعد <code>description</code> (صارمة (HARDLINE) — سقف المُدقِّق 1024 ليس هو المعيار)</h3>
+<ul>
+<li><strong>≤ 60 حرفًا.</strong> جملة واحدة. تنتهي بنقطة.</li>
+<li>اذكر القدرة، لا آلية التنفيذ، ولا تكرّر اسم المهارة.</li>
+<li>بلا كلمات تسويقية (&quot;powerful&quot;، &quot;comprehensive&quot;، &quot;seamless&quot;، &quot;advanced&quot;).</li>
+<li>يقطع فهرس المهارات في system prompt عند 57 حرفًا + &quot;...&quot; — يجب أن يكون المحفّز/القدرة مكتملًا ذاتيًا ضمن تلك النافذة.</li>
+<li>إذا احتوى الوصف على <code>:</code>، ضعه بين علامتي اقتباس مزدوجتين أو ستُفسّره YAML كخريطة وسينهار مُولِّد الوثائق. علامات الاقتباس لا تُحسَب ضمن الـ60.</li>
+</ul>
+<p>جيد: <code>Track named companies for material news with cited digests.</code>
+سيّئ: <code>Use when a user asks to monitor named competitors or companies for product launches, pricing changes, funding, ...</code> (240 حرفًا — رُفض في المراجعة)</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="author-rules">قواعد <code>author</code></h3>
+<ul>
+<li>اذكر <strong>الإنسان أولًا</strong>، ثم &quot;Hermes Agent&quot; كمتعاون ثانوي: <code>Ben Barclay (benbarclay), Hermes Agent</code>.</li>
+<li>لا تكتب أبدًا <code>author: Hermes Agent</code> منفردًا للمهارات المُساهَم بها — انسب الفضل إلى الإنسان، لا إلى الأداة، حتى (خصوصًا) عندما يكتب وكيل ذكاء اصطناعي النص.</li>
+<li>المهارات التي كتبها القائمون على الصيانة: <code>Teknium (teknium1), Hermes Agent</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="related_skills-rules">قواعد <code>related_skills</code></h3>
+<ul>
+<li>يجب أن يشير كل مُدخل إلى مهارة <strong>داخل المستودع</strong> موجودة فعليًا في حالة الشجرة نفسها التي عليها طلب الدمج (PR) الخاص بك. لا تُشِر إلى مهارات كانت مخطَّطًا لها فقط، أو موجودة في PR آخر، أو موجودة فقط في <code>~/.hermes/skills/</code>.</li>
+<li>تحقّق من كل مُدخل: <code>search_files(pattern=&#x27;&lt;name&gt;&#x27;, target=&#x27;files&#x27;, path=&#x27;skills&#x27;)</code> (و<code>optional-skills/</code>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-gating-audit-dont-trust">تحديد المنصات: دقّق، لا تثِق</h2>
+<p><code>platforms:</code> تُقيّد التحميل حسب نظام التشغيل المُستضيف. اضبطها بناءً على ما يستدعيه نص المهارة وسكربتاتها فعليًا:</p>
+<table><thead><tr><th>المهارة تستخدم فقط…</th><th><code>platforms:</code></th></tr></thead><tbody><tr><td>أدوات Hermes + مكتبة Python القياسية + واجهات CLI عابرة للمنصات</td><td><code>[linux, macos, windows]</code></td></tr><tr><td>أنابيب bash، سلاسل <code>grep</code>/<code>awk</code>/<code>sed</code>، heredocs</td><td><code>[linux, macos]</code></td></tr><tr><td><code>osascript</code>, <code>defaults</code>, <code>pmset</code></td><td><code>[macos]</code></td></tr><tr><td><code>apt</code>/<code>systemctl</code>/<code>/proc</code></td><td><code>[linux]</code></td></tr></tbody></table>
+<p>إشارات خاصة بـ POSIX يجب البحث عنها في <code>scripts/</code>: <code>fcntl</code>, <code>termios</code>, <code>pty</code>, <code>os.fork</code>, <code>os.killpg</code>, <code>signal.SIGKILL</code>, فحوصات <code>os.kill(pid, 0)</code> للتحقّق من الحياة، مسارات مُثبَّتة مباشرة مثل <code>/tmp</code> <code>/proc</code> <code>/etc</code>. الوضع الافتراضي: أصلح أولًا للعمل عبر المنصات (<code>tempfile.gettempdir()</code>, <code>pathlib.Path</code>, <code>psutil.pid_exists</code>)؛ حدّد النطاق تضييقًا فقط عندما تكون التبعية مرتبطة حقًا بمنصة معيّنة، واذكر السبب في <code>## Pitfalls</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-limits">حدود الحجم</h2>
+<ul>
+<li>ملف SKILL.md كاملًا: ≤ 100,000 حرف مفروضة (<code>MAX_SKILL_CONTENT_CHARS</code>)، لكن الهدف <strong>~100 سطر لمهارة بسيطة، ~200 لمهارة معقّدة</strong>. المهارات النظيرة تقع بين 8-14 ألف حرف.</li>
+<li>المواد الضخمة أو الخاصة بفرع معيّن تذهب إلى <code>references/*.md</code>، أو <code>templates/</code>، أو <code>scripts/</code> — تُشار إليها من SKILL.md، لا مُضمَّنة فيه.</li>
+<li>لا تتوقّع من النموذج كتابة محلّلات (parsers) أو منطق غير تافه بشكل مضمّن في كل استدعاء — اشحن سكربتًا مساعدًا في <code>scripts/</code> وأشِر إليه بمساره.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="body-structure-modern-section-order">بنية المتن (الترتيب الحديث للأقسام)</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>لا ينطبق كل قسم على كل مهارة (فمهارة إجرائية بحتة قد لا تحتوي على مرجع سريع)، لكن When to Use + متن قابل للتنفيذ + Pitfalls + Verification هي الحد الأدنى. احذف المقدّمات التسويقية، وعناصر &quot;Setup Check&quot; التي لا تفعل شيئًا، وإعادة شرح متغيّرات البيئة الموجودة سلفًا في Prerequisites.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-hermes-tools-not-raw-shell">أشِر إلى أدوات Hermes، لا إلى shell الخام</h3>
+<p>عندما تحتاج المهارة إلى قدرة، اذكر أداة Hermes الصحيحة بين علامتي backtick: <code>terminal</code>, <code>read_file</code>, <code>write_file</code>, <code>patch</code>, <code>search_files</code>, <code>web_search</code>, <code>web_extract</code>, <code>browser_navigate</code>, <code>vision_analyze</code>, <code>delegate_task</code>, <code>cronjob</code>. لا تُسمِّ أدوات shell التي يمتلك الوكيل غلافًا لها بالفعل (<code>grep</code> ← <code>search_files</code>، <code>cat</code> ← <code>read_file</code>، <code>sed</code>/<code>awk</code> ← <code>patch</code>، <code>find</code>/<code>ls</code> ← <code>search_files target=&#x27;files&#x27;</code>). ينبغي لمهارة الغلاف على CLI أن تصيغ الاستدعاءات كـ <code>terminal(command=&quot;&lt;tool&gt; ...&quot;, timeout=...)</code> — نص shell الخام (&quot;نفّذ <code>foo --version</code>&quot;) هو مخالفة توقف المراجعة. إذا اعتمدت المهارة على خادم MCP، اذكره ووثّق الإعداد في Prerequisites.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="never-use-machine-local-paths">لا تستخدم أبدًا مسارات محلية بجهاز محدّد</h3>
+<p>اكتب مسارات نسبية للمستودع (<code>skills/...</code>, <code>tools/skill_manager_tool.py</code>). مسار <code>/home/&lt;you&gt;/...</code> مُضمَّن في مهارة مُلتزَم بها يُعطِّل عمل كل مستخدم آخر وهو علامة مراجعة فورية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="writing-quality-principles">مبادئ جودة الكتابة</h2>
+<p>تُوجَد المهارة لجعل عملية الوكيل أكثر قابلية للتوقّع — يتبع الوكيل باستمرار الانضباط المفيد نفسه.</p>
+<ol>
+<li><strong>حسِّن من أجل قابلية توقّع العملية.</strong> إذا لم يغيّر سطر ما السلوك، احذفه.</li>
+<li><strong>اختر حِمل السياق الصحيح.</strong> يُدفَع ثمن الوصف في كل دور (turn)؛ التفاصيل تذهب إلى المتن أو المراجع المرتبطة.</li>
+<li><strong>اختم الخطوات بمعايير اكتمال.</strong> قابلة للتحقّق، وشاملة عند الأهمية: &quot;كل ملف مُعدَّل مُحاسَب عليه&quot; أفضل من &quot;لخّص التغييرات.&quot;</li>
+<li><strong>ضع القواعد قرب المفهوم الذي تحكمه.</strong></li>
+<li><strong>استخدم كلمات افتتاحية قوية</strong> (&quot;حلقة ضيقة (tight loop)&quot;، &quot;السبب الجذري (root cause)&quot;، &quot;اختبار انحدار (regression test)&quot;) بدلًا من شروح مطوّلة مكرَّرة.</li>
+<li><strong>شذّب التكرار والعناصر التي لا تفعل شيئًا.</strong> &quot;كن حذرًا&quot; و&quot;استخدم أفضل الممارسات&quot; لا تغيّران سلوك النموذج — استبدلهما بمعيار قابل للتحقّق أو احذفهما.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tests-and-docs-required-for-repo-skills">الاختبارات والوثائق (مطلوبة للمهارات داخل المستودع)</h2>
+<ol>
+<li><strong>الاختبارات</strong> تعيش في <code>tests/skills/test_&lt;skill&gt;_skill.py</code> — المكتبة القياسية + pytest + <code>unittest.mock</code> فقط، بلا شبكة فعلية. شغّلها عبر <code>scripts/run_tests.sh tests/skills/test_&lt;skill&gt;_skill.py -q</code>. (نجاح <code>tests/tools/test_skill_manager_tool.py</code> العام لا يبرهن شيئًا عن مهارتك.)</li>
+<li><strong>إعادة توليد الوثائق:</strong> شغّل <code>python website/scripts/generate-skill-docs.py</code>، ثم طبّق انضباط النطاق — يُعيد المولِّد كتابة كل صفحة مُولَّدة تلقائيًا. نفّذ <code>git checkout --</code> على كل ما ليس ملكك؛ يجب أن يُظهر الفرق النهائي فقط SKILL.md الخاص بك، وصفحة وثائقك الفردية، وصف كتالوج واحد، وإدراج سطر واحد في <code>website/sidebars.ts</code> (تحقّق بـ <code>search_files(pattern=&#x27;&lt;your-slug&gt;&#x27;, path=&#x27;website/sidebars.ts&#x27;)</code> — نتيجة واحدة بالضبط، أو الصفحة يتيمة).</li>
+<li><strong><code>.env.example</code></strong> (فقط إذا احتاجت المهارة متغيرات بيئة جديدة): كتلة واحدة مُحدَّدة بوضوح بتعليق؛ لا تلمس أي شيء آخر في الملف.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow">سير العمل</h2>
+<ol>
+<li><strong>استطلع النظراء</strong> في الفئة المستهدفة بـ <code>search_files(target=&#x27;files&#x27;)</code> واقرأ 2-3 ملفات SKILL.md نظيرة لمطابقة النغمة والبنية. يُفضَّل توسيع مهارة موجودة على إنشاء شقيقة ضيّقة.</li>
+<li><strong>حدّد المستوى والفئة</strong> (راجع أعلاه). عند الشك، اجعلها اختيارية — واسأل قبل الدفع بدلًا من الافتراض.</li>
+<li><strong>أنشئ المسودة</strong> بـ <code>write_file</code> إلى <code>skills/&lt;category&gt;/&lt;name&gt;/SKILL.md</code> (أو <code>optional-skills/...</code>).</li>
+<li><strong>تحقّق محليًا</strong>:
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+تحقّق أيضًا أن كل مُدخل <code>related_skills</code> موجود داخل المستودع.</li>
+<li><strong>أضف اختبارات وأعد توليد الوثائق</strong> (القسم السابق).</li>
+<li><strong>نفّذ git add + commit</strong> على الفرع النشط؛ افتح طلب دمج (PR).</li>
+<li><strong>ملاحظة:</strong> مُحمِّل المهارات للجلسة الحالية مُخزَّن مؤقتًا — لن يرى <code>skill_view</code> / <code>skills_list</code> المهارة الجديدة حتى جلسة جديدة. هذا متوقّع، لا خطأ.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-existing-in-repo-skills">تحرير المهارات الموجودة داخل المستودع</h2>
+<ul>
+<li><strong>تصحيح صغير:</strong> <code>skill_manage(action=&#x27;patch&#x27;, ...)</code> يعمل على المهارات داخل المستودع، وكذلك <code>patch</code>.</li>
+<li><strong>إعادة كتابة كبرى:</strong> استخدم <code>write_file</code> لكتابة SKILL.md كاملًا.</li>
+<li><strong>الملفات الداعمة:</strong> استخدم <code>write_file</code> إلى <code>references/</code>، أو <code>templates/</code>، أو <code>scripts/</code> تحت مجلد المهارة.</li>
+<li><strong>التزم (commit) دائمًا</strong> — المهارات داخل المستودع مصدر، لا حالة تشغيل. أعد تشغيل مولِّد الوثائق عند تغيّر الترويسة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">المزالق الشائعة</h2>
+<ol>
+<li><strong>استخدام <code>skill_manage(action=&#x27;create&#x27;)</code> لمهارة داخل المستودع.</strong> فهو يكتب إلى <code>~/.hermes/skills/</code>، لا شجرة المستودع. استخدم <code>write_file</code>.</li>
+<li><strong>الثقة بحدود المُدقِّق كالمعيار.</strong> يسمح المُدقِّق بأوصاف 1024 حرفًا، لكن المراجعة ترفض أي شيء يتجاوز 60. لا يفحص المُدقِّق <code>platforms:</code>، أو صيغة المؤلف، أو الاختبارات، أو الوثائق — المراجعة تفعل.</li>
+<li><strong><code>author: Hermes Agent</code> على مهارة مُساهَم بها.</strong> انسب الفضل إلى الإنسان أولًا.</li>
+<li><strong>مسافة بياض قبل <code>---</code>.</strong> يفشل التحقّق مع أي سطر فارغ في المقدّمة أو BOM.</li>
+<li><strong>وصف عام جدًا أو محفّز مدفون بعد الحرف 57.</strong></li>
+<li><strong><code>related_skills</code> يشير إلى مهارات غير موجودة داخل المستودع</strong> (محلية للمستخدم، مخطَّط لها، أو في PR شقيق).</li>
+<li><strong>تكرار مهارة نظيرة.</strong> استطلع الفئة أولًا؛ وسِّع بدلًا من إضافة شقيقة.</li>
+<li><strong>تخطّي مولِّد الوثائق أو دفع انحرافه غير المرتبط.</strong> كلا الاتجاهين خاطئ: بلا إعادة توليد = مهارة يتيمة بلا صفحة وثائق؛ إعادة توليد عمياء = فرق مُنتفِخ مليء بانحراف مهارات أخرى.</li>
+<li><strong>توقّع أن ترى الجلسة الحالية المهارة الجديدة.</strong> المُحمِّل يُهيَّأ عند بدء الجلسة.</li>
+<li><strong>السماح بتراكم الترسبات في المهارات.</strong> عند إضافة قاعدة، أزل الصياغة القديمة التي تحل محلها.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة التحقّق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="4"></x-keep> تحديد المستوى عمدًا (المعيار للمضمّنة: 5+ جلسات/شهر؛ وإلا <code>optional-skills/</code>)</li>
+<li class="task-list-item"><x-keep id="5"></x-keep> الملف في <code>skills/&lt;category&gt;/&lt;name&gt;/SKILL.md</code> أو <code>optional-skills/&lt;category&gt;/&lt;name&gt;/SKILL.md</code></li>
+<li class="task-list-item"><x-keep id="6"></x-keep> الترويسة تبدأ من البايت 0 بـ <code>---</code>، وتُغلَق بـ <code>\n---\n</code></li>
+<li class="task-list-item"><x-keep id="7"></x-keep> <code>name</code>, <code>description</code>, <code>version</code>, <code>author</code>, <code>license</code>, <code>platforms</code>, <code>metadata.hermes.{tags, related_skills}</code> كلها موجودة</li>
+<li class="task-list-item"><x-keep id="8"></x-keep> الوصف ≤ 60 حرفًا، جملة واحدة، ينتهي بنقطة، بلا كلمات تسويقية</li>
+<li class="task-list-item"><x-keep id="9"></x-keep> <code>author</code> ينسب الفضل إلى المساهم الإنسان أولًا</li>
+<li class="task-list-item"><x-keep id="10"></x-keep> <code>platforms:</code> مُدقَّقة مقابل النص/السكربتات الفعلية، لا منسوخة من مهارة شقيقة</li>
+<li class="task-list-item"><x-keep id="11"></x-keep> كل مُدخل في <code>related_skills</code> موجود داخل المستودع</li>
+<li class="task-list-item"><x-keep id="12"></x-keep> يتبع المتن ترتيب الأقسام الحديث؛ الأوامر مصاغة عبر أدوات Hermes</li>
+<li class="task-list-item"><x-keep id="13"></x-keep> لا مسارات محلية بجهاز محدّد في أي مكان في الملف</li>
+<li class="task-list-item"><x-keep id="14"></x-keep> كل خطوة مُرقَّمة تحمل معيار اكتمال قابلًا للتحقّق</li>
+<li class="task-list-item"><x-keep id="15"></x-keep> الاختبارات في <code>tests/skills/test_&lt;skill&gt;_skill.py</code> تنجح تحت <code>scripts/run_tests.sh</code></li>
+<li class="task-list-item"><x-keep id="16"></x-keep> إعادة توليد الوثائق بانضباط النطاق؛ الشريط الجانبي يحمل مُدخلًا واحدًا بالضبط للـ slug</li>
+<li class="task-list-item"><x-keep id="17"></x-keep> <code>git add</code> + commit على الفرع المقصود؛ طلب دمج (PR) مفتوح</li>
+</ul>

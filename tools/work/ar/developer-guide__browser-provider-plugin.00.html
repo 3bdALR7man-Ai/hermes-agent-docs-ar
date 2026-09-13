@@ -1,0 +1,47 @@
+<header><h1>بناء إضافة مزوّد متصفح (Browser Provider Plugin)</h1></header>
+<p>تسجّل إضافات مزوّدي المتصفح <strong>backend متصفح سحابي</strong> يخدم استدعاءات أدوات <code>browser_*</code> في وضع السحابة (التنقّل، النقر، لقطة الشاشة، …). المزوّدون المدمجون — Browserbase، وBrowser Use، وFirecrawl — يُشحَنون جميعًا كإضافات تحت <code>plugins/browser/&lt;name&gt;/</code>. يمكنك إضافة واحد جديد، أو استبدال واحد مضمَّن، بوضع دليل بجانبها.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>backends المتصفح أحد عدة <strong>إضافات backend</strong> يدعمها Hermes. البقية (ولكل منها صنفها المجرد الخاص) هي <a href="/docs/developer-guide/web-search-provider-plugin">إضافات مزوّدي البحث في الويب</a> (التي يحاكيها هذا الصنف المجرد عمدًا)، و<a href="/docs/developer-guide/image-gen-provider-plugin">توليد الصور</a>، و<a href="/docs/developer-guide/video-gen-provider-plugin">توليد الفيديو</a>، و<a href="/docs/developer-guide/memory-provider-plugin">مزوّدو الذاكرة</a>، و<a href="/docs/developer-guide/context-engine-plugin">محركات السياق (Context Engines)</a>، و<a href="/docs/developer-guide/secret-source-plugin">مصادر الأسرار (Secrets)</a>، و<a href="/docs/developer-guide/model-provider-plugin">مزوّدو النماذج</a>. إضافات الأدوات/الـ hooks/CLI العامة موجودة في <a href="/docs/developer-guide/plugins">بناء إضافة Hermes</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-fits-together">كيف يترابط ذلك</h2>
+<p>مزوّد المتصفح <strong>لا</strong> ينفّذ التصفح. بل ينفّذ <strong>دورة حياة الجلسة</strong>: ينشئ جلسة متصفح بعيدة، ويعيد رابط WebSocket خاصًا بـ CDP، ويفكّك الجلسة. تتصل مجموعة المتصفح الخاصة بـ Hermes نفسها (<code>agent-browser</code> + <code>tools/browser_tool.py</code>) بأي رابط CDP تُعيده وتقود الصفحة من هناك — يحصل كل مزوّد على مجموعة أدوات <code>browser_*</code> الكاملة مجانًا.</p>
+<p>يُختار المزوّد النشط عبر <code>browser.cloud_provider</code> في <code>config.yaml</code>؛ والمرسِل (dispatcher) في <code>tools/browser_tool.py</code> هو مجرد بحث في سجل خالٍ من أي شروط خاصة بكل مزوّد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery">الاكتشاف</h2>
+<p>يفحص Hermes بحثًا عن backends المتصفح في ثلاثة أماكن:</p>
+<ol>
+<li><strong>مضمّن (Bundled)</strong> — <code>&lt;repo&gt;/plugins/browser/&lt;name&gt;/</code> (يُحمَّل تلقائيًا بـ <code>kind: backend</code>)</li>
+<li><strong>المستخدم (User)</strong> — <code>~/.hermes/plugins/browser/&lt;name&gt;/</code> (اختياري عبر <code>plugins.enabled</code> أو <code>hermes plugins enable &lt;name&gt;</code>)</li>
+<li><strong>Pip</strong> — حزم تعلن نقطة دخول <code>hermes_agent.plugins</code></li>
+</ol>
+<p>تستدعي دالة <code>register(ctx)</code> الخاصة بكل إضافة <code>ctx.register_browser_provider(...)</code>، وهذا ما يضع النسخة في السجل الموجود في <code>agent/browser_registry.py</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">هيكل الدليل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>plugin.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>__init__.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-browserprovider-abc">الصنف المجرد BrowserProvider</h2>
+<p>نفّذ <code>agent.browser_provider.BrowserProvider</code>. ثلاث دوال لدورة الحياة بالإضافة إلى الهوية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-session-metadata-contract">عقد بيانات الجلسة الوصفية</h3>
+<p>يجب أن تُعيد <code>create_session()</code> على الأقل <code>session_name</code>، و<code>bb_session_id</code>، و<code>cdp_url</code>، و<code>features</code>. غرابتان تستحقان المعرفة:</p>
+<ul>
+<li><strong><code>bb_session_id</code> اسم مفتاح قديم (legacy)</strong> يُحتفَظ به حرفيًا للتوافق العكسي مع <code>tools/browser_tool.py</code> — ويحمل معرّف جلسة <em>مزوّدك</em> أنت بصرف النظر عن المزوّد التجاري. لا تُعِد تسميته.</li>
+<li><code>create_session()</code> <strong>يجوز أن تُطلق استثناءً</strong> — <code>ValueError</code> لبيانات اعتماد مفقودة، و<code>RuntimeError</code> لإخفاقات الشبكة/API. يُظهر المرسِل هذه للمستخدم. يختلف هذا عن <code>close_session</code>/<code>emergency_cleanup</code>، اللتين يجب ألا تُطلقا استثناءً أبدًا.</li>
+</ul>
+<p>مفتاح <code>external_call_id</code> الاختياري يدعم الفوترة عبر gateway مُدار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get_setup_schema--the-hermes-tools-picker-row">دالة <code>get_setup_schema()</code> — صف اختيار <code>hermes tools</code></h3>
+<p>تجاوز (override) هذه الدالة لتظهر كخيار من الدرجة الأولى في مُنتقي التصفح الآلي (Browser Automation) مع مطالبات مفتاح API وربط تثبيت:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>وفق معيار المشروع لـ backends الأدوات: إذا تعذّر اختيار backend وضبطه عبر <code>hermes tools</code>، فهو غير مكتمل — &quot;اضبط متغير البيئة هذا يدويًا&quot; ليس تكاملًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="users-configure-it">يضبطه المستخدمون</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations">التنفيذات المرجعية</h2>
+<p>المزوّدون الثلاثة المضمّنون تحت <code>plugins/browser/</code> هم الأمثلة المرجعية، بترتيب تصاعدي في التعقيد: <code>firecrawl</code> (الأبسط)، و<code>browser_use</code>، و<code>browserbase</code> (علامات ميزات تخفٍّ/بروكسي/إبقاء حي مع تدهور رشيق عندما تكون الميزات المدفوعة غير متاحة). انسخ الأقرب إليك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checklist">قائمة التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="7"></x-keep> <code>name</code> بأحرف صغيرة وثابت (فهو قيمة إعدادات يكتبها المستخدمون)</li>
+<li class="task-list-item"><x-keep id="8"></x-keep> <code>is_available()</code> لا تُجري أي استدعاءات شبكة</li>
+<li class="task-list-item"><x-keep id="9"></x-keep> تُعيد <code>create_session()</code> عقد البيانات الوصفية الكامل (اسم مفتاح <code>bb_session_id</code> سليمًا)</li>
+<li class="task-list-item"><x-keep id="10"></x-keep> <code>close_session()</code> / <code>emergency_cleanup()</code> لا تُطلقان استثناءً أبدًا</li>
+<li class="task-list-item"><x-keep id="11"></x-keep> تعرض <code>get_setup_schema()</code> متغيرات بيئتك بحيث يمكن لـ <code>hermes tools</code> ضبط الـ backend</li>
+<li class="task-list-item"><x-keep id="12"></x-keep> يعلن <code>plugin.yaml</code> عن <code>kind: backend</code> + <code>provides_browser_providers</code></li>
+</ul>

@@ -1,0 +1,150 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="chaining-jobs-with-context_from">تسلسل المهام باستخدام <code>context_from</code></h2>
+<p>تُشغَّل مهام cron في جلسات معزولة بلا ذاكرة عن التشغيلات السابقة. لكن أحيانًا تكون مخرجات مهمة بالضبط ما تحتاجه المهمة التالية. يربط المعامل <code>context_from</code> هذا الاتصال تلقائيًا — يحصل prompt المهمة B على أحدث مخرجات المهمة A مُلحَقة كسياق وقت التشغيل.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p><strong>كيف يعمل:</strong></p>
+<ul>
+<li>عندما تُطلَق المهمة 2، يقرأ Hermes أحدث مخرجات المهمة 1 من <code>~/.hermes/cron/output/{job1_id}/*.md</code></li>
+<li>تُلحَق تلك المخرجات بـ prompt المهمة 2 تلقائيًا</li>
+<li>لا تحتاج المهمة 2 إلى ترميز &quot;اقرأ هذا الملف&quot; صراحة — بل تتلقّى المحتوى كسياق</li>
+<li>يمكن أن يكون طول السلسلة أي طول: المهمة 1 ← المهمة 2 ← المهمة 3 ← ...</li>
+</ul>
+<p><strong>ما الذي يقبله <code>context_from</code>:</strong></p>
+<table><thead><tr><th>الصيغة</th><th>مثال</th></tr></thead><tbody><tr><td>معرّف مهمة واحد (نص)</td><td><code>context_from=&quot;a1b2c3d4&quot;</code></td></tr><tr><td>معرّفات مهام متعددة (قائمة)</td><td><code>context_from=[&quot;job_a&quot;, &quot;job_b&quot;]</code></td></tr></tbody></table>
+<p>تُدمَج المخرجات بالترتيب المذكور.</p>
+<p><strong>الاستمرارية: حمل مخرجات التشغيل السابق</strong></p>
+<p>اضبط <code>continuity=true</code> وستحقن المهمة مخرجاتها <em>الخاصة</em> الأحدث في كل تشغيل. تبدأ المهام المتكررة عادةً كل تشغيل بفقدان للذاكرة — يعيد كشّاف أخبار الإبلاغ عن نفس الأخبار، ويعيد مراقِب التنبيه بشأن نفس الحالة. مع تفعيل الاستمرارية، تستيقظ المهمة وهي ترى ما أبلغت عنه آخر مرة ويمكنها إزالة التكرار والمتابعة من حيث توقفت:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<p>ليس للتشغيل الأول مخرجات سابقة، لذا يُنفَّذ الـ prompt كما هو. تُتخطَّى دورات مراقبة صامتة (<code>no_change</code>)، والمخرجات الفارغة، وسجلات المراجعة <code>wakeAgent=false</code> عند اختيار السياق، لذا تحافظ فترة الهدوء على آخر مخرجات جوهرية. تبقى ملفات المراجعة على القرص. تظل مستندات الخطأ مؤهّلة لإعطاء التشغيل التالي سياق تعافٍ؛ فهذا ليس مرشّح سجلّ يقتصر على النجاح فقط. في التشغيلات اللاحقة، تُلحَق المخرجات السابقة بإطار استمرارية (&quot;تجنّب تكرار ما أُبلغ عنه بالفعل&quot;). تُدمَج بحرية مع مهام أعلى في السلسلة (<code>context_from=[&quot;&lt;other_job_id&gt;&quot;]</code> مع <code>continuity=true</code>)، وتُطفئها <code>continuity=false</code> عند التحديث مع الإبقاء على مدخلات <code>context_from</code> الأخرى. داخليًا، تُخزَّن العلامة كمُدخل محجوز <code>self</code> ضمن <code>context_from</code>.</p>
+<p>من الـ CLI: <code>hermes cron create &quot;every 6h&quot; &quot;Scan for news&quot; --continuity</code>، و<code>hermes cron edit &lt;job_id&gt; --continuity</code> / <code>--no-continuity</code> لتبديلها على مهمة موجودة. يظهر نفس المفتاح في محرر cron الخاص بلوحة التحكم وفي مربع حوار routine الخاص بـ Bot Mode في التطبيق المكتبي.</p>
+<p><strong>متى تستخدمه:</strong></p>
+<ul>
+<li>خطوط أنابيب متعددة المراحل (جمع ← تصفية ← تنسيق ← تسليم)</li>
+<li>مهام متتابعة حيث يعتمد عمل الخطوة N على مخرجات الخطوة N−1</li>
+<li>أنماط التوزيع/التجميع حيث تُجمِّع مهمة واحدة نتائج عدة مهام أخرى</li>
+<li>كشّافات/مراقِبات متكررة يجب أن تزيل التكرار عن تقريرها السابق (<code>continuity=true</code>)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-recovery">تعافي المزوّد</h2>
+<p>ترث مهام cron مزوّديك الاحتياطيين المُعدّين وتدوير مجمّع بيانات الاعتماد. إذا كان مفتاح API الأساسي محدود المعدل أو أعاد المزوّد خطأً، يمكن لوكيل cron:</p>
+<ul>
+<li><strong>الرجوع إلى مزوّد بديل</strong> إذا كان لديك <code>fallback_providers</code> (أو <code>fallback_model</code> القديم) مُعدًّا في <code>config.yaml</code></li>
+<li><strong>التدوير إلى بيانات الاعتماد التالية</strong> في <a href="/docs/user-guide/configuration#credential-pool-strategies">مجمّع بيانات الاعتماد</a> لنفس المزوّد</li>
+</ul>
+<p>هذا يعني أن مهام cron التي تعمل بتردد عالٍ أو خلال ساعات الذروة أكثر مرونة — لن يُفشل مفتاح واحد محدود المعدل التشغيل بأكمله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-failures-last_error">إخفاقات التشغيل (<code>last_error</code>)</h2>
+<p>يسجّل تشغيل الوكيل الفاشل <code>last_error</code> موجزًا، مرئيًا في قوائم المهام وفي <code>/cron list</code>
+مع تنقيح أنماط بيانات الاعتماد وبيانات اعتماد URL (بما في ذلك الأخطاء المخزّنة سابقًا).
+هذا منفصل عن <code>last_fire_error</code> (تسليم المُجدوِل) و<code>last_delivery_error</code> (التسليم).
+يمكن أن تكون تلك الحقول فارغة بشكل صحيح عندما يفشل الوكيل نفسه.</p>
+<p>لفحص خلل اتصال، افحص وثيقة التشغيل تحت <code>cron/output/&lt;job_id&gt;/</code> في مجلد Hermes النشط
+الرئيسي. يتضمن قسم <code>## Error</code> فيها التتبع المتسلسل (traceback)، مع تنقيح أنماط بيانات الاعتماد
+وبيانات اعتماد URL. يستخدم الملف صلاحيات ملف المخرجات الخاصة الحالية؛
+لا تُلتقَط المتغيرات المحلية في التتبع. تحتفظ إشعارات التسليم و<code>last_error</code> بالخطأ الموجز فقط،
+لا التتبع الكامل. راجع التشخيصات قبل مشاركتها: التنقيح ليس ضمانًا بأن
+بيانات التطبيق العشوائية غير حساسة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="missed-scheduled-fires-last_fire_error">الإطلاقات المجدولة الفائتة (<code>last_fire_error</code>)</h2>
+<p>على النشرات المُستضافة (cron مُدار)، ينتقل الإطلاق المجدول من مُجدوِل المنصة عبر لوحة التحكم إلى خادم الـ API الداخلي الخاص بالـ gateway. إذا فشل هذا التسليم النهائي — كانت عملية الـ gateway متوقفة، أو لم يبدأ مستمع خادم الـ API الخاص بها قط — لا يبدأ التشغيل أبدًا، فلا يوجد سجلّ تنفيذ ولا <code>last_status</code> لفحصه. العلامة المميزة: تعمل المهمة في كل مرة تُطلقها يدويًا، لكنها لا تُطلَق تلقائيًا أبدًا.</p>
+<p>تُختَم هذه الحالات الفائتة على سجلّ المهمة كـ <code>last_fire_error</code> (طابع زمني + السبب) وتُعرَض عبر:</p>
+<ul>
+<li>أداة <code>cronjob</code> ← <code>action: &quot;list&quot;</code> — حقل <code>last_fire_error</code></li>
+<li><code>hermes cron list</code> — سطر أحمر <code>⚠ Missed scheduled fire:</code> تحت المهمة</li>
+<li>عرض المهمة في لوحة التحكم</li>
+</ul>
+<p>يعكس الختم دائمًا صحة الإطلاق التلقائي <strong>الحالية</strong>: يُستبدَل بإخفاقات أحدث ويُمسَح تلقائيًا عند التشغيل الناجح التالي. إن رأيته، فالمهمة وجدولها بخير — الجانب الخاص بالـ gateway من مسار الإطلاق يحتاج انتباهًا (الأكثر شيوعًا، أعد تشغيل الـ gateway عبر مُشرِفه ليُحمِّل بيئة الـ profile الكاملة: <code>hermes gateway restart</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-missed-run-policy">سياسة التشغيل المحلي الفائت</h3>
+<p>إذا كان الـ gateway متوقفًا (أو يعيد التشغيل) عندما مرّ الوقت المجدول
+لمهمة متكررة، <strong>تُدرِك المهمة الفوات مرة واحدة</strong> عندما يعود المُجدوِل: تُطلَق فترة
+فائتة داخل فجوة إعادة تشغيل مرة واحدة بالضبط، ولا تُشغَّل أبدًا فترة سبق تشغيلها قبل
+إعادة التشغيل مرة أخرى، وينهار انقطاع طويل إلى تشغيل واحد بدلًا من
+تشغيل لكل فترة فائتة. لا تُدرِك المهام المُوقَّفة الفوات أبدًا. يظهر كل تدارُك في
+<code>hermes cron list</code> كـ <code>⚠ late</code> / <code>⚠ catch-up after missed fire</code>.</p>
+<p>لتفادي حِمل التدارُك ذلك بعد إيقاف مخطَّط للـ gateway، اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>أو شغّل <code>hermes config set cron.catch_up_missed false</code>. مع هذا الاستثناء، تُعاد
+مؤاخذة مهمة متكررة متأخرة عن نافذة السماح الحالية (نصف فترتها، محصورة بين 120 ثانية و2
+ساعة) إلى موعدها المستقبلي التالي دون الإطلاق الآن. يُسجَّل التخطّي.
+تعمل المهام الواقعة ضمن نافذة السماح والإطلاقات اليدوية الصريحة بشكل طبيعي؛ إذا تعذَّر
+حساب الموعد التالي، يُحافَظ على البديل الحالي القائم على تشغيل مرة واحدة.
+هذا لا يغيّر انتهاء صلاحية المهام أحادية التنفيذ، ولا سلوك الاستئناف، ولا اجتياح المزوّد المُستضاف
+أدناه. لا يوجد استثناء لكل مهمة على حدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="misfire-catch-up">تدارك الإطلاقات الفائتة</h3>
+<p>عندما يكون مُجدوِل خارجي نشطًا (cron مُدار في النشرات المُستضافة)، يُشغّل الـ gateway أيضًا اجتياح تدارُك: تُطالَب مهمة مرّ وقتها المجدول دون إطلاق مُسلَّم — وانقضت نافذة سماحها — وتُشغَّل محليًا، لذا يكلّف انقطاع في تسليم الإطلاق دقائق بدلًا من اليوم بأكمله. يُزال تكرار الاجتياح مقابل إعادات محاولة المُجدوِل المتأخرة باستخدام نفس ادّعاء المخزن المستخدم للإطلاقات العادية.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>لا تحتاج النشرات المحلية (المُنقِّط المدمج) إلى هذا — يلتقط المُنقِّط بالفعل المهام المتأخرة في دورته التالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="schedule-formats">صيغ الجدولة</h2>
+<p>يُسلَّم ردّ الوكيل النهائي تلقائيًا إلى هدف <code>deliver:</code> الخاص بالمهمة — لم يعد الوكيل يُطلق الرسائل بنفسه، فالمحتوى الموجَّه للمستخدم يذهب ببساطة في الردّ النهائي. للتسليم إلى أهداف <strong>إضافية أو مختلفة</strong>، اسرد عدة أهداف <code>deliver:</code> على مهمة cron (مفصولة بفواصل، مثل <code>deliver: &quot;telegram,discord&quot;</code>) بدلًا من أن يرسلها الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="relative-delays-one-shot">تأخيرات نسبية (مرة واحدة)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="intervals-recurring">فواصل زمنية (متكررة)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="natural-daytime-schedules-recurring">جداول يوم/وقت طبيعية (متكررة)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<p>تقبل الأوقات <code>9am</code>، <code>9:30pm</code>، <code>14:00</code>، الساعات المجردة بنظام 24 ساعة (<code>at 7</code>)، <code>noon</code>، و<code>midnight</code>. تُترجَم هذه الصيغ داخليًا إلى تعبيرات cron (تتطلّب حزمة <code>croniter</code>، المثبَّتة افتراضيًا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-expressions">تعبيرات Cron</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iso-timestamps">طوابع زمنية بصيغة ISO</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="repeat-behavior">سلوك التكرار</h2>
+<table><thead><tr><th>نوع الجدولة</th><th>التكرار الافتراضي</th><th>السلوك</th></tr></thead><tbody><tr><td>مرة واحدة (<code>in 30m</code>، طابع زمني)</td><td>1</td><td>يُشغَّل مرة واحدة</td></tr><tr><td>فاصل زمني (<code>every 2h</code>)</td><td>إلى الأبد</td><td>يُشغَّل حتى يُزال</td></tr><tr><td>تعبير Cron</td><td>إلى الأبد</td><td>يُشغَّل حتى يُزال</td></tr></tbody></table>
+<p>يمكنك تجاوز ذلك:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-jobs-programmatically">إدارة المهام برمجيًا</h2>
+<p>الـ API المُوجَّه للوكيل أداة واحدة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>
+<p>من أجل <code>update</code>، مرّر <code>skills=[]</code> لإزالة كل المهارات المُرفقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-runs-are-asynchronous">التشغيلات اليدوية غير متزامنة</h3>
+<p>يُطلق <code>cronjob(action=&quot;run&quot;)</code> المهمة فورًا <strong>في الخلفية</strong> (مثل
+<code>delegate_task</code>): يعود استدعاء الأداة فورًا بمقبض، وتعود نتيجة المهمة
+— نجاح/فشل، هدف التسليم، التشغيل المجدول التالي، ومقتطف من المخرجات —
+إلى المحادثة كرسالة جديدة عند انتهاء التشغيل.
+يمكن للوكيل (ولك) الاستمرار في العمل في الأثناء، وتُرفَض مهمة
+قيد التشغيل بالفعل برسالة &quot;already running&quot; بدلًا من الإطلاق المزدوج.</p>
+<p>يمكنك أيضًا تمرير <code>prompt</code> مع <code>action=&quot;run&quot;</code> لحقن سياق مؤقت
+خاص بذلك التشغيل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
+<p>يُلحَق السياق بـ prompt المهمة المخزَّن تحت ترويسة <code>## Run Context</code>
+لذلك الإطلاق الوحيد فقط — لا يُخزَّن أبدًا في تعريف
+المهمة، ويمرّ بنفس فحص حقن الـ prompt الذي تمرّ به الـ prompts المخزَّنة.</p>
+<p>تعود بيئات التشغيل التي لا يمكنها استقبال نتائج منفصلة (<code>hermes -z</code> لمرة واحدة، <code>hermes cron run</code> من CLI، جلسات cron الفرعية، عمّال Kanban) إلى
+التنفيذ المتزامن تلقائيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="toolsets-available-to-cron-jobs">Toolsets المتاحة لمهام cron</h2>
+<p>يُشغّل cron كل مهمة في جلسة وكيل جديدة بلا منصة محادثة مرفقة. افتراضيًا، يحصل وكيل cron على <strong>toolset الذي أعددته لمنصة <code>cron</code> في <code>hermes tools</code></strong> — ليس افتراضي CLI، ولا كل شيء تحت الشمس.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
+<p>تحكّم أدقّ لكل مهمة متاح عبر حقل <code>enabled_toolsets</code> على <code>cronjob.create</code> (أو على مهمة موجودة عبر <code>cronjob.update</code>):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
+<p>عندما يُضبَط <code>enabled_toolsets</code> على مهمة، فهو يغلب؛ وإلا فيغلب إعداد منصة cron في <code>hermes tools</code>؛ وإلا يعود Hermes إلى الافتراضيات المدمجة. هذا مهم للتحكّم في التكلفة: حمل <code>browser</code> و<code>delegation</code> في كل مهمة صغيرة من نوع &quot;اجلب الأخبار&quot; يُضخّم prompt مخطط الأدوات في كل استدعاء LLM.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skipping-the-agent-entirely-wakeagent">تخطّي الوكيل كليًا: <code>wakeAgent</code></h3>
+<p>إذا أرفقت مهمة cron الخاصة بك سكربت فحص مسبق (عبر <code>script=</code>)، يمكن للسكربت أن يقرر وقت التشغيل ما إذا كان على Hermes استدعاء الوكيل أصلًا. أصدر سطر مخرجات قياسية أخير بالصيغة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="50"></x-keep></div></div>
+<p>…ويتخطّى cron تشغيل الوكيل كليًا لهذه الدورة. مفيد للاستطلاعات المتكررة (كل 1–5 دقائق) التي تحتاج فقط إلى إيقاظ الـ LLM عندما تتغير الحالة فعلًا — وإلا فأنت تدفع ثمن أدوار وكيل بلا محتوى مرارًا وتكرارًا.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="51"></x-keep></div></div>
+<p>عندما تُحذَف <code>wakeAgent</code>، تكون القيمة الافتراضية <code>true</code> (استيقظ الوكيل كالمعتاد).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipes-cheap-pre-run-gates">وصفات: بوابات رخيصة قبل التشغيل</h4>
+<p>تمنحك بوابة <code>wakeAgent</code> طريقة بتكلفة صفرية لتقرير ما إذا كان على مهمة مجدولة أن تنفق أي tokens من LLM أصلًا. تغطي ثلاثة أنماط معظم حالات الاستخدام.</p>
+<p><strong>بوابة تغيّر الملف</strong> — تُشغَّل فقط عندما يكون لملف مراقَب محتوى جديد منذ آخر دورة ناجحة. يسجّل المُجدوِل <code>last_run_at</code> لكل مهمة؛ قارنه بزمن تعديل الملف (mtime).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="52"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="53"></x-keep></div></div>
+<p><strong>بوابة علامة خارجية</strong> — تُشغَّل فقط عندما تكون عملية أخرى قد أشارت إلى الجاهزية (مثل، يُسقط hook للنشر ملفًا، أو تضبط مهمة CI قيمة في مخزن حالتك).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="54"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="55"></x-keep></div></div>
+<p><strong>بوابة عدّ SQL</strong> — تُشغَّل فقط عندما توجد صفوف جديدة لمعالجتها في قاعدة بياناتك الخاصة. يمكن للسكربت أيضًا تمرير العدد إلى الوكيل عبر <code>context</code>، حتى يعرف الوكيل كمّية ما ينظر إليه دون إعادة الاستعلام.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="56"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="57"></x-keep></div></div>
+<p>يعمل النمط نفسه لأي مصدر بيانات يمكنك الاستعلام عنه من سكربت — Postgres، أو واجهة HTTP API، أو مخزن حالتك الخاص — دون تضمين مُقيِّم SQL داخل نظام cron الفرعي.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="65"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p><code>~/.hermes/state.db</code> الخاص بـ Hermes نفسه مخطط داخلي يتغيّر بين الإصدارات. لا تستعلم عنه من بوابة قبل التشغيل — وجّه بدلًا من ذلك إلى قاعدة بياناتك أو تغذيتك الخاصة.</p></div></div>
+<p>الفضل: طرحت هذه المجموعة من الوصفات استكشاف @iankar8 في <a href="https://github.com/NousResearch/hermes-agent/pull/2654" data-ext>#2654</a>، الذي اقترح إضافة triggers من نوع sql/file/command كآلية موازية. تغطّي بوابة <code>script</code> + <code>wakeAgent</code> بالفعل الحالات الثلاث بتكلفة صفرية، فوصل العمل كتوثيق بدلًا من ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chaining-jobs-context_from">تسلسل المهام: <code>context_from</code></h3>
+<p>يمكن لمهمة cron استهلاك أحدث مخرجات ناجحة لمهمة أخرى أو أكثر بسرد أسمائها (أو معرّفاتها) في <code>context_from</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="58"></x-keep></div></div>
+<p>تُحقَن أحدث المخرجات المكتملة للمهام المُشار إليها فوق الـ prompt كسياق لهذا التشغيل. يجب أن يكون كل إدخال أعلى في السلسلة معرّف مهمة أو اسمًا صالحًا (راجع <code>cronjob action=&quot;list&quot;</code>). ملاحظة: يقرأ التسلسل أحدث مخرجات <em>مكتملة</em> — لا ينتظر مهامًا أعلى في السلسلة تعمل في نفس الدورة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="job-storage">تخزين المهام</h2>
+<p>تُخزَّن المهام في <code>~/.hermes/cron/jobs.json</code>. تُحفَظ مخرجات تشغيلات المهام في <code>~/.hermes/cron/output/{job_id}/{timestamp}.md</code>.</p>
+<p>تعريفات المهام JSON عادي على القرص: تنجو من <code>hermes update</code>، وإعادة تشغيل الـ gateway، وإعادة تشغيل الجهاز. تُوسَم المهمة التي كانت قيد التشغيل أثناء إعادة تشغيل بـ <code>unknown</code> في سجلّ التنفيذ — لا تُعاد محاولتها تلقائيًا، لكن الدورة المجدولة التالية للمهمة تُطلَق بشكل طبيعي. راجع <a href="#execution-history">سجلّ التنفيذ</a> للتفاصيل.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="66"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>اطلب من الوكيل إدارة المهام عبر أداة <code>cronjob</code>، أو <code>hermes cron edit</code>، أو <code>/cron</code> — لا بتعديل <code>jobs.json</code> مباشرة. يمكن أن تفشل التعديلات المباشرة بصمت عندما تحجب <a href="/docs/user-guide/security#file-write-safety">سلامة كتابة الملفات</a> المسار (مثلًا عند ضبط <code>HERMES_WRITE_SAFE_ROOT</code>)، وتذييل <a href="/docs/user-guide/configuration#file-mutation-verifier">مُتحقق تعديل الملفات</a> هو الإشارة الموثوقة على أن شيئًا لم يُحفَظ.</p></div></div>
+<p>يمكن للمهام تخزين <code>model</code> و<code>provider</code> كـ <code>null</code>. عند حذف تلك الحقول، يحلّها Hermes وقت التنفيذ من الإعدادات العامة. تظهر فقط في سجلّ المهمة عند ضبط تجاوز خاص بالمهمة.</p>
+<p>يستخدم التخزين كتابات ملفات ذرية حتى لا تترك الكتابات المُقاطَعة ملف مهمة مكتوبًا جزئيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-contained-prompts-still-matter">الـ prompts المكتفية ذاتيًا لا تزال مهمة</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="67"></x-keep></span>مهم</div><div class="admonitionContent_BuS1"><p>تُشغَّل مهام cron في جلسة وكيل جديدة كليًا. يجب أن يحتوي الـ prompt كل ما يحتاجه الوكيل ولم توفّره المهارات المرفقة بالفعل.</p></div></div>
+<p><strong>سيّئ:</strong> <code>&quot;Check on that server issue&quot;</code></p>
+<p><strong>جيّد:</strong> <code>&quot;SSH into server 192.168.1.100 as user &#x27;deploy&#x27;, check if nginx is running with &#x27;systemctl status nginx&#x27;, and verify https://example.com returns HTTP 200.&quot;</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<p>تُفحَص prompts المهام المجدولة بحثًا عن أنماط حقن الـ prompt واستخراج بيانات الاعتماد عند الإنشاء والتحديث. تُحظَر الـ prompts التي تحتوي حِيَل Unicode غير مرئية، أو محاولات باب خلفي عبر SSH، أو حِمولات استخراج أسرار واضحة.</p>

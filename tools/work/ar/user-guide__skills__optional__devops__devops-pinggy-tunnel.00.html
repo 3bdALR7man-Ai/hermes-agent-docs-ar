@@ -1,0 +1,90 @@
+
+<header><h1>Pinggy Tunnel</h1></header>
+<p>أنفاق (tunnels) لـ localhost بلا تثبيت عبر SSH باستخدام Pinggy.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/devops/pinggy-tunnel</code></td></tr><tr><td>المسار</td><td><code>optional-skills/devops/pinggy-tunnel</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Pinggy</code>, <code>Tunnel</code>, <code>Networking</code>, <code>SSH</code>, <code>Webhook</code>, <code>Localhost</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Pinggy Tunnel Skill</h1>
+<p>اعرض خدمة محلية (خادم تطوير، مستقبِل webhook، endpoint خاص بـ MCP، عرض توضيحي) على شبكة الإنترنت العامة باستخدام نفق SSH عكسي من Pinggy. لا حاجة إلى تثبيت أي daemon — يتصل عميل SSH الافتراضي لدى المستخدم بـ <code>a.pinggy.io:443</code> وتعيد Pinggy رابط HTTP/HTTPS عامًا.</p>
+<p>الفئة المجانية: أنفاق مدتها 60 دقيقة، نطاق فرعي عشوائي، بلا تسجيل. الفئة الاحترافية (3 دولارات شهريًا) اختيارية وتتطلب token.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم &quot;عرض هذا محليًا للخارج&quot;، &quot;مشاركة خادم التطوير الخاص بي&quot;، &quot;اجعل هذا الرابط عامًا&quot;، &quot;أنشئ نفقًا للمنفذ N&quot;، &quot;احصل على رابط عام لـ webhook&quot;</li>
+<li>الحاجة إلى استقبال استدعاء webhook أثناء مهمة محلية (Stripe، GitHub، Discord، AgentMail)</li>
+<li>مشاركة عرض HTTP لمرة واحدة (خادم MCP، endpoint خاص بـ Ollama/vLLM، لوحة تحكم) مع طرف بعيد</li>
+<li>يملك المضيف SSH لكن لا يملك ملفًا تنفيذيًا مثل <code>cloudflared</code> / <code>ngrok</code>، وتثبيت واحد منهما سيكون مبالغة</li>
+</ul>
+<p>إذا كان المضيف يملك بالفعل <code>cloudflared</code> مُعدًّا، فضّل مهارة <code>cloudflared-quick-tunnel</code> — فأنفاق Cloudflare السريعة لا تنتهي صلاحيتها بعد 60 دقيقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><code>ssh</code> على PATH (<code>ssh -V</code>). موجود افتراضيًا على Linux وmacOS وWindows 10 وما بعده. لا حاجة إلى أي تثبيت آخر.</li>
+<li>خدمة محلية تستمع على <code>127.0.0.1:&lt;port&gt;</code> قبل بدء النفق. ستعيد Pinggy روابط لكنها ستُرجع 502 حتى يعمل المصدر المحلي.</li>
+</ul>
+<p>اختياري:</p>
+<ul>
+<li>متغير البيئة <code>PINGGY_TOKEN</code> لميزات الفئة الاحترافية المدفوعة (نطاق فرعي دائم، نطاق مخصّص، أنفاق متعددة، بلا حد الستين دقيقة). الفئة المجانية لا تحتاج إلى بيانات اعتماد.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--start-a-tunnel-and-get-the-url">الإجراء — إنشاء نفق والحصول على الرابط</h2>
+<p>ينبغي على النموذج استخدام أداة <code>terminal</code>. يجب أن يبقى النفق حيًّا طوال مدة المشاركة، لذا شغّله كعملية خلفية وحلّل الرابط العام من stdout.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-confirm-a-local-origin-is-up">1. تأكّد من أن المصدر المحلي يعمل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إن لم يكن هناك شيء يستمع بعد، شغّله أولًا (مثل <code>python -m http.server 8000 --bind 127.0.0.1</code>). ستعيد Pinggy رابطًا مُشيرًا إلى لا شيء دون مشكلة — وسيرى المستخدم 502 حتى يعمل المصدر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-launch-the-tunnel-as-a-background-process">2. أطلق النفق كعملية خلفية</h3>
+<p>استخدم <code>terminal(background=True)</code> والتقط المخرجات في ملف سجل (تطبع Pinggy الروابط على stdout ثم تُبقي الاتصال مفتوحًا):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يتجاوز <code>StrictHostKeyChecking=no</code> + <code>UserKnownHostsFile=/dev/null</code> رسالة تأكيد مفتاح المضيف عند التشغيل الأول. ويُبقي <code>ServerAliveInterval=30</code> جلسة SSH من الانقطاع بسبب NAT خامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-parse-the-url-out-of-the-log">3. حلّل الرابط من السجل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>المخرجات المتوقعة تبدو كالتالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>سلّم رابط <code>https://...pinggy.link</code> للمستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-verify">4. تحقّق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>إذا ظهر <code>502 Bad Gateway</code>، فإن جلسة SSH تعمل لكن المصدر المحلي لا يستمع — أصلح الخطوة 1 أولًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-teardown">5. إنهاء النفق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>إذا كان لديك session_id من <code>terminal(background=True)</code>، فضّل <code>process(action=&#x27;kill&#x27;, session_id=...)</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control-via-username-keywords">التحكم بالوصول عبر كلمات مفتاحية في اسم المستخدم</h2>
+<p>تُكدّس Pinggy أعلام التحكم داخل اسم مستخدم SSH مفصولة بـ <code>+</code>. ضع دائمًا معطى <code>user@host</code> بأكمله بين علامتي اقتباس عندما يحتوي على <code>+</code>:</p>
+<table><thead><tr><th>الكلمة المفتاحية</th><th>التأثير</th></tr></thead><tbody><tr><td><code>b:user:pass</code></td><td>بوابة مصادقة HTTP Basic</td></tr><tr><td><code>k:token</code></td><td>بوابة ترويسة Bearer token (<code>Authorization: Bearer &lt;token&gt;</code>)</td></tr><tr><td><code>w:CIDR</code></td><td>قائمة IP بيضاء (IP واحد أو CIDR، قابل للتكرار)</td></tr><tr><td><code>co</code></td><td>إضافة <code>Access-Control-Allow-Origin: *</code> (CORS)</td></tr><tr><td><code>x:https</code></td><td>فرض HTTPS — إعادة توجيه HTTP إلى HTTPS تلقائيًا</td></tr><tr><td><code>a:Name:Value</code></td><td>إضافة ترويسة طلب</td></tr><tr><td><code>u:Name:Value</code></td><td>تحديث ترويسة طلب</td></tr><tr><td><code>r:Name</code></td><td>إزالة ترويسة طلب</td></tr><tr><td><code>qr</code></td><td>طباعة رمز QR للرابط على stdout (مفيد للمشاركة عبر الهاتف)</td></tr></tbody></table>
+<p>اجمعها بحرّية: <code>&quot;b:admin:secret+co+x:https+free@a.pinggy.io&quot;</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="web-debugger-optional">مُصحّح الويب (اختياري)</h2>
+<p>يمكن لـ Pinggy أن تعكس (mirror) حركة المرور الواردة إلى <code>localhost:4300</code> للفحص. أضِف توجيهًا محليًا (local forward) إلى أمر SSH:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>ثم افتح <code>http://localhost:4300</code> في متصفح لرؤية أزواج الطلب/الاستجابة الحية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق الشائعة</h2>
+<ul>
+<li><strong>حد صارم 60 دقيقة في الفئة المجانية.</strong> تنتهي جلسة SSH عند علامة الستين دقيقة؛ يتوقف الرابط عن العمل. للمشاركات الأطول، استخدم إما <code>PINGGY_TOKEN</code> (الفئة الاحترافية) أو أعِد التشغيل تلقائيًا بحلقة shell (لاحظ أن الرابط يتغيّر عند كل إعادة تشغيل في الفئة المجانية).</li>
+<li><strong>رابط الفئة المجانية عشوائي ويتغيّر عند إعادة التشغيل.</strong> لا تحفظه كإشارة مرجعية، ولا تلصقه في ملف إعدادات. أعِد تحليله من السجل في كل مرة.</li>
+<li><strong>الأنفاق المجانية المتزامنة محدودة بنفق واحد لكل عنوان IP مصدر.</strong> بدء نفق ثانٍ من الجهاز نفسه يُنهي عادةً الأول. تُلغي الفئة الاحترافية هذا القيد.</li>
+<li><strong>يجب وضع <code>+</code> في أسماء المستخدمين بين علامتي اقتباس.</strong> يعمل <code>ssh ... b:admin:secret+free@a.pinggy.io</code> بلا اقتباس في bash لكنه ينكسر في shells التي تعامل <code>+</code> معاملة خاصة أو عند تركيبه برمجيًا. ضعه دائمًا بين علامتي اقتباس مزدوجتين.</li>
+<li><strong>لا تُنشئ نفقًا لأي شيء حسّاس دون علم تحكم بالوصول.</strong> يمكن لأي شخص يملك الرابط الوصول إلى نفق HTTP عادي. استخدم <code>b:</code> أو <code>k:</code> أو <code>w:</code> للخدمات غير العامة.</li>
+<li><strong>قد يفوّت <code>process(action=&#x27;log&#x27;)</code> مخرجات لافتة SSH.</strong> تطبع Pinggy الروابط ثم تدخل جلسة SSH وضع التفاعل. وجّه دائمًا المخرجات إلى ملف سجل واستخدم <code>grep</code> على الملف مباشرة — نفس نمط <code>cloudflared-quick-tunnel</code>.</li>
+<li><strong>رسالة تأكيد مفتاح المضيف عند التشغيل الأول.</strong> تطلب إعدادات OpenSSH الافتراضية من المستخدم قبول مفتاح مضيف Pinggy. مرّر دائمًا <code>-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null</code> للتشغيلات غير المراقَبة.</li>
+<li><strong>تعيد أنفاق TCP وTLS زوجًا من الصيغة <code>&lt;subdomain&gt;.a.pinggy.online:&lt;port&gt;</code>، لا رابط https.</strong> حلّلها بتعبير نمطي مختلف (<code>tcp://</code> ومنفذ). لا تفترض أن كل نفق Pinggy هو HTTP.</li>
+<li><strong>يتطلب وضع Pro الـ token كاسم مستخدم، لا كعلم.</strong> استخدم <code>&quot;$PINGGY_TOKEN+a.pinggy.io&quot;</code> (بلا <code>free@</code>). مع token يمكنك أيضًا إضافة <code>:persistent</code> للحصول على نطاق فرعي ثابت — راجع <code>pinggy.io/docs/</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipes">وصفات</h2>
+<p>أنماط مركّبة تجمع بين مصدر محلي ونفق Pinggy. كل وصفة قائمة بذاتها — ابدأ المصدر، ابدأ النفق، حلّل الرابط، وسلّمه للمستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-1--receive-a-webhook-callback">الوصفة 1 — استقبال استدعاء webhook</h3>
+<p>استخدم هذه الوصفة عندما تحتاج خدمة خارجية (Stripe، GitHub، Discord، AgentMail، إلخ) إلى إرسال POST إلى رابط يمكن الوصول إليه علنًا أثناء مهمة محلية.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>سلّم <code>$URL</code> إلى الخدمة التي تحتاج إلى استدعائك. الإنهاء: <code>kill $(cat /tmp/webhook-server.pid) $(cat /tmp/webhook-pinggy.pid)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-2--expose-an-mcp-server-over-httpsse">الوصفة 2 — عرض خادم MCP عبر HTTP/SSE</h3>
+<p>استخدمها عندما يحتاج عميل MCP بعيد (Claude Desktop على جهاز آخر، محرّر زميل، إلخ) إلى الوصول إلى خادم MCP يعمل على الجهاز المحلي. يعمل هذا فقط مع خوادم MCP التي تتحدث عبر نقل HTTP — لا يمكن إنشاء نفق لخوادم في وضع stdio.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يتصل العميل البعيد بـ <code>$URL</code> باستخدام <code>Authorization: Bearer $TOKEN</code>. إعدادات عميل MCP الأصلي الخاص بـ Hermes: <code>{&quot;transport&quot;: &quot;http&quot;, &quot;url&quot;: &quot;&lt;URL&gt;&quot;, &quot;headers&quot;: {&quot;Authorization&quot;: &quot;Bearer &lt;TOKEN&gt;&quot;}}</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-3--expose-a-local-llm-endpoint-ollama--vllm--llamacpp">الوصفة 3 — عرض endpoint خاص بـ LLM محلي (Ollama / vLLM / llama.cpp)</h3>
+<p>شارك نموذجًا محليًا مع مستدعٍ بعيد (وكيل آخر، هاتف، زميل). تستمع Ollama على المنفذ <code>:11434</code>، وvLLM وllama.cpp عادةً على المنفذ <code>:8000</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يفعّل <code>co</code> خاصية CORS كي يستطيع مستدعٍ من متصفح الوصول إلى الـ endpoint. احذف <code>co</code> للمستدعين من الخلفية فقط. بالنسبة إلى endpoint متوافق مع OpenAI لـ vLLM/llama.cpp، يستخدم المستدعون الرابط الأساسي <code>$URL/v1</code> مع <code>Authorization: Bearer $TOKEN</code> — لكن لاحظ أن Pinggy لا تحذف أو تستبدل شيئًا في المحتوى، لذا يرى خادم النموذج نفسه token الخاص بـ Pinggy؛ ينبغي إعداد الخادم المحلي لتجاهل المصادقة (فهو أصلًا على <code>127.0.0.1</code>) وترك عملية التحكم بالوصول لـ Pinggy.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recipe-4--share-a-dev-server-with-a-one-shot-password">الوصفة 4 — مشاركة خادم تطوير بكلمة مرور لمرة واحدة</h3>
+<p>أسرع نمط لـ &quot;دع زميلًا يجرّب تطبيقي قيد التشغيل&quot;. كلمة مرور عشوائية، تُطبع مرة واحدة، وتموت عند الضغط على Ctrl-C.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يحمي <code>b:dev:$PASS</code> الرابط بمصادقة HTTP Basic. يفرض <code>x:https</code> TLS. يضيف <code>co</code> دعم CORS لواجهات SPA الأمامية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>المتوقّع: رابط <code>pinggy.link</code> واستجابة <code>HTTP/2 200</code> عند طلب curl head.</p>

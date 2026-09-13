@@ -1,0 +1,101 @@
+<header><h1>Google Gemini</h1></header>
+<p>يدعم Hermes Agent خدمة Google Gemini كمزوّد أصلي باستخدام <strong>Google AI Studio / Gemini API</strong> — وليس الـ endpoint المتوافق مع OpenAI. هذا يتيح لـ Hermes ترجمة حلقة الرسائل والأدوات الداخلية ذات الشكل الخاص بـ OpenAI إلى واجهة <code>generateContent</code> الأصلية في Gemini، مع الحفاظ على استدعاء الأدوات، والبث (streaming)، والمدخلات متعددة الوسائط، وبيانات الاستجابة الوصفية الخاصة بـ Gemini.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li><strong>مفتاح API من Google AI Studio</strong> — أنشئ واحدًا من <a href="https://aistudio.google.com/apikey" data-ext>aistudio.google.com/apikey</a></li>
+<li><strong>مشروع Google Cloud مفعّل الفوترة</strong> — يُوصى به عند استخدام الوكيل. المستوى المجاني في Gemini صغير جدًا لجلسات الوكيل الطويلة، لأن Hermes قد يجري عدة استدعاءات للنموذج في كل دور من المستخدم.</li>
+<li><strong>تثبيت Hermes</strong> — لا حاجة إلى حزمة Python إضافية لمزوّد Gemini الأصلي.</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>مسار مفتاح API</div><div class="admonitionContent_BuS1"><p>اضبط <code>GOOGLE_API_KEY</code> أو <code>GEMINI_API_KEY</code>. يتحقق Hermes من كلا الاسمين لمزوّد <code>gemini</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا كنت تفضّل تعديل الإعدادات مباشرة، استخدم عنوان القاعدة الأصلي (base URL) لـ Gemini API:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>بعد تشغيل <code>hermes model</code>، سيحتوي ملف <code>~/.hermes/config.yaml</code> على:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>وفي <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-gemini-api">واجهة Gemini API الأصلية</h3>
+<p>الـ endpoint الموصى به هو:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يكتشف Hermes هذا الـ endpoint وينشئ محوّله (adapter) الأصلي الخاص بـ Gemini. داخليًا، يبقي Hermes حلقة الوكيل بصيغة رسائل OpenAI، ثم يترجم كل طلب إلى مخطط (schema) Gemini الأصلي:</p>
+<ul>
+<li><code>messages[]</code> ← Gemini <code>contents[]</code></li>
+<li>الـ system prompts ← Gemini <code>systemInstruction</code></li>
+<li>مخططات الأدوات ← Gemini <code>functionDeclarations</code></li>
+<li>نتائج الأدوات ← أجزاء Gemini <code>functionResponse</code></li>
+<li>استجابات البث ← أجزاء stream بصيغة OpenAI لحلقة Hermes</li>
+</ul>
+<p>تُترجم مصفوفات نوع معامل الأداة مثل <code>&quot;type&quot;: [&quot;number&quot;, &quot;null&quot;]</code>
+إلى النوع القياسي (scalar) في Gemini مع صيغة <code>nullable</code>. أما الاتحادات متعددة الأنواع فتحتفظ بكل
+بديل عبر <code>anyOf</code>، بما في ذلك الخصائص المتداخلة وعناصر المصفوفات. يحدث هذا
+تلقائيًا؛ ولا حاجة إلى أي تغيير في إعدادات خادم MCP أو المزوّد.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>توقيعات التفكير (thought signatures) في Gemini 3</div><div class="admonitionContent_BuS1"><p>عند استخدام الأدوات في Gemini 3، يحافظ Hermes على قيم <code>thoughtSignature</code> المرفقة بأجزاء استدعاء الدوال ويعيد إرسالها في دور استخدام الأداة التالي، وهذا يغطي المسار الحرج للتحقق (validation) في سير عمل الوكيل متعدد الخطوات.</p><p>قد يُرفق Gemini 3 أيضًا توقيعات تفكير بأجزاء أخرى من الاستجابة. محوّل Hermes الأصلي مُحسَّن حاليًا لحلقات استخدام أدوات الوكيل، لذا فهو لا يعيد بعد إرسال كل توقيع غير خاص باستدعاء أداة بدقة كاملة على مستوى الجزء.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prefer-the-native-endpoint">تفضيل الـ Endpoint الأصلي</h3>
+<p>تعرض Google أيضًا endpoint متوافقًا مع OpenAI:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لجلسات وكيل Hermes، يُفضَّل استخدام endpoint Gemini الأصلي أعلاه. يتضمّن Hermes محوّل Gemini أصليًا يتيح له تعيين استخدام الأدوات متعدد الأدوار، ونتائج استدعاء الأدوات، والبث، والمدخلات متعددة الوسائط، وبيانات استجابة Gemini الوصفية مباشرة إلى واجهة <code>generateContent</code> في Gemini. يبقى الـ endpoint المتوافق مع OpenAI مفيدًا عندما تحتاج تحديدًا إلى التوافق مع واجهة OpenAI.</p>
+<p>إذا سبق أن ضبطت <code>GEMINI_BASE_URL</code> على عنوان <code>/openai</code>، فأزله أو غيّره:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-models">النماذج المتاحة</h2>
+<p>تعرض قائمة اختيار <code>hermes model</code> نماذج Gemini الموجودة في سجل مزوّدي Hermes. من الخيارات الشائعة:</p>
+<table><thead><tr><th>النموذج</th><th>المعرّف (ID)</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Gemini 3.8 Flash</td><td><code>gemini-3.8-flash</code></td><td>أقدر نموذج Flash للأعمال البرمجية والوكيلية طويلة المدى</td></tr><tr><td>Gemini 3.7 Flash</td><td><code>gemini-3.7-flash</code></td><td>التوازن الافتراضي الموصى به بين السرعة والقدرة والفهم متعدد الوسائط</td></tr><tr><td>Gemini 3.1 Pro Preview</td><td><code>gemini-3.1-pro-preview</code></td><td>أقدر نموذج في التفكير المنطقي والرياضيات والبرمجة</td></tr><tr><td>Gemini 3.5 Flash Lite</td><td><code>gemini-3.5-flash-lite</code></td><td>الخيار الأسرع والأقل تكلفة للمهام الخفيفة</td></tr><tr><td>Gemini 2.5 Flash</td><td><code>gemini-2.5-flash</code></td><td>نموذج سريع من الجيل السابق يتمتع بقدرات تفكير (thinking)</td></tr><tr><td>Gemini 2.5 Pro</td><td><code>gemini-2.5-pro</code></td><td>نموذج تفكير معقّد من الجيل السابق</td></tr></tbody></table>
+<p>تتغيّر إتاحة النماذج مع الوقت. إذا اختفى نموذج ما أو لم يكن مفعّلًا لمفتاحك، شغّل <code>hermes model</code> مرة أخرى واختر نموذجًا من القائمة الحالية.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>معرّفات النماذج (Model IDs)</div><div class="admonitionContent_BuS1"><p>استخدم معرّفات نماذج Gemini الأصلية مثل <code>gemini-3.7-flash</code>، وليس معرّفات بأسلوب OpenRouter مثل <code>google/gemini-3.7-flash</code>، عند ضبط <code>provider: gemini</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="latest-aliases">أحدث الأسماء المستعارة (Aliases)</h3>
+<p>تنشر Google أسماء مستعارة متحرّكة لعائلتَي Gemini Pro و Flash. يفيدك <code>gemini-pro-latest</code> و <code>gemini-flash-latest</code> عندما تريد أن تُحدِّث Google النموذج تلقائيًا دون تغيير إعدادات Hermes لديك. لاحظ أن رسوم استخدامك قد تتأثر إذا فرضت النماذج الأحدث أسعارًا مختلفة.</p>
+<table><thead><tr><th>الاسم المستعار</th><th>يتتبّع حاليًا</th><th>ملاحظات</th></tr></thead><tbody><tr><td><code>gemini-pro-latest</code></td><td>أحدث نموذج Gemini Pro</td><td>الأفضل عندما تريد النموذج الافتراضي الحالي لـ Pro من Google</td></tr><tr><td><code>gemini-flash-latest</code></td><td>أحدث نموذج Gemini Flash</td><td>الأفضل عندما تريد النموذج الافتراضي الحالي لـ Flash من Google</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>إذا كنت بحاجة إلى قابلية استنساخ صارمة (strict reproducibility)، فضّل معرّفات نماذج صريحة مثل <code>gemini-3.1-pro-preview</code> أو <code>gemini-3.7-flash</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gemma-via-the-gemini-api">Gemma عبر واجهة Gemini API</h3>
+<p>تعرض Google أيضًا نماذج Gemma عبر واجهة Gemini API. يتعرّف Hermes عليها كنماذج من Google، لكنه يخفي إدخالات Gemma ذات الإنتاجية المنخفضة جدًا من قائمة اختيار النماذج الافتراضية، حتى لا يختار المستخدمون الجدد بالخطأ نموذجًا بمستوى تقييمي لجلسة وكيل طويلة الأمد.</p>
+<p>من معرّفات التقييم المفيدة:</p>
+<table><thead><tr><th>النموذج</th><th>المعرّف (ID)</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Gemma 4 31B IT</td><td><code>gemma-4-31b-it</code></td><td>نموذج Gemma أكبر؛ مفيد للتوافق وتقييم الجودة</td></tr><tr><td>Gemma 4 26B A4B IT</td><td><code>gemma-4-26b-a4b-it</code></td><td>نسخة بمعاملات نشطة أصغر عند توفرها</td></tr></tbody></table>
+<p>يُستحسن التعامل مع هذه النماذج كخيارات تقييم على مفاتيح Gemini API. تسعير Gemma API من Google مقتصر على المستوى المجاني فقط وحدود الاستخدام فيه منخفضة مقارنة بنماذج Gemini الإنتاجية، لذا ينبغي عادةً أن ينتقل استخدام Hermes المستمر إلى نموذج Gemini مدفوع، أو نشر مستضاف ذاتيًا، أو مزوّد آخر بحصة استخدام مناسبة.</p>
+<p>لاستخدام نموذج Gemma مخفي عن قائمة الاختيار، اضبطه مباشرة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models-mid-session">تبديل النماذج أثناء الجلسة</h2>
+<p>استخدم الأمر <code>/model</code> أثناء المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>إذا لم تكن قد أعددت Gemini بعد، فاخرج من الجلسة وشغّل <code>hermes model</code> أولًا. الأمر <code>/model</code> يبدّل بين المزوّدين والنماذج المُعدّة مسبقًا فقط؛ ولا يجمع مفاتيح API جديدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostics">التشخيص</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يتحقق فحص doctor من:</p>
+<ul>
+<li>ما إذا كان <code>GOOGLE_API_KEY</code> أو <code>GEMINI_API_KEY</code> متوفرًا</li>
+<li>ما إذا كان يمكن تحديد بيانات اعتماد المزوّد المُعدّة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-messaging-platforms">Gateway (منصات المراسلة)</h2>
+<p>يعمل Gemini مع جميع منصات gateway الخاصة بـ Hermes (Telegram وDiscord وSlack وWhatsApp وLINE وFeishu وغيرها). اضبط Gemini كمزوّدك، ثم ابدأ الـ gateway كالمعتاد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يقرأ الـ gateway ملف <code>config.yaml</code> ويستخدم إعدادات مزوّد Gemini نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gemini-native-client-requires-an-api-key">&quot;Gemini native client requires an API key&quot;</h3>
+<p>لم يعثر Hermes على مفتاح API صالح للاستخدام. أضف أحد هذين إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>ثم شغّل <code>hermes model</code> مرة أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="this-google-api-key-is-on-the-free-tier">&quot;This Google API key is on the free tier&quot;</h3>
+<p>يفحص Hermes مفاتيح Gemini API أثناء الإعداد. يمكن أن تُستنفد حصص المستوى المجاني بعد عدد قليل من أدوار الوكيل، لأن استخدام الأدوات وإعادة المحاولة والضغط (compression) والمهام المساعدة قد تتطلب استدعاءات متعددة للنموذج.</p>
+<p>فعّل الفوترة على مشروع Google Cloud المرتبط بمفتاحك، وأعد توليد المفتاح عند الحاجة، ثم شغّل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="404-model-not-found">&quot;404 model not found&quot;</h3>
+<p>النموذج المختار غير متاح لحسابك أو منطقتك أو مفتاحك. شغّل <code>hermes model</code> مرة أخرى واختر نموذج Gemini آخر من القائمة الحالية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gemma-model-is-not-shown-in-hermes-model">نموذج Gemma لا يظهر في <code>hermes model</code></h3>
+<p>قد يخفي Hermes نماذج Gemma ذات الإنتاجية المنخفضة من قائمة الاختيار افتراضيًا. إذا كنت تريد تقييم أحدها عمدًا، اضبط معرّف النموذج مباشرة في <code>~/.hermes/config.yaml</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="429-quota-exceeded-on-gemma">&quot;429 quota exceeded&quot; في Gemma</h3>
+<p>نماذج Gemma المتاحة عبر واجهة Gemini API مفيدة للتقييم، لكن حدود المستوى المجاني في Gemini API الخاصة بها منخفضة. استخدمها لاختبار التوافق، ثم انتقل إلى نموذج Gemini مدفوع أو مزوّد آخر لجلسات الوكيل المستمرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-compatible-endpoint-is-configured">تم ضبط endpoint متوافق مع OpenAI</h3>
+<p>تحقق من <code>~/.hermes/.env</code> بحثًا عن:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>غيّره إلى الـ endpoint الأصلي أو أزل التجاوز (override):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-calling-fails-with-schema-errors">فشل استدعاء الأدوات بأخطاء في المخطط (schema)</h3>
+<p>حدّث Hermes وأعد تشغيل <code>hermes model</code>. يعمل محوّل Gemini الأصلي على تنقية مخططات الأدوات لتناسب صيغة إعلان الدوال الأكثر صرامة في Gemini؛ وقد لا تفعل الإصدارات القديمة أو الـ endpoints المخصّصة ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">مواضيع ذات صلة</h2>
+<ul>
+<li><a href="/docs/integrations/providers">مزوّدو الذكاء الاصطناعي (AI Providers)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+<li><a href="/docs/user-guide/features/fallback-providers">المزوّدون الاحتياطيون (Fallback Providers)</a></li>
+<li><a href="/docs/guides/aws-bedrock">AWS Bedrock</a> — تكامل أصلي مع مزوّد سحابي باستخدام بيانات اعتماد AWS</li>
+</ul>

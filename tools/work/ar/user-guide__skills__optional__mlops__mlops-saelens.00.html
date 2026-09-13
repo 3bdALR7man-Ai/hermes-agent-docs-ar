@@ -1,0 +1,130 @@
+
+<header><h1>Saelens</h1></header>
+<p>درِّب مشفّرات تلقائية متناثرة (sparse autoencoders) لتفسير سمات النموذج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/saelens</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/saelens</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>sae-lens&gt;=6.0.0</code>, <code>transformer-lens&gt;=2.0.0</code>, <code>torch&gt;=2.0.0</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Sparse Autoencoders</code>, <code>SAE</code>, <code>Mechanistic Interpretability</code>, <code>Feature Discovery</code>, <code>Superposition</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>SAELens: مشفّرات تلقائية متناثرة للتفسير الآلي (Mechanistic Interpretability)</h1>
+<p>SAELens هي المكتبة الأساسية لتدريب وتحليل المشفّرات التلقائية المتناثرة (Sparse Autoencoders أو SAEs) - وهي تقنية لتفكيك تنشيطات الشبكة العصبية متعددة الدلالات إلى سمات متناثرة وقابلة للتفسير. تستند إلى بحث Anthropic الرائد حول أحادية الدلالة (monosemanticity).</p>
+<p><strong>GitHub</strong>: <a href="https://github.com/jbloomAus/SAELens" data-ext>jbloomAus/SAELens</a> (أكثر من 1,100 نجمة)</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-problem-polysemanticity--superposition">المشكلة: تعدد الدلالات (Polysemanticity) والتراكب (Superposition)</h2>
+<p>الخلايا العصبية الفردية في الشبكات العصبية <strong>متعددة الدلالات</strong> - أي أنها تنشط في سياقات متعددة ومختلفة دلاليًا. يحدث هذا لأن النماذج تستخدم <strong>التراكب</strong> لتمثيل عدد من السمات أكبر من عدد الخلايا العصبية المتاحة، مما يجعل التفسير صعبًا.</p>
+<p><strong>تحل المشفّرات التلقائية المتناثرة هذه المشكلة</strong> بتفكيك التنشيطات الكثيفة إلى سمات متناثرة أحادية الدلالة - عادةً لا ينشط سوى عدد قليل من السمات لأي مدخل معين، وتقابل كل سمة مفهومًا قابلًا للتفسير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-saelens">متى تستخدم SAELens</h2>
+<p><strong>استخدم SAELens عندما تحتاج إلى:</strong></p>
+<ul>
+<li>اكتشاف سمات قابلة للتفسير في تنشيطات النموذج</li>
+<li>فهم المفاهيم التي تعلّمها النموذج</li>
+<li>دراسة التراكب وهندسة السمات</li>
+<li>إجراء توجيه (steering) أو استئصال (ablation) قائم على السمات</li>
+<li>تحليل السمات ذات الصلة بالسلامة (الخداع، التحيّز، المحتوى الضار)</li>
+</ul>
+<p><strong>ضع البدائل في الاعتبار عندما:</strong></p>
+<ul>
+<li>تحتاج إلى تحليل تنشيط أساسي ← استخدم <strong>TransformerLens</strong> مباشرة</li>
+<li>تريد إجراء تجارب تدخل سببي ← استخدم <strong>pyvene</strong> أو <strong>TransformerLens</strong></li>
+<li>تحتاج إلى توجيه إنتاجي ← ضع في الاعتبار هندسة التنشيط المباشرة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>المتطلبات: Python 3.10+، transformer-lens&gt;=2.0.0</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-concepts">المفاهيم الأساسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-saes-learn">ما الذي تتعلّمه المشفّرات التلقائية المتناثرة</h3>
+<p>تُدرَّب المشفّرات التلقائية المتناثرة لإعادة بناء تنشيطات النموذج عبر عنق زجاجة متناثر:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>دالة الخسارة</strong>: <code>MSE(original, reconstructed) + L1_coefficient × L1(features)</code></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-validation-anthropic-research">تحقّق رئيسي (بحث Anthropic)</h3>
+<p>في بحث "Towards Monosemanticity"، وجد المقيّمون البشريون أن <strong>70% من سمات SAE قابلة للتفسير فعليًا</strong>. من السمات المكتشفة:</p>
+<ul>
+<li>تسلسلات DNA، اللغة القانونية، طلبات HTTP</li>
+<li>النص العبري، بيانات التغذية، صياغة الكود</li>
+<li>المشاعر، الكيانات المسمّاة، البنى النحوية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-loading-and-analyzing-pre-trained-saes">سير العمل 1: تحميل وتحليل SAEs مُدرّبة مسبقًا</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step">خطوة بخطوة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-pre-trained-saes">SAEs المُدرّبة مسبقًا المتاحة</h3>
+<table><thead><tr><th>الإصدار</th><th>النموذج</th><th>الطبقات</th></tr></thead><tbody><tr><td><code>gpt2-small-res-jb</code></td><td>GPT-2 Small</td><td>عدة تدفقات متبقية (residual streams)</td></tr><tr><td><code>gemma-2b-res</code></td><td>Gemma 2B</td><td>تدفقات متبقية</td></tr><tr><td>متنوعة على HuggingFace</td><td>ابحث عن الوسم <code>saelens</code></td><td>متنوعة</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checklist">قائمة التحقق</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="14"></x-keep> حمّل النموذج باستخدام TransformerLens</li>
+<li class="task-list-item"><x-keep id="15"></x-keep> حمّل SAE المطابق للطبقة المستهدفة</li>
+<li class="task-list-item"><x-keep id="16"></x-keep> رمّز التنشيطات إلى سمات متناثرة</li>
+<li class="task-list-item"><x-keep id="17"></x-keep> حدّد السمات الأعلى تنشيطًا لكل رمز (token)</li>
+<li class="task-list-item"><x-keep id="18"></x-keep> تحقّق من جودة إعادة البناء</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-training-a-custom-sae">سير العمل 2: تدريب SAE مخصص</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step-1">خطوة بخطوة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<blockquote>
+<p><strong>ملاحظة الانتقال إلى v6:</strong> لأنواع SAE الأخرى، استبدل الإعداد الفرعي <code>sae=</code> —
+<code>GatedTrainingSAEConfig</code>، أو <code>TopKTrainingSAEConfig</code> (اضبط <code>k</code> مباشرة)، أو
+<code>JumpReLUTrainingSAEConfig</code> (يستخدم <code>l0_coefficient</code>). أُزيلت الخيارات المسطّحة القديمة
+(<code>architecture</code>، <code>expansion_factor</code>، <code>hook_layer</code>، <code>activation_fn</code>/<code>activation_fn_kwargs</code>،
+<code>use_ghost_grads</code>، ghost grads، خيارات تهيئة b_dec/decoder) في v6.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-hyperparameters">المعاملات الفائقة الرئيسية</h3>
+<table><thead><tr><th>المعامل</th><th>القيمة النموذجية</th><th>التأثير</th></tr></thead><tbody><tr><td><code>d_sae</code></td><td>4-16× d_model</td><td>سمات أكثر، وسعة أعلى</td></tr><tr><td><code>l1_coefficient</code></td><td>5e-5 إلى 1e-4</td><td>الأعلى = تناثر أكبر ودقة أقل</td></tr><tr><td><code>lr</code></td><td>1e-4 إلى 1e-3</td><td>معدل تعلم قياسي للمُحسِّن (optimizer)</td></tr><tr><td><code>l1_warm_up_steps</code></td><td>500-2000</td><td>يمنع موت السمات المبكر</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="evaluation-metrics">مقاييس التقييم</h3>
+<table><thead><tr><th>المقياس</th><th>الهدف</th><th>المعنى</th></tr></thead><tbody><tr><td><strong>L0</strong></td><td>50-200</td><td>متوسط السمات النشطة لكل رمز</td></tr><tr><td><strong>درجة خسارة الإنتروبيا المتقاطعة (CE Loss)</strong></td><td>80-95%</td><td>نسبة استعادة الإنتروبيا المتقاطعة مقارنة بالأصل</td></tr><tr><td><strong>السمات الميتة</strong></td><td>أقل من 5%</td><td>السمات التي لا تنشط أبدًا</td></tr><tr><td><strong>التباين المُفسَّر</strong></td><td>أكثر من 90%</td><td>جودة إعادة البناء</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checklist-1">قائمة التحقق</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="19"></x-keep> اختر الطبقة المستهدفة ونقطة الـ hook</li>
+<li class="task-list-item"><x-keep id="20"></x-keep> اضبط معامل التوسّع (d_sae = 4-16× d_model)</li>
+<li class="task-list-item"><x-keep id="21"></x-keep> اضبط معامل L1 لتحقيق التناثر المطلوب</li>
+<li class="task-list-item"><x-keep id="22"></x-keep> فعّل الإحماء التدريجي لـ L1 لمنع موت السمات</li>
+<li class="task-list-item"><x-keep id="23"></x-keep> راقب المقاييس أثناء التدريب (W&amp;B)</li>
+<li class="task-list-item"><x-keep id="24"></x-keep> تحقّق من L0 واستعادة خسارة الإنتروبيا المتقاطعة</li>
+<li class="task-list-item"><x-keep id="25"></x-keep> تحقّق من نسبة السمات الميتة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-feature-analysis-and-steering">سير العمل 3: تحليل السمات والتوجيه</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="analyzing-individual-features">تحليل السمات الفردية</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="feature-steering">توجيه السمات (Feature Steering)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="feature-attribution">إسناد السمات (Feature Attribution)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues--solutions">المشكلات الشائعة والحلول</h2>
+<blockquote>
+<p>تستخدم جميع الأمثلة أدناه إعداد v6 المتداخل: الخيارات الخاصة بـ SAE توضع في الإعداد الفرعي <code>sae=</code>
+(<code>StandardTrainingSAEConfig</code> / <code>TopKTrainingSAEConfig</code> / إلخ)، بينما تبقى إعدادات التدريب
+في الإعداد الرئيسي <code>LanguageModelSAERunnerConfig</code>.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-high-dead-feature-ratio">المشكلة: ارتفاع نسبة السمات الميتة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-poor-reconstruction-low-ce-recovery">المشكلة: ضعف إعادة البناء (انخفاض استعادة CE)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-features-not-interpretable">المشكلة: السمات غير قابلة للتفسير</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-memory-errors-during-training">المشكلة: أخطاء ذاكرة أثناء التدريب</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-with-neuronpedia">التكامل مع Neuronpedia</h2>
+<p>تصفّح سمات SAE المُدرّبة مسبقًا على <a href="https://neuronpedia.org" data-ext>neuronpedia.org</a>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-classes-reference">مرجع الفئات (Classes) الرئيسية</h2>
+<table><thead><tr><th>الفئة</th><th>الغرض</th></tr></thead><tbody><tr><td><code>SAE</code></td><td>نموذج المشفّر التلقائي المتناثر</td></tr><tr><td><code>LanguageModelSAERunnerConfig</code></td><td>إعداد التدريب الرئيسي (يتضمن <code>sae=</code> و <code>logger=</code>)</td></tr><tr><td><code>StandardTrainingSAEConfig</code> / <code>TopKTrainingSAEConfig</code> / <code>GatedTrainingSAEConfig</code> / <code>JumpReLUTrainingSAEConfig</code></td><td>إعدادات فرعية خاصة بنوع SAE (v6)</td></tr><tr><td><code>LoggingConfig</code></td><td>إعداد فرعي للتسجيل/W&amp;B (v6)</td></tr><tr><td><code>LanguageModelSAETrainingRunner</code></td><td>مدير حلقة التدريب (اسم بديل: <code>SAETrainingRunner</code>)</td></tr><tr><td><code>ActivationsStore</code></td><td>تجميع التنشيطات وتقسيمها إلى دفعات</td></tr><tr><td><code>HookedSAETransformer</code></td><td>تكامل TransformerLens مع SAE</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-documentation">وثائق مرجعية</h2>
+<p>للاطلاع على وثائق API التفصيلية والدروس التطبيقية والاستخدام المتقدم، راجع مجلد <code>references/</code>:</p>
+<table><thead><tr><th>الملف</th><th>المحتوى</th></tr></thead><tbody><tr><td><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/saelens/references/README.md" data-ext>references/README.md</a></td><td>نظرة عامة ودليل البدء السريع</td></tr><tr><td><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/saelens/references/api.md" data-ext>references/api.md</a></td><td>مرجع API كامل لـ SAE وTrainingSAE والإعدادات</td></tr><tr><td><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/saelens/references/tutorials.md" data-ext>references/tutorials.md</a></td><td>دروس تطبيقية خطوة بخطوة للتدريب والتحليل والتوجيه</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="external-resources">موارد خارجية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tutorials">دروس تطبيقية</h3>
+<ul>
+<li><a href="https://github.com/jbloomAus/SAELens/blob/main/tutorials/basic_loading_and_analysing.ipynb" data-ext>التحميل والتحليل الأساسي</a></li>
+<li><a href="https://github.com/jbloomAus/SAELens/blob/main/tutorials/training_a_sparse_autoencoder.ipynb" data-ext>تدريب مشفّر تلقائي متناثر</a></li>
+<li><a href="https://www.lesswrong.com/posts/LnHowHgmrMbWtpkxx/intro-to-superposition-and-sparse-autoencoders-colab" data-ext>منهج ARENA لـ SAE</a></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="papers">الأوراق البحثية</h3>
+<ul>
+<li><a href="https://transformer-circuits.pub/2023/monosemantic-features" data-ext>Towards Monosemanticity</a> - Anthropic (2023)</li>
+<li><a href="https://transformer-circuits.pub/2024/scaling-monosemanticity/" data-ext>Scaling Monosemanticity</a> - Anthropic (2024)</li>
+<li><a href="https://arxiv.org/abs/2309.08600" data-ext>Sparse Autoencoders Find Highly Interpretable Features</a> - Cunningham وآخرون (ICLR 2024)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="official-documentation">الوثائق الرسمية</h3>
+<ul>
+<li><a href="https://jbloomaus.github.io/SAELens/" data-ext>وثائق SAELens</a></li>
+<li><a href="https://neuronpedia.org" data-ext>Neuronpedia</a> - متصفح السمات</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sae-architectures">بنى SAE</h2>
+<table><thead><tr><th>البنية</th><th>الوصف</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><strong>قياسية (Standard)</strong></td><td>ReLU + عقوبة L1</td><td>غرض عام</td></tr><tr><td><strong>مُبوَّبة (Gated)</strong></td><td>آلية بوابة (gating) متعلَّمة</td><td>تحكم أفضل بالتناثر</td></tr><tr><td><strong>TopK</strong></td><td>عدد K من السمات النشطة بالضبط</td><td>تناثر ثابت</td></tr></tbody></table>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>

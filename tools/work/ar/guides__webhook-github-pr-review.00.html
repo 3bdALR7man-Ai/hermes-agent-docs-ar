@@ -1,0 +1,110 @@
+<header><h1>التعليقات التلقائية على GitHub PR باستخدام Webhooks</h1></header>
+<p>يرشدك هذا الدليل خطوة بخطوة إلى ربط Hermes Agent بـ GitHub بحيث يجلب تلقائيًا الـ diff الخاص بأي pull request، ويحلّل تغييرات الكود، ثم ينشر تعليقًا — ويُطلَق ذلك بحدث webhook دون أي prompt يدوي.</p>
+<p>عند فتح PR أو تحديثه، يرسل GitHub طلب webhook من نوع POST إلى نسخة Hermes لديك. يشغّل Hermes الوكيل بـ prompt يوجّهه إلى جلب الـ diff عبر <code>gh</code> CLI، ثم يُنشر الرد في سلسلة نقاش الـ PR.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>هل تريد إعدادًا أبسط دون endpoint عام؟</div><div class="admonitionContent_BuS1"><p>إذا لم يكن لديك URL عام أو كنت تريد البدء بسرعة فحسب، فراجع <a href="/docs/guides/github-pr-review-agent">بناء وكيل لمراجعة GitHub PR</a> — إذ يستخدم مهام cron لاستطلاع طلبات PR وفق جدول زمني، ويعمل خلف NAT والجدران النارية.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>الوثائق المرجعية</div><div class="admonitionContent_BuS1"><p>للاطلاع على المرجع الكامل لمنصة webhook (جميع خيارات الإعدادات، وأنواع التسليم، والاشتراكات الديناميكية، ونموذج الأمان)، راجع <a href="/docs/user-guide/messaging/webhooks">Webhooks</a>.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>خطر حقن الـ Prompt (Prompt injection)</div><div class="admonitionContent_BuS1"><p>تحتوي حمولات webhook على بيانات يتحكم فيها المهاجم — فقد تتضمن عناوين PR ورسائل commit والأوصاف تعليمات خبيثة. عندما يكون endpoint الخاص بـ webhook مكشوفًا على الإنترنت، شغّل الـ gateway في بيئة معزولة (sandbox) مثل Docker أو SSH backend. راجع <a href="#security-notes">قسم الأمان</a> أدناه.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>تثبيت Hermes Agent وتشغيله (<code>hermes gateway</code>)</li>
+<li>تثبيت <a href="https://cli.github.com/" data-ext><code>gh</code> CLI</a> ومصادقته على الجهاز المضيف للـ gateway (<code>gh auth login</code>)</li>
+<li>URL عام يمكن الوصول إليه لنسخة Hermes لديك (راجع <a href="#local-testing-with-ngrok">الاختبار المحلي باستخدام ngrok</a> إذا كنت تشغّله محليًا)</li>
+<li>صلاحية مسؤول (Admin) على مستودع GitHub (مطلوبة لإدارة webhooks)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1--enable-the-webhook-platform">الخطوة 1 — تفعيل منصة webhook</h2>
+<p>أضف ما يلي إلى الملف <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>الحقول الرئيسية:</strong></p>
+<table><thead><tr><th>الحقل</th><th>الوصف</th></tr></thead><tbody><tr><td><code>secret</code> (على مستوى المسار)</td><td>سرّ HMAC لهذا المسار (route). يُستخدم <code>extra.secret</code> العام بديلًا عنه إذا حُذف.</td></tr><tr><td><code>events</code></td><td>قائمة بقيم الترويسة <code>X-GitHub-Event</code> المقبولة. القائمة الفارغة = قبول الكل.</td></tr><tr><td><code>prompt</code></td><td>قالب؛ تُستبدل <code>{field}</code> و <code>{nested.field}</code> بقيمها من حمولة GitHub.</td></tr><tr><td><code>deliver</code></td><td>تنشر القيمة <code>github_comment</code> عبر <code>gh pr comment</code>. أما <code>log</code> فتكتفي بالكتابة في سجل الـ gateway.</td></tr><tr><td><code>deliver_extra.repo</code></td><td>تُستبدل بقيمة مثل <code>org/repo</code> من الحمولة.</td></tr><tr><td><code>deliver_extra.pr_number</code></td><td>تُستبدل برقم الـ PR من الحمولة.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>الحمولة لا تحتوي على الكود</div><div class="admonitionContent_BuS1"><p>تتضمن حمولة webhook من GitHub البيانات الوصفية للـ PR (العنوان، والوصف، وأسماء الـ branches، والروابط) لكنها <strong>لا تتضمن الـ diff</strong>. يوجّه الـ prompt أعلاه الوكيل إلى تشغيل <code>gh pr diff</code> لجلب التغييرات الفعلية. الـ toolset الافتراضي <code>hermes-webhook</code> مقيّد عمدًا (البحث في الويب/الاستخراج، والرؤية، والاستيضاح — <strong>دون طرفية</strong>) لأن حمولات webhook قد تحمل محتوى غير موثوق. للسماح لهذا المسار بتشغيل <code>gh</code>، أضف منحًا لـ toolset خاصًا بالمسار: <code>toolsets: [&quot;terminal&quot;, &quot;web&quot;]</code> في إعدادات المسار — راجع <a href="/docs/user-guide/messaging/webhooks#per-route-toolsets">Toolsets لكل مسار</a>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2--start-the-gateway">الخطوة 2 — تشغيل الـ gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>من المفترض أن ترى:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تحقّق من أنه يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3--register-the-webhook-on-github">الخطوة 3 — تسجيل الـ webhook على GitHub</h2>
+<ol>
+<li>انتقل إلى مستودعك → <strong>Settings</strong> → <strong>Webhooks</strong> → <strong>Add webhook</strong></li>
+<li>املأ الحقول التالية:
+<ul>
+<li><strong>Payload URL:</strong> <code>https://your-public-url.example.com/webhooks/github-pr-review</code></li>
+<li><strong>Content type:</strong> <code>application/json</code></li>
+<li><strong>Secret:</strong> القيمة نفسها التي ضبطتها لـ <code>secret</code> في إعدادات المسار</li>
+<li><strong>Which events?</strong> → اختر Select individual events → حدّد <strong>Pull requests</strong></li>
+</ul>
+</li>
+<li>انقر <strong>Add webhook</strong></li>
+</ol>
+<p>سيرسل GitHub فورًا حدث <code>ping</code> لتأكيد الاتصال. يُتجاهل هذا الحدث بأمان — لأن <code>ping</code> ليس ضمن قائمة <code>events</code> لديك — ويُعيد <code>{&quot;status&quot;: &quot;ignored&quot;, &quot;event&quot;: &quot;ping&quot;}</code>. ولا يُسجَّل إلا على مستوى DEBUG، لذا لن يظهر في وحدة التحكم عند مستوى السجل الافتراضي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4--open-a-test-pr">الخطوة 4 — فتح PR تجريبي</h2>
+<p>أنشئ branch، وادفع تغييرًا (push)، ثم افتح PR. خلال 30–90 ثانية (بحسب حجم الـ PR والنموذج)، من المفترض أن ينشر Hermes تعليق مراجعة.</p>
+<p>لمتابعة تقدّم الوكيل في الوقت الفعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-testing-with-ngrok">الاختبار المحلي باستخدام ngrok</h2>
+<p>إذا كان Hermes يعمل على حاسوبك المحمول، فاستخدم <a href="https://ngrok.com/" data-ext>ngrok</a> لإتاحته للوصول الخارجي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>انسخ الرابط <code>https://...ngrok-free.app</code> واستخدمه بوصفه Payload URL في GitHub. في الفئة المجانية من ngrok يتغيّر الرابط في كل مرة يُعاد فيها تشغيل ngrok — لذا حدّث الـ webhook على GitHub في كل جلسة. أما حسابات ngrok المدفوعة فتحصل على نطاق ثابت.</p>
+<p>يمكنك إجراء اختبار سريع (smoke test) لمسار ثابت مباشرةً باستخدام <code>curl</code> — دون الحاجة إلى حساب GitHub أو PR حقيقي.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>استخدم <code>deliver: log</code> عند الاختبار محليًا</div><div class="admonitionContent_BuS1"><p>غيّر <code>deliver: github_comment</code> إلى <code>deliver: log</code> في إعداداتك أثناء الاختبار. وإلا فسيحاول الوكيل نشر تعليق على المستودع الوهمي <code>org/repo#99</code> الموجود في الحمولة التجريبية، وستفشل المحاولة. أعد القيمة إلى <code>deliver: github_comment</code> بعد أن تطمئن إلى مخرجات الـ prompt.</p></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ثم راقب تشغيل الوكيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا يعمل <code>hermes webhook test &lt;name&gt;</code> إلا مع <strong>الاشتراكات الديناميكية</strong> المُنشأة باستخدام <code>hermes webhook subscribe</code>. ولا يقرأ المسارات من <code>config.yaml</code>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtering-to-specific-actions">التصفية على إجراءات محددة</h2>
+<p>يرسل GitHub أحداث <code>pull_request</code> لإجراءات كثيرة: <code>opened</code>، و <code>synchronize</code>، و <code>reopened</code>، و <code>closed</code>، و <code>labeled</code>، وغيرها. تُصفّي قائمة <code>events</code> بحسب قيمة الترويسة <code>X-GitHub-Event</code>، ويمكن لـ <code>filters</code> على مستوى المسار تضييق النطاق بحسب حقول الحمولة مثل <code>action</code>.</p>
+<p>يتعامل الـ prompt في الخطوة 1 مع ذلك مسبقًا، إذ يوجّه الوكيل إلى التوقف مبكرًا عند أحداث <code>closed</code> و <code>labeled</code>.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>الوكيل يظل يعمل ويستهلك tokens</div><div class="admonitionContent_BuS1"><p>تمنع تعليمة &quot;stop here&quot; إجراء مراجعة ذات معنى، لكن الوكيل يظل يعمل حتى النهاية مع كل حدث <code>pull_request</code> أيًّا كان الإجراء. لذا يُفضَّل التصفية قبل أن يستيقظ الوكيل:</p><div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div><p>وفي المستودعات كثيفة النشاط، لا يزال بإمكانك التصفية مسبقًا عبر سير عمل GitHub Actions يستدعي رابط الـ webhook الخاص بك بشكل مشروط.</p></div></div>
+<blockquote>
+<p>لا توجد صياغة Jinja2 ولا صياغة قوالب شرطية. <code>{field}</code> و <code>{nested.field}</code> هما الاستبدالان الوحيدان المدعومان. وأي شيء آخر يُمرَّر إلى الوكيل حرفيًا كما هو.</p>
+</blockquote>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-a-skill-for-consistent-review-style">استخدام مهارة لتوحيد أسلوب المراجعة</h2>
+<p>حمّل <a href="/docs/user-guide/features/skills">مهارة Hermes</a> لمنح الوكيل شخصية مراجعة متّسقة. أضف <code>skills</code> إلى مسارك داخل <code>platforms.webhook.extra.routes</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<blockquote>
+<p><strong>ملاحظة:</strong> لا تُحمَّل إلا أول مهارة موجودة في القائمة. لا يجمع Hermes عدة مهارات معًا — وتُتجاهل الإدخالات اللاحقة.</p>
+</blockquote>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-responses-to-slack-or-discord-instead">إرسال الردود إلى Slack أو Discord بدلًا من ذلك</h2>
+<p>استبدل الحقلين <code>deliver</code> و <code>deliver_extra</code> داخل مسارك بالمنصة المستهدفة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يجب أيضًا أن تكون المنصة المستهدفة مفعّلة ومتصلة في الـ gateway. وإذا حُذف <code>chat_id</code>، يُرسل الرد إلى القناة الرئيسية (home channel) المضبوطة لتلك المنصة.</p>
+<p>قيم <code>deliver</code> الصالحة: <code>log</code> · <code>github_comment</code> · <code>telegram</code> · <code>discord</code> · <code>slack</code> · <code>signal</code> · <code>sms</code></p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gitlab-support">دعم GitLab</h2>
+<p>يعمل المحوّل (adapter) نفسه مع GitLab. يستخدم GitLab الترويسة <code>X-Gitlab-Token</code> للمصادقة (مطابقة نصية بسيطة، وليس HMAC) — ويتعامل Hermes مع الحالتين تلقائيًا.</p>
+<p>لتصفية الأحداث، يضبط GitLab الترويسة <code>X-GitLab-Event</code> على قيم مثل <code>Merge Request Hook</code>، و <code>Push Hook</code>، و <code>Pipeline Hook</code>. استخدم قيمة الترويسة كما هي تمامًا في <code>events</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تختلف حقول حمولة GitLab عن حقول GitHub — فمثلًا <code>{object_attributes.title}</code> لعنوان الـ MR و <code>{object_attributes.iid}</code> لرقم الـ MR. أسهل طريقة لاكتشاف البنية الكاملة للحمولة هي زر <strong>Test</strong> في إعدادات الـ webhook على GitLab، مع سجل <strong>Recent Deliveries</strong>. وبدلًا من ذلك، احذف <code>prompt</code> من إعدادات المسار — وعندها سيمرّر Hermes الحمولة الكاملة كـ JSON منسّق مباشرةً إلى الوكيل، وسيصف رد الوكيل (الظاهر في سجل الـ gateway مع <code>deliver: log</code>) بنيتها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-notes">ملاحظات الأمان</h2>
+<ul>
+<li><strong>لا تستخدم <code>INSECURE_NO_AUTH</code> أبدًا</strong> في بيئة الإنتاج — فهو يعطّل التحقق من التوقيع كليًا، وهو مخصص للتطوير المحلي فقط.</li>
+<li><strong>بدّل سرّ الـ webhook</strong> بشكل دوري، وحدّثه في كلٍّ من GitHub (إعدادات الـ webhook) والملف <code>config.yaml</code>.</li>
+<li><strong>حدّ المعدل (Rate limiting)</strong> هو 30 طلبًا في الدقيقة لكل مسار افتراضيًا (قابل للضبط عبر <code>extra.rate_limit</code>). وتجاوزه يُعيد <code>429</code>.</li>
+<li><strong>عمليات التسليم المكررة</strong> (إعادات محاولة الـ webhook) تُزال عبر cache للتكرار الآمن (idempotency) مدته ساعة واحدة. مفتاح الـ cache هو <code>X-GitHub-Delivery</code> إن وُجد، ثم <code>X-Request-ID</code>، ثم طابع زمني بالمللي ثانية. وعندما لا تُضبط أيٌّ من ترويستَي معرّف التسليم، <strong>لا</strong> تُزال إعادات المحاولة المكررة.</li>
+<li><strong>حقن الـ Prompt:</strong> عناوين PR وأوصافها ورسائل commit يتحكم فيها المهاجم. وقد تحاول طلبات PR الخبيثة التلاعب بإجراءات الوكيل. شغّل الـ gateway في بيئة معزولة (Docker، أو VM) عندما يكون مكشوفًا على الإنترنت العام.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>العَرَض</th><th>ما يجب التحقق منه</th></tr></thead><tbody><tr><td><code>401 Invalid signature</code></td><td>السرّ في config.yaml لا يطابق سرّ الـ webhook على GitHub</td></tr><tr><td><code>404 Unknown route</code></td><td>اسم المسار في الرابط لا يطابق المفتاح في <code>routes:</code></td></tr><tr><td><code>429 Rate limit exceeded</code></td><td>تجاوزت 30 طلبًا في الدقيقة للمسار — وهو أمر شائع عند إعادة تسليم أحداث تجريبية من واجهة GitHub؛ انتظر دقيقة أو ارفع <code>extra.rate_limit</code></td></tr><tr><td>لم يُنشر أي تعليق</td><td><code>gh</code> غير مثبّت، أو غير موجود في PATH، أو غير مُصادَق (<code>gh auth login</code>)</td></tr><tr><td>الوكيل يعمل لكن دون تعليق</td><td>راجع سجل الـ gateway — فإذا كانت مخرجات الوكيل فارغة أو مجرد &quot;SKIP&quot;، تظل محاولة التسليم تُجرى</td></tr><tr><td>المنفذ مستخدم بالفعل</td><td>غيّر <code>extra.port</code> في config.yaml</td></tr><tr><td>الوكيل يعمل لكنه يراجع وصف الـ PR فقط</td><td>الـ prompt لا يتضمن تعليمة <code>gh pr diff</code> — فالـ diff غير موجود في حمولة الـ webhook</td></tr><tr><td>لا يظهر حدث ping</td><td>الأحداث المتجاهَلة تُعيد <code>{&quot;status&quot;:&quot;ignored&quot;,&quot;event&quot;:&quot;ping&quot;}</code> على مستوى سجل DEBUG فقط — راجع سجل التسليم في GitHub (repo → Settings → Webhooks → الـ webhook الخاص بك → Recent Deliveries)</td></tr></tbody></table>
+<p><strong>تبويب Recent Deliveries في GitHub</strong> (repo → Settings → Webhooks → الـ webhook الخاص بك) يعرض ترويسات الطلب الدقيقة، والحمولة، وحالة HTTP، ونص الاستجابة لكل عملية تسليم. وهو أسرع طريقة لتشخيص حالات الفشل دون الحاجة إلى فتح سجلات الخادم.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-config-reference">المرجع الكامل للإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-next">ما التالي؟</h2>
+<ul>
+<li><strong><a href="/docs/guides/github-pr-review-agent">مراجعات PR المعتمدة على Cron</a></strong> — استطلع طلبات PR وفق جدول زمني، دون الحاجة إلى endpoint عام</li>
+<li><strong><a href="/docs/user-guide/messaging/webhooks">مرجع Webhook</a></strong> — المرجع الكامل لإعدادات منصة webhook</li>
+<li><strong><a href="/docs/developer-guide/plugins">بناء إضافة (Plugin)</a></strong> — غلّف منطق المراجعة في إضافة قابلة للمشاركة</li>
+<li><strong><a href="/docs/user-guide/profiles">Profiles</a></strong> — شغّل profile مخصصًا للمراجعة بذاكرته وإعداداته الخاصة</li>
+</ul>

@@ -1,0 +1,80 @@
+<header><h1>إعدادات Hermes Agent</h1></header>
+<p>تُخزَّن جميع الإعدادات في دليل <code>~/.hermes/</code> ليسهل الوصول إليها.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="137"></x-keep></span>أسهل طريق للحصول على <code>config.yaml</code> يعمل</div><div class="admonitionContent_BuS1"><p>نفّذ <code>hermes setup --portal</code> — عملية OAuth واحدة تمنحك مزوّد نماذج وجميع أدوات Tool Gateway الأربع دون تعديل YAML يدويًا. يحصل مشتركو Portal أيضًا على خصم 10% على المزوّدين المفوترين بالـ token. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية الدليل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-configuration">إدارة الإعدادات</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="138"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يوجّه الأمر <code>hermes config set</code> القيم تلقائيًا إلى الملف المناسب — تُحفظ مفاتيح API في <code>.env</code>، وكل ما عداها في <code>config.yaml</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-precedence">أسبقية الإعدادات</h2>
+<p>تُحسم الإعدادات وفق هذا الترتيب (الأعلى أولوية أولًا):</p>
+<ol>
+<li><strong>وسيطات CLI</strong> — مثل <code>hermes chat --model anthropic/claude-sonnet-4</code> (تجاوز لكل استدعاء)</li>
+<li><strong><code>~/.hermes/config.yaml</code></strong> — ملف الإعدادات الأساسي لجميع الإعدادات غير السرّية</li>
+<li><strong><code>~/.hermes/.env</code></strong> — احتياطي لمتغيرات البيئة؛ و<strong>مطلوب</strong> للأسرار (مفاتيح API، والـ tokens، وكلمات المرور)</li>
+<li><strong>القيم الافتراضية المدمجة</strong> — قيم افتراضية آمنة مُضمَّنة تُستخدم عند عدم ضبط أي شيء آخر</li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="139"></x-keep></span>قاعدة عامة</div><div class="admonitionContent_BuS1"><p>توضع الأسرار (مفاتيح API، وtokens البوتات، وكلمات المرور) في <code>.env</code>. أما كل ما عداها (النموذج، وterminal backend، وإعدادات الضغط، وحدود الذاكرة، والـ toolsets) فيوضع في <code>config.yaml</code>. عند ضبط الاثنين، تكون الأولوية لـ <code>config.yaml</code> بالنسبة للإعدادات غير السرّية.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="140"></x-keep></span>عمليات نشر المؤسسات</div><div class="admonitionContent_BuS1"><p>يمكن للمسؤول تثبيت قيم إعدادات وأسرار محددة لا يستطيع المستخدم العادي
+تجاوزها، عبر دليل مُدار على مستوى النظام. راجع
+<a href="/docs/user-guide/managed-scope">Managed Scope</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="runtime-limits">حدود وقت التشغيل</h2>
+<p>تُطبّق واجهات خادم Hermes طويلة الأمد (بما فيها الـ gateway و
+<code>hermes serve --isolated</code>) الحد الناعم المضبوط لـ <code>RLIMIT_NOFILE</code>
+أثناء بدء التشغيل عندما يدعم نظام التشغيل ذلك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>القيمة الافتراضية هي <code>4096</code>. يُقيّد Hermes الهدف بحد نظام التشغيل الصارم
+ولا يخفّض أبدًا عملية لديها بالفعل حد ناعم أعلى. اضبط
+القيمة على <code>0</code> أو <code>false</code> أو <code>null</code> لتعطيل الضبط. على Windows وفي
+البيئات المعزولة
+حيث لا يمكن تغيير الحد، يستمر بدء التشغيل دون تغيير
+الحد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-settings">إعدادات قاعدة البيانات</h2>
+<p>يتحكّم القسم <code>database:</code> في كيفية فتح Hermes لقاعدة بيانات الحالة SQLite
+(<code>state.db</code>)، التي تخزّن الجلسات والرسائل وتوجيه الـ gateway:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يُحذّر Hermes أيضًا (مرة واحدة لكل عملية لكل قاعدة بيانات) عندما يُقلَب وضع
+journal على القرص لقاعدة بيانات موجودة بصمت إلى WAL عند الفتح — كأن يكون
+مثلًا مشغّل قد حوّلها يدويًا إلى <code>delete</code> — ويذكر
+<code>database.journal_mode</code> بصفته الإعداد الذي يجعل هذا الاختيار ثابتًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-substitution">استبدال متغيرات البيئة</h2>
+<p>يمكنك الإشارة إلى متغيرات البيئة في <code>config.yaml</code> باستخدام صيغة <code>${VAR_NAME}</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تعمل الإشارات المتعددة في قيمة واحدة: <code>url: &quot;${HOST}:${PORT}&quot;</code>. إذا لم يكن المتغير المُشار إليه مضبوطًا، يُترك العنصر النائب كما هو حرفيًا (يبقى <code>${UNDEFINED_VAR}</code> كما هو) ويُسجَّل تحذير. لا يُوسَّع <code>$VAR</code> المجرد.</p>
+<p>ضمن <a href="/docs/user-guide/multi-profile-gateways">gateway متعدد الـ profiles ومتعدد الإرسال (multiplexed)</a>، تُحسم الإشارات في <code>config.yaml</code> الخاص بـ profile ما مقابل <strong>الجزء الخاص بذلك الـ profile</strong> في <code>.env</code> (نطاق أسراره)، وليس مقابل بيئة العملية المشتركة — يبقى <code>${MATRIX_ACCESS_TOKEN}</code> في profile B غير محلول (يُترك حرفيًا، ويُسجَّل تحذير) ما لم يُعرّف B المتغير بنفسه. ينطبق هذا أينما حُمِّلت إعدادات B داخل الـ multiplexer: أدوار الـ gateway الموجَّهة، وبدء تشغيل adapter الخاص بـ B، ومهام cron الخاصة بـ B. عمليات التشغيل ذات profile واحد تبقى بلا تغيير. راجع <a href="/docs/user-guide/multi-profile-gateways#what-is-isolated-per-profile">ما الذي يُعزَل لكل profile</a> للاطلاع على القائمة الكاملة.</p>
+<p>صيغة SecretRef على طراز Cursor مقبولة أيضًا: يُحسم <code>${env:VAR_NAME}</code> تمامًا مثل <code>${VAR_NAME}</code> (تُحذف بادئة <code>env:</code>)، لذا تعمل مقتطفات MCP أو المزوّدين المنسوخة من إعدادات Cursor / Claude دون تغيير في كلٍّ من <code>config.yaml</code> وقسم <code>mcp_servers</code>. أما مصادر SecretRef الأخرى (<code>${file:...}</code>، <code>${vault:...}</code>، <code>${bitwarden:...}</code>) فـ<strong>لا</strong> تُحسم مضمَّنة — تحقن الخلفيات الخارجية للأسرار قيمها في البيئة عند بدء التشغيل عبر قسم <code>secrets:</code>، لذا أشِر إليها بصيغة <code>${env:NAME}</code> بدلًا من ذلك؛ أما البادئات غير المعروفة فتحذّر مرة واحدة وتبقى حرفية.</p>
+<p>للاطلاع على إعداد مزوّدي الذكاء الاصطناعي (OpenRouter وAnthropic وCopilot وnقاط النهاية المخصصة وLLMs مستضافة ذاتيًا والنماذج الاحتياطية، وغيرها)، راجع <a href="/docs/integrations/providers">مزوّدو الذكاء الاصطناعي (AI Providers)</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-timeouts">مهلات المزوّدين (Provider Timeouts)</h3>
+<p>يمكنك ضبط <code>providers.&lt;id&gt;.request_timeout_seconds</code> لمهلة طلب على مستوى المزوّد بأكمله، إضافة إلى <code>providers.&lt;id&gt;.models.&lt;model&gt;.timeout_seconds</code> لتجاوز خاص بنموذج معيّن. ينطبق هذا على عميل الدور الأساسي على كل نقل (OpenAI-wire، Anthropic الأصلي، المتوافق مع Anthropic)، وسلسلة الاحتياط، وعمليات إعادة البناء بعد تدوير بيانات الاعتماد، و(بالنسبة لـ OpenAI-wire) وسيط المهلة الخاص بكل طلب — بحيث تتغلّب القيمة المضبوطة على متغير البيئة القديم <code>HERMES_API_TIMEOUT</code>.</p>
+<p>يمكنك أيضًا ضبط <code>providers.&lt;id&gt;.stale_timeout_seconds</code> لكاشف المكالمات الراكدة غير المتدفقة (non-streaming)، إضافة إلى <code>providers.&lt;id&gt;.models.&lt;model&gt;.stale_timeout_seconds</code> لتجاوز خاص بنموذج معيّن. تتغلّب هذه القيمة على متغير البيئة القديم <code>HERMES_API_CALL_STALE_TIMEOUT</code>.</p>
+<p>يؤدي ترك هذه الإعدادات دون ضبط إلى الإبقاء على القيم الافتراضية القديمة (<code>HERMES_API_TIMEOUT=1800</code> ثانية، و<code>HERMES_API_CALL_STALE_TIMEOUT=90</code> ثانية، وAnthropic الأصلي 900 ثانية). يُعطَّل كاشف الركود غير المتدفق تلقائيًا لنقاط النهاية المحلية عند تركه ضمنيًا ويمكن أن يتوسّع للسياقات الكبيرة جدًا. غير مفعَّل حاليًا لـ AWS Bedrock (يستخدم كل من مسار <code>bedrock_converse</code> ومسار AnthropicBedrock SDK مكتبة boto3 بإعدادات المهلة الخاصة بها). راجع المثال المُعلَّق في <a href="https://github.com/NousResearch/hermes-agent/blob/main/cli-config.yaml.example" data-ext><code>cli-config.yaml.example</code></a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-behavior">سلوك التحديث</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-checks">الفحوصات في الخلفية</h3>
+<p>تسأل فحوصات التحديث السلبية (شريط CLI، وشارة TUI، ولوحة التحكم، وتطبيق سطح المكتب)
+واجهة GitHub REST API عن أحدث نقطة في <code>main</code>، وعندما تختلف عن نسختك المسحوبة (checkout)،
+تسأل نقطة نهاية المقارنة عن العدد الدقيق وسجل التغييرات. لا تُشغِّل هذه الفحوصات أبدًا
+<code>git fetch</code>، وكل تثبيت يسأل مرة واحدة على الأكثر كل <strong>24 ساعة</strong> (يُعاد فحص فاشل
+بعد ساعة). يقوم تطبيق تحديث (<code>hermes update</code>، أو زر Update في تطبيق سطح المكتب)
+دائمًا بجلب البيانات مجددًا وإبطال الإجابة المخزَّنة مؤقتًا. أما الفحوصات الصريحة —
+<code>hermes update --check</code>، وعنصر القائمة &quot;Check for Updates…&quot; في تطبيق سطح المكتب،
+وSettings → About → &quot;Check now&quot; — فتتجاوز التخزين المؤقت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssh-authentication">مصادقة SSH</h3>
+<p>يقرأ فحص التحديث عند بدء التشغيل عنوان URL الأصلي (origin) بنفس إعدادات Git
+المعزولة المستخدمة في اتصالاته الشبكية. لذا لا يمكن لإعادة كتابة <code>url.*.insteadOf</code>
+العامة إخفاء remote رسمي عبر SSH عن المسار العام HTTPS.</p>
+<p>تعتمد أوامر Git الداخلية المعزولة في Hermes افتراضيًا على <code>ssh -o BatchMode=yes</code>:
+تفشل مفاتيح المضيف غير المعروفة، وكلمات المرور، والمفاتيح المشفَّرة التي تحتاج
+عبارة مرور بدلًا من فتح موجّه طرفية. أما المضيفون الموثوقون بمفاتيح صالحة أو
+وكيل SSH فيستمرون في المصادقة. لا يغيّر هذا إعدادات Git أو SSH
+لديك على القرص، ولا الأوامر التي تنفّذها في أداة الطرفية.</p>
+<p>يتغلّب الإعداد الداخلي الافتراضي على إعدادات <code>core.sshCommand</code> الخاصة بالمستودع. أما متغير
+البيئة الصريح <code>GIT_SSH_COMMAND</code> فتبقى له الأولوية، بحيث يمكن الاحتفاظ
+فيه بأوامر هوية أو نقل مخصصة. ضمِّن
+<code>-o BatchMode=yes</code> في مثل هذا التجاوز إذا وجب أن يبقى غير تفاعلي؛
+فالتجاوز الذي يسمح بالمطالبة يمكن أن يقاطع فحصًا في الخلفية.</p>
+<p>تعيش إعدادات <code>hermes update</code> تحت <code>updates</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>pre_update_backup</code> هو مفتاح الأمان الوحيد لما قبل التحديث: يلتقط <code>quick</code> (الافتراضي) لقطات لملفات الحالة الحرجة (بيانات الاقتران، ومهام cron، والإعدادات، والمصادقة؛ تُتجاوز الملفات التي تفوق 1 GiB) إلى <code>state-snapshots/</code>؛ ويضغط <code>full</code> إضافةً إلى ذلك كل محتويات <code>HERMES_HOME</code> في ملف zip داخل <code>backups/</code> وقد يضيف دقائق على المسارات الرئيسية الكبيرة؛ بينما يعطّل <code>off</code> الاثنين. تُحترَم القيم المنطقية القديمة (<code>true</code> ← <code>full</code>، <code>false</code> ← <code>off</code>).</p>
+<p>تذهب نسخ زمنية من <code>config.yaml</code> نفسه (تُلتقط قبل أن يعيد <code>hermes setup</code> كتابته، وقبل أن يعدّله <code>hermes migrate</code>، وفي كل مرة يُحلَّل فيها الملف بنجاح، وعند فشل تحليله) إلى <code>backups/config/config.yaml.&lt;reason&gt;.&lt;timestamp&gt;</code>. تُتجاوز التكرارات المتطابقة ولا تُحفظ سوى أحدث خمس نسخ لكل سبب، بحيث لا تتراكم أبدًا بجانب <code>config.yaml</code>. إذا كان <code>config.yaml</code> معطوبًا، يقدّم Hermes أحدث نسخة <code>good</code> بدلًا من القيم الافتراضية المدمجة ويحذّر عند كل بدء تشغيل حتى يُصلَح ملف YAML؛ ولا يُعدَّل الملف المعطوب أبدًا.</p>
+<p>بالنسبة لعمليات التثبيت عبر git، يخزّن Hermes تلقائيًا (auto-stash) الملفات المتتبَّعة غير المحفوظة والملفات غير المتتبَّعة قبل سحب فرع التحديث أو تنفيذ pull. تطالبك تحديثات الطرفية التفاعلية قبل استعادة ذلك الـ stash. أما التحديثات غير التفاعلية (تطبيق سطح المكتب/الدردشة، أو الـ gateway، أو <code>--yes</code>) فتستخدم <code>updates.non_interactive_local_changes</code>: يستعيد <code>stash</code> تعديلات المصدر المحلية بعد نجاح الـ pull، بينما يُسقط <code>discard</code> الـ stash الذي أنشأه التحديث بعد نجاح الـ pull. استخدم <code>discard</code> فقط في عمليات التثبيت المُدارة حيث لا يُقصَد لتعديلات المصدر المحلية أن تبقى.</p>
+<p>قبل خطوة الـ stash تلك، يستعيد Hermes أيضًا فروق <code>package-lock.json</code> المتتبَّعة التي يتركها اضطراب تثبيت/بناء npm. نفّذ commit أو خزّن يدويًا (stash) تعديلات lockfile المقصودة قبل التحديث.</p>

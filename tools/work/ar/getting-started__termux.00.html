@@ -1,0 +1,149 @@
+<header><h1>تشغيل Hermes على Android باستخدام Termux</h1></header>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>منصة من المستوى 2</div><div class="admonitionContent_BuS1"><p>Termux (Android) <a href="/docs/getting-started/platform-support#tier-2">منصة من المستوى 2 (Tier 2)</a>. يُصان سكربت المُثبّت والتوثيق الوارد هنا بأفضل جهد فقط. وقد تؤدي عمليات commit إلى <code>main</code> إلى تعطيل هذه الحزم في أي وقت.</p></div></div>
+<p>يمكن تشغيل Hermes Agent مباشرةً على هاتف Android من خلال <a href="https://termux.dev/" data-ext>Termux</a>.</p>
+<p>يوفّر لك ذلك واجهة CLI محلية تعمل على الهاتف، إضافةً إلى الإضافات (extras) الأساسية المعروف حاليًا أنها تُثبَّت دون مشكلات على Android.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-is-supported-in-the-tested-path">ما المدعوم في المسار المُختبَر؟</h2>
+<p>تثبّت حزمة Termux المُختبَرة ما يلي:</p>
+<ul>
+<li>Hermes CLI</li>
+<li>دعم cron</li>
+<li>دعم PTY والطرفية في الخلفية</li>
+<li>دعم Telegram gateway (تشغيل يدوي / في الخلفية بأفضل جهد)</li>
+<li>دعم MCP</li>
+<li>دعم ذاكرة Honcho</li>
+<li>دعم ACP</li>
+</ul>
+<p>وبشكل ملموس، يقابل ذلك ما يلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-is-not-part-of-the-tested-path-yet">ما الذي لم يُضمَّن في المسار المُختبَر بعد؟</h2>
+<p>لا تزال بعض الميزات تحتاج إلى اعتماديات من النوع المخصص لأجهزة سطح المكتب أو الخوادم، وهي غير منشورة لـ Android، أو لم يُتحقق منها على الهواتف بعد:</p>
+<ul>
+<li><code>.[all]</code> غير مدعوم على Android حاليًا</li>
+<li>الإضافة <code>voice</code> معطّلة بسبب <code>faster-whisper -&gt; ctranslate2</code>، إذ لا تنشر <code>ctranslate2</code> حزم wheels لـ Android</li>
+<li>يتخطى مُثبّت Termux التهيئة التلقائية للمتصفح / Playwright</li>
+<li>عزل الطرفية القائم على Docker غير متاح داخل Termux</li>
+<li>قد يعلّق Android مهام Termux التي تعمل في الخلفية، لذا فإن استمرارية gateway تكون بأفضل جهد وليست كخدمة مُدارة عادية</li>
+</ul>
+<p>لا يمنع ذلك Hermes من العمل جيدًا كوكيل CLI أصلي على الهاتف — بل يعني فقط أن التثبيت الموصى به على الهاتف أضيق نطاقًا عن قصد من التثبيت على سطح المكتب أو الخادم.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="community-maintained-native-pkg-option">خيار <code>pkg</code> الأصلي الذي يصونه المجتمع</h2>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>توزيعة يديرها أحد المساهمين</div><div class="admonitionContent_BuS1"><p>مستودع APT هذا <strong>يصونه المجتمع عبر <code>@adybag14-cyber</code> وليس توزيعة رسمية من NousResearch</strong>. لا تبني NousResearch هذه الحزم ولا توقّعها ولا تستضيفها ولا تدققها. ويعني تفعيل المستودع أنك تثق بالمستودع الذي يديره المساهم وبمفتاح التوقيع الخاص به. ويظل Termux نفسه منصة من المستوى 2 / بأفضل جهد.</p></div></div>
+<p>للمستخدمين الذين يفضّلون التثبيت عبر مدير حزم أصلي بدلًا من بناء اعتماديات Python/Rust على الهاتف، يتوفر مستودع APT يصونه المجتمع. مصادر تهيئة المستودع والتحزيم منشورة في <a href="https://github.com/adybag14-cyber/termux-python" data-ext><code>adybag14-cyber/termux-python</code></a>، بينما يوجد بناء حزمة Hermes في <a href="https://github.com/adybag14-cyber/termux-hermes" data-ext><code>adybag14-cyber/termux-hermes</code></a>.</p>
+<p>ثبّت مفتاح المستودع ومصدره ثم Hermes باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بصمة مفتاح توقيع المستودع الموثّقة حاليًا لدى توزيعة المجتمع هي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تُوسَم عمليات تثبيت Hermes التي يديرها APT بطريقة التثبيت <code>apt</code>. لذلك لا يشغّل Hermes أداة التحديث الذاتي المعتمدة على Git على الملفات التي تملكها الحزمة؛ استخدم مدير الحزم بدلًا من ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يجب الإبلاغ عن مشكلات التحزيم أو المستودع أو التوقيع الخاصة بهذا الخيار في مستودعات التحزيم المجتمعية المذكورة أعلاه. أما أخطاء Hermes أثناء التشغيل فيمكن الإبلاغ عنها هنا، مع مراعاة أن دعم Android/Termux يُقدَّم بأفضل جهد.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-1-one-line-installer">الخيار 1: المُثبّت بسطر واحد</h2>
+<p>يوفّر Hermes الآن مسار تثبيت يراعي بيئة Termux:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>على Termux، يقوم المُثبّت تلقائيًا بما يلي:</p>
+<ul>
+<li>يستخدم <code>pkg</code> لحزم النظام</li>
+<li>ينشئ البيئة الافتراضية (venv) باستخدام <code>python -m venv</code></li>
+<li>يحاول أولًا تثبيت الإضافة الشاملة <code>.[termux-all]</code>، ثم يعود إلى الإضافة الأصغر <code>.[termux]</code> (ثم إلى تثبيت أساسي) — ويتبع مُثبّت curl هذا الترتيب تلقائيًا</li>
+<li>يربط <code>hermes</code> داخل <code>$PREFIX/bin</code> ليبقى ضمن PATH في Termux</li>
+<li>يتخطى تهيئة المتصفح / WhatsApp غير المُختبَرة</li>
+</ul>
+<p>إذا أردت الأوامر الصريحة أو احتجت إلى تصحيح تثبيت فاشل، فاستخدم المسار اليدوي أدناه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-2-manual-install-fully-explicit">الخيار 2: التثبيت اليدوي (بخطوات صريحة بالكامل)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-update-termux-and-install-system-packages">1. حدّث Termux وثبّت حزم النظام</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لماذا هذه الحزم؟</p>
+<ul>
+<li><code>python</code> — بيئة التشغيل ودعم venv</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>نطاق إصدارات Python المدعوم</div><div class="admonitionContent_BuS1"><p>يتطلب Hermes <strong>Python &gt;=3.11,&lt;3.14</strong>. يأتي Termux حاليًا مع <code>python</code>
+3.14.x، وهو خارج هذا النطاق — يكتشف المُثبّت ذلك، وسيحاول
+تلقائيًا استخدام <a href="https://github.com/termux-user-repository/tur" data-ext>Termux User Repository (TUR)</a>
+للحصول على مفسّر مدعوم. أما في التثبيت اليدوي، فاحصل عليه بنفسك:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div><p>ثم استخدم <code>python3.13</code> بدلًا من <code>python</code> في الأوامر أدناه
+(مثل <code>python3.13 -m venv venv</code>).</p></div></div>
+<ul>
+<li><code>git</code> — لاستنساخ المستودع وتحديثه</li>
+<li><code>clang</code> و <code>rust</code> و <code>make</code> و <code>pkg-config</code> و <code>libffi</code> و <code>openssl</code> — لازمة لبناء بعض اعتماديات Python على Android</li>
+<li><code>nodejs</code> — بيئة تشغيل Node اختيارية للتجارب خارج المسار الأساسي المُختبَر</li>
+<li><code>ripgrep</code> — بحث سريع في الملفات</li>
+<li><code>ffmpeg</code> — تحويلات الوسائط / TTS</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-clone-hermes">2. استنسخ Hermes</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-create-a-virtual-environment">3. أنشئ بيئة افتراضية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يُعد <code>ANDROID_API_LEVEL</code> مهمًا للحزم المبنية على Rust / maturin مثل <code>jiter</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-install-the-tested-termux-bundle">4. ثبّت حزمة Termux المُختبَرة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>إذا كنت تريد الوكيل الأساسي بالحد الأدنى فقط، فهذا يعمل أيضًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-put-hermes-on-your-termux-path">5. أضف <code>hermes</code> إلى PATH في Termux</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>المسار <code>$PREFIX/bin</code> موجود بالفعل ضمن PATH في Termux، لذا يجعل هذا الأمرُ <code>hermes</code> متاحًا بشكل دائم في كل shell جديد دون الحاجة إلى إعادة تفعيل venv في كل مرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-verify-the-install">6. تحقّق من التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-start-hermes">7. شغّل Hermes</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-follow-up-setup">الإعدادات اللاحقة الموصى بها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-a-model">اضبط نموذجًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أو اضبط المفاتيح مباشرةً في <code>~/.hermes/.env</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="re-run-the-full-interactive-setup-wizard-later">أعد تشغيل معالج الإعداد التفاعلي الكامل لاحقًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-optional-node-dependencies-manually">ثبّت اعتماديات Node الاختيارية يدويًا</h3>
+<p>يتخطى مسار Termux المُختبَر تهيئة Node والمتصفح عن قصد. إذا أردت تجربة أدوات المتصفح لاحقًا، فإن ما تحتاج إليه يعتمد على الواجهة الخلفية (backend) التي تستخدمها:</p>
+<ul>
+<li>
+<p><strong>مزوّدو المتصفح السحابي</strong> (Browserbase و Browser Use و Firecrawl) يستضيفون Chromium الخاص بهم، لذا يكفي Node.js وحده — إذ يُحمَّل <code>agent-browser</code> عند أول استخدام بشكل كسول (lazily) عبر <code>npx agent-browser</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+</li>
+<li>
+<p><strong>أتمتة المتصفح المحلية</strong> على Termux تحتاج إلى تثبيت فعلي لـ <code>agent-browser</code> — إذ يُرفض عمدًا الاعتماد على npx وحده كبديل في الوضع المحلي، لأنه هشّ جدًا بحيث لا يمكن اعتباره جاهزًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+</li>
+</ul>
+<p>تُضمّن أداة المتصفح مجلدات Termux (<code>/data/data/com.termux/files/usr/bin</code>) تلقائيًا في بحثها ضمن PATH، لذا يُعثر على <code>agent-browser</code> و <code>npx</code> دون أي إعداد إضافي لـ PATH.</p>
+<p>تعامل مع أدوات المتصفح / WhatsApp على Android على أنها تجريبية ما لم يُوثَّق خلاف ذلك.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-solution-found-when-installing-all">ظهور <code>No solution found</code> عند تثبيت <code>.[all]</code></h3>
+<p>استخدم حزمة Termux المُختبَرة بدلًا من ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>العائق حاليًا هو الإضافة <code>voice</code>:</p>
+<ul>
+<li><code>voice</code> تجلب <code>faster-whisper</code></li>
+<li><code>faster-whisper</code> تعتمد على <code>ctranslate2</code></li>
+<li><code>ctranslate2</code> لا تنشر حزم wheels لـ Android</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="uv-pip-install-fails-on-android">فشل <code>uv pip install</code> على Android</h3>
+<p>استخدم مسار Termux مع venv من المكتبة القياسية و <code>pip</code> بدلًا من ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jiter--maturin-complains-about-android_api_level">اعتراض <code>jiter</code> / <code>maturin</code> على <code>ANDROID_API_LEVEL</code></h3>
+<p>اضبط مستوى API صراحةً قبل التثبيت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-doctor-says-ripgrep-or-node-is-missing">يُبلغ <code>hermes doctor</code> بأن ripgrep أو Node مفقود</h3>
+<p>ثبّتهما باستخدام حزم Termux:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="build-failures-while-installing-python-packages">فشل البناء أثناء تثبيت حزم Python</h3>
+<p>تأكد من تثبيت سلسلة أدوات البناء (toolchain):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>ثم أعد المحاولة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="known-limitations-on-phones">القيود المعروفة على الهواتف</h2>
+<ul>
+<li>الواجهة الخلفية Docker غير متاحة</li>
+<li>تحويل الصوت إلى نص محليًا عبر <code>faster-whisper</code> غير متاح في المسار المُختبَر</li>
+<li>يتخطى المُثبّت إعداد أتمتة المتصفح عن قصد</li>
+<li>قد تعمل بعض الإضافات الاختيارية، لكن <code>.[termux]</code> و <code>.[termux-all]</code> فقط موثّقتان حاليًا بوصفهما حزم Android المُختبَرة</li>
+</ul>
+<p>إذا واجهت مشكلة جديدة خاصة بـ Android، فيُرجى فتح issue على GitHub يتضمن:</p>
+<ul>
+<li>إصدار Android لديك</li>
+<li><code>termux-info</code></li>
+<li><code>python --version</code></li>
+<li><code>hermes doctor</code></li>
+<li>أمر التثبيت الدقيق ومخرجات الخطأ كاملة</li>
+</ul>

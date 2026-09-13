@@ -1,0 +1,228 @@
+<header><h1>Kanban — التعاون بين عدة وكلاء عبر الـ Profiles</h1></header>
+<blockquote>
+<p><strong>هل تريد شرحًا عمليًا خطوة بخطوة؟</strong> اقرأ <a href="/docs/user-guide/features/kanban-tutorial">درس تطبيقي: Kanban</a>، الذي يعرض أربع قصص مستخدمين (مطوّر منفرد، وإدارة أسطول من المهام، وpipeline أدوار مع إعادة المحاولة، وقاطع الدائرة (circuit breaker)) مع لقطات شاشة من لوحة التحكم لكل منها. هذه الصفحة هي المرجع، والدرس التطبيقي هو السرد.</p>
+</blockquote>
+<p>Hermes Kanban لوحة مهام دائمة، مشتركة بين جميع الـ profiles الخاصة بك في Hermes، تتيح لعدة وكلاء مسمّين التعاون في العمل دون الاعتماد على أسراب هشّة من الـ subagents داخل العملية نفسها. كل مهمة صفٌّ في <code>~/.hermes/kanban.db</code>؛ وكل عملية تسليم صفٌّ يستطيع أي طرف قراءته والكتابة فيه؛ وكل عامل (worker) عملية كاملة على مستوى نظام التشغيل لها هويتها الخاصة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="completion-checkpoints-before-the-iteration-cap">نقاط تحقق الإنجاز قبل بلوغ حدّ التكرارات</h3>
+<p>يتلقى العمّال الذين يملكهم المُوزِّع (dispatcher) إشعار نقطة تحقق واحدًا عند بلوغ نحو 90% من رصيد التكرارات
+المحدود الخاص بهم، ويُرفق بنتيجة أداة جديدة بينما لا يزال هناك استدعاء آخر قادر على استخدام الأدوات. استخدم
+<code>agent.budget_warning_ratio</code> لاختيار عتبة أبكر. الأرصدة الصغيرة جدًا تُصدر التحذير في موعد لا يتجاوز
+التكرار قبل الأخير؛ أما التشغيل ذو التكرار الواحد فلا تكون لديه نافذة لنقطة تحقق قبل بلوغ الحد.
+يُحفظ الإشعار في سجل الجلسة قبل الطلب التالي. ينبغي للعمّال
+استدعاء <code>kanban_complete</code> فقط بعد التحقق من عقد المهمة، أو حفظ تعليق يوضح
+التقدم ثم المتابعة. ولا يُكمل الـ commit أو الـ diff وحده المهمة تلقائيًا أبدًا.</p>
+<p>يبقى الحد الصارم، والملخص النهائي دون أدوات، وقاطع الدائرة الخاص بالإخفاقات المتتالية
+دون تغيير: فالعمّال الذين يستنفدون رصيدهم رغم ذلك يظلون خاضعين لعدد محدود من محاولات الإعادة.
+هذه فرصة للإبلاغ، وليست ضمانًا بأن النموذج سيلتزم بالإشعار.
+ولا ترث المحادثات العادية والوكلاء الفرعيون المفوَّضون نقطة التحقق التلقائية الخاصة بـ Kanban؛
+إذ يبقى تحذير التكرارات لديهم اختياريًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-surfaces-the-model-talks-through-tools-you-talk-through-the-cli">واجهتان: النموذج يتعامل عبر الأدوات، وأنت تتعامل عبر CLI</h3>
+<p>للوحة مدخلان، وكلاهما مدعوم بالملف نفسه <code>~/.hermes/kanban.db</code>:</p>
+<ul>
+<li><strong>يدير الوكلاء اللوحة عبر toolset مخصص هو <code>kanban_*</code></strong>: <code>kanban_show</code> و<code>kanban_list</code> و<code>kanban_complete</code> و<code>kanban_request_review</code> و<code>kanban_request_changes</code> و<code>kanban_block</code> و<code>kanban_heartbeat</code> و<code>kanban_comment</code> و<code>kanban_attach</code> و<code>kanban_attach_url</code> و<code>kanban_attachments</code> و<code>kanban_create</code> و<code>kanban_link</code> و<code>kanban_unblock</code>. يُنشئ المُوزِّع كل عامل وهذه الأدوات موجودة مسبقًا في مخططه؛ ويمكن لـ profiles المنسِّقة أيضًا تفعيل الـ toolset <code>kanban</code> صراحةً. يقرأ النموذج المهام ويوجّهها عبر استدعاء الأدوات مباشرةً، <em>لا</em> عبر تنفيذ <code>hermes kanban</code> في الـ shell. راجع <a href="#how-workers-interact-with-the-board">كيف يتفاعل العمّال مع اللوحة</a> أدناه.</li>
+<li><strong>أنت (والسكربتات و cron) تديرون اللوحة عبر <code>hermes kanban …</code></strong> في CLI، أو <code>/kanban …</code> بوصفه slash command، أو عبر لوحة التحكم. هذه مخصصة للبشر والأتمتة، أي للأماكن التي لا يقف خلفها نموذج يستدعي الأدوات.</li>
+</ul>
+<p>تمر الواجهتان عبر طبقة <code>kanban_db</code> نفسها، لذا تحصل عمليات القراءة على عرض متسق ولا يمكن أن تنحرف عمليات الكتابة. تعرض بقية هذه الصفحة أمثلة CLI لأنها سهلة النسخ واللصق، لكن لكل فعل في CLI مكافئًا على هيئة استدعاء أداة يستخدمه النموذج.</p>
+<p>هذا هو الشكل الذي يغطي أحمال العمل التي لا تستطيع <code>delegate_task</code> تغطيتها:</p>
+<ul>
+<li><strong>فرز الأبحاث</strong>: باحثون متوازون + محلل + كاتب، مع مشاركة بشرية في الحلقة.</li>
+<li><strong>العمليات المجدولة</strong>: ملخصات يومية متكررة تبني يومياتٍ على مدى أسابيع.</li>
+<li><strong>التوائم الرقمية</strong>: مساعدون مسمّون دائمون (<code>inbox-triage</code> و<code>ops-review</code>) تتراكم ذاكرتهم مع الوقت.</li>
+<li><strong>الـ pipelines الهندسية</strong>: تفكيك → تنفيذ في worktrees متوازية → مراجعة → تكرار → PR.</li>
+<li><strong>عمل الأساطيل</strong>: متخصص واحد يدير N من العناصر (50 حسابًا على وسائل التواصل الاجتماعي، 12 خدمة مراقَبة).</li>
+</ul>
+<p>للاطلاع على المبررات الكاملة للتصميم، والتحليل المقارن مع Cline Kanban / Paperclip / NanoClaw / Google Gemini Enterprise، وأنماط التعاون المعيارية الثمانية، راجع <code>docs/hermes-kanban-v1-spec.pdf</code> في المستودع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pr-completion-contracts">عقود إنجاز الـ PR</h2>
+<p>صرّح بأن العمل خاص بـ PR عند الإنشاء باستخدام <code>--completion-contract OWNER/REPO</code> (أو بعنوان URL دقيق
+مثل <code>https://github.com/OWNER/REPO/pull/123</code> للعمل الموجود مسبقًا). وتقبل <code>kanban_create</code>
+القيمة نفسها <code>completion_contract</code>. استخدم <code>local-only</code> للعمل المحلي
+عن قصد؛ وتحتفظ البطاقات الموجودة وغير المصرَّح بها بهذا الافتراضي. وعناوين URL المذكورة في النص لا تُعدّ سياسة.</p>
+<p>بعد النشر، مرّر <code>metadata.published_pr</code> عند الإنجاز. أول عنوان URL
+مطابق يرتبط بالبطاقة بشكل دائم؛ ولا يمكن لمحاولات الإعادة استبداله بـ PR شقيق ناجح.
+ويعرض <code>show --json</code> في CLI و<code>kanban_show</code> العقد المحفوظ.</p>
+<p>تغطي نقطة الحدّ المشتركة <code>complete_task</code> أدوات العمّال، و CLI، والموافقة على المراجعة،
+والإنجاز من لوحة التحكم. فهي تقرأ حماية الـ branch الكلاسيكية والسياقات المطلوبة
+في مجموعات القواعد (rulesets) النشطة، وتتنقل بين صفحات تشغيلات الفحص والحالات القديمة الخاصة بالـ head المحدد بدقة، ثم
+تعيد قراءة head/base الخاصين بالـ PR. ولا تُسقط بيانات القياس الاختيارية للفحوصات الفاشلة أو المتخطّاة الفحوصاتِ
+المطلوبة المقبولة. أما الأدلة <strong>المطلوبة</strong> المفقودة أو المعلّقة أو الفاشلة أو الملغاة أو المنتهية مهلتها أو القديمة أو المتخطّاة أو
+المحايدة فلا يمكنها إكمال البطاقة. وكذلك القبول دون أي تشغيل،
+أو السياسة غير القابلة للقراءة، أو إخفاقات GitHub API. والمستودع الذي لا يحتوي على فحوصات
+مطلوبة يحتاج إلى عقد local-only. ويجب أن يكون <code>gh</code> مصادقًا عليه مع صلاحية قراءة
+فحوصات المستودع وقواعده؛ ولا تُجري هذه البوابة أي عمليات كتابة عن بُعد.</p>
+<p>عند الرفض، تبقى البطاقة النشطة ومساحة العمل. وتخزّن أحداث <code>pr_acceptance</code> الدائمة
+عنوان URL الخاص بالـ PR، والـ SHA، والسياقات المطلوبة، ومعرّفات الفحوصات وعناوينها، والتصنيفات، وتعليمات
+التعافي؛ ويُظهر <code>last_failure_error</code> الخطوة التالية. أصلح الإخفاقات، أو أعد تشغيل
+فحوصات البنية التحتية أو انتظر، ثم أعد محاولة الإنجاز. استخدم <code>kanban_block</code> عندما
+يلزم تدخل بشري. لا يمكن لقيمة <code>failure</code> العامة من GitHub تحديد ما إذا كان الاختبار
+أو رفع المخرجات هو الذي فشل؛ لذا افحص عنوان URL المحفوظ الخاص به. وتُصنَّف استنتاجات البنية التحتية
+الصريحة وإخفاقات API بشكل منفصل. ولا يُنشأ أي عامل إضافي.</p>
+<p>يُجري حفظ الإيصال وعملية الكتابة النهائية إعادة التحقق من ملكية التشغيل والحالة والعقد
+تحت قفل SQLite واحد: فالعامل الذي استُعيدت منه المهمة لا يستطيع إكمال التشغيل الجديد أو إرفاق قبول
+به. قراءة GitHub النهائية لقطة وقت الإنجاز، وليست معاملة
+موزّعة أو مراقبة مستمرة بعد الإنجاز. هذه حماية لدورة الحياة مخصصة لمستخدم واحد،
+وليست عزلًا على مستوى نظام التشغيل ضد عمليات الكتابة المباشرة العشوائية في قاعدة البيانات. ولا يشمل ذلك GitHub Enterprise.
+أعمال ذات صلة بالنشر ودورة الحياة: #91230، #84254، #52311؛ والتحقق المحلي
+والنشر وحدهما لا يعنيان القبول عن بُعد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="kanban-vs-delegate_task">Kanban مقابل <code>delegate_task</code></h2>
+<p>يبدوان متشابهين، لكنهما ليسا البنية الأساسية نفسها.</p>
+<table><thead><tr><th></th><th><code>delegate_task</code></th><th>Kanban</th></tr></thead><tbody><tr><td>الشكل</td><td>استدعاء RPC (fork → join)</td><td>طابور رسائل دائم + آلة حالات</td></tr><tr><td>الوكيل الأب</td><td>يتوقف منتظرًا حتى يعود الوكيل الفرعي</td><td>أطلِق وانسَ (fire-and-forget) بعد <code>create</code></td></tr><tr><td>هوية الوكيل الفرعي</td><td>subagent مجهول الهوية</td><td>profile مسمّى بذاكرة دائمة</td></tr><tr><td>قابلية الاستئناف</td><td>غير موجودة: الإخفاق نهائي</td><td>حظر → رفع الحظر → إعادة التشغيل؛ تعطّل → استعادة</td></tr><tr><td>المشاركة البشرية</td><td>غير مدعومة</td><td>التعليق / رفع الحظر في أي وقت</td></tr><tr><td>الوكلاء لكل مهمة</td><td>استدعاء واحد = subagent واحد</td><td>N من الوكلاء على مدى عمر المهمة (إعادة المحاولة، والمراجعة، والمتابعة)</td></tr><tr><td>سجل التدقيق</td><td>يُفقد عند ضغط السياق</td><td>صفوف دائمة في SQLite إلى الأبد</td></tr><tr><td>التنسيق</td><td>هرمي (المستدعي → المستدعى)</td><td>بين الأقران: أي profile يقرأ أي مهمة ويكتب فيها</td></tr></tbody></table>
+<p><strong>الفرق في جملة واحدة:</strong> <code>delegate_task</code> استدعاء دالة؛ أما Kanban فطابور عمل تكون فيه كل عملية تسليم صفًّا يستطيع أي profile (أو إنسان) رؤيته وتعديله.</p>
+<p><strong>استخدم <code>delegate_task</code> عندما</strong> يحتاج الوكيل الأب إلى إجابة استدلالية قصيرة قبل المتابعة، دون مشاركة بشرية، وتعود النتيجة إلى سياق الوكيل الأب.</p>
+<p><strong>استخدم Kanban عندما</strong> يتجاوز العمل حدود الوكلاء، أو يجب أن يصمد أمام إعادة التشغيل، أو قد يحتاج إلى مدخلات بشرية، أو قد يتولاه دور مختلف، أو يجب أن يكون قابلًا للاكتشاف لاحقًا.</p>
+<p>يتعايشان معًا: إذ يمكن لعامل kanban استدعاء <code>delegate_task</code> داخليًا أثناء تشغيله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-concepts">المفاهيم الأساسية</h2>
+<ul>
+<li><strong>اللوحة (Board)</strong>: طابور مهام مستقل له قاعدة بيانات SQLite خاصة، ومجلد
+مساحات عمل، وحلقة مُوزِّع. يمكن أن يحتوي التثبيت الواحد على لوحات كثيرة
+(مثلًا لوحة لكل مشروع أو مستودع أو مجال)؛ راجع <a href="#boards-multi-project">اللوحات (متعددة المشاريع)</a>
+أدناه. يبقى مستخدمو المشروع الواحد على اللوحة <code>default</code> ولا يرون
+كلمة &quot;board&quot; خارج قسم التوثيق هذا.</li>
+<li><strong>المهمة (Task)</strong>: صف يحتوي على عنوان، ومتن اختياري، ومُسنَد إليه واحد (اسم profile)، وحالة (<code>triage | todo | ready | running | blocked | review | done | archived</code>)، ونطاق أسماء اختياري للمستأجر (tenant)، ومفتاح idempotency اختياري (لإزالة تكرار عمليات الأتمتة المُعاد تنفيذها).</li>
+<li><strong>الرابط (Link)</strong>: صف في <code>task_links</code> يسجّل اعتمادية من أب → ابن. يرقّي المُوزِّع المهمة <code>todo → ready</code> عندما تصبح جميع المهام الأب <code>done</code>.</li>
+<li><strong>التعليق (Comment)</strong>: بروتوكول التواصل بين الوكلاء. يضيف الوكلاء والبشر تعليقات؛ وعند إنشاء عامل (أو إعادة إنشائه) يقرأ سلسلة التعليقات كاملة بوصفها جزءًا من سياقه.</li>
+<li><strong>مساحة العمل (Workspace)</strong>: المجلد الذي يعمل فيه العامل. وهي ثلاثة أنواع:
+<ul>
+<li><code>scratch</code> (الافتراضي): مجلد مؤقت جديد ضمن <code>~/.hermes/kanban/workspaces/&lt;id&gt;/</code> (أو <code>~/.hermes/kanban/boards/&lt;slug&gt;/workspaces/&lt;id&gt;/</code> في اللوحات غير الافتراضية). <strong>يُحذف عند اكتمال المهمة</strong>، فمساحة scratch مؤقتة بطبيعة تصميمها. الملفات المصرَّح بها صراحةً عبر <code>kanban_complete(artifacts=[...])</code> تُنسخ إلى مخزن مرفقات دائم خاص بكل مهمة قبل التنظيف؛ وتلقى مسارات المُخرَجات الموجودة في ملخصات الإنجاز القديمة المعاملة نفسها. أما ملفات scratch الأخرى فتُحذف. وإذا كان أحد مُخرَجات scratch المصرَّح بها مفقودًا، تبقى المهمة قيد التنفيذ ليتمكن العامل من تصحيح المسار وإعادة المحاولة. استخدم <code>worktree:</code> أو <code>dir:&lt;path&gt;</code> عندما ينبغي أن تبقى مساحة العمل بأكملها متاحة. في المرة الأولى التي تُنشأ فيها مساحة عمل scratch في تثبيت ما، يسجّل المُوزِّع تحذيرًا ويُصدر حدث <code>tip_scratch_workspace</code> على المهمة (يظهر عبر <code>hermes kanban show &lt;id&gt;</code>).</li>
+<li><code>dir:&lt;path&gt;</code>: مجلد مشترك موجود (Obsidian vault، أو مجلد عمليات البريد، أو مجلد لكل حساب). <strong>يجب أن يكون مسارًا مطلقًا.</strong> تُرفض المسارات النسبية مثل <code>dir:../tenants/foo/</code> عند الإرسال لأنها ستُحدَّد نسبةً إلى مجلد العمل الحالي (CWD) الذي يصادف أن يكون فيه المُوزِّع، وهذا ملتبس ويمثل منفذ هروب من نوع confused-deputy. وفيما عدا ذلك، يُعدّ المسار موثوقًا: فهو جهازك ونظام ملفاتك، ويعمل العامل بمعرّف المستخدم (uid) الخاص بك. هذا هو نموذج التهديد القائم على المستخدم المحلي الموثوق؛ فـ kanban مصمَّم للعمل على مضيف واحد. <strong>يُحتفظ به عند الإنجاز.</strong></li>
+<li><code>worktree</code>: نسخة git worktree ضمن <code>.worktrees/&lt;id&gt;/</code> لمهام البرمجة. استخدم <code>worktree:&lt;path&gt;</code> لتثبيت المسار الهدف بدقة. يُنشئه الأمر <code>git worktree add</code> على جانب العامل، مستخدمًا <code>--branch</code> عند توفيره. <strong>يُحتفظ به عند الإنجاز.</strong></li>
+</ul>
+</li>
+<li><strong>المُوزِّع (Dispatcher)</strong>: حلقة طويلة العمر تقوم كل N ثانية (الافتراضي 60) بما يلي: استعادة الحجوزات القديمة، واستعادة العمّال المتعطلين (اختفى الـ PID لكن الـ TTL لم ينتهِ بعد)، وترقية المهام الجاهزة، والحجز الذرّي، وإنشاء الـ profiles المُسندة إليها المهام. يعمل <strong>داخل الـ gateway</strong> افتراضيًا (<code>kanban.dispatch_in_gateway: true</code>). يمسح مُوزِّع واحد جميع اللوحات في كل دورة؛ ويُنشأ العمّال مع تثبيت <code>HERMES_KANBAN_BOARD</code> حتى لا يروا اللوحات الأخرى. بعد <code>kanban.failure_limit</code> من إخفاقات الإنشاء المتتالية على المهمة نفسها (الافتراضي: 2)، يحظر المُوزِّع المهمة تلقائيًا مع ذكر آخر خطأ سببًا لذلك، مما يمنع الدوران العقيم على مهام لا يوجد الـ profile الخاص بها، أو تتعذر تهيئة مساحة عملها، وما إلى ذلك.</li>
+<li><strong>المستأجر (Tenant)</strong>: نطاق أسماء نصي اختياري <em>داخل</em> اللوحة. يمكن لأسطول متخصص واحد خدمة عدة أعمال (<code>--tenant business-a</code>) مع عزل البيانات عبر مسار مساحة العمل وبادئة مفتاح الذاكرة. المستأجرون مرشِّح مرن؛ أما اللوحات فهي حدود العزل الصارمة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="boards-multi-project">اللوحات (متعددة المشاريع)</h2>
+<p>تتيح لك اللوحات فصل مسارات العمل غير المترابطة، لوحة لكل مشروع أو مستودع
+أو مجال، في طوابير معزولة. يحتوي التثبيت الجديد على لوحة واحدة بالضبط
+اسمها <code>default</code> (قاعدة بياناتها في <code>~/.hermes/kanban.db</code> للتوافق مع الإصدارات السابقة). والمستخدمون الذين
+يريدون مسار عمل واحدًا فقط لا يحتاجون أبدًا إلى معرفة شيء عن اللوحات؛ فهذه الميزة
+اختيارية.</p>
+<p>العزل على مستوى كل لوحة مطلق:</p>
+<ul>
+<li>قاعدة بيانات SQLite منفصلة لكل لوحة (<code>~/.hermes/kanban/boards/&lt;slug&gt;/kanban.db</code>).</li>
+<li>مجلدا <code>workspaces/</code> و<code>logs/</code> منفصلان.</li>
+<li>العمّال الذين يُنشؤون لمهمة ما يرون مهام لوحتهم <strong>فقط</strong>، إذ
+يضبط المُوزِّع <code>HERMES_KANBAN_BOARD</code> في بيئة الوكيل الفرعي، وكل
+أداة <code>kanban_*</code> يستطيع العامل الوصول إليها تقرأ هذا المتغير.</li>
+<li>لا يُسمح بربط المهام عبر اللوحات (للحفاظ على بساطة المخطط؛ وإذا
+كنت تحتاج فعلًا إلى مراجع بين المشاريع، فاستخدم الإشارات النصية الحرة وابحث
+عنها بالمعرّف يدويًا).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-boards-from-the-cli">إدارة اللوحات من CLI</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ترتيب تحديد اللوحة (الأعلى أولوية أولًا):</p>
+<ol>
+<li>الخيار الصريح <code>--board &lt;slug&gt;</code> في استدعاء CLI.</li>
+<li>متغير البيئة <code>HERMES_KANBAN_BOARD</code> (يضبطه المُوزِّع عند إنشاء
+عامل، حتى لا يرى العمّال اللوحات الأخرى).</li>
+<li><code>~/.hermes/kanban/current</code>: الـ slug المحفوظ بواسطة <code>hermes kanban boards switch</code>.</li>
+<li><code>default</code>.</li>
+</ol>
+<p>يُتحقق من صحة الـ slugs: أحرف إنجليزية صغيرة وأرقام + شرطات + شرطات سفلية، من 1 إلى 64
+حرفًا، ويجب أن تبدأ بحرف أو رقم. تُحوَّل الأحرف الكبيرة في المدخلات إلى صغيرة تلقائيًا.
+وأي شيء آخر (الشرطات المائلة، والمسافات، والنقاط، و<code>..</code>) يُرفض في طبقة CLI
+حتى لا تتمكن حيل اجتياز المسارات (path traversal) من تسمية لوحة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-boards-from-the-dashboard">إدارة اللوحات من لوحة التحكم</h3>
+<p>في <code>hermes dashboard</code> → تبويب Kanban، يظهر مُبدِّل اللوحات في الأعلى بمجرد
+وجود أكثر من لوحة (أو احتواء أي لوحة على مهام). أما مستخدمو اللوحة الواحدة
+فلا يرون سوى زر صغير <code>+ New board</code>؛ ويبقى المُبدِّل مخفيًا حتى تصبح
+له أهمية.</p>
+<ul>
+<li><strong>Board dropdown</strong> (القائمة المنسدلة للوحات): اختر اللوحة النشطة. يُحفظ اختيارك في
+<code>localStorage</code> الخاص بالمتصفح، فيبقى بعد إعادة التحميل دون
+تغيير مؤشر <code>current</code> الخاص بـ CLI من تحت طرفية تركتها
+مفتوحة.</li>
+<li><strong>+ New board</strong>: يفتح نافذة تطلب الـ slug، واسم العرض،
+والوصف، والأيقونة. مع خيار للانتقال تلقائيًا إلى اللوحة الجديدة.</li>
+<li><strong>Settings</strong>: يفتح نافذة لتعديل اسم العرض الخاص باللوحة الحالية،
+ووصفها، و<strong>مجلد المشروع</strong> (<code>default_workdir</code>). ومجلد
+المشروع هو مساحة العمل الافتراضية على مستوى اللوحة التي ترثها كل مهمة
+جديدة (مستودع git → worktree محفوظ، ومجلد عادي → مجلد
+محفوظ)؛ ولا يزال بإمكان كل مهمة تجاوزه عند إنشائها. ويؤدي مسح
+الحقل إلى إعادة المهام الجديدة إلى مساحات عمل scratch المؤقتة القابلة للحذف.</li>
+<li><strong>Archive</strong>: لا يظهر إلا في اللوحات غير <code>default</code>. يطلب التأكيد، ثم ينقل
+مجلد اللوحة إلى <code>boards/_archived/</code>.</li>
+</ul>
+<p>تقبل جميع API endpoints الخاصة بلوحة التحكم <code>?board=&lt;slug&gt;</code> لتحديد نطاق اللوحة. ويُثبَّت
+WebSocket الأحداث على لوحة ما لحظة الاتصال؛ ويؤدي التبديل في
+الواجهة إلى فتح اتصال WS جديد مع اللوحة الجديدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-attachments">مرفقات الملفات</h2>
+<p>يمكن أن تحمل المهام مرفقات ملفات، مثل ملفات PDF والصور والمستندات المصدرية، ليحصل
+العامل على المواد المصدرية التي يحتاجها دون أن تضطر إلى لصق المسارات في
+متن المهمة على أمل أن يجدها.</p>
+<ul>
+<li><strong>الرفع</strong>: افتح مهمة في الدرج الجانبي للوحة التحكم واستخدم
+قسم <strong>Attachments</strong> وزر <em>Upload file</em> فيه (يمكن رفع عدة ملفات دفعة
+واحدة). والحد الأقصى لكل عملية رفع 25 MB.</li>
+<li><strong>التخزين</strong>: تُحفظ الملفات ضمن
+<code>&lt;hermes-home&gt;/kanban/attachments/&lt;task_id&gt;/</code> للوحة الافتراضية، أو
+<code>&lt;hermes-home&gt;/kanban/boards/&lt;slug&gt;/attachments/&lt;task_id&gt;/</code> للوحة
+مسمّاة. اضبط <code>HERMES_KANBAN_ATTACHMENTS_ROOT</code> لتثبيت موقع مخصص.</li>
+<li><strong>ما يراه العامل</strong>: عندما يسلّم المُوزِّع مهمة إلى عامل،
+يتضمن سياق العامل قسم <strong>Attachments</strong> يسرد اسم كل
+ملف و<strong>مساره المطلق</strong>. ولدى العامل وصول كامل إلى أدوات الملفات والطرفية،
+لذا يقرأ المرفقات مباشرةً (<code>read_file</code>، أو أدوات
+الـ shell مثل <code>pdftotext</code>).</li>
+<li><strong>التنزيل / الإزالة</strong>: يسرد الدرج الجانبي كل مرفق مع رابط
+تنزيل وزر إزالة (×). وتؤدي إزالة المرفق إلى حذف كلٍّ من
+صف البيانات الوصفية والملف على القرص.</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>الـ terminal backends البعيدة</div><div class="admonitionContent_BuS1"><p>تُحدَّد مسارات المرفقات مباشرةً على terminal backend <strong>المحلي</strong>، وهو
+الافتراضي لعمّال Kanban. إذا كنت تشغّل العمّال على backend بعيد
+(Docker، Modal)، فاربط (mount) مجلد <code>attachments/</code> الخاص باللوحة داخل
+الـ sandbox حتى تكون المسارات المطلقة في سياق العامل قابلة للوصول.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>الأوامر أدناه هي ما تنفّذه <strong>أنت</strong> (الإنسان) لإعداد اللوحة وإنشاء المهام. بمجرد إسناد مهمة، يُنشئ المُوزِّع الـ profile المُسنَدة إليه بوصفه عاملًا، ومن هناك <strong>يدير النموذج المهمة عبر استدعاءات أدوات <code>kanban_*</code>، لا عبر أوامر CLI</strong>؛ راجع <a href="#how-workers-interact-with-the-board">كيف يتفاعل العمّال مع اللوحة</a>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>عندما يلتقط المُوزِّع <code>t_abcd</code> ويُنشئ الـ profile <code>researcher</code>، فإن أول ما يفعله نموذج ذلك العامل هو استدعاء <code>kanban_show()</code> لقراءة مهمته. فهو لا ينفّذ <code>hermes kanban show t_abcd</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-embedded-dispatcher-default">المُوزِّع المدمج في الـ Gateway (الافتراضي)</h3>
+<p>يعمل المُوزِّع داخل عملية الـ gateway. لا شيء يحتاج إلى تثبيت، ولا
+خدمة منفصلة تحتاج إلى إدارة: فإذا كان الـ gateway يعمل، تُلتقط المهام الجاهزة
+في الدورة التالية (60 ثانية افتراضيًا).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يمكنك تجاوز خيار الإعدادات وقت التشغيل عبر <code>HERMES_KANBAN_DISPATCH_IN_GATEWAY=0</code>
+لأغراض تصحيح الأخطاء. وتنطبق آليات الإشراف المعتادة على الـ gateway: نفّذ <code>hermes gateway start</code> مباشرةً، أو اربط الـ gateway بوحدة systemd على مستوى المستخدم (راجع
+توثيق الـ gateway). ودون gateway قيد التشغيل، تبقى المهام ذات الحالة <code>ready</code> في مكانها
+حتى يعمل أحدها، ويُحذّر <code>hermes kanban create</code> من ذلك عند
+الإنشاء.</p>
+<p>تشغيل <code>hermes kanban daemon</code> بوصفه عملية منفصلة <strong>مهمل (deprecated)</strong>؛
+استخدم الـ gateway بدلًا منه. إذا كنت فعلًا لا تستطيع تشغيل الـ gateway (مثلًا لأن سياسة المضيف
+دون واجهة تمنع الخدمات طويلة العمر)، فإن منفذ الطوارئ <code>--force</code> يُبقي
+الـ daemon المستقل القديم متاحًا لدورة إصدار واحدة، لكن تشغيل
+مُوزِّع مدمج في الـ gateway وdaemon مستقل معًا على
+<code>kanban.db</code> نفسها يسبب تسابقًا على الحجوزات وهو غير مدعوم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="idempotent-create-for-automation--webhooks">إنشاء idempotent (للأتمتة / الـ webhooks)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-cli-verbs">أوامر CLI الجماعية</h3>
+<p>تقبل جميع أفعال دورة الحياة عدة معرّفات، لتتمكن من تنظيف دفعة
+كاملة بأمر واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>أين تنتقل المهمة بعد رفع الحظر عنها</div><div class="admonitionContent_BuS1"><p>يعيد <code>unblock</code> المهمة إلى مرحلة المصدر الآمنة: <strong><code>review</code></strong> لعمل المراجعة
+الذي اكتملت مهامه الأب، و<strong><code>ready</code></strong> لعمل التنفيذ الذي اكتملت مهامه
+الأب، أو <strong><code>todo</code></strong> ما دامت أي مهمة أب لا تزال مفتوحة. وتحتفظ المهمة ذات الحالة <code>todo</code>
+بمعلومات مرحلة المصدر الخاصة بها، وتعود إلى <code>review</code> أو <code>ready</code> تلقائيًا
+عندما تُزال بوابة الاعتمادية. ولا يوجّه <code>unblock</code> المهمة أبدًا إلى <code>triage</code> مباشرةً.</p><p>إذا رفعت الحظر عن مهمة ثم ظهرت لاحقًا في <strong><code>triage</code></strong>، فليس رفع الحظر
+هو ما وضعها هناك، بل <em>إعادة حظرها لاحقًا للسبب نفسه</em>: فبعد أن تُحظر المهمة
+→ يُرفع الحظر عنها → تُحظر مجددًا للسبب نفسه عددًا من المرات يساوي <code>BLOCK_RECURRENCE_LIMIT</code>
+(الافتراضي <code>2</code>)، يتوقف قاطع حلقة رفع الحظر عن إعادتها إلى <code>blocked</code>،
+حيث ستواصل مهمة cron رفع الحظر عنها فحسب، ويوجّهها بدلًا من ذلك إلى <code>triage</code>
+ليتخذ إنسان القرار. هذه حماية حتمية على مستوى قاعدة البيانات، وليست حكمًا يصدره LLM،
+ولا يمكن لنص متن المهمة استثناؤها منها: فعدّاد التكرار يبقى عمدًا
+بعد كل رفع للحظر (ولا يُعاد ضبطه إلا عند <code>complete</code> ناجح). لإبقاء
+مهمة رُفع عنها الحظر ضمن مجمّع العمل، عالج <em>سبب تكرار حظرها</em> (مهمة أب
+غير مكتملة، أو مدخلات مفقودة، أو قدرة غير متوفرة) قبل رفع الحظر، أو ارفع قيمة
+<code>BLOCK_RECURRENCE_LIMIT</code> إذا كانت الحلقة متوقعة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling-tools-for-a-chat-profile">تفعيل الأدوات لـ profile المحادثة</h2>
+<p>تعرض إضافة Kanban في Desktop اللوحة، لكنها لا تمنح وكيل المحادثة
+صلاحية إدارة المهام. فعّل الـ toolset <code>kanban</code> للـ profile
+والمنصة اللذين ينبغي أن ينسّقا العمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لكل منصة اختيارها الخاص ضمن <code>platform_toolsets.&lt;platform&gt;</code> في
+<code>config.yaml</code>؛ ويظهر الـ toolset أيضًا بوصفه مربع اختيار في <code>hermes tools</code> وفي لوحة التحكم.
+ويستطيع وكيل الـ gateway الذي يملكه تنفيذ <code>kanban_create</code> من المحادثة، ويُشترك تلقائيًا
+في إشعارات الإنجاز والحظر الخاصة بتلك المهمة ضمن سلسلة المحادثة نفسها. ابدأ محادثة جديدة
+بعد تغيير هذا الإعداد؛ إذ تحتفظ المحادثات الموجودة بمخططات أدواتها
+وذاكرة الـ prompt المؤقتة. ويبقى <code>agent.disabled_toolsets</code> صاحب الكلمة الفصل. ويُحترم الإعداد القديم على المستوى الأعلى
+<code>toolsets: [kanban]</code> بوصفه خيارًا احتياطيًا فقط عندما لا يكون قد
+حُفظ أي اختيار للمنصة؛ ولا تُعدّ القيمة <code>all</code> وحدها تفعيلًا لـ Kanban.</p>
+<p>يحصل العمّال الذين يملكهم المُوزِّع على أدوات دورة حياة المهام تلقائيًا.
+أما الوكلاء الفرعيون الناتجون عن <code>delegate_task</code> فلا يحصلون على صلاحية تعديل اللوحة.</p>

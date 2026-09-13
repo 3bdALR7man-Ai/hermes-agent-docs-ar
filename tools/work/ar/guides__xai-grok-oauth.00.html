@@ -1,0 +1,91 @@
+<header><h1>xAI Grok OAuth (SuperGrok / X Premium+)</h1></header>
+<p>يدعم Hermes Agent xAI Grok عبر تدفّق تسجيل دخول OAuth بمعرّف جهاز (device-code) عبر المتصفح مقابل <a href="https://accounts.x.ai" data-ext>accounts.x.ai</a>، باستخدام إما <strong>اشتراك SuperGrok</strong> (<a href="https://x.ai/grok" data-ext>grok.com</a>) أو <strong>اشتراك X Premium+</strong> (حساب X مرتبط). لا حاجة إلى <code>XAI_API_KEY</code> — سجّل الدخول مرة واحدة وسيقوم Hermes تلقائيًا بتجديد جلستك في الخلفية.</p>
+<p>عندما تسجّل الدخول بحساب X يملك اشتراك Premium+، تربط xAI تلقائيًا حالة الاشتراك بجلستك على xAI، لذا يعمل تدفّق OAuth بنفس الطريقة التي يعمل بها لدى مشتركي SuperGrok المباشرين.</p>
+<p>يعيد النقل استخدام مهايئ <code>codex_responses</code> (تعرض xAI endpoint على نمط Responses)، لذا يعمل الاستدلال (reasoning) واستدعاء الأدوات (tool-calling) والبث (streaming) وتخزين الـ prompt المؤقت دون أي تعديلات على المهايئ.</p>
+<p>يُعاد استخدام نفس رمز الحامل (bearer token) الخاص بـ OAuth أيضًا في كل واجهة تتعامل مباشرة مع xAI في Hermes — TTS وتوليد الصور وتوليد الفيديو والنسخ الصوتي — بحيث يغطّي تسجيل دخول واحد الأربعة جميعًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<table><thead><tr><th>العنصر</th><th>القيمة</th></tr></thead><tbody><tr><td>معرّف المزوّد</td><td><code>xai-oauth</code></td></tr><tr><td>الاسم المعروض</td><td>xAI Grok OAuth (SuperGrok / X Premium+)</td></tr><tr><td>نوع المصادقة</td><td>OAuth 2.0 برمز جهاز (device code) عبر المتصفح</td></tr><tr><td>النقل</td><td>xAI Responses API (<code>codex_responses</code>)</td></tr><tr><td>النموذج الافتراضي</td><td><code>grok-4.6</code></td></tr><tr><td>Endpoint</td><td><code>https://api.x.ai/v1</code></td></tr><tr><td>خادم المصادقة</td><td><code>https://accounts.x.ai</code></td></tr><tr><td>يتطلّب متغير بيئة</td><td>لا (<code>XAI_API_KEY</code> <strong>لا</strong> يُستخدم لهذا المزوّد)</td></tr><tr><td>الاشتراك</td><td><a href="https://x.ai/grok" data-ext>SuperGrok</a> أو <a href="https://x.com/i/premium_sign_up" data-ext>X Premium+</a> — انظر الملاحظة أدناه</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li>Python بإصدار 3.9 أو أحدث</li>
+<li>تثبيت Hermes Agent</li>
+<li>اشتراك <strong>SuperGrok</strong> نشط في حساب xAI الخاص بك، <strong>أو</strong> اشتراك <strong>X Premium+</strong> في حساب X الذي تسجّل الدخول به (تربط xAI الاشتراك تلقائيًا)</li>
+<li>متصفح متاح في أي مكان يمكنك فيه فتح رابط التحقّق المطبوع</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>قد تقيّد xAI الوصول إلى API عبر OAuth حسب المستوى</div><div class="admonitionContent_BuS1"><p>تفرض خلفية xAI قائمة سماح (allowlist) خاصة بها على سطح API الخاص بـ OAuth، وقد لوحظ أنها ترفض مشتركي SuperGrok القياسيين برمز <code>HTTP 403</code> (انظر المشكلة <a href="https://github.com/NousResearch/hermes-agent/issues/26847" data-ext>#26847</a>) حتى مع أن الاشتراك داخل التطبيق نشط. إذا نجح تسجيل الدخول عبر OAuth في المتصفح لكن الاستدلال يعيد 403، اضبط <code>XAI_API_KEY</code> وانتقل إلى مسار مفتاح API (<code>provider: xai</code>) — هذا السطح غير خاضع لنفس القيود حاليًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>بعد أول تسجيل دخول، تُحفظ بيانات الاعتماد تحت <code>~/.hermes/auth.json</code> وتُجدَّد تلقائيًا قبل انتهاء صلاحيتها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-in-manually">تسجيل الدخول يدويًا</h2>
+<p>يمكنك بدء تسجيل الدخول دون المرور عبر أداة اختيار النموذج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="remote--headless-sessions">الجلسات البعيدة / بدون واجهة رسومية (headless)</h3>
+<p>على الخوادم أو الحاويات (containers) أو الطرفيات التي لا تعمل إلا عبر المتصفح (مثل Cloud Shell وCodespaces وEC2 Instance Connect) أو جلسات SSH حيث لا يستطيع Hermes فتح متصفح محليًا، يطبع Hermes رابط التحقّق ورمز المستخدم الخاصَّين بـ xAI. افتح الرابط في أي متصفح على حاسوبك المحمول أو في وحدة تحكّم سحابية، أدخل الرمز إن طُلب منك ذلك، وسيستمر Hermes في الاستطلاع (polling) إلى أن توافق xAI على تسجيل الدخول. لا حاجة إلى نفق SSH أو مستمع رد اتصال (callback) محلي.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ينطبق نفس تدفّق رمز الجهاز عند تسجيل الدخول من لوحة التحكم على الويب أو تطبيق سطح المكتب: يعرض Hermes رابط التحقّق ورمز المستخدم، ثم يستطلع في الخلفية إلى أن توافق على منح الوصول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-the-login-works">آلية عمل تسجيل الدخول</h2>
+<ol>
+<li>يطلب Hermes رمز جهاز من <code>auth.x.ai</code>.</li>
+<li>تفتح رابط التحقّق، وتسجّل الدخول، وتُدخل الرمز المعروض إن طُلب منك ذلك، ثم توافق على منح الوصول.</li>
+<li>يستطلع Hermes xAI حتى الموافقة، ثم يحفظ الرموز (tokens) في <code>~/.hermes/auth.json</code>.</li>
+<li>بعد ذلك، يجدّد Hermes رمز الوصول في الخلفية — تبقى مسجّلًا للدخول إلى أن تنفّذ <code>hermes auth logout xai-oauth</code> أو تُلغي الوصول من إعدادات حسابك على xAI.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checking-login-status">التحقّق من حالة تسجيل الدخول</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>سيعرض قسم <code>◆ Auth Providers</code> الحالة الراهنة لكل مزوّد، بما في ذلك <code>xai-oauth</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models">تبديل النماذج</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>أو اضبط النموذج مباشرةً:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<p>بعد تسجيل الدخول، سيحتوي <code>~/.hermes/config.yaml</code> على:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-aliases">أسماء بديلة للمزوّد</h3>
+<p>كل ما يلي يُحلَّل إلى <code>xai-oauth</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="direct-to-xai-tools-tts--image--video--transcription--x-search">الأدوات المباشرة إلى xAI (TTS / الصور / الفيديو / النسخ الصوتي / X Search)</h2>
+<p>بمجرد تسجيل الدخول عبر OAuth، تعيد كل أداة تتعامل مباشرة مع xAI استخدام رمز الحامل نفسه تلقائيًا — لا حاجة إلى <strong>إعداد منفصل</strong> إلا إذا كنت تفضّل استخدام مفتاح API.</p>
+<p>لاختيار backend لكل أداة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>إذا كانت رموز OAuth محفوظة مسبقًا، تؤكد أداة الاختيار ذلك وتتخطّى طلب بيانات الاعتماد. وإذا لم يكن أي من OAuth أو <code>XAI_API_KEY</code> مضبوطًا، تعرض أداة الاختيار قائمة من 3 خيارات: تسجيل الدخول عبر OAuth، أو لصق مفتاح API، أو التخطّي.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>توليد الفيديو معطّل افتراضيًا</div><div class="admonitionContent_BuS1"><p>toolset الخاص بـ <code>video_gen</code> معطّل افتراضيًا. فعّله في <code>hermes tools</code> ← <code>🎬 Video Generation</code> (اضغط مفتاح المسافة) قبل أن يتمكّن الوكيل من استدعاء <code>video_generate</code>. وإلا فقد يلجأ الوكيل إلى مهارة ComfyUI المضمّنة، وهي أيضًا موسومة لتوليد الفيديو.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>يُفعَّل X search تلقائيًا عند توفّر بيانات اعتماد xAI</div><div class="admonitionContent_BuS1"><p>يُفعَّل toolset الخاص بـ <code>x_search</code> تلقائيًا كلّما كانت بيانات اعتماد xAI (رمز OAuth لـ SuperGrok / X Premium+ أو <code>XAI_API_KEY</code>) مضبوطة. عطّله صراحةً عبر <code>hermes tools</code> ← <code>🐦 X (Twitter) Search</code> (اضغط مفتاح المسافة) إذا كنت لا تريد ذلك. تمرّ الأداة عبر <code>x_search</code> Responses API المدمجة في xAI — وتعمل مع <strong>أي من</strong> تسجيل دخولك عبر OAuth لـ SuperGrok / X Premium+ أو <code>XAI_API_KEY</code> مدفوع، وتفضّل OAuth عند ضبط كليهما (تستخدم حصة اشتراكك بدلًا من إنفاق API). يُخفى مخطط الأداة عن النموذج عند عدم ضبط أي بيانات اعتماد لـ xAI، بصرف النظر عن كون toolset مفعّلًا أم لا.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="models">النماذج</h3>
+<table><thead><tr><th>الأداة</th><th>النموذج</th><th>ملاحظات</th></tr></thead><tbody><tr><td>المحادثة</td><td><code>grok-4.6</code></td><td>الافتراضي؛ مثبّت في أعلى أداة اختيار OAuth</td></tr><tr><td>المحادثة</td><td><code>grok-build-0.1</code></td><td>نموذج Grok Build موجّه للبرمجة</td></tr><tr><td>المحادثة</td><td><code>grok-4.3</code></td><td>الجيل السابق</td></tr><tr><td>المحادثة</td><td><code>grok-4.20-0309-reasoning</code></td><td>نسخة بقدرة استدلال (reasoning)</td></tr><tr><td>المحادثة</td><td><code>grok-4.20-0309-non-reasoning</code></td><td>نسخة بدون استدلال</td></tr><tr><td>المحادثة</td><td><code>grok-4.20-multi-agent-0309</code></td><td>نسخة متعددة الوكلاء</td></tr><tr><td>الصور</td><td><code>grok-imagine-image</code></td><td>الافتراضي؛ نحو 5–10 ثوانٍ</td></tr><tr><td>الصور</td><td><code>grok-imagine-image-2.0</code></td><td>مدرِك للطباعة والتخطيط؛ أعلى جودة؛ نحو 10–20 ثانية</td></tr><tr><td>الصور</td><td><code>grok-imagine-image-quality</code></td><td>دقة أعلى؛ نحو 10–20 ثانية</td></tr><tr><td>الفيديو</td><td><code>grok-imagine-video</code></td><td>نص إلى فيديو</td></tr><tr><td>الفيديو</td><td><code>grok-imagine-video-1.5-preview</code></td><td>صورة إلى فيديو؛ الاسم المؤرَّخ البديل <code>grok-imagine-video-1.5-2026-05-30</code></td></tr><tr><td>TTS</td><td>(الصوت الافتراضي)</td><td>xAI <code>/v1/tts</code> endpoint</td></tr></tbody></table>
+<p>يُشتق كتالوج المحادثة مباشرةً من ذاكرة <code>models.dev</code> المخزَّنة على القرص؛ وتظهر إصدارات xAI الجديدة تلقائيًا فور تحديث تلك الذاكرة. يبقى <code>grok-4.6</code> مثبّتًا دائمًا في أعلى القائمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h2>
+<table><thead><tr><th>المتغيّر</th><th>التأثير</th></tr></thead><tbody><tr><td><code>XAI_BASE_URL</code></td><td>تجاوز endpoint الافتراضي <code>https://api.x.ai/v1</code> (نادرًا ما يُحتاج إليه).</td></tr></tbody></table>
+<p>لاختيار xAI كمزوّد نشط، اضبط <code>model.provider: xai-oauth</code> في <code>config.yaml</code> (استخدم <code>hermes setup</code> للتدفّق الموجَّه) أو مرّر <code>--provider xai-oauth</code> لاستدعاء واحد فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-expired--not-re-logging-in-automatically">انتهت صلاحية الرمز — لا يعيد تسجيل الدخول تلقائيًا</h3>
+<p>يجدّد Hermes الرمز قبل كل جلسة، ومرة أخرى تفاعليًا عند حدوث خطأ 401. إذا فشل التجديد برمز <code>invalid_grant</code> (تم إلغاء رمز التجديد، أو تم تدوير الحساب)، يعرض Hermes رسالة إعادة مصادقة مصنَّفة بدلًا من التعطّل.</p>
+<p>عندما يكون فشل التجديد نهائيًا (HTTP 4xx، أو <code>invalid_grant</code>، أو إلغاء المنح، إلخ)، يضع Hermes علامة على رمز التجديد بأنه ميت ويعزله محليًا — بحيث تتخطّى الاستدعاءات اللاحقة محاولة التجديد الفاشلة بدلًا من تكرار نفس خطأ 401 مرارًا. يعرض الوكيل رسالة واحدة بعنوان &quot;مطلوبة إعادة مصادقة&quot; ويتوقّف عن العمل حتى تسجّل الدخول من جديد.</p>
+<p><strong>الحل:</strong> نفّذ <code>hermes auth add xai-oauth</code> مجددًا لبدء تسجيل دخول جديد. يُزال الحجر بعد أول تبادل ناجح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization-timed-out">انتهت مهلة التفويض</h3>
+<p>للموافقة على رمز الجهاز نافذة صلاحية محدودة (تضبط xAI قيمة <code>expires_in</code> في استجابة رمز الجهاز، وعادةً ما تكون بحدود عشرات الدقائق). إذا لم توافق على تسجيل الدخول في الوقت المحدَّد، يرفع Hermes خطأ انتهاء المهلة.</p>
+<p><strong>الحل:</strong> أعد تنفيذ <code>hermes auth add xai-oauth</code> (أو <code>hermes model</code>). يبدأ التدفّق من جديد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-in-from-a-remote-server">تسجيل الدخول من خادم بعيد</h3>
+<p>في جلسات SSH أو الحاويات يطبع Hermes رابط التحقّق ورمز المستخدم بدلًا من فتح متصفح. افتح ذلك الرابط في متصفح على حاسوبك المحمول أو في وحدة تحكّم سحابية — لا حاجة إلى إعادة توجيه منفذ SSH لـ xAI Grok OAuth.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>بالنسبة للمزوّدين ذوي إعادة التوجيه الاسترجاعية (loopback) (مثل Spotify وخوادم MCP)، راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="http-403-after-a-successful-login-tier--entitlement">HTTP 403 بعد تسجيل دخول ناجح (المستوى / الاستحقاق)</h3>
+<p>اكتمل OAuth في المتصفح، وحُفظت الرموز، لكن الاستدلال أو تجديد الرمز يعيد <code>HTTP 403</code> برسالة شبيهة بـ <em>&quot;The caller does not have permission to execute the specified operation&quot;</em>.</p>
+<p>هذه <strong>ليست</strong> مشكلة رمز قديم — إعادة تنفيذ <code>hermes model</code> لن تغيّر شيئًا. لوحظ أن خلفية xAI تقيّد الوصول إلى API عبر OAuth لمستويات معينة من SuperGrok رغم أن الاشتراك داخل التطبيق نشط (المشكلة <a href="https://github.com/NousResearch/hermes-agent/issues/26847" data-ext>#26847</a>).</p>
+<p><strong>الحل:</strong> اضبط <code>XAI_API_KEY</code> وانتقل إلى مسار مفتاح API:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>أو رقِّ اشتراكك على <a href="https://x.ai/grok" data-ext>x.ai/grok</a> إذا كان مسار OAuth مطلوبًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-xai-credentials-found-error-at-runtime">خطأ &quot;No xAI credentials found&quot; أثناء التشغيل</h3>
+<p>مخزن المصادقة لا يحتوي على أي مُدخل لـ <code>xai-oauth</code> ولا على <code>XAI_API_KEY</code> مضبوط. إما أنك لم تسجّل الدخول بعد، أو أن ملف بيانات الاعتماد قد حُذف.</p>
+<p><strong>الحل:</strong> نفّذ <code>hermes model</code> واختر مزوّد xAI Grok OAuth، أو نفّذ <code>hermes auth add xai-oauth</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="logging-out">تسجيل الخروج</h2>
+<p>لإزالة كل بيانات اعتماد xAI Grok OAuth المحفوظة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يمسح هذا كلًا من مُدخل OAuth الوحيد في <code>auth.json</code> وأي صفوف في مجمّع بيانات الاعتماد (credential pool) الخاصة بـ <code>xai-oauth</code>. استخدم <code>hermes auth remove xai-oauth &lt;index|id|label&gt;</code> إذا كنت تريد حذف مُدخل واحد فقط من المجمّع (نفّذ <code>hermes auth list xai-oauth</code> لعرضها).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">اطّلع أيضًا على</h2>
+<ul>
+<li><a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a> — أنفاق SSH للمزوّدين ذوي إعادة التوجيه الاسترجاعية (Spotify وMCP)؛ يستخدم xAI رمز الجهاز ولا يحتاج إلى نفق</li>
+<li><a href="/docs/integrations/providers">مرجع مزوّدي الذكاء الاصطناعي (AI Providers)</a></li>
+<li><a href="/docs/reference/environment-variables">متغيرات البيئة (Environment Variables)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+<li><a href="/docs/user-guide/features/tts">الصوت و TTS</a></li>
+</ul>

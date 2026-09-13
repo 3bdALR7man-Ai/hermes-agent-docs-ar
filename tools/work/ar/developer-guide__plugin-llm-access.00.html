@@ -1,0 +1,123 @@
+<header><h1>وصول الإضافات إلى LLM</h1></header>
+<p><code>ctx.llm</code> هي الطريقة المدعومة لكي تُجري الإضافة استدعاءً لـ LLM. إكمال المحادثة (chat completion)، والاستخراج المنظّم، والاستدعاء المتزامن وغير المتزامن، مع الصور أو بدونها — الواجهة نفسها، وبوابة الثقة نفسها، وبيانات الاعتماد نفسها التي يملكها المضيف (host).</p>
+<p>تلجأ الإضافات إلى هذه الواجهة عندما تحتاج إلى تنفيذ شيء يستعين بالنموذج لكنه ليس جزءًا من محادثة الوكيل. مثلًا: hook يعيد صياغة خطأ أداة بصورة يستطيع غير المهندسين فهمها. أو gateway adapter يترجم رسالة واردة قبل إدراجها في قائمة الانتظار. أو slash command يلخّص نصًا طويلًا مُلصقًا. أو مهمة مجدولة تقيّم نشاط الأمس وتكتب سطرًا واحدًا في لوحة الحالة. أو مرشّح مسبق يقرر ما إذا كانت الرسالة تستحق إيقاظ الوكيل أصلًا.</p>
+<p>هذه مهام لا ينبغي أن يكون الوكيل طرفًا فيها. كل ما تحتاجه استدعاء واحد لـ LLM، وإجابة ذات نوع محدد، ثم ينتهي الأمر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-smallest-possible-call">أصغر استدعاء ممكن</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>هذه هي الواجهة كاملةً في سطر واحد. لا مفاتيح، ولا إعدادات للمزوّد، ولا تهيئة لأي SDK. تعمل الإضافة مع المزوّد والنموذج اللذين يستخدمهما المستخدم حاليًا — وعندما يبدّل المزوّد، تتبعه الإضافة تلقائيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-more-complete-chat-example">مثال محادثة أكثر اكتمالًا</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>purpose</code> سلسلة تدقيق حرة الصياغة — تظهر في <code>agent.log</code> وفي <code>result.audit</code> ليتمكن المشغّلون من معرفة أي إضافة أجرت أي استدعاء. وهي اختيارية لكنها موصى بها لأي استدعاء يتكرر كثيرًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="structured-output">المخرجات المنظّمة (Structured output)</h2>
+<p>عندما تحتاج الإضافة إلى إجابة ذات نوع محدد، انتقل إلى المسار المنظّم:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يطلب المضيف مخرجات JSON من المزوّد، ويحللها محليًا كخيار احتياطي، ويتحقق من صحتها وفق المخطط (schema) الخاص بك إذا كانت <code>jsonschema</code> مثبّتة، ثم يعيد كائن Python في <code>result.parsed</code>. وإذا لم يتمكن النموذج من إنتاج JSON صالح، تكون قيمة <code>result.parsed</code> هي <code>None</code> ويحمل <code>result.text</code> الاستجابة الخام.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-lane-gives-you">ما يقدّمه لك هذا المسار</h2>
+<ul>
+<li><strong>استدعاء واحد بأربعة أشكال.</strong> <code>complete()</code> للمحادثة، و <code>complete_structured()</code> لـ JSON ذي النوع المحدد، و <code>acomplete()</code> و <code>acomplete_structured()</code> لـ asyncio. الوسائط نفسها، وكائنات النتائج نفسها.</li>
+<li><strong>بيانات اعتماد يملكها المضيف.</strong> OAuth tokens، وتدفقات التحديث (refresh flows)، ومجمّع بيانات الاعتماد (credential pool)، والتجاوزات المساعدة (aux) لكل مهمة — ينطبق كل مفهوم لبيانات الاعتماد موجود بالفعل في Hermes. لا ترى الإضافة أي token إطلاقًا؛ ويُسند المضيف الاستدعاء إليها عبر <code>result.audit</code>.</li>
+<li><strong>محدود النطاق.</strong> استدعاء واحد متزامن أو غير متزامن. لا بثّ (streaming)، ولا حلقات أدوات، ولا حالة محادثة تحتاج إلى إدارتها. حدّد المدخلات، واحصل على النتيجة، ثم عُد.</li>
+<li><strong>ثقة مغلقة عند الإخفاق (fail-closed).</strong> الإضافة التي لم تُعدّها قط لا يمكنها أن تختار بنفسها المزوّد أو النموذج أو الوكيل أو بيانات الاعتماد المخزّنة. الوضع الافتراضي هو &quot;استخدم ما يستخدمه المستخدم&quot;. ويفعّل المشغّلون تجاوزات محددة صراحةً، لكل إضافة على حدة، في <code>config.yaml</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>فيما يلي إضافتان كاملتان — واحدة للمحادثة، وأخرى للمخرجات المنظّمة. كلتاهما مضمّنتان في دالة <code>register(ctx)</code> واحدة، ولا تحتاجان إلى أي إعدادات خارجية للعمل مع النموذج النشط لدى المستخدم أيًّا كان.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-completion--tldr">إكمال المحادثة — <code>/tldr</code></h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>result.text</code> هو استجابة النموذج؛ و <code>result.usage</code> يحمل أعداد tokens؛ و <code>result.provider</code> و <code>result.model</code> يحملان معلومات الإسناد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="structured-extraction--paste-to-tasks">الاستخراج المنظّم — <code>/paste-to-tasks</code></h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يوجد مثال عملي ثالث، هذه المرة مع مدخلات صور، في مستودع
+<a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/plugin-llm-example" data-ext><code>hermes-example-plugins</code></a>
+(مستودع مرافق للإضافات المرجعية — غير مضمّن مع hermes-agent نفسه). وللواجهة غير المتزامنة (<code>acomplete()</code> /
+<code>acomplete_structured()</code> مع <code>asyncio.gather()</code>)، راجع
+<a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/plugin-llm-async-example" data-ext><code>plugin-llm-async-example</code></a>
+في المستودع نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-which">متى تستخدم كل دالة</h2>
+<table><thead><tr><th>تريد…</th><th>استخدم</th></tr></thead><tbody><tr><td>استجابة نصية حرة (ترجمة، أو تلخيص، أو إعادة صياغة، أو توليد)</td><td><code>complete()</code></td></tr><tr><td>prompt متعدد الأدوار (system + أمثلة few-shot + المستخدم)</td><td><code>complete()</code></td></tr><tr><td>إرجاع قاموس ذي نوع محدد، مُتحقَّق منه وفق مخطط</td><td><code>complete_structured()</code></td></tr><tr><td>مدخلات صورة أو نص مع إرجاع قاموس ذي نوع محدد</td><td><code>complete_structured()</code></td></tr><tr><td>الاستدعاء نفسه من شيفرة غير متزامنة (gateway adapters، و hooks غير المتزامنة)</td><td><code>acomplete()</code> / <code>acomplete_structured()</code></td></tr></tbody></table>
+<p>كل ما عدا ذلك — اختيار المزوّد، وتحديد النموذج، والمصادقة، والاحتياطي (fallback)، والمهلة، وتوجيه الرؤية (vision routing) — متماثل في الأشكال الأربعة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-surface">واجهة API</h2>
+<p><code>ctx.llm</code> هو نسخة (instance) من <code>agent.plugin_llm.PluginLlm</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="complete"><code>complete()</code></h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>إكمال محادثة عادي. <code>messages</code> بالبنية القياسية لـ OpenAI — قائمة من القواميس بالشكل <code>{&quot;role&quot;: &quot;...&quot;, &quot;content&quot;: &quot;...&quot;}</code>. تعمل الـ prompts متعددة الأدوار (system + أزواج few-shot من user/assistant + رسالة user الأخيرة) تمامًا كما تعمل مع OpenAI SDK.</p>
+<p><code>provider=</code> و <code>model=</code> مستقلان، ويتبعان البنية نفسها المستخدمة في الإعدادات الرئيسية للمضيف (<code>model.provider</code> + <code>model.model</code>). اضبط <code>model=</code> وحده لاستخدام المزوّد النشط لدى المستخدم مع نموذج مختلف عليه. واضبط كليهما لتبديل المزوّد بالكامل. وأيٌّ من الوسيطين دون تفعيل صريح من المشغّل يُطلق <code>PluginLlmTrustError</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="complete_structured"><code>complete_structured()</code></h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>المدخلات عبارة عن كتل نصية أو كتل صور ذات أنواع محددة (تُرمَّز البايتات الخام بـ base64 تلقائيًا في صورة <code>data:</code> URL). عند تمرير <code>json_schema</code> أو <code>json_mode=True</code>، يطلب المضيف مخرجات JSON عبر <code>response_format</code>، ويحللها محليًا كخيار احتياطي، ويتحقق منها وفق المخطط الخاص بك إذا كانت <code>jsonschema</code> مثبّتة.</p>
+<ul>
+<li><code>result.content_type == &quot;json&quot;</code> — <code>result.parsed</code> كائن Python يطابق المخطط الخاص بك.</li>
+<li><code>result.content_type == &quot;text&quot;</code> — فشل التحليل أو التحقق؛ افحص <code>result.text</code> للاطلاع على استجابة النموذج الخام.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="async">الاستدعاءات غير المتزامنة (Async)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>لها الوسائط وأنواع النتائج نفسها التي لنظيراتها المتزامنة. استخدمها من gateway adapters، أو hooks غير المتزامنة، أو أي شيفرة إضافة تعمل بالفعل على حلقة asyncio.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="task-routed-auxiliary-calls">الاستدعاءات المساعدة الموجّهة حسب المهمة</h3>
+<p>مرّر <code>task=</code> إلى أيٍّ من أشكال الاستدعاء الأربعة عندما تحتاج الإضافة إلى مسار مساعد (auxiliary) خاص بها ومُعدّ مسبقًا. سجّل تلك المهمة أثناء إعداد الإضافة؛ وتُطبَّق القيم الافتراضية للإضافة إلى أن يتجاوز المشغّل المزوّد والنموذج الخاصين بها في <code>auxiliary.&lt;task&gt;</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يمكن للإضافات توفير قيم افتراضية لتسجيل المزوّد/النموذج لمهامها الخاصة. وتتجاوز إعدادات المشغّل في <code>auxiliary.&lt;task&gt;</code> هذه القيم الافتراضية وتتحكم في خيار النشر. لا يمكن للإضافة استخدام مهمة إلا إذا سجّلتها بنفسها؛ وتفشل أسماء المهام غير المعروفة أو التابعة لغيرها قبل استدعاء المزوّد. يُعدّ <code>allow_task_override: true</code> منحًا صريحًا من المشغّل لاستخدام المهام المساعدة المدمجة في Hermes؛ ولا يسمح باستخدام مهام إضافة أخرى. أغفل <code>task=</code> (أو استخدم <code>&quot;auto&quot;</code>) للإبقاء على المزوّد/النموذج الرئيسي النشط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="result-attributes">خصائص النتيجة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يحمل <code>usage</code> القيم <code>input_tokens</code> و <code>output_tokens</code> و <code>total_tokens</code> و <code>cache_read_tokens</code> و <code>cache_write_tokens</code> و <code>cost_usd</code> عندما يُرجع المزوّد هذه الحقول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trust-gate">بوابة الثقة (Trust gate)</h2>
+<p>السلوك الافتراضي مغلق عند الإخفاق (fail-closed). في غياب كتلة الإعدادات <code>plugins.entries</code>، يمكن للإضافة:</p>
+<ul>
+<li>تشغيل أيٍّ من الدوال الأربع مع المزوّد والنموذج النشطين لدى المستخدم،</li>
+<li>ضبط الوسائط التي تشكّل الطلب (<code>temperature</code> و <code>max_tokens</code> و <code>timeout</code> و <code>system_prompt</code> و <code>purpose</code> و <code>messages</code> و <code>instructions</code> و <code>input</code> و <code>json_schema</code>)،</li>
+</ul>
+<p>…وهذا كل شيء. تُطلق الوسائط <code>provider=</code> و <code>model=</code> و <code>agent_id=</code> و <code>profile=</code> الخطأ <code>PluginLlmTrustError</code> إلى أن يفعّلها المشغّل صراحةً. وبالمثل، لا يمكن لـ <code>task=</code> أن تستخدم إلا المهمة المساعدة المسجّلة للإضافة، ما لم يمنح المشغّل <code>allow_task_override</code> لمهمة مدمجة.</p>
+<p><strong>معظم الإضافات لا تحتاج إلى هذا القسم أبدًا.</strong> فالإضافة التي تكتفي باستدعاء <code>ctx.llm.complete(messages=...)</code> دون أي تجاوزات تعمل مع ما هو نشط لدى المستخدم دون أي إعدادات. ولا تكون الكتلة التالية ذات صلة إلا عندما تريد إضافة ما تحديدًا تثبيت نموذج أو مزوّد مختلف عمّا يستخدمه المستخدم.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>معرّف الإضافة هو الحقل <code>name:</code> في ملف manifest بالنسبة إلى الإضافات المسطّحة، أو المفتاح المشتق من المسار بالنسبة إلى الإضافات المتداخلة (<code>image_gen/openai</code> و <code>memory/honcho</code> وغيرها).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-gate-enforces">ما تفرضه البوابة</h3>
+<table><thead><tr><th>التجاوز</th><th>القيمة الافتراضية</th><th>مفتاح الإعدادات</th></tr></thead><tbody><tr><td><code>provider=</code></td><td>مرفوض</td><td><code>allow_provider_override: true</code></td></tr><tr><td>↳ قائمة السماح (allowlist)</td><td>—</td><td><code>allowed_providers: [...]</code></td></tr><tr><td><code>model=</code></td><td>مرفوض</td><td><code>allow_model_override: true</code></td></tr><tr><td>↳ قائمة السماح (allowlist)</td><td>—</td><td><code>allowed_models: [...]</code></td></tr><tr><td><code>agent_id=</code></td><td>مرفوض</td><td><code>allow_agent_id_override: true</code></td></tr><tr><td><code>profile=</code></td><td>مرفوض</td><td><code>allow_profile_override: true</code></td></tr><tr><td>المهمة المدمجة <code>task=</code></td><td>مرفوض</td><td><code>allow_task_override: true</code></td></tr></tbody></table>
+<p>كل تجاوز محكوم ببوابة مستقلة. منح <code>allow_model_override</code> <strong>لا</strong> يمنح معه <code>allow_provider_override</code> — فالإضافة الموثوقة لاختيار نموذج تبقى مقيّدة بالمزوّد النشط لدى المستخدم ما لم تحصل على بوابة المزوّد أيضًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-gate-does-not-need-to-enforce">ما لا تحتاج البوابة إلى فرضه</h3>
+<ul>
+<li>الوسائط التي تشكّل الطلب — <code>temperature</code> و <code>max_tokens</code> و
+<code>timeout</code> و <code>system_prompt</code> و <code>purpose</code> و <code>messages</code> و <code>instructions</code> و
+<code>input</code> و <code>json_schema</code> و <code>schema_name</code> و <code>json_mode</code> — مسموح بها دائمًا؛ فهي لا تختار بيانات اعتماد ولا مسارات.</li>
+<li>يعني وضع الرفض الافتراضي أن الإضافة غير المُعدّة لا تزال قادرة على أداء عمل مفيد — فهي تعمل ببساطة مع المزوّد والنموذج النشطين. ولا يحتاج المشغّلون إلى التفكير في <code>plugins.entries</code> إلا للإضافات التي تريد توجيهًا أدق.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-host-owns">ما يتولاه المضيف</h2>
+<p>قائمة كاملة بالأمور التي تتولاها <code>ctx.llm</code> نيابةً عن الإضافة حتى لا تضطر إلى القيام بها:</p>
+<ul>
+<li><strong>تحديد المزوّد.</strong> يقرأ <code>model.provider</code> + <code>model.model</code> من إعدادات المستخدم (أو التجاوزات الصريحة عندما تكون الإضافة موثوقة).</li>
+<li><strong>المصادقة.</strong> يجلب مفاتيح API أو OAuth tokens أو refresh tokens من <code>~/.hermes/auth.json</code> / متغيرات البيئة، بما في ذلك مجمّع بيانات الاعتماد عند إعداده. ولا تراها الإضافة أبدًا.</li>
+<li><strong>توجيه الرؤية (Vision routing).</strong> عند تمرير مدخلات صور وكان النموذج النشط لدى المستخدم نصيًا فقط، يلجأ المضيف تلقائيًا إلى نموذج الرؤية المُعدّ.</li>
+<li><strong>سلسلة الاحتياطي (Fallback chain).</strong> إذا أعاد المزوّد الأساسي للمستخدم أخطاء 5xx أو 429، يمر الطلب عبر آلية الاحتياطي المعتادة في Hermes المراعية للمجمِّعات (aggregators) قبل أن يُرجع خطأً إلى الإضافة.</li>
+<li><strong>المهلة (Timeout).</strong> يلتزم بالوسيط <code>timeout=</code> الذي تمرّره، ويعود عند غيابه إلى إعداد <code>auxiliary.&lt;task&gt;.timeout</code> أو القيمة الافتراضية العامة للاستدعاءات المساعدة.</li>
+<li><strong>تشكيل JSON.</strong> يرسل <code>response_format</code> إلى المزوّد عندما تطلب JSON، ثم يعيد التحليل محليًا من استجابة محاطة بسياج شيفرة (code fence) إذا أعاد المزوّد استجابة كهذه.</li>
+<li><strong>التحقق من المخطط.</strong> يتحقق وفق <code>json_schema</code> الخاص بك عندما تكون <code>jsonschema</code> مثبّتة؛ وإلا فإنه يكتب سطر debug في السجل ويتخطى التحقق الصارم.</li>
+<li><strong>سجل التدقيق.</strong> يكتب كل استدعاء سطر INFO واحدًا في <code>agent.log</code> يتضمن معرّف الإضافة، والمزوّد/النموذج، والغرض، وإجماليات tokens.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-plugin-owns">ما تتولاه الإضافة</h2>
+<ul>
+<li><strong>بنية الطلب.</strong> <code>messages</code> للمحادثة، و <code>instructions</code> + <code>input</code> للمخرجات المنظّمة. الإضافة تبني الـ prompt؛ والمضيف ينفّذه.</li>
+<li><strong>المخطط.</strong> أي بنية تريد استلامها. لا يستنتجها المضيف نيابةً عنك.</li>
+<li><strong>معالجة الأخطاء.</strong> تُطلق <code>complete_structured()</code> الخطأ <code>ValueError</code> عند المدخلات الفارغة وعند فشل التحقق من المخطط. ويُطلَق <code>PluginLlmTrustError</code> عندما ترفض بوابة الثقة تجاوزًا ما. وأي خطأ آخر (أخطاء 5xx من المزوّد، أو عدم إعداد بيانات اعتماد، أو انتهاء المهلة) يُطلق ما تُطلقه
+<code>auxiliary_client.call_llm()</code>.</li>
+<li><strong>التكلفة.</strong> يعمل كل استدعاء على حساب المزوّد المدفوع لدى المستخدم. لا تستدعِ <code>complete()</code> في حلقة لكل رسالة gateway دون التفكير في استهلاك tokens.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-this-fits-in-the-plugin-surface">موقع هذه الواجهة ضمن واجهات الإضافات</h2>
+<p>توسّع دوال <code>ctx.*</code> الحالية نظامًا فرعيًا قائمًا في Hermes:</p>
+<p>| <code>ctx.register_tool</code> | يضيف أداة يمكن للوكيل استدعاؤها |
+| <code>ctx.register_platform</code> | يربط gateway adapter جديدًا |
+| <code>ctx.register_image_gen_provider</code> | يستبدل backend توليد الصور |
+| <code>ctx.register_memory_provider</code> | يستبدل backend الذاكرة |
+| <code>ctx.register_context_engine</code> | يستبدل ضاغط السياق |
+| <code>ctx.register_hook</code> | يرصد حدثًا من أحداث دورة الحياة |</p>
+<p><code>ctx.llm</code> هي أول واجهة تتيح للإضافة تشغيل النموذج نفسه الذي يتحدث إليه المستخدم، <em>خارج مسار المحادثة (out of band)</em>، دون الحاجة إلى أيٍّ مما سبق. وهذه وظيفتها الوحيدة. إذا كانت إضافتك تحتاج إلى تسجيل أداة يستدعيها الوكيل، فاستخدم <code>register_tool</code>. وإذا كانت تحتاج إلى التفاعل مع حدث من أحداث دورة الحياة، فاستخدم <code>register_hook</code>. وإذا كانت تحتاج إلى إجراء استدعاء خاص بها للنموذج — لأي سبب، بمخرجات منظّمة أو بدونها — فاستخدم <code>ctx.llm</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference">المرجع</h2>
+<ul>
+<li>التنفيذ: <a href="https://github.com/NousResearch/hermes-agent/blob/main/agent/plugin_llm.py" data-ext><code>agent/plugin_llm.py</code></a></li>
+<li>الاختبارات: <a href="https://github.com/NousResearch/hermes-agent/blob/main/tests/agent/test_plugin_llm.py" data-ext><code>tests/agent/test_plugin_llm.py</code></a></li>
+<li>الإضافات المرجعية (المستودع المرافق):
+<ul>
+<li><a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/plugin-llm-example" data-ext><code>plugin-llm-example</code></a> — استخراج منظّم متزامن مع مدخلات صور</li>
+<li><a href="https://github.com/NousResearch/hermes-example-plugins/tree/main/plugin-llm-async-example" data-ext><code>plugin-llm-async-example</code></a> — استدعاء غير متزامن مع <code>asyncio.gather()</code></li>
+</ul>
+</li>
+<li>العميل المساعد (المحرك الذي يعمل خلف الكواليس): راجع
+<a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime)</a>.</li>
+</ul>

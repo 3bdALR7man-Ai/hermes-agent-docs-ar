@@ -1,0 +1,112 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pid-and-nonce-defense">الحماية عبر PID و nonce</h2>
+<p>يُكتب ملف PID الخاص بالـ daemon باستخدام <code>O_EXCL</code> + <code>O_NOFOLLOW</code> مع التحقق من الملكية. وتؤدي استدعاءات <code>hermes egress start</code> المتزامنة إلى إحدى نتيجتين:</p>
+<ul>
+<li>يشير ملف PID الموجود إلى iron-proxy يعمل → يرفض التشغيل الثاني مع الرسالة &quot;another start in progress&quot; + تلميح بتشغيل <code>hermes egress stop</code></li>
+<li>ملف PID الموجود قديم (daemon تعطّل) → يحذفه التشغيل الثاني ويعيد المحاولة مرة واحدة</li>
+</ul>
+<p>وفوق ذلك، يزرع كل استدعاء لـ <code>start_proxy</code> قيمة nonce عشوائية جديدة في موضعين:</p>
+<ul>
+<li><code>HERMES_IRON_PROXY_NONCE=&lt;nonce&gt;</code> في بيئة الـ daemon</li>
+<li><code>~/.hermes/proxy/iron-proxy.nonce</code> (ملف بصلاحيات 0o600 مجاور لملف PID)</li>
+</ul>
+<p>عندما يريد <code>hermes egress stop</code> (أو أي فحص آخر عبر <code>_pid_alive</code>) التأكد من أن PID لا يزال يشير إلى الـ daemon <em>الخاص بنا</em> — وليس إلى عملية لا علاقة لها أُسند إليها PID نفسه بعد تعطّل iron-proxy — فإنه يقرأ <code>/proc/&lt;pid&gt;/environ</code> ويبحث عن الـ nonce. والنسخة المحفوظة على القرص هي ما يجعل هذا يعمل عبر استدعاءات CLI المختلفة (إذ إن <code>_proxy_nonce</code> المحفوظ في الذاكرة خاص بكل عملية ويُعاد تعيينه مع كل استدعاء لـ <code>hermes</code>).</p>
+<p>إذا فشل فحص الـ nonce، يلجأ الكود إلى مطابقة الاسم الأساسي لـ <code>argv[0]</code> مع <code>iron-proxy</code>. كما يلتقط <code>stop_proxy</code> قيمة starttime من <code>/proc/&lt;pid&gt;/stat</code> قبل إرسال SIGTERM ويعيد التحقق منها بعد مهلة السماح البالغة 5 ثوانٍ — فإذا تغيّرت قيمة starttime، فهذا يعني أن PID أُعيد تدويره أثناء الانتظار، فيُلغى إرسال SIGKILL مع تحذير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">نموذج الأمان</h2>
+<p><strong>ما الذي يحمي منه:</strong></p>
+<ul>
+<li>وكيل تعرّض لحقن prompt داخل sandbox في Docker يقرأ <code>printenv</code> / ملفات بيانات الاعتماد ويسرّب المفاتيح الحقيقية.</li>
+<li>اعتمادية مُخترقة داخل الـ sandbox تتصل بمضيف عشوائي — إذ تحظر قائمة السماح ذات الرفض الافتراضي الوجهات غير المعروفة.</li>
+<li>وكيل يتصل بـ endpoints البيانات الوصفية السحابية (<code>169.254.169.254</code>) — يرفض iron-proxy هذه الاتصالات افتراضيًا عبر <code>upstream_deny_cidrs</code>، بما في ذلك صيغة IPv6 المُعيَّنة من IPv4 <code>::ffff:169.254.169.254</code>.</li>
+<li>هجوم DNS rebinding عبر اسم مضيف مسموح به يُوجَّه إلى IP خاص — إذ تُفحص نطاقات CIDR المحظورة وقت الاتصال، لا وقت التحقق من قائمة السماح.</li>
+<li>عمليات محلية بنفس uid تقرأ بيئة daemon الخاص بـ iron-proxy لاستخلاص الأسرار — إذ لا تُمرَّر إلا أسماء متغيرات البيئة المشار إليها في الروابط، لا بيئة الجهاز المضيف كاملة.</li>
+<li>جهاز آخر على الشبكة المحلية يملك proxy token مسرّبًا من sandbox ويستهلك حصة API الخاصة بك — إذ يرتبط الـ proxy ببوابة جسر docker (على Linux) أو بـ loopback (على Docker Desktop)، ولا يرتبط أبدًا بـ <code>0.0.0.0</code>، لذا لا يمكن الوصول إليه من الشبكة الخارجية.</li>
+</ul>
+<p><strong>ما الذي لا يحمي منه:</strong></p>
+<ul>
+<li>عملية مُخترقة على الجهاز المضيف. فإذا اختُرقت عملية الوكيل نفسها، تنكشف المفاتيح الحقيقية الموجودة في <code>~/.hermes/.env</code> على الجهاز المضيف في كل الأحوال. هذه ميزة دفاع متعدد الطبقات ضد اختراق <em>الـ sandbox</em>، لا ضد اختراق الجهاز المضيف.</li>
+<li><strong>فقدان حدود الـ proxy الموثوقة نفسها.</strong> يفترض ضمان استبدال الـ tokens أن الـ sandbox تثق بشهادة CA المُركّبة (<code>/etc/ssl/certs/hermes-egress-ca.crt</code>) وأن حركة المرور تصل فعلًا إلى iron-proxy <em>الخاص بنا</em>. فإذا سُرق المفتاح الخاص لـ CA، أو أُعيد توجيه الاتصالات الصادرة من الـ sandbox إلى بنية proxy يتحكم بها المهاجم، فيمكن لخصم في المنتصف تقديم شهادة طرفية صالحة ولن تعود الـ proxy tokens حدًا ذا معنى (راجع <a href="https://attack.mitre.org/techniques/T1588/004/" data-ext>MITRE ATT&amp;CK T1588.004</a> — الحصول على مواد شهادات TLS التي تتيح هجمات AiTM). لذا احمِ مفتاح CA (بصلاحيات <code>0600</code> وعلى الجهاز المضيف فقط) و endpoint الخاص بالـ proxy وفقًا لذلك.</li>
+<li>عمليات الـ sandbox التي تتجاوز <code>HTTPS_PROXY</code> باستخدام socket خام. فالـ proxy لا يستطيع اعتراض ما لا يمر عبره. وقد خُفّف الأمر جزئيًا في Node.js عبر <code>NODE_OPTIONS=--use-openssl-ca</code> (راجع التحفّظ أعلاه).</li>
+<li>ملفات بيانات الاعتماد المُركّبة صراحةً في Docker (<code>terminal.credential_files</code> أو عمليات التركيب التي تسجّلها المهارات). يحمي الـ egress متغيرات بيئة المزوّدين؛ لكنه لا يفحص الملفات المُركّبة العشوائية. لا تركّب بيانات اعتماد حقيقية للمزوّدين داخل sandbox يُفرض فيها الـ egress.</li>
+<li>تسريب البيانات عبر مضيف مسموح به. فإذا كان <code>api.openai.com</code> مسموحًا به، يمكن للوكيل تضمين البيانات المسرّبة في جسم طلب إلى ذلك المضيف. يسجّل سجل الـ daemon أن الطلب حدث لكنه لا يمنعه.</li>
+<li>المزوّدون غير المشمولين (AWS Bedrock SigV4، و OAuth حساب الخدمة في GCP Vertex). تبقى متغيرات البيئة الخاصة بهم داخل الـ sandbox؛ فإذا فعّلتها، تتجاوز بيانات الاعتماد تلك الـ proxy كليًا. راجع <a href="#uncovered-providers">المزوّدون غير المشمولين</a>.</li>
+<li>تصفير الأسرار في ذاكرة iron-proxy. يحتفظ الملف التنفيذي المكتوب بـ Go ببيانات الاعتماد الحقيقية المُستبدَلة في ذاكرة العملية؛ لذا فإن تفريغ core-dump أو قراءة <code>/proc/&lt;pid&gt;/mem</code> من قِبل مهاجم بنفس uid قد يكشفها. وهذا خارج نطاق هذه الطبقة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-modes">حالات الإخفاق</h2>
+<ul>
+<li><strong>الملف التنفيذي غير مثبّت، و <code>auto_install: true</code></strong> — يُنزّله أول تشغيل لـ <code>hermes egress setup</code> أو <code>hermes egress start</code>، مع التحقق من SHA-256 مقابل <code>checksums.txt</code> من المشروع الأصلي.</li>
+<li><strong>الملف التنفيذي غير مثبّت، و <code>auto_install: false</code></strong> — يفشل <code>start</code> مع رسالة واضحة تُرشدك إلى التثبيت اليدوي.</li>
+<li><strong><code>enabled: true</code> لكن الـ proxy لا يعمل</strong> — مع <code>enforce_on_docker: true</code> (الافتراضي)، يُرفض إنشاء sandbox في Docker مع خطأ توضيحي. ومع <code>enforce_on_docker: false</code>، يعود إلى الاتصال الصادر المباشر ببيانات الاعتماد الحقيقية ويسجّل تحذيرًا.</li>
+<li><strong>تعارض المنافذ</strong> — يخرج iron-proxy فورًا؛ ويعرض <code>hermes egress start</code> آخر 20 سطرًا من السجل ويفشل برمز خروج غير صفري.</li>
+<li><strong>رفض مضيف upstream</strong> — تتلقى الـ sandbox الرمز HTTP 403 من الـ proxy مع جسم يوضح أي مضيف لم يُسمح به. ويرى الوكيل الخطأ ويُبلغ عنه.</li>
+<li><strong>طلب عنوان IP للبيانات الوصفية السحابية (169.254.169.254)</strong> — يرفضه <code>upstream_deny_cidrs</code> بغض النظر عن قائمة السماح.</li>
+<li><strong><code>docker_env</code> يتعارض مع متغير يتحكم في الـ proxy (مع تفعيل الفرض)</strong> — يُرفض إنشاء الـ sandbox مع ذكر أسماء المفاتيح المتعارضة.</li>
+<li><strong><code>docker_forward_env</code> يحاول تمرير مفتاح مزوّد محمي (مع تفعيل الفرض)</strong> — يُرفض إنشاء الـ sandbox؛ فأزل المفتاح من <code>docker_forward_env</code> أو ألغِ الفرض عبر <code>proxy.enforce_on_docker: false</code>.</li>
+<li><strong><code>docker_extra_args</code> يتجاوز ضوابط البيئة/الشبكة الخاصة بالـ proxy (مع تفعيل الفرض)</strong> — يُرفض إنشاء الـ sandbox؛ إذ إن الوسائط التي يوفرها المستخدم مثل <code>-e HTTPS_PROXY=...</code> أو <code>--env-file</code> أو <code>--network</code> تُطبَّق بعد الوسائط التي يولّدها Hermes ويمكنها تجاوز الـ egress.</li>
+<li><strong>غياب الـ access token الخاص بـ BWS مع <code>credential_source: bitwarden</code></strong> — يرفض <code>hermes egress start</code> التشغيل مع تلميح للاستعادة باستخدام <code>--no-bitwarden</code>.</li>
+<li><strong>عدم ارتباط iron-proxy خلال 5 ثوانٍ</strong> — تُنهى العملية، ويُحذف ملف PID، ويذكر الخطأ المنفذ + آخر أسطر <code>iron-proxy.log</code>.</li>
+<li><strong>استدعاءات <code>hermes egress start</code> متزامنة</strong> — يرفض الاستدعاء الثاني مع الرسالة &quot;another start in progress&quot; إذا كان الـ daemon الخاص بالاستدعاء الأول يعمل؛ وإلا فيحذف الاستدعاء الثاني ملف PID القديم ويتابع.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="refusing-to-start-bws_access_token-is-not-set">&quot;Refusing to start: BWS_ACCESS_TOKEN is not set&quot;</h3>
+<p>لقد فعّلت <code>credential_source: bitwarden</code> لكن متغير بيئة الـ access token غير موجود في الـ shell لديك. فإما:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>أو انقله إلى <code>~/.hermes/.env</code>. أو عُد إلى وضع env:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iron-proxy-exited-immediately">&quot;iron-proxy exited immediately&quot;</h3>
+<p>اطّلع على آخر 20 سطرًا من <code>~/.hermes/proxy/iron-proxy.log</code>. الأسباب الشائعة:</p>
+<ul>
+<li>المنفذ مستخدم بالفعل → غيّر <code>proxy.tunnel_port</code> أو أنهِ العملية الأخرى التي تستخدم المنفذ 9090</li>
+<li>ملف <code>proxy.yaml</code> غير صالح → شغّل <code>hermes egress setup</code> لإعادة توليده</li>
+<li>صلاحيات شهادة CA / المفتاح خاطئة → <code>chmod 0o600 ~/.hermes/proxy/ca.key</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iron-proxy-did-not-bind-bind-host9090-within-5s">&quot;iron-proxy did not bind &lt;bind-host&gt;:9090 within 5s&quot;</h3>
+<p>بدأ الـ daemon لكنه لم يرتبط بالمستمع (listener) أبدًا. ويعني هذا عادةً أن الملف التنفيذي عالق أو يؤدي عملية مكلفة عند بدء التشغيل. تحقّق من <code>~/.hermes/proxy/iron-proxy.log</code>. تُنهى العملية اليتيمة تلقائيًا ويُنظَّف ملف PID، لذا يمكنك ببساطة إعادة محاولة <code>hermes egress start</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sandbox-times-out-connecting-to-the-proxy-linux">انتهاء مهلة اتصال الـ sandbox بالـ proxy (Linux)</h3>
+<p>تحلّ الحاوية <code>host.docker.internal</code> إلى بوابة جسر docker والـ proxy مرتبط بها، لكن جدار حماية على الجهاز المضيف (غالبًا <code>ufw</code> مع رفض INPUT افتراضيًا) يُسقط حركة المرور من الحاوية→الجهاز المضيف على <code>docker0</code>. تحقّق من ذلك من داخل حاوية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>إذا انتهت مهلة ذلك بينما يعرض <code>hermes egress status</code> الحالة <code>listening</code>، فاسمح بالشبكة الفرعية للجسر في جدار الحماية لديك، مثلًا في ufw:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>(9091 = مستمع التمرير الخاص بـ HTTP العادي على <code>tunnel_port + 1</code>.)</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sandbox-sees-http-403-from-the-proxy">تتلقى الـ sandbox الرمز <code>HTTP 403</code> من الـ proxy</h3>
+<p>حاول الوكيل داخل الـ sandbox الوصول إلى مضيف غير موجود في <code>proxy.extra_allowed_hosts</code>. ويوضح جسم استجابة 403 أي مضيف هو. وإن أردت السماح به، فأضفه إلى إعداداتك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>ثم نفّذ <code>hermes egress setup</code> (لإعادة توليد <code>proxy.yaml</code>) و <code>hermes egress stop &amp;&amp; hermes egress start</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sandbox-sees-ssl-verification-errors">تظهر في الـ sandbox أخطاء التحقق من SSL</h3>
+<p>إما أن الـ CA غير مُركّبة في الـ sandbox (وهذا نادر؛ إذ يقوم الـ backend الخاص بـ docker بذلك تلقائيًا عند ضبط <code>proxy.enabled: true</code>)، أو أن عميل HTTP في الصورة (image) التي تستخدمها يقرأ من متغير بيئة غير قياسي.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>إذا لم تكن الشهادة موجودة، فتحقّق من ضبط <code>proxy.enabled: true</code> ومن أن <code>hermes egress status</code> يعرض <code>Listening yes</code>. وإذا كانت متغيرات البيئة مفقودة، فقد تكون صورة الـ sandbox تشغّل entrypoint يحذفها — فراجع إعدادات <code>docker_env</code> لديك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sandbox-sees-http-401-from-upstreams">تتلقى الـ sandbox الرمز <code>HTTP 401</code> من خدمات upstream</h3>
+<p>هناك سببان شائعان:</p>
+<ol>
+<li><strong>استبدال الـ tokens عند إعادة الإعداد.</strong> شغّلت <code>hermes egress setup --rotate-tokens</code> (أو دوّرت الـ tokens بطريقة أخرى) ولا تزال الـ sandboxes العاملة تحمل الـ tokens القديمة. أعد تشغيل الـ sandboxes.</li>
+<li><strong>فشل تحديث Bitwarden بصمت.</strong> يُفترض ألا يحدث هذا مع سلوك الإخفاق الصريح الجديد، لكن إذا كان لديك <code>proxy.allow_env_fallback: true</code> مضبوطًا، فربما بدأ الـ daemon بقيم بيئة قديمة. تحقّق من بيئة الـ daemon (<code>/proc/&lt;iron-proxy-pid&gt;/environ</code>) بحثًا عن <code>OPENROUTER_API_KEY</code> المتوقع وغيره.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="address-in-use-after-the-parent-process-died">&quot;Address in use&quot; بعد توقف العملية الأم</h3>
+<p>توقفت عملية Hermes الأم أثناء <code>hermes egress start</code> (بسبب Ctrl-C أثناء فحص الاستماع، أو نفاد الذاكرة OOM، أو panic). يكتب منطق الإصلاح الجديد ملف PID مباشرةً بعد <code>Popen</code> كي تبقى العملية اليتيمة قابلة للاستعادة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>إذا قال <code>hermes egress stop</code> إن &quot;iron-proxy was not running&quot; بينما لا يزال بإمكانك رؤية الـ daemon في <code>ps</code>، فهذا يعني أن ملف PID فقد تزامنه. الاستعادة اليدوية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspecting-per-request-behavior">فحص السلوك على مستوى كل طلب</h3>
+<p>في إصدار الملف التنفيذي المثبّت (<strong>v0.39</strong>) تصل أحداث مستوى الـ daemon وسجلات كل طلب كلاهما إلى <code>~/.hermes/proxy/iron-proxy.log</code>. والصيغة هي JSON مفصول بالأسطر. ابحث باستخدام grep عن upstream محدد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>أو راقبه في الوقت الفعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>عندما ينتقل الإصدار المثبّت إلى v0.40+ (الذي يضيف <code>log.audit_path</code>)، ستنتقل سجلات كل طلب إلى <code>~/.hermes/proxy/audit.log</code> وسيحتفظ <code>iron-proxy.log</code> بأحداث مستوى الـ daemon فقط. وحتى تلك الترقية، يبقى <code>audit.log</code> ملفًا فارغًا محجوزًا (يُنشأ مسبقًا بصلاحيات <code>0o600</code> كي يرث الـ daemon المستقبلي صلاحيات مشددة) — لذا اربط أدوات logrotate / المراقبة لديك بـ <code>iron-proxy.log</code> حاليًا وخطّط لإضافة <code>audit.log</code> بعد ترقية الإصدار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations-v1">القيود (v1)</h2>
+<ul>
+<li>الـ backend الخاص بـ Docker فقط. وسيأتي ربط Modal و Daytona و SSH في PRs منفصلة.</li>
+<li>المزوّدون الذين يعتمدون على المصادقة بالتوقيع (AWS SigV4، و OAuth حساب الخدمة في GCP) يتجاوزون الـ proxy كليًا — راجع <a href="#uncovered-providers">المزوّدون غير المشمولين</a>. أما المزوّدون الذين يعتمدون على tokens في الترويسات (bearer، <code>x-api-key</code>، <code>api-key</code>، <code>x-goog-api-key</code>) فجميعهم مشمولون.</li>
+<li>لا يوفر المشروع الأصلي ملفًا تنفيذيًا أصليًا لـ Windows. شغّله على Linux / macOS / WSL.</li>
+<li>الـ CA عبارة عن شهادة موقّعة ذاتيًا صالحة لـ 10 سنوات عند توليدها لأول مرة. ويتطلب تدويرها تنفيذ <code>openssl genrsa ...</code> يدويًا (أو انتظار تحديث لاحق يضيف <code>hermes egress rotate-ca</code>).</li>
+<li>تؤدي إعادة تشغيل الإعداد إلى إيقاف الـ daemon العامل بعد إعادة كتابة الإعدادات أو الروابط؛ فأعد تشغيله (أو استخدم <code>hermes egress reload</code> للتغييرات التي تقتصر على مجموعة القواعد) وأعد تشغيل الـ sandboxes العاملة بالفعل بعد تدوير الـ tokens.</li>
+<li>تصفير الأسرار في ذاكرة iron-proxy خاضع لتحكم المشروع الأصلي. ويستطيع المهاجمون الذين يحملون uid نفسه ويملكون صلاحية قراءة <code>/proc/&lt;pid&gt;/mem</code> قراءة الأسرار المُستبدَلة من ذاكرة الـ daemon.</li>
+<li>لا يدعم iron-proxy v0.39 إلا <strong>ربطًا واحدًا لكل daemon</strong> (نربط ببوابة جسر docker على Linux، وبـ loopback على Docker Desktop) ويدمج سجلات الـ daemon وسجلات كل طلب في تدفق سجل واحد. وعندما يضيف المشروع الأصلي <code>proxy.http_listens</code> (بصيغة الجمع) و <code>log.audit_path</code>، يمكن لترقية الإصدار تفعيل الربط المتعدد وتدفق التدقيق المخصص.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li>المشروع الأصلي: <a href="https://github.com/ironsh/iron-proxy" data-ext>github.com/ironsh/iron-proxy</a></li>
+<li>وثائق المشروع الأصلي: <a href="https://docs.iron.sh/" data-ext>docs.iron.sh</a></li>
+<li>التكامل مع Bitwarden: <a href="/docs/user-guide/secrets/bitwarden"><code>hermes secrets bitwarden</code></a></li>
+<li>الـ terminal backend الخاص بـ Docker في Hermes: <a href="/docs/user-guide/docker">Docker</a></li>
+<li>مرجع المطوّرين / المساهمين: <a href="/docs/developer-guide/egress-internals">آلية عمل Egress proxy من الداخل</a></li>
+</ul>

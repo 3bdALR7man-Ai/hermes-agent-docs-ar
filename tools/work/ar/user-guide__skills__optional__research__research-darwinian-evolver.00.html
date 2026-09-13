@@ -1,0 +1,134 @@
+
+<header><h1>Darwinian Evolver</h1></header>
+<p>طوّر prompts/regex/SQL/الكود باستخدام حلقة التطور (evolution loop) من Imbue.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/research/darwinian-evolver</code></td></tr><tr><td>المسار</td><td><code>optional-skills/research/darwinian-evolver</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Bihruze (Asahi0x)، Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>evolution</code>, <code>optimization</code>, <code>prompt-engineering</code>, <code>research</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/research/research-arxiv"><code>arxiv</code></a>, <a href="/docs/user-guide/skills/optional/data-science/data-science-jupyter-notebook"><code>jupyter-notebook</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Darwinian Evolver</h1>
+<p>شغّل أداة <a href="https://github.com/imbue-ai/darwinian_evolver" data-ext>darwinian_evolver</a> من Imbue — وهي
+حلقة بحث تطوري (evolutionary search loop) مدفوعة بـ LLM — لتحسين <strong>prompt أو تعبير نمطي (regex) أو استعلام SQL،
+أو مقتطف كود صغير</strong> وفق دالة لياقة (fitness function).</p>
+<p>الحالة: هذه المهارة غلاف رقيق حول الأداة الأصلية (upstream). تقوم المهارة بتثبيتها، وترشد
+الوكيل خلال كتابة تعريف <code>Problem</code> (organism + evaluator + mutator)،
+وتدير الحلقة عبر CLI الأصلية أو عبر برنامج تشغيل Python صغير مخصّص.</p>
+<p><strong>الترخيص:</strong> الأداة الأصلية مرخّصة بـ <strong>AGPL-3.0</strong>. تستدعيها المهارة فقط
+عبر CLI الأصلية أو عبر استدعاء <code>subprocess</code>/<code>uv run</code> (مجرد تجميع/aggregation). لا
+تستورد أصناف (classes) الأداة الأصلية داخل Hermes نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يقول المستخدم &quot;حسّن هذا الـ prompt&quot;، أو &quot;طوّر تعبيرًا نمطيًا (regex) لكذا&quot;، أو &quot;حسّن هذا
+الكود/SQL تلقائيًا&quot;، أو &quot;ابحث عن تعليمة أفضل&quot;.</li>
+<li>لديك مقيِّم (تطابق تام، معدل نجاح regex، اختبار وحدة، حَكَم LLM، مقياس وقت
+تشغيل) بالإضافة إلى مرشّح بداية (organism). إن لم يكن لديك مقيِّم، توقف
+وعرّف واحدًا أولًا — فهذا هو الجزء الصعب.</li>
+<li>التكلفة مقبولة: تتراوح التشغيلة النموذجية بين 50 و500 استدعاء LLM. على gpt-4o-mini
+هذا لا يتجاوز سنتات؛ وعلى Claude Sonnet قد يبلغ بضعة دولارات.</li>
+</ul>
+<p><strong>لا</strong> تستخدم هذه المهارة عندما:</p>
+<ul>
+<li>يكون هدف التحسين قابلًا للاشتقاق (differentiable) (استخدم الانحدار التدريجي / DSPy).</li>
+<li>تحتاج فقط تجربة 2-3 صيغ — اكتبها يدويًا مباشرةً.</li>
+<li>تكون إشارة اللياقة (fitness) ذاتية بحتة دون معيار قابل للقياس.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>Python ≥3.11</li>
+<li><code>git</code>, <code>uv</code> (أو <code>pip</code>)</li>
+<li>أحد: <code>OPENROUTER_API_KEY</code> أو <code>ANTHROPIC_API_KEY</code> أو <code>OPENAI_API_KEY</code></li>
+</ul>
+<p>تُرفق المهارة برنامج تشغيل صغيرًا باسم <code>parrot_openrouter.py</code> يستخدم <code>OPENROUTER_API_KEY</code>
+عبر OpenAI SDK، بحيث يعمل مع أي نموذج على OpenRouter. أما CLI الأصلية نفسها فمُقيَّدة
+على Anthropic وتحتاج <code>ANTHROPIC_API_KEY</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-one-time">التثبيت (مرة واحدة)</h2>
+<p>نفّذ عبر أداة <code>terminal</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تحقّق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--the-built-in-parrot-example">البدء السريع — مثال الببغاء (Parrot) المدمج</h2>
+<p>اختبار سريع صغير (يتطلب <code>ANTHROPIC_API_KEY</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>المخرجات:</p>
+<ul>
+<li><code>/tmp/parrot_demo/snapshots/iteration_N.pkl</code> — مجموعة مُرمَّزة (pickled) للسكان في كل تكرار</li>
+<li><code>/tmp/parrot_demo/&lt;jsonl&gt;</code> — سجل JSON لكل تكرار (يُطبع المسار في النهاية)</li>
+</ul>
+<p>افتح <code>~/.hermes/cache/darwinian-evolver/darwinian_evolver/darwinian_evolver/lineage_visualizer.html</code>
+في متصفح وحمّل سجل JSON لعرض شجرة التطور.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--openrouter-driver-no-anthropic-key">البدء السريع — برنامج تشغيل OpenRouter (بدون مفتاح Anthropic)</h2>
+<p>تُرفق المهارة <code>scripts/parrot_openrouter.py</code> — نفس مسألة الببغاء، لكن
+استدعاء LLM يمر عبر OpenRouter بحيث يعمل مع أي مزوّد.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>افحص النتيجة باستخدام <code>scripts/show_snapshot.py</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>المخرج المتوقَّع: 7 قوالب prompt متطوّرة مرتّبة حسب الدرجة، بحيث يكون الأفضل
+بين 0.6 و0.8 تقريبًا (البذرة <code>Say {{ phrase }}</code> سجّلت 0.000).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="defining-a-custom-problem">تعريف مسألة مخصّصة</h2>
+<p>تُرفق المهارة <code>templates/custom_problem_template.py</code> — انسخه، عدّله، شغّله.
+عليك تعريف ثلاثة أشياء:</p>
+<ol>
+<li>
+<p><strong><code>Organism</code></strong> — صنف فرعي من <code>BaseModel</code> الخاص بـ Pydantic يحمل القطعة (artifact) قيد
+التطور (<code>prompt_template: str</code>، <code>regex_pattern: str</code>، <code>sql_query: str</code>،
+<code>code_block: str</code>، إلخ). أضف طريقة <code>run(*args)</code> تُشغِّلها.</p>
+</li>
+<li>
+<p><strong><code>Evaluator</code></strong> — <code>.evaluate(organism) -&gt; EvaluationResult(score=..., trainable_failure_cases=[...], holdout_failure_cases=[...], is_viable=True)</code>.</p>
+<ul>
+<li><strong><code>score</code></strong> يقع ضمن <code>[0, 1]</code>. الأعلى أفضل.</li>
+<li><strong><code>trainable_failure_cases</code></strong> — ما يراه المُطفِّر (mutator). أدرج سياقًا
+كافيًا (المُدخل، المتوقَّع، الفعلي) ليتمكن LLM من التشخيص.</li>
+<li><strong><code>holdout_failure_cases</code></strong> — تُبقى بعيدة عن نظر المُطفِّر. استخدمها
+لكشف الإفراط في المطابقة (overfitting).</li>
+<li><strong><code>is_viable=True</code></strong> ما لم يكن الكائن (organism) معطوبًا تمامًا (يرفع استثناءً،
+يُرجع None، إلخ). كائن صالح بدرجة 0 أمر مقبول — سيُخفَّض وزنه فقط
+عند اختيار الآباء (parent selection).</li>
+</ul>
+</li>
+<li>
+<p><strong><code>Mutator</code></strong> — <code>.mutate(organism, failure_cases, learning_log_entries) -&gt; list[Organism]</code>.
+عادةً: ابنِ prompt لـ LLM يتضمّن الكائن الحالي + حالة فشل + طلب اقتراح
+إصلاح؛ حلّل استجابة LLM؛ أرجِع
+<code>Organism</code> جديدًا. أرجِع <code>[]</code> عند فشل التحليل — تتكفّل الحلقة بالباقي.</p>
+</li>
+</ol>
+<p>ثم اكتب سكربت تشغيل يربط <code>Problem(initial_organism, evaluator, [mutators])</code>
+بـ <code>EvolveProblemLoop</code> ويكرّر عبر <code>loop.run(num_iterations=N)</code> — يُعد
+<code>scripts/parrot_openrouter.py</code> المُرفَق المرجع لذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hyperparameters-that-actually-matter">المعاملات الفائقة (Hyperparameters) المهمة فعليًا</h2>
+<table><thead><tr><th>الخيار (flag)</th><th>الافتراضي</th><th>متى تغيّره</th></tr></thead><tbody><tr><td><code>--num_iterations</code></td><td>5</td><td>ارفعه إلى 10-20 بعد أن تثق بالمقيِّم</td></tr><tr><td><code>--num_parents_per_iteration</code></td><td>4</td><td>خفّضه إلى 2 لاستكشاف اقتصادي</td></tr><tr><td><code>--mutator_concurrency</code></td><td>10</td><td>خفّضه إلى 2-4 لتفادي حدود المعدل (rate limit)</td></tr><tr><td><code>--evaluator_concurrency</code></td><td>10</td><td>الأمر نفسه؛ المقيِّم يستدعي LLM أيضًا</td></tr><tr><td><code>--batch_size</code></td><td>1</td><td>ارفعه إلى 3-5 بعد أن يتعامل المُطفِّر مع عدة إخفاقات دفعة واحدة</td></tr><tr><td><code>--verify_mutations</code></td><td>معطّل</td><td>فعّله عندما يصبح المُطفِّر مُبذِّرًا (توفير تكلفة يتجاوز 10× في التشغيلات اللاحقة حسب Imbue)</td></tr><tr><td><code>--midpoint_score</code></td><td><code>p75</code></td><td>اتركه كما هو ما لم تتجمّع الدرجات</td></tr><tr><td><code>--sharpness</code></td><td>10</td><td>اتركه كما هو</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ol>
+<li><strong><code>Initial organism must be viable</code></strong> — يجب أن يكون الكائن الأولي صالحًا: اضبط <code>is_viable=True</code> في
+<code>EvaluationResult</code> حتى مع بذرة بدرجة 0. ترفض الحلقة الكائنات غير الصالحة
+لأنها تعني أن الحلقة ليس لديها ما تتطوّر منه.</li>
+<li><strong>مرشِّحات محتوى المزوّد تُفشل التشغيلات.</strong> ترفض نماذج OpenRouter المدعومة بـ Azure
+عبارات مثل &quot;ignore previous instructions&quot; بخطأ HTTP 400. لُفّ
+استدعاء LLM بـ <code>try/except</code> وأرجِع <code>f&quot;&lt;LLM_ERROR: {e}&gt;&quot;</code> — سيمنح
+المُطوِّر (evolver) ذلك الكائن درجة 0 فقط ويتابع.</li>
+<li><strong><code>loop.run()</code> عبارة عن مولِّد (generator)</strong> — استدعاؤه لا يُشغِّل شيئًا حتى
+تكرّر عليه. استخدم <code>for snap in loop.run(num_iterations=N):</code>.</li>
+<li><strong>اللقطات (snapshots) عبارة عن ملفات pickle متداخلة.</strong> يحتوي <code>iteration_N.pkl</code> على
+قاموس فيه <code>population_snapshot</code> (المزيد من بايتات pickle). لفكّ الترميز يجب أن يكون
+صنف <code>Organism</code> قابلًا للاستيراد ضمن نفس المسار المنقّط الذي رُمِّز به.</li>
+<li><strong>إعدادات التزامن الافتراضية عدوانية.</strong> 10/10 ستصطدم بحدود المعدل لدى
+معظم المزوّدين. ابدأ بـ 2/2.</li>
+<li><strong>CLI مُقيَّدة على Anthropic.</strong> يعتمد <code>uv run darwinian_evolver &lt;problem&gt;</code>
+على <code>ANTHROPIC_API_KEY</code> ويستخدم Claude Sonnet. لاستخدام أي مزوّد
+آخر، اكتب برنامج تشغيل مثل <code>parrot_openrouter.py</code>.</li>
+<li><strong>AGPL.</strong> لا تكتب أبدًا <code>from darwinian_evolver import ...</code> داخل نواة Hermes.
+سكربتات التشغيل المخصّصة تحت <code>~/.hermes/skills/...</code> جانب المستخدم ومقبولة.</li>
+<li><strong>لا توجد حزمة PyPI.</strong> سيجلب <code>pip install darwinian-evolver</code> الحزمة الخاطئة.
+ثبّت دائمًا من مستودع GitHub.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقّق</h2>
+<p>بعد التثبيت وتشغيلة ببغاء (parrot)، يكفي أن يكون رمز الخروج من هذا 0:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><a href="https://imbue.com/research/2026-02-27-darwinian-evolver/" data-ext>منشور بحث Imbue</a></li>
+<li><a href="https://imbue.com/research/2026-02-27-arc-agi-2-evolution/" data-ext>نتائج ARC-AGI-2</a></li>
+<li><a href="https://github.com/imbue-ai/darwinian_evolver" data-ext>imbue-ai/darwinian_evolver</a> (AGPL-3.0)</li>
+<li><a href="https://arxiv.org/abs/2505.22954" data-ext>Darwin Gödel Machines</a></li>
+<li><a href="https://arxiv.org/abs/2309.16797" data-ext>PromptBreeder</a></li>
+</ul>

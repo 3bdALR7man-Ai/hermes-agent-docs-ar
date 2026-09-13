@@ -1,0 +1,106 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h2>
+<p><strong>تنفيذ cron يتولاه daemon الـ gateway.</strong> ينبض gateway المجدوِل كل 60 ثانية، ويشغّل أي مهام مستحقة في جلسات وكيل معزولة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-scheduler-behavior">سلوك مجدوِل gateway</h3>
+<p>في كل نبضة يقوم Hermes بما يلي:</p>
+<ol>
+<li>تحميل المهام من <code>~/.hermes/cron/jobs.json</code></li>
+<li>فحص <code>next_run_at</code> مقابل الوقت الحالي</li>
+<li>بدء جلسة <code>AIAgent</code> جديدة لكل مهمة مستحقة</li>
+<li>حقن مهارة واحدة أو أكثر مرفَقة في تلك الجلسة الجديدة، اختياريًا</li>
+<li>تشغيل الـ prompt حتى الاكتمال</li>
+<li>تسليم الرد النهائي</li>
+<li>تحديث بيانات التشغيل الوصفية والوقت المجدوَل التالي</li>
+</ol>
+<p>قفل ملف عند <code>~/.hermes/cron/.tick.lock</code> يمنع نبضات المجدوِل المتداخلة من تشغيل نفس دفعة المهام مرتين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="restart-safe-workers-under-systemd">عمّال آمنون عند إعادة التشغيل تحت systemd</h3>
+<p>عندما يعمل gateway كخدمة systemd، تُسلَّم كل مهمة مستحقة إلى عملية عامل خارجية تُطلَق في نطاق مستخدم عابر (<code>systemd-run --user --scope</code>)، بحيث لا تؤدي إعادة تشغيل gateway وسط مهمة إلى قتلها. إنشاء ذلك النطاق يحتاج جلسة systemd للمستخدم؛ المضيفات التي تفتقر إليها (الحاويات، LXCs الصغرى، مستخدم خدمة دون linger) لا يمكنها توفيرها.</p>
+<p>افتراضيًا <strong>يتدهور</strong> cron عندئذٍ: تظل المهمة تعمل كعملية خارجية منفصلة بنفس تسليم التنفيذ، لكن دون عزل cgroup، بحيث تؤدي إعادة تشغيل gateway أثناء المهمة إلى قتلها (يسجّل دفتر التنفيذ ذلك). يُسجَّل تحذير واحد لكل عملية gateway. للفشل بأمان بدلًا من ذلك — تخطّي المهمة وتسجيل الخطأ في صف المهمة — اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>الحل الدائم هو جلسة مستخدم لمستخدم gateway: <code>sudo loginctl enable-linger &lt;gateway-user&gt;</code> (و<code>XDG_RUNTIME_DIR</code> / <code>DBUS_SESSION_BUS_ADDRESS</code> في الوحدة للتثبيتات على مستوى النظام)، ثم إعادة تشغيل gateway. عمّال Kanban يتطلبون دائمًا نطاقًا ويفشلون بأمان بغضّ النظر عن هذا المفتاح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="execution-history">سجل التنفيذ</h3>
+<p>يسجّل Hermes كل محاولة cron مطالَب بها في قاعدة البيانات المحلية للملف الشخصي
+<code>~/.hermes/cron/executions.db</code> قبل الإرسال إلى المنفِّذ أو المزوّد. تنتقل المحاولات
+عبر <code>claimed</code>، ثم <code>running</code>، ثم حالة نهائية واحدة غير قابلة للتغيير:
+<code>completed</code>، أو <code>failed</code>، أو <code>unknown</code>. بعد إعادة التشغيل، يعلِّم Hermes محاولة
+مهجورة بـ <code>unknown</code> فقط عندما يثبت PID الأصلي وبصمة بدء العملية
+أن مالكها قد اختفى. المحاولات غير المعروفة هي سجلات تدقيق ولا تُعاد
+تلقائيًا أبدًا.</p>
+<p>افحص المحاولات الأخيرة بـ <code>hermes cron runs [job-id] --limit 20</code> (اسم بديل:
+<code>history</code>). سجل التاريخ النهائي محدود؛ المحاولات النشطة لا تُقلَّم أبدًا. يُدرَج
+الدفتر ضمن النسخ الاحتياطية السريعة.</p>
+<p>المحاولات المجدولة تسجّل أيضًا لحظتها المجدولة الدقيقة، منفصلة عن
+الوقت الذي طُولِبَ بها فيه. إذا أعادت لقطة قديمة من <code>jobs.json</code> تسليح حدوث
+سجّله الدفتر المحفوظ بأنه مكتمل، يتخطى Hermes تلك الإعادة
+ويعيد تثبيت مرجعية المهام المتكررة. يعمل هذا حتى عندما تسبق اللقطة
+طابع الإرسال أو عندما بدأ التشغيل الأصلي متأخرًا. التشغيلات اليدوية الصريحة لا
+تستهلك هوية حدوث مجدوَل.</p>
+<p>هذا ليس ضمانًا لتأثير جانبي يحدث مرة واحدة بالضبط: الصفوف القديمة دون
+هوية، والسجل المُقلَّم، والدفاتر غير المتاحة، والمحاولات المقطوعة لا يمكنها
+إثبات الاكتمال. استعادة الدفتر نفسه إلى نسخة احتياطية أقدم تزيل أيضًا
+ذلك الدليل. استدعاءات الإطلاق الخارجية تُعرِّف مطالبة المخزن المقبولة حاليًا،
+وليس فتحة مجدولة من مصدر أعلى غائبة عن الاستدعاء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="repeated-failure-review-nudge">تنبيه مراجعة عند الفشل المتكرر</h3>
+<p>تتبّع كل مهمة <code>failure_streak</code> — تشغيلات فاشلة متتالية (إخفاقات
+التسليم لا تُحسَب). تشغيل يفشل قبل الوصول إلى الوكيل أصلًا —
+استيراد فاسد بعد تحديث نصف مُطبَّق، أو عميل مزوّد يتعذّر
+إنشاؤه — يُحسَب وينبّه تمامًا كما لو فشله الوكيل نفسه. عندما
+يصل تتابع مهمة <em>متكررة</em> إلى العتبة، تكتسب رسالة الفشل
+المُسلَّمة إلى المحادثة تنبيه مراجعة يخبرك أن المهمة فشلت N تشغيل
+على التوالي ويقترح أن تُصلحها، أو توقفها (<code>hermes cron pause &lt;job&gt;</code>)، أو تزيلها.
+أي تشغيل ناجح يعيد تعيين التتابع، ويعرض <code>hermes cron list</code>
+التتابع بجانب آخر تشغيل لمهمة فاشلة. المهام لمرة واحدة لا تنبّه أبدًا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-re-runs-when-the-model-was-unreachable">إعادة تشغيل تلقائية عندما يتعذّر الوصول إلى النموذج</h3>
+<p>مهمة متكررة يفشل تشغيلها بخطأ شبكة أو DNS عابر قبل إجراء
+أي استدعاء نموذج واحد — الحالة الكلاسيكية هي إطلاق فور
+استيقاظ الحاسوب، بينما لا تزال VPN أو Wi-Fi تعيد الاتصال — لا تفوّت
+فترة كاملة. يعيد المجدوِل تشغيلها تلقائيًا بعد <strong>5، و15، و
+30 دقيقة</strong> (مستوحى من إعادة التشغيل للمهام المجدولة في Claude Cowork)، ثم يعود
+إلى الجدول العادي. لأنه لم تُجرَ أي استدعاءات API، فإن إعادة التشغيل
+محايدة من حيث الإنفاق ولا يمكنها تكرار أي تأثير جانبي.</p>
+<p>أثناء انتظار إعادة تشغيل، يُخفى إشعار الفشل المؤقت — تحصل على
+النتيجة الحقيقية عند نجاح إعادة التشغيل، أو تنبيه فشل عادي بمجرد
+استنفاد السلّم. أي تشغيل يصل إلى النموذج (نجاحًا أو فشلًا)
+يعيد تعيين السلّم. المهام لمرة واحدة مستثناة: محاسبة إرسالها
+هي على الأكثر مرة واحدة، وإرسال مُستهلَك لا يُبعَث أبدًا. لا تُطلَق إعادة المحاولات
+أبدًا بعد الحدوث المستقبلي التالي للجدول نفسه إذا جاء أقرب.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-incidents-acknowledge-a-known-failure">حوادث الفشل: الإقرار بفشل معروف</h3>
+<p>مهمة متكررة تستمر بالفشل بـ<em>نفس</em> الخطأ تنبّهك في كل
+تشغيل. كل فشل يُسجَّل أيضًا كـ <strong>حادثة</strong> دائمة، مفتاحها
+المهمة بالإضافة إلى توقيع مُوحَّد لنص الخطأ، في نفس دفتر
+لكل ملف شخصي المستخدَم لسجل التنفيذ.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>الإقرار بحادثة يُسكِت تنبيه الفشل لكل تشغيل لذلك التوقيع
+المحدد فقط. لا شيء آخر يتغيّر: سجل التشغيل ما يزال يسجّل كل
+فشل، ويستمر تتابع الفشل بالعدّ، وفي اللحظة التي تبدأ فيها المهمة
+بالفشل بخطأ <em>مختلف</em> تُصكّ حادثة جديدة وتُطلَق التنبيهات
+مجددًا. تشغيل ناجح لا يمسّ الحوادث — فهي لكل توقيع، لا
+لكل مهمة.</p>
+<p>دورة حياة الحادثة: <code>detected</code> (سُجِّل فشل) ← <code>alerted</code> (وصل
+تنبيه فشل واحد على الأقل إلى التسليم) ← <code>closed</code> (أُقرَّ به؛ نهائي لذلك
+التوقيع). نص الخطأ المخزَّن منقَّح من الأسرار ومقتطَع قبل
+كتابته.</p>
+<p>التسجيل مفعَّل دائمًا ولا يكلّف شيئًا تجاهله — لا يُكبَت أي
+تنبيه أبدًا حتى تقرّه صراحةً (<code>ack</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fleet-health-check-hermes-cron-doctor">فحص صحة الأسطول: <code>hermes cron doctor</code></h3>
+<p><code>hermes cron doctor</code> هو فحص صحة للقراءة فقط عبر كل مهمة نشطة. يطبع
+مشكلات مجمَّعة لكل مهمة ويخرج بالرمز <code>1</code> عند وجود أي شيء قابل للتصرف
+(<code>0</code> عند السلامة)، لذا يعمل من طرفية، أو سكربت مراقبة، أو
+فحص سريع بأسلوب CI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>الفحوصات لكل مهمة نشطة:</p>
+<ul>
+<li>فشل آخر تشغيل (<code>last_status</code> ليس سليمًا، مع الخطأ المسجَّل)،</li>
+<li>فشل آخر تسليم (أُنتِج المخرج لكنه لم يصلك أبدًا)،</li>
+<li><code>next_run_at</code> مفقود، أو محشور في الماضي متجاوزًا هامش تسامح
+15 دقيقة للمُنبِّه — إشارة &quot;المهمة لا تُطلَق بصمت&quot; (المجدوِل معطَّل، أو
+gateway متوقف، أو مطالبة إطلاق متعطِّلة)،</li>
+<li>السكربت مفقود، أو ليس ملفًا، أو يُحلّ خارج <code>HERMES_HOME/scripts</code>،</li>
+<li>مهمة <code>no_agent</code> دون سكربت،</li>
+<li><code>workdir</code> مُعدّ لم يعد موجودًا.</li>
+</ul>
+<p>الفحص لا يعدِّل المهام أو الحالة أبدًا — يقتصر على الإبلاغ فقط. اقرنه مع
+<code>hermes cron incidents</code> (سجلات فشل دائمة) و<code>hermes cron runs</code>
+(دفتر المحاولات) عند التعمّق في مهمة موسومة.</p>

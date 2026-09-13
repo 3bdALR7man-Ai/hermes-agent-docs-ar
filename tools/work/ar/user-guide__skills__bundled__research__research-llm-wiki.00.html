@@ -1,0 +1,293 @@
+
+<header><h1>Llm Wiki</h1></header>
+<p>ويكي LLM الخاص بـ Karpathy: بناء/استعلام قاعدة معرفة markdown مترابطة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/research/llm-wiki</code></td></tr><tr><td>الإصدار</td><td><code>2.1.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>wiki</code>, <code>knowledge-base</code>, <code>research</code>, <code>notes</code>, <code>markdown</code>, <code>rag-alternative</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/note-taking/note-taking-obsidian"><code>obsidian</code></a>, <a href="/docs/user-guide/skills/bundled/research/research-arxiv"><code>arxiv</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>ويكي LLM الخاص بـ Karpathy</h1>
+<p>بناء وصيانة قاعدة معرفة دائمة ومتراكمة كملفات markdown مترابطة.
+مبني على <a href="https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f" data-ext>نمط ويكي LLM الخاص بـ Andrej Karpathy</a>.</p>
+<p>على عكس RAG التقليدي (الذي يعيد اكتشاف المعرفة من الصفر لكل استعلام)، يجمّع
+الويكي المعرفة مرة واحدة ويبقيها محدَّثة. المراجع المتقاطعة موجودة سلفًا.
+التناقضات أُشير إليها سلفًا. التوليف يعكس كل ما أُدرج.</p>
+<p><strong>تقسيم العمل:</strong> يُنسّق الإنسان المصادر ويوجّه التحليل. الوكيل
+يلخّص، ويربط المراجع، ويؤرشف، ويحافظ على الاتساق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-this-skill-activates">متى تُفعَّل هذه المهارة</h2>
+<p>استخدم هذه المهارة عندما يطلب المستخدم:</p>
+<ul>
+<li>إنشاء أو بناء أو بدء ويكي أو قاعدة معرفة</li>
+<li>إدراج أو إضافة أو معالجة مصدر في ويكيه</li>
+<li>يطرح سؤالًا ويوجد ويكي بالفعل في المسار المُعدّ</li>
+<li>فحص أو تدقيق أو تقييم صحة ويكيه</li>
+<li>الإشارة إلى ويكيه أو قاعدة معرفته أو &quot;ملاحظاته&quot; في سياق بحثي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="wiki-location">موقع الويكي</h2>
+<p><strong>الموقع:</strong> يُضبط عبر متغير البيئة <code>WIKI_PATH</code> (مثلًا في <code>${HERMES_HOME:-~/.hermes}/.env</code>).</p>
+<p>إذا لم يُضبط، فالافتراضي هو <code>~/wiki</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>الويكي مجرد مجلد من ملفات markdown — افتحه في Obsidian أو VS Code أو
+أي محرّر. لا قاعدة بيانات، لا أدوات خاصة مطلوبة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-three-layers">البنية المعمارية: ثلاث طبقات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>الطبقة 1 — المصادر الخام:</strong> غير قابلة للتعديل. يقرؤها الوكيل ولا يعدّلها أبدًا.
+<strong>الطبقة 2 — الويكي:</strong> ملفات markdown يملكها الوكيل. يُنشئها ويحدّثها
+ويربطها الوكيل.
+<strong>الطبقة 3 — المخطط (Schema):</strong> يحدّد <code>SCHEMA.md</code> البنية والاصطلاحات وتصنيف الوسوم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resuming-an-existing-wiki-critical--do-this-every-session">استئناف ويكي موجود (بالغ الأهمية — افعل هذا في كل جلسة)</h2>
+<p>عندما يكون لدى المستخدم ويكي موجود، <strong>وجّه نفسك دائمًا قبل فعل أي شيء</strong>:</p>
+<p>① <strong>اقرأ <code>SCHEMA.md</code></strong> — لفهم المجال، والاصطلاحات، وتصنيف الوسوم.
+② <strong>اقرأ <code>index.md</code></strong> — لمعرفة الصفحات الموجودة وملخّصاتها.
+③ <strong>افحص <code>log.md</code> الأخير</strong> — اقرأ آخر 20-30 مُدخلًا لفهم النشاط الأخير.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>فقط بعد التوجّه ينبغي أن تُدرِج أو تستعلم أو تفحص. هذا يمنع:</p>
+<ul>
+<li>إنشاء صفحات مكرّرة لكيانات موجودة بالفعل</li>
+<li>تفويت المراجع المتقاطعة إلى محتوى موجود</li>
+<li>مناقضة اصطلاحات المخطط</li>
+<li>تكرار عمل مُسجَّل بالفعل</li>
+</ul>
+<p>للويكيات الكبيرة (100+ صفحة)، شغّل أيضًا <code>search_files</code> سريعًا للموضوع
+المطروح قبل إنشاء أي شيء جديد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="initializing-a-new-wiki">تهيئة ويكي جديد</h2>
+<p>عندما يطلب المستخدم إنشاء أو بدء ويكي:</p>
+<ol>
+<li>حدّد مسار الويكي (من متغير البيئة <code>$WIKI_PATH</code>، أو اسأل المستخدم؛ الافتراضي <code>~/wiki</code>)</li>
+<li>أنشئ بنية المجلدات أعلاه</li>
+<li>اسأل المستخدم عن المجال الذي يغطّيه الويكي — كن محدّدًا</li>
+<li>اكتب <code>SCHEMA.md</code> مخصّصًا للمجال (راجع القالب أدناه)</li>
+<li>اكتب <code>index.md</code> أوليًا بترويسة مقسّمة إلى أقسام</li>
+<li>اكتب <code>log.md</code> أوليًا مع مُدخل إنشاء</li>
+<li>أكّد أن الويكي جاهز واقترح أول مصادر للإدراج</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="schemamd-template">قالب SCHEMA.md</h3>
+<p>كيّفه مع مجال المستخدم. المخطط يقيّد سلوك الوكيل ويضمن الاتساق:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>confidence</code> و<code>contested</code> اختياريان لكنهما مُوصى بهما للمواضيع
+كثيرة الآراء أو سريعة التغيّر. يُظهر الفحص صفحات <code>contested: true</code> و<code>confidence: low</code>
+للمراجعة حتى لا تترسّخ الادّعاءات الضعيفة بصمت كحقيقة ويكي مقبولة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="raw-frontmatter">ترويسة raw/</h3>
+<p>تحصل المصادر الخام أيضًا على كتلة ترويسة صغيرة بحيث يمكن لعمليات الإدراج المستقبلية اكتشاف الانحراف:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يتيح <code>sha256:</code> لعملية إدراج مستقبلية للرابط نفسه تخطّي المعالجة عندما يكون المحتوى بلا تغيير،
+والإبلاغ عن انحراف عندما يتغيّر. احسبه على المتن فقط (كل ما بعد
+<code>---</code> الختامية)، لا على الترويسة نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tag-taxonomy">تصنيف الوسوم</h2>
+<p>[حدّد 10-20 وسمًا من المستوى الأعلى للمجال. أضف وسومًا جديدة هنا قبل استخدامها.]</p>
+<p>مثال للذكاء الاصطناعي/تعلّم الآلة:</p>
+<ul>
+<li>النماذج: model، architecture، benchmark، training</li>
+<li>الأشخاص/المؤسسات: person، company، lab، open-source</li>
+<li>التقنيات: optimization، fine-tuning، inference، alignment، data</li>
+<li>وسوم عامة: comparison، timeline، controversy، prediction</li>
+</ul>
+<p>القاعدة: يجب أن يظهر كل وسم على صفحة في هذا التصنيف. إذا احتجت وسمًا جديدًا،
+أضفه هنا أولًا، ثم استخدمه. هذا يمنع تشتّت الوسوم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="page-thresholds">عتبات إنشاء الصفحات</h2>
+<ul>
+<li><strong>أنشئ صفحة</strong> عندما يظهر كيان/مفهوم في مصدرين أو أكثر أو يكون محوريًا في مصدر واحد</li>
+<li><strong>أضف إلى صفحة موجودة</strong> عندما يذكر مصدر شيئًا مغطّى بالفعل</li>
+<li><strong>لا تُنشئ صفحة</strong> للإشارات العابرة، أو التفاصيل الثانوية، أو ما هو خارج المجال</li>
+<li><strong>قسِّم صفحة</strong> عندما تتجاوز ~200 سطر — قسّمها إلى مواضيع فرعية بروابط متبادلة</li>
+<li><strong>أرشِف صفحة</strong> عندما يُستبدل محتواها كاملًا — انقلها إلى <code>_archive/</code>، واحذفها من الفهرس</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="entity-pages">صفحات الكيانات</h2>
+<p>صفحة واحدة لكل كيان بارز. أدرج:</p>
+<ul>
+<li>نظرة عامة / ما هو</li>
+<li>الحقائق والتواريخ الرئيسية</li>
+<li>العلاقات مع كيانات أخرى ([[wikilinks]])</li>
+<li>مراجع المصادر</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="concept-pages">صفحات المفاهيم</h2>
+<p>صفحة واحدة لكل مفهوم أو موضوع. أدرج:</p>
+<ul>
+<li>التعريف / الشرح</li>
+<li>حالة المعرفة الحالية</li>
+<li>الأسئلة المفتوحة أو النقاشات</li>
+<li>المفاهيم ذات الصلة ([[wikilinks]])</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-pages">صفحات المقارنة</h2>
+<p>تحليلات جنبًا إلى جنب. أدرج:</p>
+<ul>
+<li>ما الذي تتم مقارنته ولماذا</li>
+<li>أبعاد المقارنة (يُفضَّل بصيغة جدول)</li>
+<li>الحكم أو التوليف</li>
+<li>المصادر</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-policy">سياسة التحديث</h2>
+<p>عندما تتعارض معلومات جديدة مع محتوى موجود:</p>
+<ol>
+<li>تحقّق من التواريخ — المصادر الأحدث تحل عادة محل الأقدم</li>
+<li>إذا كان التناقض حقيقيًا، سجّل كلا الموقفين بتواريخهما ومصادرهما</li>
+<li>ضع علامة على التناقض في الترويسة: <code>contradictions: [page-name]</code></li>
+<li>ضع علامة للمراجعة من المستخدم في تقرير الفحص</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>قاعدة التوسّع:</strong> عندما يتجاوز أي قسم 50 مُدخلًا، قسّمه إلى أقسام فرعية
+حسب الحرف الأول أو المجال الفرعي. عندما يتجاوز الفهرس 200 مُدخل إجمالًا، أنشئ
+<code>_meta/topic-map.md</code> يجمّع الصفحات حسب الموضوع لتصفّح أسرع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="logmd-template">قالب log.md</h3>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-operations">العمليات الأساسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-ingest">1. الإدراج</h3>
+<p>عندما يزوّدك المستخدم بمصدر (رابط، ملف، نص ملصق)، أدرجه في الويكي:</p>
+<p>① <strong>التقط المصدر الخام:</strong></p>
+<ul>
+<li>رابط ← استخدم <code>web_extract</code> للحصول على markdown، واحفظه في <code>raw/articles/</code></li>
+<li>PDF ← استخدم <code>web_extract</code> (يتعامل مع PDF)، واحفظه في <code>raw/papers/</code></li>
+<li>نص ملصق ← احفظه في المجلد الفرعي المناسب تحت <code>raw/</code></li>
+<li>سمِّ الملف وصفيًا: <code>raw/articles/karpathy-llm-wiki-2026.md</code></li>
+<li><strong>أضف ترويسة الملف الخام</strong> (<code>source_url</code>, <code>ingested</code>, <code>sha256</code> للمتن).
+عند إعادة إدراج الرابط نفسه: أعد حساب sha256، وقارنه بالقيمة المخزَّنة —
+تخطَّ إن كانا متطابقين، وأشِر إلى الانحراف وحدّث إن اختلفا. هذا رخيص بما يكفي
+ليُفعَل عند كل إعادة إدراج ويلتقط تغييرات المصدر الصامتة.</li>
+</ul>
+<p>② <strong>ناقش الخلاصات</strong> مع المستخدم — ما المثير للاهتمام، وما يهم
+للمجال. (تخطَّ هذا في سياقات الأتمتة/cron — تابع مباشرة.)</p>
+<p>③ <strong>تحقّق مما هو موجود بالفعل</strong> — ابحث في index.md واستخدم <code>search_files</code> لإيجاد
+صفحات موجودة للكيانات/المفاهيم المذكورة. هذا هو الفرق بين
+ويكي متنامٍ وكومة من التكرارات.</p>
+<p>④ <strong>اكتب أو حدّث صفحات الويكي:</strong></p>
+<ul>
+<li><strong>كيانات/مفاهيم جديدة:</strong> أنشئ صفحات فقط إذا استوفت عتبات الصفحات
+في SCHEMA.md (ذُكرت في مصدرين أو أكثر، أو محورية في مصدر واحد)</li>
+<li><strong>صفحات موجودة:</strong> أضف معلومات جديدة، حدّث الحقائق، ادفع تاريخ <code>updated</code>.
+عندما تتناقض المعلومات الجديدة مع محتوى موجود، اتبع سياسة التحديث.</li>
+<li><strong>الربط المتقاطع:</strong> يجب أن ترتبط كل صفحة جديدة أو محدَّثة بصفحتين أخريين على الأقل
+عبر <code>[[wikilinks]]</code>. تحقّق من أن الصفحات الموجودة ترتبط عكسيًا.</li>
+<li><strong>الوسوم:</strong> استخدم فقط الوسوم من التصنيف في SCHEMA.md</li>
+<li><strong>النسب:</strong> في الصفحات التي توليّف 3+ مصادر، ألحق علامات
+<code>^[raw/articles/source.md]</code> بالفقرات التي تتتبّع ادّعاءاتها إلى مصدر محدّد.</li>
+<li><strong>مستوى الثقة:</strong> للادّعاءات كثيرة الآراء، أو سريعة التغيّر، أو أحادية المصدر، اضبط
+<code>confidence: medium</code> أو <code>low</code> في الترويسة. لا تضع <code>high</code>
+ما لم يكن الادّعاء مدعومًا جيدًا عبر عدة مصادر.</li>
+</ul>
+<p>⑤ <strong>حدّث التنقّل:</strong></p>
+<ul>
+<li>أضف الصفحات الجديدة إلى <code>index.md</code> تحت القسم الصحيح، أبجديًا</li>
+<li>حدّث عدد &quot;إجمالي الصفحات&quot; وتاريخ &quot;آخر تحديث&quot; في ترويسة الفهرس</li>
+<li>ألحق إلى <code>log.md</code>: <code>## [YYYY-MM-DD] ingest | Source Title</code></li>
+<li>اذكر كل ملف أُنشئ أو حُدِّث في مُدخل السجل</li>
+</ul>
+<p>⑥ <strong>أبلغ بما تغيّر</strong> — اذكر للمستخدم كل ملف أُنشئ أو حُدِّث.</p>
+<p>يمكن لمصدر واحد أن يحدث تحديثات عبر 5-15 صفحة ويكي. هذا طبيعي
+ومرغوب فيه — إنه الأثر التراكمي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-query">2. الاستعلام</h3>
+<p>عندما يطرح المستخدم سؤالًا عن مجال الويكي:</p>
+<p>① <strong>اقرأ <code>index.md</code></strong> لتحديد الصفحات ذات الصلة.
+② <strong>للويكيات ذات 100+ صفحة</strong>، شغّل أيضًا <code>search_files</code> عبر جميع ملفات
+<code>.md</code> بحثًا عن الكلمات المفتاحية — قد يفوت الفهرس وحده محتوى ذا صلة.
+③ <strong>اقرأ الصفحات ذات الصلة</strong> باستخدام <code>read_file</code>.
+④ <strong>ركّب إجابة</strong> من المعرفة المجمَّعة. استشهد بصفحات الويكي
+التي استقيت منها: &quot;استنادًا إلى [[page-a]] و[[page-b]]...&quot;
+⑤ <strong>أرشِف الإجابات القيّمة</strong> — إذا كانت الإجابة مقارنة جوهرية أو تحليلًا
+عميقًا أو توليفًا جديدًا، أنشئ صفحة في <code>queries/</code> أو <code>comparisons/</code>.
+لا تؤرشِف عمليات البحث التافهة — فقط الإجابات التي سيكون إعادة استنتاجها مؤلمًا.
+⑥ <strong>حدّث log.md</strong> بالاستعلام وما إذا كان قد أُرشِف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-lint">3. الفحص</h3>
+<p>عندما يطلب المستخدم فحص أو تقييم صحة أو تدقيق الويكي:</p>
+<p>① <strong>الصفحات اليتيمة:</strong> ابحث عن صفحات بلا روابط <code>[[wikilinks]]</code> واردة من صفحات أخرى.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>② <strong>الروابط المكسورة:</strong> ابحث عن روابط <code>[[links]]</code> تشير إلى صفحات غير موجودة.</p>
+<p>③ <strong>اكتمال الفهرس:</strong> يجب أن تظهر كل صفحة ويكي في <code>index.md</code>. قارن
+نظام الملفات بمُدخلات الفهرس.</p>
+<p>④ <strong>التحقّق من الترويسة:</strong> يجب أن تحتوي كل صفحة ويكي على جميع الحقول المطلوبة
+(title، created، updated، type، tags، sources). يجب أن تكون الوسوم ضمن التصنيف.</p>
+<p>⑤ <strong>المحتوى القديم:</strong> صفحات تاريخ <code>updated</code> فيها أقدم بأكثر من 90 يومًا من
+أحدث مصدر يذكر الكيانات نفسها.</p>
+<p>⑥ <strong>التناقضات:</strong> صفحات عن الموضوع نفسه بادّعاءات متضاربة. ابحث عن
+صفحات تشترك في وسوم/كيانات لكنها تذكر حقائق مختلفة. اعرض جميع الصفحات
+ذات ترويسة <code>contested: true</code> أو <code>contradictions:</code> للمراجعة من المستخدم.</p>
+<p>⑦ <strong>مؤشرات الجودة:</strong> اسرد الصفحات ذات <code>confidence: low</code> وأي صفحة تستشهد
+بمصدر واحد فقط دون حقل confidence مضبوط — هذه مرشّحة
+إما لإيجاد تصديق لها أو خفضها إلى <code>confidence: medium</code>.</p>
+<p>⑧ <strong>انحراف المصادر:</strong> لكل ملف في <code>raw/</code> بترويسة <code>sha256:</code>، أعد حساب
+الجزء المُجزَّأ وأشِر إلى عدم التطابق. عدم التطابق يشير إلى أن الملف الخام عُدِّل
+(لا ينبغي أن يحدث — raw/ غير قابل للتعديل) أو أُدرج من رابط تغيّر منذ ذلك الحين.
+ليس خطأً فادحًا، لكنه يستحق الإبلاغ.</p>
+<p>⑨ <strong>حجم الصفحة:</strong> أشِر إلى الصفحات التي تتجاوز 200 سطر — مرشّحة للتقسيم.</p>
+<p>⑩ <strong>تدقيق الوسوم:</strong> اسرد كل الوسوم المستخدمة، وأشِر إلى أي وسم غير موجود في تصنيف SCHEMA.md.</p>
+<p>⑪ <strong>تدوير السجل:</strong> إذا تجاوز log.md 500 مُدخل، دوّره.</p>
+<p>⑫ <strong>أبلغ عن النتائج</strong> مع مسارات الملفات المحدّدة والإجراءات المقترحة، مجمَّعة حسب
+الشدة (روابط مكسورة > صفحات يتيمة > انحراف المصادر > صفحات متنازع عليها > محتوى قديم > مشكلات أسلوبية).</p>
+<p>⑬ <strong>ألحق إلى log.md:</strong> <code>## [YYYY-MM-DD] lint | N issues found</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-with-the-wiki">العمل مع الويكي</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="searching">البحث</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-ingest">الإدراج الجماعي</h3>
+<p>عند إدراج عدة مصادر دفعة واحدة، جمّع التحديثات:</p>
+<ol>
+<li>اقرأ جميع المصادر أولًا</li>
+<li>حدّد جميع الكيانات والمفاهيم عبر جميع المصادر</li>
+<li>تحقّق من الصفحات الموجودة لكل منها (مرور بحث واحد، لا N)</li>
+<li>أنشئ/حدّث الصفحات في مرور واحد (يتجنّب التحديثات الزائدة)</li>
+<li>حدّث index.md مرة واحدة في النهاية</li>
+<li>اكتب مُدخل سجل واحد يغطّي الدفعة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="archiving">الأرشفة</h3>
+<p>عندما يُستبدل المحتوى كاملًا أو يتغيّر نطاق المجال:</p>
+<ol>
+<li>أنشئ مجلد <code>_archive/</code> إن لم يكن موجودًا</li>
+<li>انقل الصفحة إلى <code>_archive/</code> بمسارها الأصلي (مثل <code>_archive/entities/old-page.md</code>)</li>
+<li>احذفها من <code>index.md</code></li>
+<li>حدّث أي صفحات كانت ترتبط بها — استبدل رابط الويكي بنص عادي + &quot;(مؤرشفة)&quot;</li>
+<li>سجّل إجراء الأرشفة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="obsidian-integration">التكامل مع Obsidian</h3>
+<p>يعمل مجلد الويكي كـ vault في Obsidian خارج الصندوق:</p>
+<ul>
+<li>تُعرَض <code>[[wikilinks]]</code> كروابط قابلة للنقر</li>
+<li>يعرض Graph View شبكة المعرفة بصريًا</li>
+<li>تُشغِّل ترويسة YAML استعلامات Dataview</li>
+<li>يحتفظ مجلد <code>raw/assets/</code> بالصور المشار إليها عبر <code>![[image.png]]</code></li>
+</ul>
+<p>لأفضل النتائج:</p>
+<ul>
+<li>اضبط مجلد المرفقات في Obsidian إلى <code>raw/assets/</code></li>
+<li>فعّل &quot;Wikilinks&quot; في إعدادات Obsidian (مفعّلة افتراضيًا عادة)</li>
+<li>ثبّت إضافة Dataview لاستعلامات مثل <code>TABLE tags FROM &quot;entities&quot; WHERE contains(tags, &quot;company&quot;)</code></li>
+</ul>
+<p>إذا كنت تستخدم مهارة Obsidian إلى جانب هذه المهارة، اضبط <code>OBSIDIAN_VAULT_PATH</code> على
+المجلد نفسه الذي يستخدمه مسار الويكي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="obsidian-headless-servers-and-headless-machines">Obsidian بلا واجهة رسومية (الخوادم والأجهزة بلا شاشة)</h3>
+<p>على الأجهزة بلا شاشة، استخدم <code>obsidian-headless</code> بدلًا من تطبيق سطح المكتب.
+يزامن الـ vaults عبر Obsidian Sync دون واجهة رسومية — مثالي للوكلاء العاملين على
+خوادم تكتب إلى الويكي بينما يقرؤه Obsidian لسطح المكتب على جهاز آخر.</p>
+<p><strong>الإعداد:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>مزامنة خلفية مستمرة عبر systemd:</strong></p>
+<div class="language-ini codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>هذا يتيح للوكيل الكتابة إلى <code>~/wiki</code> على خادم بينما تتصفح نفس
+الـ vault في Obsidian على حاسوبك المحمول/هاتفك — تظهر التغييرات خلال ثوانٍ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>لا تُعدّل أبدًا ملفات <code>raw/</code></strong> — المصادر غير قابلة للتعديل. التصحيحات تذهب إلى صفحات الويكي.</li>
+<li><strong>وجّه نفسك دائمًا أولًا</strong> — اقرأ SCHEMA والفهرس والسجل الأخير قبل أي عملية في جلسة جديدة.
+تخطّي هذا يسبب تكرارًا ومراجع متقاطعة مفقودة.</li>
+<li><strong>حدّث دائمًا index.md وlog.md</strong> — تخطّي هذا يجعل الويكي يتدهور. هذان
+هما العمود الفقري للتنقّل.</li>
+<li><strong>لا تُنشئ صفحات للإشارات العابرة</strong> — اتبع عتبات الصفحات في SCHEMA.md. اسم
+يظهر مرة واحدة في حاشية لا يستحق صفحة كيان.</li>
+<li><strong>لا تُنشئ صفحات دون مراجع متقاطعة</strong> — الصفحات المعزولة غير مرئية. يجب أن ترتبط كل صفحة
+بصفحتين أخريين على الأقل.</li>
+<li><strong>الترويسة إلزامية</strong> — تُمكِّن من البحث، والتصفية، وكشف التقادم.</li>
+<li><strong>يجب أن تأتي الوسوم من التصنيف</strong> — الوسوم الحرة تتحلل إلى ضوضاء. أضف الوسوم الجديدة إلى SCHEMA.md
+أولًا، ثم استخدمها.</li>
+<li><strong>حافظ على قابلية الصفحات للمسح السريع</strong> — يجب أن تُقرأ صفحة الويكي خلال 30 ثانية. قسّم الصفحات التي تتجاوز
+200 سطر. انقل التحليل التفصيلي إلى صفحات تعمّق مخصّصة.</li>
+<li><strong>اسأل قبل التحديث الجماعي</strong> — إذا كان الإدراج سيؤثر على 10+ صفحات موجودة، أكّد
+النطاق مع المستخدم أولًا.</li>
+<li><strong>دوّر السجل</strong> — عندما يتجاوز log.md 500 مُدخل، أعد تسميته <code>log-YYYY.md</code> وابدأ من جديد.
+يجب أن يتحقّق الوكيل من حجم السجل أثناء الفحص.</li>
+<li><strong>تعامل مع التناقضات صراحةً</strong> — لا تستبدل بصمت. سجّل كلا الادّعاءين بتاريخيهما،
+ضع علامة في الترويسة، وأشِر للمراجعة من المستخدم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-tools">أدوات ذات صلة</h2>
+<p><a href="https://github.com/atomicmemory/llm-wiki-compiler" data-ext>llm-wiki-compiler</a> هو واجهة سطر أوامر Node.js
+تجمّع المصادر في ويكي مفاهيم بالإلهام نفسه من Karpathy. متوافق مع Obsidian،
+لذا يمكن للمستخدمين الراغبين في خط تجميع مجدول/مُشغَّل من CLI توجيهه إلى الـ vault نفسه الذي تحافظ عليه
+هذه المهارة. المقايضات: إنه يملك توليد الصفحات (يستبدل حكم الوكيل بشأن إنشاء
+الصفحات) ومُهيَّأ لمجموعات صغيرة من المصادر. استخدم هذه المهارة عندما تريد إشراف الوكيل في الحلقة؛
+استخدم llmwiki عندما تريد تجميعًا دفعيًا لمجلد مصادر.</p>

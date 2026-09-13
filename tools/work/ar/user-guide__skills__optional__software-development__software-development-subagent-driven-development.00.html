@@ -1,0 +1,155 @@
+
+<header><h1>التطوير المُدار عبر Subagent</h1></header>
+<p>نفّذ الخطط عبر subagents باستخدام delegate_task (مراجعة على مرحلتين).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/software-development/subagent-driven-development</code></td></tr><tr><td>المسار</td><td><code>optional-skills/software-development/subagent-driven-development</code></td></tr><tr><td>الإصدار</td><td><code>1.1.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent (مقتبسة من obra/superpowers)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>delegation</code>, <code>subagent</code>, <code>implementation</code>, <code>workflow</code>, <code>parallel</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-requesting-code-review"><code>requesting-code-review</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-test-driven-development"><code>test-driven-development</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>التطوير المُدار عبر Subagent</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>نفّذ خطط التنفيذ عن طريق إرسال subagents جديدة لكل مهمة، مع مراجعة منهجية على مرحلتين.</p>
+<p><strong>المبدأ الأساسي:</strong> subagent جديد لكل مهمة + مراجعة على مرحلتين (المواصفات ثم الجودة) = جودة عالية وتكرار سريع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>استخدم هذه المهارة عندما:</p>
+<ul>
+<li>تملك خطة تنفيذ (من مهارة <code>plan</code> أو من متطلبات المستخدم)</li>
+<li>تكون المهام مستقلة في الغالب</li>
+<li>تكون الجودة والالتزام بالمواصفات مهمَّين</li>
+<li>تريد مراجعة آلية بين المهام</li>
+</ul>
+<p><strong>مقارنةً بالتنفيذ اليدوي:</strong></p>
+<ul>
+<li>سياق (context) جديد لكل مهمة (بلا التباس ناتج عن حالة متراكمة)</li>
+<li>عملية المراجعة الآلية تكتشف المشكلات مبكرًا</li>
+<li>فحوصات جودة متسقة عبر كل المهام</li>
+<li>تستطيع الـ subagents طرح أسئلة قبل بدء العمل</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-process">العملية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-read-and-parse-plan">1. اقرأ الخطة وحلّلها</h3>
+<p>اقرأ ملف الخطة. استخرج كل المهام بنصها الكامل وسياقها مسبقًا. أنشئ قائمة مهام (todo):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>مهم:</strong> اقرأ الخطة مرة واحدة. استخرج كل شيء. لا تجعل الـ subagents تقرأ ملف الخطة — قدّم نص المهمة الكامل مباشرةً ضمن السياق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-per-task-workflow">2. سير العمل لكل مهمة</h3>
+<p>لكل مهمة في الخطة:</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-dispatch-implementer-subagent">الخطوة 1: أرسل subagent التنفيذ</h4>
+<p>استخدم <code>delegate_task</code> مع سياق كامل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-dispatch-spec-compliance-reviewer">الخطوة 2: أرسل مراجع الالتزام بالمواصفات</h4>
+<p>بعد أن ينتهي المنفِّذ، تحقّق من التطابق مع المواصفات الأصلية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>إذا وُجدت مشكلات في المواصفات:</strong> أصلح الفجوات، ثم أعد تشغيل مراجعة المواصفات. لا تكمل إلا عند الالتزام الكامل بالمواصفات.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-dispatch-code-quality-reviewer">الخطوة 3: أرسل مراجع جودة الكود</h4>
+<p>بعد اجتياز مراجعة الالتزام بالمواصفات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>إذا وُجدت مشكلات في الجودة:</strong> أصلحها، ثم أعد المراجعة. لا تكمل إلا بعد الموافقة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-mark-complete">الخطوة 4: علّم المهمة كمكتملة</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-final-review">3. المراجعة النهائية</h3>
+<p>بعد اكتمال كل المهام، أرسل مراجع تكامل نهائي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-verify-and-commit">4. تحقّق ونفّذ commit</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="task-granularity">حجم تفصيل المهام</h2>
+<p><strong>كل مهمة = 2 إلى 5 دقائق من العمل المركّز.</strong></p>
+<p><strong>مهمة كبيرة جدًا:</strong></p>
+<ul>
+<li>&quot;نفّذ نظام مصادقة المستخدمين&quot;</li>
+</ul>
+<p><strong>الحجم الصحيح:</strong></p>
+<ul>
+<li>&quot;أنشئ نموذج User بحقلَي البريد الإلكتروني وكلمة المرور&quot;</li>
+<li>&quot;أضف دالة تجزئة (hashing) لكلمة المرور&quot;</li>
+<li>&quot;أنشئ نقطة نهاية (endpoint) لتسجيل الدخول&quot;</li>
+<li>&quot;أضف توليد رمز JWT&quot;</li>
+<li>&quot;أنشئ نقطة نهاية للتسجيل&quot;</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="red-flags--never-do-these">إشارات تحذير — لا تفعل هذه أبدًا</h2>
+<ul>
+<li>بدء التنفيذ دون خطة</li>
+<li>تخطّي المراجعات (الالتزام بالمواصفات أو جودة الكود)</li>
+<li>المتابعة مع وجود مشكلات حرجة/مهمة لم تُصلَح</li>
+<li>إرسال عدة subagents تنفيذ لمهام تلمس نفس الملفات</li>
+<li>جعل الـ subagent يقرأ ملف الخطة (قدّم النص الكامل ضمن السياق بدلًا من ذلك)</li>
+<li>تخطّي سياق تمهيد المشهد (يحتاج الـ subagent إلى فهم موقع المهمة ضمن السياق العام)</li>
+<li>تجاهل أسئلة الـ subagent (أجب قبل السماح لها بالمتابعة)</li>
+<li>قبول &quot;قريب بما يكفي&quot; في الالتزام بالمواصفات</li>
+<li>تخطّي حلقات المراجعة (المراجع يجد مشكلات ← المنفِّذ يصلحها ← مراجعة أخرى)</li>
+<li>السماح للمراجعة الذاتية من المنفِّذ بأن تحل محل مراجعة فعلية (كلتاهما ضروريتان)</li>
+<li><strong>بدء مراجعة جودة الكود قبل أن تنجح مراجعة الالتزام بالمواصفات</strong> (ترتيب خاطئ)</li>
+<li>الانتقال إلى المهمة التالية بينما لا تزال أي من المراجعتين تحتوي مشكلات مفتوحة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="handling-issues">التعامل مع المشكلات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-subagent-asks-questions">إذا طرح الـ subagent أسئلة</h3>
+<ul>
+<li>أجب بوضوح وبشكل كامل</li>
+<li>قدّم سياقًا إضافيًا إذا لزم الأمر</li>
+<li>لا تستعجله نحو التنفيذ</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-reviewer-finds-issues">إذا وجد المراجع مشكلات</h3>
+<ul>
+<li>يصلحها subagent المنفِّذ (أو subagent جديد)</li>
+<li>يراجع المراجع مرة أخرى</li>
+<li>كرّر حتى الموافقة</li>
+<li>لا تتخطَّ إعادة المراجعة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-subagent-fails-a-task">إذا فشل الـ subagent في مهمة</h3>
+<ul>
+<li>أرسل subagent إصلاح جديدًا بتعليمات محددة عمّا حدث من خلل</li>
+<li>لا تحاول الإصلاح يدويًا في جلسة المتحكم (تلويث السياق)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="efficiency-notes">ملاحظات حول الكفاءة</h2>
+<p><strong>لماذا subagent جديد لكل مهمة:</strong></p>
+<ul>
+<li>يمنع تلويث السياق الناتج عن حالة متراكمة</li>
+<li>يحصل كل subagent على سياق نظيف ومركّز</li>
+<li>لا التباس ناتج عن كود أو تفكير مهام سابقة</li>
+</ul>
+<p><strong>لماذا المراجعة على مرحلتين:</strong></p>
+<ul>
+<li>مراجعة المواصفات تكتشف النقص أو الإفراط في البناء مبكرًا</li>
+<li>مراجعة الجودة تضمن أن التنفيذ مبني جيدًا</li>
+<li>تكتشف المشكلات قبل أن تتراكم عبر المهام</li>
+</ul>
+<p><strong>مقايضة التكلفة:</strong></p>
+<ul>
+<li>استدعاءات subagent أكثر (منفِّذ + مراجعَين لكل مهمة)</li>
+<li>لكنها تكتشف المشكلات مبكرًا (أرخص من تصحيح مشكلات متراكمة لاحقًا)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-with-other-skills">التكامل مع مهارات أخرى</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-plan">مع plan</h3>
+<p>تنفّذ هذه المهارة الخطط التي أنشأتها مهارة <code>plan</code>:</p>
+<ol>
+<li>متطلبات المستخدم ← plan ← خطة تنفيذ</li>
+<li>خطة التنفيذ ← subagent-driven-development ← كود يعمل</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-test-driven-development">مع test-driven-development</h3>
+<p>ينبغي أن تتّبع subagents المنفِّذة منهجية TDD:</p>
+<ol>
+<li>اكتب اختبارًا فاشلًا أولًا</li>
+<li>نفّذ الحد الأدنى من الكود</li>
+<li>تحقّق من نجاح الاختبار</li>
+<li>نفّذ commit</li>
+</ol>
+<p>أدرج تعليمات TDD في سياق كل subagent منفِّذ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-requesting-code-review">مع requesting-code-review</h3>
+<p>عملية المراجعة على مرحلتين هي في حد ذاتها مراجعة الكود. لمراجعة التكامل النهائية، استخدم أبعاد المراجعة الخاصة بمهارة requesting-code-review.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-systematic-debugging">مع systematic-debugging</h3>
+<p>إذا واجه subagent أخطاء أثناء التنفيذ:</p>
+<ol>
+<li>اتّبع منهجية systematic-debugging</li>
+<li>حدّد السبب الجذري قبل الإصلاح</li>
+<li>اكتب اختبار انحدار (regression)</li>
+<li>استأنف التنفيذ</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-workflow">مثال على سير العمل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="remember">تذكّر</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>الجودة ليست صدفة. إنها نتيجة عملية منهجية.</strong></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="further-reading-load-when-relevant">قراءات إضافية (حمّلها عند الحاجة)</h2>
+<p>عندما تستهلك عملية التنسيق سياقًا كبيرًا، أو تتطلّب حلقات مراجعة طويلة، أو نقاط تحقّق معقّدة، حمّل هذه المراجع للحصول على الانضباط المحدد:</p>
+<ul>
+<li><strong><code>references/context-budget-discipline.md</code></strong> — نموذج تدهور السياق ذو المستويات الأربعة (PEAK / GOOD / DEGRADING / POOR)، وقواعد عمق القراءة التي تتغيّر بحسب حجم نافذة السياق، وعلامات الإنذار المبكر للتدهور الصامت. حمّله عندما يستهلك التشغيل سياقًا كبيرًا بوضوح (خطط متعددة المراحل، subagents كثيرة، نواتج ضخمة).</li>
+<li><strong><code>references/gates-taxonomy.md</code></strong> — الأنواع الأربعة القياسية للبوابات (Pre-flight، Revision، Escalation، Abort) مع سلوكها وطريقة التعافي منها وأمثلة عليها. حمّله عند تصميم أو مراجعة أي سير عمل يحتوي نقاط تحقّق — استخدم المصطلحات صراحةً بحيث يكون لكل بوابة نقطة دخول وسلوك فشل وقواعد استئناف محدَّدة.</li>
+</ul>
+<p>كلا المرجعين مقتبس من gsd-build/get-shit-done (MIT © 2025 Lex Christopherson).</p>

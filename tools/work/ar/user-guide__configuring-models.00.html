@@ -1,0 +1,117 @@
+<header><h1>إعداد النماذج (Models)</h1></header>
+<p>يستخدم Hermes نوعين من خانات النماذج:</p>
+<ul>
+<li><strong>النموذج الرئيسي (Main model)</strong> — النموذج الذي يفكّر به الوكيل. فكل رسالة من المستخدم، وكل حلقة استدعاء أدوات، وكل رد مبثوث يمرّ عبر هذا النموذج.</li>
+<li><strong>النماذج المساعدة (Auxiliary models)</strong> — مهام جانبية أصغر يُسندها الوكيل إلى غيره: ضغط السياق، والرؤية (تحليل الصور)، وتلخيص صفحات الويب، وتقييم الموافقات، وتوجيه أدوات MCP، وتوليد عناوين الجلسات، والبحث عن المهارات. ولكلٍّ منها خانته الخاصة التي يمكن تجاوزها بشكل مستقل.</li>
+</ul>
+<p>تشرح هذه الصفحة كيفية إعداد النوعين من لوحة التحكم. إذا كنت تفضّل ملفات الإعدادات أو CLI، فانتقل إلى <a href="#alternative-methods">الطرق البديلة</a> في أسفل الصفحة. ولتشغيل النماذج على جهازك بدلًا من مزوّد سحابي، راجع <a href="/docs/user-guide/local-models">النماذج المحلية</a>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>المسار الأسرع: Nous Portal</div><div class="admonitionContent_BuS1"><p>يوفّر <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> أكثر من 300 نموذج ضمن اشتراك واحد. في التثبيت الجديد، نفّذ <code>hermes setup --portal</code> لتسجيل الدخول وضبط Nous كمزوّد لك بأمر واحد. وافحص ما جرى ربطه باستخدام <code>hermes portal info</code>.</p><ul>
+<li>يحصل مشتركو Portal أيضًا على <strong>خصم 10% على المزوّدين الذين يحتسبون الفوترة بالـ token</strong>.</li>
+</ul></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>مخطط <code>model:</code> — سلسلة فارغة أم mapping</div><div class="admonitionContent_BuS1"><p>في التثبيت الجديد تمامًا، يحتوي ملف الإعدادات الافتراضي المضمّن على <code>model: &quot;&quot;</code> (قيمة دلالية عبارة عن سلسلة فارغة تعني &quot;لم يُعدّ بعد&quot;). وفي أول مرة تشغّل فيها <code>hermes setup</code> أو <code>hermes model</code>، يُرقّى هذا المفتاح في مكانه إلى mapping يحتوي على المفاتيح الفرعية <code>provider</code> و <code>default</code> و <code>base_url</code> و <code>api_mode</code> — وهي البنية المعروضة في هذه الصفحة كلها وفي <a href="/docs/user-guide/profiles"><code>profiles.md</code></a> / <a href="/docs/user-guide/configuration"><code>configuration.md</code></a>. إذا رأيت يومًا سلسلة فارغة في <code>config.yaml</code>، فنفّذ <code>hermes model</code> (أو انقر <strong>Change</strong> في لوحة التحكم) وسيكتب Hermes صيغة القاموس (dict) نيابةً عنك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-models-page">صفحة Models</h2>
+<p>افتح لوحة التحكم وانقر <strong>Models</strong> في الشريط الجانبي. ستجد قسمين:</p>
+<ol>
+<li><strong>Model Settings</strong> — اللوحة العلوية، حيث تُسند النماذج إلى الخانات.</li>
+<li><strong>Usage analytics</strong> — بطاقات مرتّبة تعرض كل نموذج شغّل جلسة خلال الفترة المحددة، مع أعداد الـ tokens والتكلفة وشارات القدرات.</li>
+</ol>
+<p><x-keep id="22"></x-keep></p>
+<p>البطاقة العلوية هي لوحة <strong>Model Settings</strong>. يعرض الصف الرئيسي دائمًا النموذج الذي سيشغّله الوكيل للجلسات الجديدة. انقر <strong>Change</strong> لفتح أداة الاختيار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setting-the-main-model">ضبط النموذج الرئيسي</h2>
+<p>انقر <strong>Change</strong> في صف Main model:</p>
+<p><x-keep id="23"></x-keep></p>
+<p>تحتوي أداة الاختيار على عمودين:</p>
+<ul>
+<li><strong>العمود الأيسر</strong> — المزوّدون المصادَق عليهم. لا يظهر هنا إلا المزوّدون الذين أعددتهم (بضبط مفتاح API، أو بإتمام OAuth، أو بتعريفهم كـ endpoint مخصّص). إذا كان أحد المزوّدين غير ظاهر، فانتقل إلى <strong>Keys</strong> وأضف بيانات اعتماده.</li>
+<li><strong>العمود الأيمن</strong> — قائمة النماذج المنتقاة للمزوّد المحدد. وهي النماذج الوكيلية (agentic) التي يوصي بها Hermes لذلك المزوّد، وليست المخرجات الخام لـ <code>/models</code> (التي تتضمن على OpenRouter أكثر من 400 نموذج، منها نماذج TTS ومولّدات الصور ونماذج إعادة الترتيب).</li>
+</ul>
+<p>اكتب في مربع التصفية لتضييق النتائج حسب اسم المزوّد أو المعرّف المختصر (slug) أو معرّف النموذج.</p>
+<p>اختر نموذجًا، ثم اضغط <strong>Switch</strong>، وسيكتبه Hermes في <code>~/.hermes/config.yaml</code> ضمن قسم <code>model</code>. <strong>ينطبق هذا على الجلسات الجديدة فقط</strong> — فأي علامة تبويب محادثة مفتوحة لديك بالفعل تستمر في استخدام النموذج الذي بدأت به. ولتبديل النموذج فورًا في المحادثة الحالية، استخدم الأمر <code>/model</code> داخلها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mid-session-switches-and-context-warnings">التبديل أثناء الجلسة وتحذيرات السياق</h3>
+<p>عندما تبدّل النموذج <strong>داخل جلسة نشطة</strong> (عبر أداة اختيار النموذج في Herm TUI، أو CLI <code>hermes</code>، أو <code>/model</code> على Telegram/Discord)، يقدّر Hermes ما إذا كانت <strong>رسالتك التالية</strong> ستؤدي إلى تشغيل <strong>ضغط السياق التمهيدي (preflight)</strong> وفق نافذة النموذج الجديد. إذا كانت الجلسة قريبة بالفعل من عتبة الضغط الخاصة بذلك النموذج أو تتجاوزها (راجع <a href="/docs/user-guide/configuration#context-compression">ضغط السياق</a>)، يتضمن رد التبديل تحذيرًا — عبر مسار <code>warning_message</code> نفسه المستخدم لإشعارات النماذج المكلفة. ويسري التبديل فورًا مع ذلك؛ ويُنفَّذ الضغط عند <strong>أول رسالة من المستخدم بعد التبديل</strong>، قبل أن يجيب النموذج.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>التبديل أثناء الجلسة يُعيد ضبط التخزين المؤقت للـ prompt</div><div class="admonitionContent_BuS1"><p>ترتبط ذاكرات التخزين المؤقت للـ prompt بالنموذج الذي يخدم الطلب، لذا فإن أي تغيير للنموذج في منتصف المحادثة — سواء أكان تبديلًا صريحًا عبر <code>/model</code>، أو <a href="/docs/user-guide/features/fallback-providers">انتقالًا احتياطيًا تلقائيًا (fallback)</a>، أو تدويرًا ضمن <a href="/docs/user-guide/features/credential-pools">مجمّع بيانات الاعتماد</a> إلى حساب مختلف — يعني أن الرسالة التالية ستعيد قراءة المحادثة بأكملها بسعر tokens الإدخال الكامل بدلًا من السعر المخزّن مؤقتًا (المخفّض بنحو 75–90%). وفي الجلسات الطويلة، قد تفوق تكلفة إعادة القراءة هذه لمرة واحدة الفرقَ في سعر الـ token بين النموذجين. بدّل النموذج عند الحاجة، لكن يُفضَّل أن تفعل ذلك في وقت مبكر من المحادثة أو مباشرةً بعد بدء جلسة جديدة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unattended-data-training-tiers">فئات تدريب البيانات في التشغيل غير المُراقَب</h3>
+<p>النماذج التي تحمل اللاحقة <code>-contributor</code> (مثل <code>muse-spark-1.2-contributor</code> و <code>muse-spark-1.3-contributor</code>) مخفّضة السعر لأن المورّد قد يدرّب نماذجه على الـ prompts والإكمالات الخاصة بك. يعرض اختيار النموذج التفاعلي دائمًا مطالبة تأكيد. أما مسارات بدء التشغيل غير التفاعلية مثل Kanban workers ووكلاء cron فتفشل بشكل مغلق (fail closed) لأنها لا تستطيع طرح هذا السؤال.</p>
+<p>إذا كان التدريب على بيانات أحمال العمل غير المُراقَبة مقبولًا لديك، فسجّل إقرارًا دائمًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يظل Hermes يطبع تحذير سياسة البيانات الكامل ومفتاح الإقرار عند كل بدء تشغيل غير مُراقَب، كي تحتفظ سجلات الوكلاء العاملين بسجل تدقيق. لا يوافق هذا الإعداد على تحذيرات النماذج المكلفة أو توجيه المزوّدين، ولا يحلّ محل مطالبة التأكيد التفاعلية. ألغِه باستخدام <code>hermes config unset security.allow_data_training_tiers_noninteractive</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setting-auxiliary-models">ضبط النماذج المساعدة</h2>
+<p>انقر <strong>Show auxiliary</strong> لإظهار خانات المهام الـ 11:</p>
+<p><x-keep id="24"></x-keep></p>
+<p>القيمة الافتراضية لكل مهمة مساعدة هي <code>auto</code> — أي أن Hermes يجرّب نموذجك الرئيسي لتلك المهمة أيضًا. وإذا كان ذلك المسار غير متاح أو واجه فشلًا من نوع نفاد السعة، يتبع <code>auto</code> أي سلسلة <code>auxiliary.&lt;task&gt;.fallback_chain</code> خاصة بالمهمة، ثم سلسلة <code>fallback_providers</code> / <code>fallback_model</code> الرئيسية. ولا يخمّن أبدًا مزوّدًا لم تُعدّه: فعند اختيار مزوّد رئيسي وعدم التصريح بأي مزوّد احتياطي، تُتخطّى المهمة الجانبية مع تحذير بدلًا من احتساب تكلفتها على حساب آخر صادف أنك مسجّل الدخول إليه. (لا تعمل سلسلة الاكتشاف المدمجة في Hermes إلا إذا لم يُختر أي مزوّد رئيسي على الإطلاق.) تجاوز مهمة محددة عندما تريد نموذجًا أرخص أو أسرع لمهمة جانبية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-override-patterns">أنماط التجاوز الشائعة</h3>
+<table><thead><tr><th>المهمة</th><th>متى تتجاوزها</th></tr></thead><tbody><tr><td><strong>Title Gen</strong></td><td>عندما يكون زمن استجابة توليد العنوان أو تكلفته أهم من مطابقة النموذج الرئيسي. ثبّت نموذج flash معروفًا بجودته، أو اضبط <code>auxiliary.title_generation.prefer_fast_model: true</code> ليختار Hermes الفئة السريعة لدى المزوّد.</td></tr><tr><td><strong>Vision</strong></td><td>عندما لا يدعم نموذجك الرئيسي الرؤية. وجّهها إلى <code>google/gemini-2.5-flash</code> أو <code>gpt-4o-mini</code>.</td></tr><tr><td><strong>Compression</strong></td><td>عندما تستهلك tokens الاستدلال على Opus/M2.7 لمجرد تلخيص السياق. فنموذج محادثة سريع يؤدي المهمة بـ 1/50 من التكلفة.</td></tr><tr><td><strong>Approval</strong></td><td>لـ <code>approval_mode: smart</code> — يقرّر نموذج سريع/رخيص (haiku أو flash أو gpt-5-mini) ما إذا كانت الأوامر منخفضة المخاطر تُوافَق تلقائيًا. واستخدام النماذج المكلفة هنا إهدار.</td></tr><tr><td><strong>Web Extract</strong></td><td>عندما تستخدم <code>web_extract</code> بكثافة. المنطق نفسه كما في الضغط — فالتلخيص لا يحتاج إلى استدلال.</td></tr><tr><td><strong>Skills Hub</strong></td><td>يستخدمها <code>hermes skills search</code>. وعادةً ما تكون القيمة <code>auto</code> مناسبة.</td></tr><tr><td><strong>MCP</strong></td><td>توجيه أدوات MCP. وعادةً ما تكون القيمة <code>auto</code> مناسبة.</td></tr><tr><td><strong>Triage Specifier</strong></td><td>توجّه مُحدِّد الفرز في Kanban (<code>hermes kanban specify</code>) الذي يوسّع سطرًا تقريبيًا واحدًا إلى مواصفات ملموسة. ويعمل نموذج رخيص وكفء بشكل جيد.</td></tr><tr><td><strong>Kanban Decomposer</strong></td><td>توجّه تفكيك مهام Kanban — إذ تقسّم مهمة الفرز إلى رسم بياني من المهام الفرعية لـ profiles متخصصة.</td></tr><tr><td><strong>Profile Describer</strong></td><td>توجّه توليد أوصاف الـ profiles (<code>hermes profile describe --auto</code> / زر التوليد التلقائي في لوحة التحكم). وهو استدعاء قصير ورخيص.</td></tr><tr><td><strong>Curator</strong></td><td>توجّه جولة مراجعة استخدام المهارات التي يجريها Curator. قد تستمر لدقائق على نماذج الاستدلال، لذا غالبًا ما يكون نموذج مساعد أرخص خيارًا مجديًا.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-task-override">التجاوز لكل مهمة</h3>
+<p>انقر <strong>Change</strong> في أي صف من صفوف النماذج المساعدة. ستُفتح أداة الاختيار نفسها بالسلوك نفسه — اختر المزوّد + النموذج، ثم اضغط Switch. يتحدّث الصف ليعرض <code>provider · model</code> بدلًا من <code>auto (use main model)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reset-all-to-auto">إعادة الكل إلى auto</h3>
+<p>إذا بالغت في الضبط وأردت البدء من جديد، فانقر <strong>Reset all to auto</strong> في أعلى قسم النماذج المساعدة. ستعود كل خانة إلى استخدام نموذجك الرئيسي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-use-as-shortcut">اختصار &quot;Use as&quot;</h2>
+<p>تحتوي كل بطاقة نموذج في الصفحة على قائمة منسدلة <strong>Use as</strong>. وهذا هو المسار السريع — اختر نموذجًا تراه في التحليلات، وانقر <strong>Use as</strong>، وأسنده إلى الخانة الرئيسية أو إلى أي مهمة مساعدة محددة بنقرة واحدة:</p>
+<p><x-keep id="25"></x-keep></p>
+<p>تحتوي القائمة المنسدلة على:</p>
+<ul>
+<li><strong>Main model</strong> — مماثل للنقر على Change في الصف الرئيسي.</li>
+<li><strong>All auxiliary tasks</strong> — يُسند هذا النموذج إلى جميع الخانات المساعدة الـ 11 دفعة واحدة. مفيد عندما تريد ببساطة تشغيل كل المهام الجانبية على نموذج flash رخيص.</li>
+<li><strong>خيارات المهام الفردية</strong> — Vision و Web Extract و Compression وغيرها. ويُعلَّم النموذج المُسند حاليًا لكل مهمة بـ <code>current</code>.</li>
+</ul>
+<p>تحمل البطاقات شارة <code>main</code> أو <code>aux · &lt;task&gt;</code> عندما تكون مُسندة حاليًا إلى شيء ما — لذا يمكنك أن ترى بنظرة سريعة أين رُبط كل نموذج من نماذجك السابقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-gets-written-to-configyaml">ما يُكتب في <code>config.yaml</code></h2>
+<p>عند الحفظ عبر لوحة التحكم، يكتب Hermes في <code>~/.hermes/config.yaml</code>:</p>
+<p><strong>النموذج الرئيسي:</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>تجاوز لنموذج مساعد (مثال — الرؤية على gemini-flash):</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>نموذج مساعد على auto (الافتراضي):</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>تُخبر <code>provider: auto</code> مع <code>model: &#x27;&#x27;</code> نظام Hermes باستخدام النموذج الرئيسي لتلك المهمة، مع الالتزام بسياسة الانتقال الاحتياطي إذا تعذّر على المسار الرئيسي خدمة الاستدعاء المساعد.</p>
+<p>توجد سلاسل الانتقال الاحتياطي الاختيارية الخاصة بكل مهمة ضمن المهمة المساعدة نفسها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عند غياب <code>fallback_chain</code>، يستخدم <code>auto</code> سلسلة <code>fallback_providers</code> في المستوى الأعلى. وإذا كانت غائبة أيضًا وتعذّر على المزوّد الرئيسي خدمة الاستدعاء، تُتخطّى المهمة مع تحذير — ولا ينتقل Hermes إلى مزوّدين آخرين مسجّل الدخول إليهم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-provider-request-options">خيارات الطلب لكل مزوّد</h2>
+<p>تقبل عناصر المزوّدين (<code>providers.&lt;name&gt;</code> في قاموس <code>providers:</code>، أو العناصر في القائمة القديمة <code>custom_providers</code>) خيارات تحدّد طريقة تواصل Hermes مع endpoint:</p>
+<p><strong><code>extra_headers</code></strong> — mapping لترويسات HTTP إضافية تُرفق بكل طلب LLM موجّه إلى عنوان URL الأساسي لذلك المزوّد. تُطبَّق في النهاية، بعد القيم الافتراضية لعنوان URL/الـ profile وتجاوزات الترويسات التي يحددها المستخدم، لذا تبقى بعد تبديل بيانات الاعتماد وإعادة بناء العميل. مفيدة لـ service tokens الخاصة بـ Cloudflare Access، أو مصادقة الـ proxy، أو مخططات bearer المخصّصة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>كثيرًا ما تحمل قيم الترويسات بيانات اعتماد — ولا يسجّلها Hermes أبدًا. ينطبق <code>extra_headers</code> على المسارات المتوافقة مع OpenAI؛ ولا يستخدمه وضعا API <code>anthropic_messages</code> و <code>bedrock_converse</code>.</p>
+<p><strong><code>discover_models</code></strong> — اضبطه على <code>false</code> (القيمة الافتراضية <code>true</code>) لتخطّي الاستعلام عن قائمة <code>/models</code> الخاصة بـ endpoint والاكتفاء بـ <code>models</code> التي أعددتها في العنصر. مفيد لـ gateways التي تكون قائمة نماذجها بطيئة أو غير موثوقة أو مليئة بالتشويش:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>عند إيقاف الاكتشاف، تعرض أداة اختيار النموذج (<code>hermes model</code> و <code>/model</code>) القائمة المُعدّة بدلًا من استطلاع مباشر.</p>
+<p><strong><code>openai_native_compaction</code></strong> — لا تضبط هذه القدرة على <code>true</code> إلا لـ endpoint متوافق مع OpenAI تثق به في محتوى المحادثات. إذ يرسل الضغط الأصلي (native compaction) حمولته إلى <code>base_url</code> المُعدّ لذلك المزوّد:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>بالنسبة إلى gateway لا يحدّد الاسم البديل المجرد للنموذج إلا بعد استلام
+الطلب، فعّل علامات التخزين المؤقت للـ prompt لهذا الاسم البديل عبر القدرة
+<code>prompt_caching</code> الخاصة بكل نموذج:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يطابق Hermes هذا التصريح مع مسار المزوّد الدقيق ومعرّف النموذج وقت التشغيل،
+دون إعادة كتابة الاسم البديل أو استنتاج الدعم من اسم مزوّده أو
+مضيفه أو عائلة النموذج. ويتبع ترتيب العلامات وسيلة النقل المُعدّة:
+إذ يستخدم <code>openai_chat</code> ترتيب الغلاف المتوافق مع OpenAI، ويستخدم
+<code>anthropic_messages</code> ترتيب الكتل الداخلية الأصلي. اضبط
+<code>prompt_caching: false</code> لتعطيل علامات التخزين المؤقت صراحةً لنموذج ما؛ وعند
+حذفه، يحتفظ Hermes بآلية الاكتشاف المعتادة لقدرات المزوّد والنموذج.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>الصيغة القديمة</div><div class="admonitionContent_BuS1"><p>كانت ملفات الإعدادات الأقدم تستخدم قائمة <code>custom_providers:</code> في المستوى الأعلى (مع <code>base_url</code> بدلًا من <code>api</code>). ولا تزال تعمل، وتُنقل تلقائيًا إلى قاموس <code>providers:</code> عند تنفيذ <code>hermes update</code> (الإصدار v12 من ملف الإعدادات).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="nous-portal-which-wire-carries-claude">Nous Portal: أي بروتوكول اتصال ينقل Claude</h3>
+<p>يقدّم Nous Portal نماذج <code>anthropic/*</code> عبر مسارين: المسار المتوافق مع OpenAI <code>/v1/chat/completions</code>، وبروتوكول Anthropic Messages الأصلي <code>/v1/messages</code>. ويختار <code>nous.anthropic_wire</code> أحدهما:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><code>chat</code> هو الافتراضي في الوقت الحالي. البروتوكول الأصلي هو وسيلة النقل الأفضل (إذ تمرّ كتل التفكير الموقّعة دون تغيير، وتُدعم نطاقات <code>cache_control</code> الأصلية)، لكنه على مسار Portal الذي يخدمه OpenRouter يُعيد حاليًا كتابة التخزين المؤقت للـ prompt الخاص بالدور السابق في 14–20% من الاستدعاءات المتتالية ضمن حلقات الأدوات المتزامنة، وهو ما يمثّل 15–20% من فاتورة الكتابة إلى التخزين المؤقت في عمليات التوزيع (fan-out)؛ بينما سجّل مسار chat القيمة 0 في الاختبار نفسه. اضبط <code>native</code> لإعادة تفعيله (مثلًا بعد صدور الإصلاح من جهة Portal). لا يتأثر بذلك إلا نماذج <code>anthropic/*</code>؛ فكل ما عداها على Nous يستخدم chat/completions بالفعل.</p>
+<p>القيمة <code>auto</code> مخصّصة للحالات التي يقدّم فيها Portal النموذج نفسه من أكثر من مصدر علوي (upstream). تبدأ الجلسة على chat، ويقرأ Hermes المصدر العلوي الذي أجاب عن الاستدعاء الأول، ولا يحوّل تلك الجلسة إلى native إلا إذا كان المصدر العلوي من المصادر المعروف أن البروتوكول الأصلي يعمل عليها دون مشكلات (يحدث التبديل بين الاستدعاءات، فلا يضيع أي رد قيد التنفيذ ولا أي تخزين مؤقت جاهز). ولم يُعتمد أي مصدر علوي حتى اليوم، لذا يتصرف <code>auto</code> تمامًا مثل <code>chat</code>؛ وهو موجود كي يمكن إجراء التحويل بناءً على القياس بدلًا من تغيير الإعدادات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-does-it-take-effect">متى يسري التغيير؟</h2>
+<ul>
+<li><strong>CLI</strong> (<code>hermes chat</code>): عند الاستدعاء التالي لـ <code>hermes chat</code>.</li>
+<li><strong>Gateway</strong> (Telegram و Discord و Slack وغيرها): عند الجلسة <em>الجديدة</em> التالية. تحتفظ الجلسات الحالية بنموذجها. أعد تشغيل gateway (<code>hermes gateway restart</code>) إذا أردت إجبار جميع الجلسات على اعتماد التغيير.</li>
+<li><strong>علامة تبويب المحادثة في لوحة التحكم</strong> (<code>/chat</code>): عند إنشاء PTY الجديد التالي. تحتفظ المحادثة المفتوحة حاليًا بنموذجها — استخدم <code>/model</code> داخلها لتبديله فورًا.</li>
+</ul>
+<p>لا تُبطل التغييرات أبدًا ذاكرات التخزين المؤقت للـ prompt في الجلسات الجارية. وهذا مقصود: فتبديل النموذج الرئيسي داخل جلسة يتطلب إعادة ضبط التخزين المؤقت (لأن system prompt يحتوي على محتوى خاص بالنموذج)، ونحن نحصر ذلك في الأمر الصريح <code>/model</code> داخل المحادثة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-authenticated-providers-in-the-picker">ظهور &quot;No authenticated providers&quot; في أداة الاختيار</h3>
+<p>لا يُدرج Hermes المزوّد إلا إذا كانت لديه بيانات اعتماد صالحة. تحقّق من <strong>Keys</strong> في الشريط الجانبي — يجب أن ترى أحد ما يلي: مفتاح API، أو OAuth ناجحًا، أو عنوان URL لـ endpoint مخصّص. إذا لم يكن المزوّد الذي تريده موجودًا، فنفّذ <code>hermes setup</code> لربطه، أو انتقل إلى <strong>Keys</strong> وأضف متغير البيئة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="main-model-didnt-change-in-my-running-chat">لم يتغيّر النموذج الرئيسي في محادثتي الجارية</h3>
+<p>هذا متوقع. تكتب لوحة التحكم في <code>config.yaml</code>، الذي تقرؤه الجلسات الجديدة. أما المحادثة المفتوحة حاليًا فهي عملية وكيل حيّة — تحتفظ بالنموذج الذي أُنشئت به. استخدم <code>/model &lt;name&gt;</code> داخل المحادثة لتبديل النموذج فورًا في تلك الجلسة تحديدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-override-didnt-take-effect">تجاوز النموذج المساعد &quot;لم يسرِ&quot;</h3>
+<p>تحقّق من ثلاثة أمور:</p>
+<ol>
+<li><strong>هل بدأت جلسة جديدة؟</strong> المحادثات الحالية لا تعيد قراءة ملف الإعدادات.</li>
+<li><strong>هل قيمة <code>provider</code> مضبوطة على شيء غير <code>auto</code>؟</strong> إذا كان الحقل يعرض <code>auto</code>، فالمهمة لا تزال تستخدم نموذجك الرئيسي. انقر <strong>Change</strong> واختر مزوّدًا فعليًا.</li>
+<li><strong>هل المزوّد مصادَق عليه؟</strong> إذا أسندت <code>minimax</code> إلى مهمة ما دون أن يكون لديك مفتاح MiniMax API، تعود تلك المهمة إلى openrouter الافتراضي وتسجّل تحذيرًا في <code>agent.log</code>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="i-picked-a-model-but-hermes-switched-providers-on-me">اخترت نموذجًا لكن Hermes بدّل المزوّد</h3>
+<p>على OpenRouter (أو أي مجمّع)، تُحلّ أسماء النماذج المجردة <em>داخل</em> المجمّع أولًا. لذا يصبح <code>claude-sonnet-4</code> على OpenRouter هو <code>anthropic/claude-sonnet-4.6</code>، مع البقاء على مصادقة OpenRouter الخاصة بك. أما إذا كتبت <code>claude-sonnet-4</code> مع مصادقة Anthropic أصلية، فسيبقى <code>claude-sonnet-4-6</code>. إذا لاحظت تبديلًا غير متوقع للمزوّد، فتحقّق من أن مزوّدك الحالي هو ما تتوقعه — إذ تعرض أداة الاختيار دائمًا النموذج الرئيسي الحالي في أعلى مربع الحوار.</p>

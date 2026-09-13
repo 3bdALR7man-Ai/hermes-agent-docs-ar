@@ -1,0 +1,30 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="headed-mode-visible-browser-window">وضع Headed (نافذة متصفح مرئية)</h2>
+<p>افتراضيًا، يعمل المتصفح المحلي في وضع headless. فعّل وضع headed للحصول على نافذة Chromium مرئية يمكنك مشاهدتها والتفاعل معها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>أو عبر متغير البيئة: <code>AGENT_BROWSER_HEADED=1</code>.</p>
+<p>يؤدي وضع headed أمرين:</p>
+<ol>
+<li><strong>يُطلق Chromium بنافذة مرئية</strong> (يمرّر <code>--headed</code> إلى agent-browser في الوضع المحلي).</li>
+<li><strong>يُبقي النافذة مفتوحة بين الأدوار.</strong> عادةً تُنظَّف جلسة المتصفح بعد كل رد من الوكيل؛ أما في وضع headed فيُتخطى التنظيف الخاص بكل دور حتى تتمكن من مشاهدة الوكيل أثناء العمل، والتدخل يدويًا (تحديات تسجيل الدخول، CAPTCHA)، والإبقاء على حالة تسجيل الدخول نشطة طوال المحادثة.</li>
+</ol>
+<p>لا تزال الجلسات الخاملة تُنهى بعد <code>browser.inactivity_timeout</code> (الافتراضي 120s دون أي نشاط في المتصفح)، وتُغلق جميع الجلسات عند إيقاف التشغيل. يؤثر وضع headed في المتصفح المحلي فقط — ولا تتأثر الجلسات السحابية (Browserbase).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="stealth-features">ميزات التخفّي</h2>
+<p>توفّر Browserbase قدرات تخفٍّ تلقائية:</p>
+<table><thead><tr><th>الميزة</th><th>القيمة الافتراضية</th><th>ملاحظات</th></tr></thead><tbody><tr><td>التخفّي الأساسي (Basic Stealth)</td><td>مفعّل دائمًا</td><td>بصمات عشوائية، وأبعاد عرض (viewport) عشوائية، وحلّ CAPTCHA</td></tr><tr><td>الـ Proxies السكنية (Residential Proxies)</td><td>مفعّل</td><td>التوجيه عبر عناوين IP سكنية لتحسين إمكانية الوصول</td></tr><tr><td>التخفّي المتقدم (Advanced Stealth)</td><td>معطّل</td><td>نسخة Chromium مخصصة، وتتطلب Scale Plan</td></tr><tr><td>Keep Alive</td><td>مفعّل</td><td>إعادة اتصال الجلسة بعد انقطاعات الشبكة العابرة</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="49"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>إذا لم تكن الميزات المدفوعة متاحة في خطتك، يتراجع Hermes تلقائيًا — بتعطيل <code>keepAlive</code> أولًا، ثم الـ proxies — حتى يظل التصفح يعمل في الخطط المجانية.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-management">إدارة الجلسات</h2>
+<ul>
+<li>تحصل كل مهمة على جلسة متصفح معزولة عبر Browserbase</li>
+<li>تُنظَّف الجلسات تلقائيًا بعد فترة من عدم النشاط (الافتراضي: دقيقتان)</li>
+<li>يفحص خيط (thread) يعمل في الخلفية كل 30 ثانية بحثًا عن الجلسات القديمة</li>
+<li>يعمل تنظيف طارئ عند خروج العملية لمنع بقاء جلسات يتيمة</li>
+<li>تُحرَّر الجلسات عبر Browserbase API (بالحالة <code>REQUEST_RELEASE</code>)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>تفاعل نصي</strong> — يعتمد على شجرة إمكانية الوصول، لا على إحداثيات البكسل</li>
+<li><strong>حجم اللقطة</strong> — تُقتطع الصفحات الكبيرة عند <code>browser.snapshot_threshold</code> (الافتراضي 15,000 حرف، مطابقًا لـ <code>web_extract</code>؛ دون تلخيص بواسطة LLM)؛ وتُحفظ اللقطة الكاملة في <code>~/.hermes/cache/web/</code> ويشير الناتج إليها لتصفّحها عبر <code>read_file</code></li>
+<li><strong>مهلة الجلسة</strong> — تنتهي صلاحية الجلسات السحابية وفقًا لإعدادات خطة المزوّد لديك</li>
+<li><strong>التكلفة</strong> — تستهلك الجلسات السحابية أرصدة المزوّد؛ وتُنظَّف الجلسات تلقائيًا عند انتهاء المحادثة أو بعد فترة من عدم النشاط. استخدم <code>/browser connect</code> للتصفح المحلي المجاني.</li>
+<li><strong>لا يمكن تنزيل الملفات</strong> — لا تستطيع تنزيل الملفات من المتصفح</li>
+</ul>

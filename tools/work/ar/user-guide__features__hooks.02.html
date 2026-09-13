@@ -1,0 +1,136 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre_tool_call"><code>pre_tool_call</code></h3>
+<p>يُطلَق <strong>قبل تنفيذ الأداة مباشرة</strong> — سواء كانت أداة مدمجة أو أداة تابعة لإضافة.</p>
+<p><strong>توقيع الاستدعاء (callback):</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>tool_name</code></td><td><code>str</code></td><td>اسم الأداة على وشك التنفيذ (مثل <code>&quot;terminal&quot;</code> أو <code>&quot;web_search&quot;</code> أو <code>&quot;read_file&quot;</code>)</td></tr><tr><td><code>args</code></td><td><code>dict</code></td><td>الوسائط التي مرّرها النموذج إلى الأداة</td></tr><tr><td><code>task_id</code></td><td><code>str</code></td><td>معرّف الجلسة/المهمة. سلسلة فارغة إن لم يُضبط.</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في <code>model_tools.py</code>، داخل <code>handle_function_call()</code>، قبل تشغيل معالج الأداة. يُطلَق مرة واحدة لكل استدعاء أداة — إذا استدعى النموذج 3 أدوات بالتوازي، يُطلَق 3 مرات.</p>
+<p><strong>قيمة الإرجاع — الحظر أو طلب الموافقة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يفوز أول توجيه صالح (إضافات Python المسجّلة أولًا، ثم hooks الـ shell). يتطلّب <code>block</code> رسالة <code>message</code> غير فارغة ويوقف الأداة فورًا واضعًا هذا النص خطأً يُعاد إلى النموذج. يُصعّد <code>approve</code> الاستدعاء إلى بوابة موافقة بشرية موجودة أصلًا؛ حقلا <code>message</code> و <code>rule_key</code> اختياريان، وأي رفض أو انتهاء مهلة أو خطأ في البوابة يفشل بشكل مغلق (fail closed). القيم الأخرى المُعادة تُتجاهَل، لذا تبقى الاستدعاءات القائمة على المراقبة فقط تعمل دون تغيير.</p>
+<p><strong>قيمة الإرجاع — إعادة كتابة وسائط الأداة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>يُدمَج قاموس <code>args</code> المُعاد دمجًا سطحيًا (shallow-merge) فوق وسائط الأداة الأصلية قبل تنفيذ الأداة. تتراكم عدة hooks من نوع <code>modify</code> — تُدمَج مفاتيح كل hook في قاموس تراكمي واحد مبني على الوسائط الأصلية، بحيث ينجو تغيير hook A لـ <code>path</code> وتغيير hook B لـ <code>content</code> معًا. وإذا عدّل hookان نفس المفتاح، يفوز الأحدث.</p>
+<p>تقبل hooks الـ shell أيضًا الصيغة المتوافقة مع Claude Code:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>تُطبَّع كلتا الصيغتين داخليًا إلى <code>{&quot;action&quot;: &quot;modify&quot;, &quot;args&quot;: {...}}</code>.</p>
+<p>إذا تجاوز استدعاء <code>pre_tool_call</code> مهلة <code>plugins.hook_callback_timeout</code> (أو كان لا يزال قيد التشغيل من إطلاق سابق انتهت مهلته)، فإن Hermes <strong>يفشل بشكل مغلق</strong>: تُحظر الأداة برسالة انتهاء مهلة بدلًا من المتابعة دون قرار سياسة.</p>
+<p><strong>حالات الاستخدام:</strong> التسجيل، سجلات التدقيق، عدّادات استدعاءات الأدوات، حظر العمليات الخطرة، تحديد المعدل (rate limiting)، فرض السياسات لكل مستخدم، تعقيم الوسائط، إعادة كتابة المسارات، حقن معاملات افتراضية.</p>
+<p><strong>مثال — سجل تدقيق لاستدعاءات الأدوات:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>مثال — تحذير عند استخدام أدوات خطرة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post_tool_call"><code>post_tool_call</code></h3>
+<p>يُطلَق <strong>مباشرة بعد</strong> عودة كل تنفيذ للأداة.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>tool_name</code></td><td><code>str</code></td><td>اسم الأداة التي نُفّذت للتو</td></tr><tr><td><code>args</code></td><td><code>dict</code></td><td>الوسائط التي مرّرها النموذج إلى الأداة</td></tr><tr><td><code>result</code></td><td><code>str</code></td><td>القيمة المُعادة من الأداة (دائمًا سلسلة JSON)</td></tr><tr><td><code>task_id</code></td><td><code>str</code></td><td>معرّف الجلسة/المهمة. سلسلة فارغة إن لم يُضبط.</td></tr><tr><td><code>duration_ms</code></td><td><code>int</code></td><td>مدة تنفيذ الأداة بالميلي ثانية (تُقاس بـ <code>time.monotonic()</code> حول <code>registry.dispatch()</code>).</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في <code>model_tools.py</code>، داخل <code>handle_function_call()</code>، بعد عودة معالج الأداة. يُطلَق مرة واحدة لكل استدعاء أداة. <strong>لا</strong> يُطلَق إذا رفعت الأداة استثناءً غير مُعالَج (يُلتقَط الخطأ ويُعاد كسلسلة JSON للخطأ بدلًا من ذلك، ويُطلَق <code>post_tool_call</code> بتلك السلسلة كـ <code>result</code>).</p>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> تسجيل نتائج الأدوات، جمع المقاييس، تتبّع معدلات نجاح/فشل الأدوات، لوحات مراقبة زمن الاستجابة، تنبيهات ميزانية لكل أداة، إرسال إشعارات عند اكتمال أدوات معيّنة.</p>
+<p><strong>مثال — تتبّع مقاييس استخدام الأدوات:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre_llm_call"><code>pre_llm_call</code></h3>
+<p>يُطلَق <strong>مرة واحدة لكل دور (turn)</strong>، قبل بدء حلقة استدعاء الأدوات. تُجمَّع كل قيم الإرجاع الصالحة من الاستدعاءات بترتيب الإضافات وتُحقَن في رسالة المستخدم لهذا الدور.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف فريد للجلسة الحالية</td></tr><tr><td><code>user_message</code></td><td><code>str</code></td><td>رسالة المستخدم الأصلية لهذا الدور (قبل أي حقن للمهارات)</td></tr><tr><td><code>conversation_history</code></td><td><code>list</code></td><td>نسخة من قائمة الرسائل الكاملة (بصيغة OpenAI: <code>[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;...&quot;}]</code>)</td></tr><tr><td><code>is_first_turn</code></td><td><code>bool</code></td><td><code>True</code> إذا كان هذا أول دور في جلسة جديدة، <code>False</code> في الأدوار اللاحقة</td></tr><tr><td><code>model</code></td><td><code>str</code></td><td>معرّف النموذج (مثل <code>&quot;anthropic/claude-sonnet-4.6&quot;</code>)</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td>مكان تشغيل الجلسة: <code>&quot;cli&quot;</code>، <code>&quot;telegram&quot;</code>، <code>&quot;discord&quot;</code>، إلخ</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في <code>agent/turn_context.py</code> (تحضير الدور لـ <code>run_conversation()</code> في <code>agent/conversation_loop.py</code>)، بعد ضغط السياق (context compression) وقبل حلقة <code>while</code> الرئيسية. يُطلَق مرة واحدة لكل استدعاء لـ <code>run_conversation()</code> (أي مرة واحدة لكل دور للمستخدم)، وليس مرة لكل استدعاء API ضمن حلقة الأدوات.</p>
+<p><strong>قيمة الإرجاع:</strong> إذا أعاد الاستدعاء قاموسًا يحوي مفتاح <code>&quot;context&quot;</code>، أو سلسلة نصية بسيطة غير فارغة، يُضاف النص إلى رسالة المستخدم لهذا الدور. أعِد <code>None</code> لعدم الحقن.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p><strong>أين يُحقَن السياق:</strong> دائمًا في <strong>رسالة المستخدم</strong>، ولا يُحقَن أبدًا في الـ system prompt. هذا يحافظ على ذاكرة التخزين المؤقت للـ prompt — يبقى الـ system prompt مطابقًا عبر الأدوار، فتُعاد الاستفادة من الـ tokens المخزّنة مؤقتًا. الـ system prompt هو نطاق Hermes الخاص (توجيه النموذج، فرض استخدام الأدوات، الشخصية، المهارات). تسهم الإضافات بسياق إلى جانب مُدخَل المستخدم.</p>
+<p>يبقى محتوى <code>content</code> النظيف لرسالة المستخدم دون تغيير. من أجل إعادة التشغيل (replay) واستقرار التخزين المؤقت للـ prompt، قد يحفظ Hermes رسالة الـ API الدقيقة، بما فيها السياق المحقون من الإضافات، في الحقل الجانبي <code>api_content</code> ضمن الصف.</p>
+<p>عندما تُعيد <strong>عدة إضافات</strong> سياقًا، تُدمَج مخرجاتها بفواصل سطرين متتاليَين حسب ترتيب اكتشاف الإضافات (أبجديًا حسب اسم المجلد).</p>
+<p><strong>حالات الاستخدام:</strong> استرجاع الذاكرة، حقن سياق RAG، الضوابط الوقائية (guardrails)، تحليلات لكل دور.</p>
+<p><strong>مثال — استرجاع الذاكرة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p><strong>مثال — الضوابط الوقائية:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post_llm_call"><code>post_llm_call</code></h3>
+<p>يُطلَق <strong>مرة واحدة لكل دور</strong>، بعد اكتمال حلقة استدعاء الأدوات وإنتاج الوكيل ردًا نهائيًا. لا يُطلَق إلا في الأدوار <strong>الناجحة</strong> — لا يُطلَق إذا قُوطع الدور.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف فريد للجلسة الحالية</td></tr><tr><td><code>user_message</code></td><td><code>str</code></td><td>رسالة المستخدم الأصلية لهذا الدور</td></tr><tr><td><code>assistant_response</code></td><td><code>str</code></td><td>الرد النصي النهائي للوكيل لهذا الدور</td></tr><tr><td><code>conversation_history</code></td><td><code>list</code></td><td>نسخة من قائمة الرسائل الكاملة بعد اكتمال الدور</td></tr><tr><td><code>model</code></td><td><code>str</code></td><td>معرّف النموذج</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td>مكان تشغيل الجلسة</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في <code>agent/turn_finalizer.py</code> (<code>finalize_turn()</code>، التي يستدعيها <code>run_conversation()</code> في <code>agent/conversation_loop.py</code>)، بعد خروج حلقة الأدوات برد نهائي. مشروط بـ <code>if final_response and not interrupted</code> — لذا <strong>لا</strong> يُطلَق عندما يقاطع المستخدم منتصف الدور أو عندما يبلغ الوكيل حد التكرار دون إنتاج رد.</p>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> مزامنة بيانات المحادثة مع نظام ذاكرة خارجي، حساب مقاييس جودة الرد، تسجيل ملخصات الأدوار، إطلاق إجراءات متابعة.</p>
+<p><strong>مثال — المزامنة مع ذاكرة خارجية:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p><strong>مثال — تتبّع أطوال الردود:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre_verify"><code>pre_verify</code></h3>
+<p>يُطلَق <strong>مرة واحدة لكل دور عدّل فيه الوكيل الكود</strong>، مباشرة قبل انتهائه (بعد حارس التحقق-عند-التوقف verify-on-stop المدمج). هذه بوابة سياسة للمستخدم/الإضافة: يمكن للاستدعاء إبقاء الوكيل مستمرًا — تشغيل فحص، تأجيله، تنظيف الفروق (diff) — بدلًا من السماح له بالتوقف.</p>
+<p>إرشاد التحقق المدمج في Hermes ليس hook افتراضيًا من نوع <code>pre_verify</code>. بل يُضاف إلى تنبيه التحقق-عند-التوقف المبني على الأدلة عندما يفتقر الكود المُعدَّل إلى دليل تحقق حديث، وبذلك لا يُنشئ مسار استمرار افتراضيًا ثانيًا. اضبط <code>agent.verify_guidance: false</code> لإبقاء ذلك التنبيه المدمج مقتضبًا.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف فريد للجلسة الحالية</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td>مكان تشغيل الجلسة (<code>&quot;cli&quot;</code>، <code>&quot;telegram&quot;</code>، …)</td></tr><tr><td><code>model</code></td><td><code>str</code></td><td>معرّف النموذج</td></tr><tr><td><code>coding</code></td><td><code>bool</code></td><td>ما إذا كان الدور في وضعية البرمجة (في مساحة عمل كود) — اجعل الـ hook مقيّدًا بهذا</td></tr><tr><td><code>attempt</code></td><td><code>int</code></td><td>عدد المرات التي جرى فيها تنبيه هذا الدور من قبل (0 في المرة الأولى) — اجعل الـ hook مُقيَّد التكرار بناءً على هذا</td></tr><tr><td><code>final_response</code></td><td><code>str</code></td><td>الرد الذي يوشك الوكيل على تسليمه</td></tr><tr><td><code>changed_paths</code></td><td><code>list</code></td><td>الملفات التي عدّلها الوكيل في هذا الدور (مُرتَّبة، وغير فارغة دائمًا هنا)</td></tr></tbody></table>
+<p>قيّد الـ hook بسياق البرمجة عبر فحص <code>coding</code> واجعله يُطلَق مرة واحدة عبر <code>attempt</code> (تقرأ hooks الـ shell كليهما من <code>.extra</code>)، بنفس الطريقة التي يُقيَّد بها hook من نوع <code>pre_tool_call</code> بحسب <code>tool_name</code> — بحيث يمكنك تسجيل عدة hooks من نوع <code>pre_verify</code>، كل منها يُطلَق فقط حيث ينبغي.</p>
+<p><strong>يُطلَق:</strong> في <code>agent/conversation_loop.py</code>، عند النقطة التي سيقبل فيها الوكيل ردًا نهائيًا، مباشرة بعد فحص التحقق-عند-التوقف — لكن فقط عندما يكون الوكيل قد عدّل الكود في هذا الدور وسُجِّل hook واحد على الأقل من نوع <code>pre_verify</code>.</p>
+<p><strong>قيمة الإرجاع — إبقاء الوكيل مستمرًا:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p>تُضاف <code>message</code> كدور اصطناعي للمستخدم وتعمل الحلقة مرة أخرى. تُقبَل أيضًا صيغة Claude-Code لـ Stop (<code>{&quot;decision&quot;: &quot;block&quot;, &quot;reason&quot;: &quot;...&quot;}</code>، حيث حظر التوقف يعني <em>الاستمرار</em>). التوجيه دون رسالة — أو أي قيمة إرجاع أخرى — يسمح للدور بالانتهاء.</p>
+<p><strong>مقيَّد:</strong> توجيهات الاستمرار المتتالية في دور واحد محدودة بـ <code>agent.max_verify_nudges</code> (الافتراضي 3)، لذا لا يمكن أبدًا لـ hook يقول "استمر" دائمًا أن يُوقِع الحلقة في فخ. تُحفَظ الإجابة المحاوَلة في السجل لكن لا تُعرَض للمستخدم أثناء تنبيه الوكيل.</p>
+<p><strong>اجعله متكرر التطبيق دون تأثير جانبي (idempotent):</strong> يُعاد إطلاق الـ hook بعد كل تنبيه، لذا قيّده بـ <code>attempt</code> (<code>if attempt: return None</code>) — وإلا فسيستمر في التنبيه حتى يُصادف الحد الأقصى.</p>
+<p><strong>حالات الاستخدام:</strong> تأجيل الاختبارات/الفحوصات اللغوية أثناء التكرار الإبداعي، اشتراط اجتياز فحوصات ناجحة لمسارات معيّنة، حظر "الانتهاء" حتى يُوجَد سجل تغييرات (changelog)، تشغيل قائمة تحقق خاصة بالمشروع.</p>
+<p><strong>مثال — تأجيل الفحوصات في أعمال واجهة المستخدم الإبداعية، مقيَّد وذو تطبيق واحد:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>للإرشاد الدائم الذي يجب أن يشكّل تنبيه الدليل الناقص المدمج، استخدم <code>agent.verify_guidance</code>. لقواعد وضعية البرمجة الأوسع التي لا تحتاج إلى <em>تقييد</em> التحقق، يُفضَّل استخدام <code>agent.coding_instructions</code> في <code>config.yaml</code> — فهي تُرفَق بموجز البرمجة (coding brief) دون تكلفة دور إضافي.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="transform_api_error_classification"><code>transform_api_error_classification</code></h3>
+<p>يُطلَق مرة واحدة لكل استدعاء API فاشل، في بداية <code>agent/error_classifier.classify_api_error()</code>، قبل خط الأنابيب المدمج. تستخدمه إضافات المزوّدين للتحكّم في خصوصيات أخطاء مزوّدها دون تعديل النواة. إنه يُغيّر السلوك (فئة transform): يُحدِّد التصنيف المُعاد إعادة المحاولة، ضغط السياق، تدوير بيانات الاعتماد، وتوجيه الاحتياط (fallback).</p>
+<p>تتلقى الاستدعاءات سياق الخطأ المُحلَّل كوسائط مفتاحية (kwargs) — <code>provider</code> (اجعل نطاق الـ hook محصورًا بهذا)، <code>model</code>، <code>status_code</code>، <code>error_type</code>، <code>error_code</code>، <code>error_message</code>، <code>error_body</code>، <code>error</code>، <code>approx_tokens</code>، <code>context_length</code>، <code>num_messages</code>. أعِد <code>None</code> للرفض، أو قاموسًا للمطالبة بالخطأ:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<p>يُنفَّذ التوزيع بمبدأ "تشغيل الكل ثم اختيار الأول" (run-all-then-pick-first): يعمل كل استدعاء، وتُعزَل الإخفاقات، ويفوز أول نتيجة صالحة بترتيب التسجيل (النتائج الصالحة الخاسرة تُسجَّل بتحذير وقت التشغيل). تُتجاهَل القواميس غير الصالحة والأسباب غير المعروفة، لذا لا يمكن أبدًا لإضافة معطوبة أن تُفسد التصنيف.</p>
+<p><strong>الخصوصية:</strong> قد يحمل <code>error_message</code> و <code>error_body</code> بيانات غير محجوبة من المزوّد. <strong>إضافات Python فقط</strong> — تُرفَض تسجيلات الـ shell عند تحليل الإعدادات مع تحذير.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="on_session_start"><code>on_session_start</code></h3>
+<p>يُطلَق <strong>مرة واحدة</strong> عند إنشاء جلسة جديدة تمامًا. <strong>لا</strong> يُطلَق عند استمرار الجلسة (عندما يرسل المستخدم رسالة ثانية ضمن جلسة قائمة).</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف فريد للجلسة الجديدة</td></tr><tr><td><code>model</code></td><td><code>str</code></td><td>معرّف النموذج</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td>مكان تشغيل الجلسة</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في <code>agent/conversation_loop.py</code>، داخل <code>run_conversation()</code>، أثناء الدور الأول من جلسة جديدة — تحديدًا بعد بناء الـ system prompt وقبل بدء حلقة الأدوات. يكون الفحص <code>if not conversation_history</code> (لا رسائل سابقة = جلسة جديدة).</p>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> تهيئة حالة مقتصرة على الجلسة، إحماء الذاكرات المؤقتة، تسجيل الجلسة لدى خدمة خارجية، تسجيل بدايات الجلسات.</p>
+<p><strong>مثال — تهيئة ذاكرة مؤقتة للجلسة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="on_session_end"><code>on_session_end</code></h3>
+<p>يُطلَق في <strong>النهاية القصوى</strong> لكل استدعاء لـ <code>run_conversation()</code>، بصرف النظر عن النتيجة. يُطلَق أيضًا من معالج الخروج في CLI إذا كان الوكيل في منتصف دور عند خروج المستخدم.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف الجلسة</td></tr><tr><td><code>completed</code></td><td><code>bool</code></td><td><code>True</code> إذا أنتج الوكيل ردًا نهائيًا، وإلا <code>False</code></td></tr><tr><td><code>interrupted</code></td><td><code>bool</code></td><td><code>True</code> إذا قُوطع الدور (المستخدم أرسل رسالة جديدة، أو <code>/stop</code>، أو خرج)</td></tr><tr><td><code>model</code></td><td><code>str</code></td><td>معرّف النموذج</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td>مكان تشغيل الجلسة</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في موضعين:</p>
+<ol>
+<li><strong><code>agent/turn_finalizer.py</code></strong> — في نهاية كل استدعاء لـ <code>run_conversation()</code> (في <code>agent/conversation_loop.py</code>)، بعد كل التنظيف. يُطلَق دائمًا، حتى لو حدث خطأ في الدور.</li>
+<li><strong><code>cli.py</code></strong> — في معالج atexit الخاص بالـ CLI، لكن <strong>فقط</strong> إذا كان الوكيل في منتصف دور (<code>_agent_running=True</code>) عند حدوث الخروج. يلتقط هذا حالات Ctrl+C و <code>/exit</code> أثناء المعالجة. في هذه الحالة، تكون <code>completed=False</code> و <code>interrupted=True</code>.</li>
+</ol>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> تفريغ المخازن المؤقتة، إغلاق الاتصالات، حفظ حالة الجلسة، تسجيل مدة الجلسة، تنظيف الموارد التي هُيِّئت في <code>on_session_start</code>.</p>
+<p><strong>مثال — التفريغ والتنظيف:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<p><strong>مثال — تتبّع مدة الجلسة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="on_session_finalize"><code>on_session_finalize</code></h3>
+<p>يُطلَق عندما <strong>تُفكِّك</strong> واجهة CLI أو الـ gateway جلسة نشطة — على سبيل المثال، عندما يُشغِّل المستخدم <code>/new</code> أو تخرج واجهة CLI بوكيل نشط. لا يُنهي الإخلاء الوارد للذاكرة المؤقتة للموارد وحده المحادثة الدائمة. استخدمه لتفريغ الحالة المرتبطة بمعرّف الجلسة الخارجة. عند إعادة ضبط الـ gateway، تكون الجلسة البديلة موجودة بالفعل قبل تشغيل هذا الاستدعاء.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code> أو <code>None</code></td><td>معرّف الجلسة الخارجة. قد يكون <code>None</code> إن لم تكن هناك جلسة نشطة.</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td><code>&quot;cli&quot;</code> أو اسم منصة المراسلة (<code>&quot;telegram&quot;</code>، <code>&quot;discord&quot;</code>، إلخ).</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> في تفكيك CLI/TUI وفي مسارات إعادة ضبط أو إيقاف الـ gateway. يمكن أن يُنهي إيقاف الـ gateway الجلسة دون <code>on_session_reset</code> مقابل.</p>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> حفظ مقاييس الجلسة النهائية قبل التخلص من معرّف الجلسة، إغلاق الموارد الخاصة بالجلسة، إرسال حدث تحليلي (telemetry) نهائي، تفريغ الكتابات المُعلَّقة.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="on_session_reset"><code>on_session_reset</code></h3>
+<p>يُطلَق عند حد جلسة CLI أو TUI، أو عندما <strong>يستبدل</strong> الـ gateway مفتاح جلسة جديدًا لمحادثة نشطة. هذا يتيح للإضافات الاستجابة لحالة محادثة ممسوحة دون انتظار <code>on_session_start</code> التالي.</p>
+<p><strong>توقيع الاستدعاء:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>session_id</code></td><td><code>str</code></td><td>معرّف الجلسة الجديدة (قد جرى تدويره بالفعل إلى القيمة الجديدة).</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td><code>&quot;cli&quot;</code>، أو <code>&quot;tui&quot;</code>، أو اسم منصة المراسلة.</td></tr><tr><td><code>reason</code></td><td><code>str</code>، اختياري</td><td>موجود في مساري إعادة ضبط CLI و الـ gateway.</td></tr><tr><td><code>old_session_id</code></td><td><code>str</code>، اختياري</td><td>معرّف الجلسة الخارجة، خاص بالـ gateway فقط.</td></tr><tr><td><code>new_session_id</code></td><td><code>str</code>، اختياري</td><td>معرّف الجلسة البديلة، خاص بالـ gateway فقط.</td></tr></tbody></table>
+<p><strong>يُطلَق:</strong> يُوفِّر CLI الحقول <code>session_id</code> و <code>platform</code> و <code>reason</code>؛ يُوفِّر TUI الحقلين <code>session_id</code> و <code>platform</code>؛ يضيف الـ gateway الحقول <code>reason</code> و <code>old_session_id</code> و <code>new_session_id</code> بعد تخصيص المفتاح البديل. عند إعادة ضبط الـ gateway، يكون الترتيب: إنشاء وحفظ البديل ← <code>on_session_finalize(old_id)</code> ← <code>on_session_reset(new_id)</code> ← <code>on_session_start(new_id)</code> عند أول دور وارد.</p>
+<p><strong>قيمة الإرجاع:</strong> تُتجاهَل.</p>
+<p><strong>حالات الاستخدام:</strong> إعادة ضبط الذاكرات المؤقتة الخاصة بالجلسة والمُرتَّبة بحسب <code>session_id</code>، إرسال تحليلات "تدوير الجلسة"، تهيئة سلّة حالة جديدة.</p>
+<hr>
+<p>راجع <strong><a href="/docs/developer-guide/plugins">دليل بناء إضافة</a></strong> للاطلاع على الشرح الكامل بما في ذلك مخططات الأدوات (tool schemas)، والمعالِجات، وأنماط hooks المتقدّمة.</p>
+<hr>

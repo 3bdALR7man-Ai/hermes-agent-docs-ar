@@ -1,0 +1,120 @@
+<header><h1>الحيوانات الأليفة (Pets)</h1></header>
+<p>يستطيع Hermes عرض <strong>حيوان أليف (pet)</strong> متحرك — شخصية تميمة (mascot) صغيرة مرسومة كـ sprite تتفاعل مع ما يفعله الوكيل (الخمول، أو تشغيل أداة، أو التفكير، أو الانتهاء، أو الفشل) عبر
+<strong>CLI</strong> و <strong>TUI</strong> و<strong>تطبيق سطح المكتب</strong>. تأتي الحيوانات الأليفة من معرض
+<a href="https://github.com/crafter-station/petdex" data-ext>petdex</a> العام.</p>
+<p>الحيوانات الأليفة شكلية بحتة، و<strong>لا تؤثر في التخزين المؤقت للـ prompt ولا في الـ tokens ولا في سلوك الوكيل</strong> — فالـ sprite مسألة عرض فحسب. هذه الميزة
+<strong>معطّلة افتراضيًا</strong> وتبقى خاملة حتى تثبّت حيوانًا أليفًا وتختاره.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<ul>
+<li>
+<p>تُثبَّت الحيوانات الأليفة في المجلد <code>pets/</code> الخاص بالـ profile لديك
+(<code>&lt;HERMES_HOME&gt;/pets/&lt;slug&gt;/</code>)، لذا يحتفظ كل <a href="/docs/user-guide/profiles">profile</a> بمجموعته الخاصة.</p>
+</li>
+<li>
+<p>يؤدي اختيار حيوان أليف إلى كتابة <code>display.pet.slug</code> و <code>display.pet.enabled</code> في
+<code>config.yaml</code> — ولا يُخزَّن أي شيء كسرّ أو كمتغير بيئة.</p>
+</li>
+<li>
+<p>تراقب كل واجهة النشاط الذي تتتبعه أصلًا وتربطه بإحدى ست حالات للحركة. ويوجد هذا الربط في مكان واحد كي تتصرف كل الواجهات بالطريقة نفسها:</p>
+<table><thead><tr><th>نشاط الوكيل</th><th>حالة الحيوان الأليف</th></tr></thead><tbody><tr><td>فشلت أداة/دور للتو</td><td><code>failed</code></td></tr><tr><td>اكتملت خطة (أُنجزت كل المهام)</td><td><code>jump</code> (احتفال)</td></tr><tr><td>انتهى دور بنجاح</td><td><code>wave</code></td></tr><tr><td>أداة قيد التنفيذ</td><td><code>run</code></td></tr><tr><td>النموذج يفكر/يقرأ</td><td><code>review</code></td></tr><tr><td>دور جارٍ (غير محدد)</td><td><code>run</code></td></tr><tr><td>في انتظارك (مطالبة توضيح/موافقة مفتوحة)</td><td><code>waiting</code> (يُستخدم <code>idle</code> بدلًا منها في الأوراق القديمة ذات الصفوف الثمانية)</td></tr><tr><td>لا شيء يحدث</td><td><code>idle</code></td></tr></tbody></table>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rendering">العرض</h2>
+<p>في الطرفية (CLI/TUI)، يعرض Hermes الـ sprite بدقة كاملة عندما تدعم طرفيتك بروتوكول رسوميات (<strong>kitty</strong> أو <strong>Ghostty</strong> أو <strong>WezTerm</strong> أو
+<strong>iTerm2</strong> أو <strong>sixel</strong>). وإلا فإنه يرجع تلقائيًا إلى عرض بمحارف Unicode من نوع <strong>half-block</strong> بألوان truecolor. وداخل pipe أو إعادة توجيه (دون TTY)، يُعطَّل العرض في الطرفية عمدًا.</p>
+<p>يرسم تطبيق سطح المكتب الحيوان الأليف كـ sprite عائم على لوحة رسم (canvas)، ويمكن تفعيله أو تعطيله من
+<strong>Settings → Appearance</strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-cli">البدء السريع (CLI)</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-pets-commands">أوامر <code>hermes pets</code></h2>
+<table><thead><tr><th>الهدف</th><th>الأمر</th></tr></thead><tbody><tr><td>تصفّح المعرض</td><td><code>hermes pets list [query] [--limit N]</code></td></tr><tr><td>عرض الحيوانات الأليفة المثبّتة</td><td><code>hermes pets list --installed</code></td></tr><tr><td>تثبيت حيوان أليف</td><td><code>hermes pets install &lt;slug&gt; [--select] [--force]</code></td></tr><tr><td>تعيين الحيوان الأليف النشط</td><td><code>hermes pets select [slug]</code> (أغفل slug لفتح أداة اختيار)</td></tr><tr><td>تغيير حجم الحيوان الأليف في كل مكان</td><td><code>hermes pets scale &lt;factor&gt;</code> (مثل <code>0.5</code>، ضمن النطاق 0.1–3.0)</td></tr><tr><td>المعاينة/التحريك</td><td><code>hermes pets show [slug] [--state &lt;s&gt;] [--cycle] [--once] [--mode &lt;m&gt;] [--scale &lt;f&gt;]</code></td></tr><tr><td>تعطيل الحيوان الأليف</td><td><code>hermes pets off</code></td></tr><tr><td>إزالة حيوان أليف مثبّت</td><td><code>hermes pets remove &lt;slug&gt;</code></td></tr><tr><td>تشخيص الإعداد</td><td><code>hermes pets doctor</code></td></tr></tbody></table>
+<p>خيارات <code>hermes pets show</code>:</p>
+<ul>
+<li><code>--state</code> — تشغيل حالة واحدة (<code>idle</code>، <code>wave</code>، <code>run</code>، <code>failed</code>، <code>review</code>،
+<code>jump</code>).</li>
+<li><code>--cycle</code> — المرور على كل الحالات بالتتابع.</li>
+<li><code>--once</code> — التشغيل مرة واحدة بدلًا من التكرار.</li>
+<li><code>--mode</code> — تجاوز بروتوكول العرض (<code>kitty</code>، <code>iterm</code>، <code>sixel</code>،
+<code>unicode</code>، <code>auto</code>).</li>
+<li><code>--scale</code> — تجاوز مقياس العرض على الشاشة (<code>0</code> = استخدام الإعدادات).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pet-slash-command">الـ slash command <code>/pet</code></h2>
+<p>داخل CLI و TUI يمكنك إدارة الحيوان الأليف دون مغادرة الجلسة:</p>
+<ul>
+<li><code>/pet</code> — تفعيل الحيوان الأليف أو تعطيله (يتبنّى أول حيوان أليف مثبّت إذا لم يكن هناك حيوان نشط).</li>
+<li><code>/pet list</code> — تصفّح المعرض.</li>
+<li><code>/pet scale &lt;factor&gt;</code> — تغيير حجم الحيوان الأليف في كل مكان (مثل <code>/pet scale 0.5</code>).</li>
+<li><code>/pet &lt;slug&gt;</code> — تبنّي حيوان أليف محدد.</li>
+<li><code>/pet off</code> — تعطيل الحيوان الأليف.</li>
+</ul>
+<p>في TUI، يفتح <code>/pet list</code> طبقة تفاعلية لاختيار الحيوان الأليف؛ أما في تطبيق سطح المكتب فيفتح لوحة الحيوانات الأليفة عبر Cmd+K.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="generating-a-pet-hatch">توليد حيوان أليف (<code>/hatch</code>)</h2>
+<p>إلى جانب تثبيت الحيوانات الأليفة الجاهزة من المعرض، يستطيع Hermes <strong>توليد حيوان أليف جديد كليًا</strong> من وصف نصي — عبر pipeline خاص به لتوليد الـ sprites بالذكاء الاصطناعي.</p>
+<ul>
+<li>في CLI/TUI: <code>/hatch &lt;description&gt;</code> (والاسم البديل <code>/generate-pet</code>)، أو <code>hermes pets</code> → تدفق التوليد.</li>
+<li>في تطبيق سطح المكتب: واجهة <strong>generate</strong> بأسلوب Pokédex — بيضة متحركة، ومؤثرات فقس، وأداة لاختيار المسودات.</li>
+</ul>
+<p>كيف يعمل التوليد (تدفق من خطوتين بتكلفة محدودة):</p>
+<ol>
+<li><strong>المسودات الأساسية</strong> — تُولَّد بضعة متغيرات رخيصة تعتمد على الـ prompt وحده حول &quot;الشكل الذي ينبغي أن يبدو عليه هذا الحيوان الأليف&quot;. تختار واحدًا منها، أو تعيد المزج/المحاولة للحصول على جولة جديدة.</li>
+<li><strong>الفقس</strong> — يُستخدم الأساس المختار كصورة مرجعية لتوليد صف حركة واحد مرتكز عليها لكل حالة من حالات Hermes (الخمول، والتفكير، واستخدام الأدوات، وغيرها)، ثم تُقطَّع هذه الصفوف بشكل حتمي إلى إطارات وتُجمع في أطلس petdex/Codex قياسي (شبكة 8×9 من خلايا 192×208). والنتيجة ورقة sprites صالحة تحتفظ بها — ويمكنك إرسالها عبر <code>petdex submit</code>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-backend">الـ backend الخاص بالصور</h3>
+<p>يستخدم التوليد <a href="/docs/user-guide/features/image-generation">مزوّد توليد الصور</a> النشط، لكنه يتطلب <strong>الارتكاز على صورة مرجعية</strong> كي يبقى كل صف حركة للشخصية نفسها في الصورة الأساسية. الـ backends التي تدعم الصور المرجعية: <strong>Nous Portal</strong> و <strong>OpenRouter</strong> و <strong>OpenAI</strong> (<code>gpt-image-2</code>) و <strong>Krea</strong>. ويشغّل OpenRouter/Nous افتراضيًا سلسلة نماذج تُعطي الأولوية للجودة.</p>
+<ul>
+<li>ترتيب الاختيار يفضّل Nous Portal → OpenAI → OpenRouter.</li>
+<li>إذا لم يكن هناك backend مضبوط يدعم الصور المرجعية، يعرض التوليد خطأً قابلًا للتصرف يوجّهك إلى <code>hermes tools</code> → Image Generation. (أما تثبيت الحيوانات الأليفة الموجودة في المعرض أو تبنّيها فلا يحتاج إلى أي backend للصور.)</li>
+<li>تجاوز الـ backend عبر متغير البيئة <code>HERMES_PET_IMAGE_PROVIDER</code> (مثل <code>HERMES_PET_IMAGE_PROVIDER=openrouter</code>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-app">تطبيق سطح المكتب</h2>
+<p>في تطبيق سطح المكتب يمكنك إدارة الحيوان الأليف بطريقتين:</p>
+<ul>
+<li><strong>Cmd+K → &quot;Pets…&quot;</strong> — تصفّح الحيوانات الأليفة وابحث عنها وتبنَّها وفعّلها أو عطّلها دون ترك لوحة المفاتيح (على غرار أداة اختيار السمة).</li>
+<li><strong>Settings → Appearance</strong> — المعرض نفسه مع <strong>شريط تمرير للحجم</strong> يغيّر حجم التميمة العائمة مباشرةً أثناء السحب.</li>
+</ul>
+<p>تتيح كلتا الطريقتين تبنّي التميمة العائمة وتفعيلها وتغيير حجمها في مكانها — إذ تُطبَّق تغييرات الحجم فورًا، ويظهر الحيوان الأليف الجديد المتبنّى خلال لحظات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="roaming">التجوّل</h3>
+<p>يحتوي Settings → Appearance على مفتاح <strong>Roam</strong>: عند تفعيله، يتجول الحيوان الأليف في النافذة من تلقاء نفسه أثناء خمول الوكيل — يمشي على الأسطح، ويتوقف، ويقفز بين المواضع. لا يعمل التجوّل إلا عندما يكون الحيوان الأليف داخل النافذة ونشطًا والوكيل في حالة راحة؛ وأي حالة يقودها الوكيل (العمل، الاحتفال) تتولى الأمر فورًا. هذا المفتاح معطّل افتراضيًا، ويُحفظ عبر عمليات إعادة التشغيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="altwheel-resizing">تغيير الحجم بـ Alt+عجلة الفأرة</h3>
+<p>اضغط باستمرار على <strong>Alt</strong> ومرّر عجلة الفأرة فوق الحيوان الأليف لتغيير حجمه في مكانه —
+في نافذة التطبيق وفي الطبقة المنبثقة على حد سواء. تُكبَّر الطبقة المنبثقة نحو موضع المؤشر، ويُحفظ المقياس الناتج، لذا يبقى بعد إعادة التشغيل ويظل متزامنًا مع الحيوان الأليف داخل التطبيق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vibe-reactions">تفاعلات المشاعر</h3>
+<p>قل شيئًا لطيفًا للوكيل — &quot;good bot&quot; أو &quot;thank you&quot; أو &quot;ily&quot; أو <code>&lt;3</code> أو رمز قلب تعبيري — وسيتفاعل الحيوان الأليف بقلوب عائمة (في سطح المكتب) أو بومضة قلب (في CLI/TUI). يعتمد الاكتشاف على معجم منتقى لا يستهلك tokens، يُطابَق محليًا مع كل رسالة من المستخدم (دون استدعاء النموذج)؛ وهو يُفعَّل عند التعبير عن المودة والامتنان الموجهين إلى الوكيل، لا عند المشاعر الإيجابية العامة. وتتفاعل كل الواجهات — الحيوان الأليف في CLI، و TUI، والحيوان الأليف العائم في سطح المكتب، والطبقة المنبثقة — مع الإشارة نفسها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pop-out-overlay">الطبقة المنبثقة (Pop-out overlay)</h3>
+<p>انقر مع <strong>Shift</strong> على الحيوان الأليف العائم لإخراجه إلى نافذة سطح مكتب خاصة به، شفافة وتبقى دائمًا في المقدمة. وهناك يظل مرئيًا أثناء تصغير Hermes (على غرار Codex)، لذا تكفيك نظرة سريعة لمعرفة ما يفعله الوكيل.</p>
+<p>الإيماءات المتاحة بعد إخراجه:</p>
+<table><thead><tr><th>الإيماءة</th><th>الإجراء</th></tr></thead><tbody><tr><td><strong>السحب</strong></td><td>تحريك الحيوان الأليف إلى أي مكان على الشاشة، حتى خارج التطبيق. ويُحفظ موضعه وحالة وجوده داخل النافذة أو خارجها عبر عمليات إعادة التشغيل.</td></tr><tr><td><strong>نقرة واحدة</strong></td><td>فتح محرر رسائل مصغّر لإرسال prompt إلى أحدث جلسة — دون إظهار التطبيق.</td></tr><tr><td><strong>نقرة مزدوجة</strong></td><td>تبديل نافذة التطبيق: تصغيرها إن كانت في المقدمة، واستعادتها إن كانت مخفية.</td></tr><tr><td><strong>النقر مع Shift</strong></td><td>إعادة الحيوان الأليف إلى داخل النافذة.</td></tr><tr><td><strong>أيقونة البريد</strong></td><td>تظهر فقط عندما ينتهي دور أثناء غيابك؛ انقر عليها لإظهار التطبيق على أحدث سلسلة محادثة (ووضع علامة مقروءة عليها).</td></tr></tbody></table>
+<p>لا يعرض <strong>فقاعة الكلام</strong> (<code>working…</code>، <code>thinking…</code>،
+<code>your turn</code>، …) إلا الحيوان الأليف المنبثق — أما داخل النافذة فالتطبيق نفسه هو الواجهة، لذا يبقى الحيوان الأليف صامتًا هناك.</p>
+<p>الطبقة المنبثقة مجرد دمية تعكس الحيوان الأليف داخل التطبيق — فلا تحمل اتصال gateway منفصلًا، ولا تظهر أبدًا في الـ dock أو في مبدّل التطبيقات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>توجد كل الإعدادات ضمن <code>display.pet</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ul>
+<li><strong><code>scale</code></strong> هو مفتاح التحكم الرئيسي الوحيد في الحجم. رقم واحد يصغّر كل الواجهات:
+إذ تضرب لوحة الرسم في سطح المكتب بكسلاتها فيه، ويستنتج CLI/TUI منه عرض الأعمدة في الطرفية. أما العرض الاحتياطي بنمط half-block فله حد أدنى يضمن الوضوح — إذ لا يمكنه التصغير بقدر عرض kitty/الواجهة الرسومية بالبكسلات الحقيقية دون أن تصبح الصورة مشوشة، لذا تبدو قيمة <code>scale</code> نفسها حادة في kitty لكنها تتوقف عند الحد الأدنى في half-blocks.</li>
+<li><strong><code>render_mode: auto</code></strong> يكتشف kitty/iTerm2/sixel ويرجع إلى half-blocks بمحارف unicode. اضبطه صراحةً لفرض بروتوكول معين، أو على <code>off</code> لتعطيل العرض في الطرفية مع إبقاء الحيوان الأليف في سطح المكتب.</li>
+<li><strong><code>unicode_cols</code></strong> يثبّت عرض الأعمدة في الطرفية بشكل مستقل عن <code>scale</code>؛
+اتركه على <code>0</code> لاستنتاج العرض من <code>scale</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p>شغّل <code>hermes pets doctor</code> — فهو يبلّغ عن:</p>
+<ul>
+<li>مجلد الحيوانات الأليفة والحيوانات المثبّتة،</li>
+<li><code>display.pet.enabled</code> و <code>display.pet.slug</code> والحيوان الأليف النشط الذي حُدِّد،</li>
+<li>قيمة <code>render_mode</code> المضبوطة، وبروتوكول رسوميات الطرفية المكتشف، والوضع الفعلي عند وجود TTY،</li>
+<li>ما إذا كان استيراد Pillow (المستخدمة لفك ترميز الـ sprites) ممكنًا.</li>
+</ul>
+<p>يطبع <code>✓ ready</code> بمجرد أن يكون هناك حيوان أليف مثبّت ومختار ومفعّل، وتكون Pillow متاحة.</p>
+<p>مزالق شائعة:</p>
+<ul>
+<li>لا يظهر الحيوان الأليف إلا بعد أن يكون <strong>مثبّتًا ومختارًا</strong> (<code>enabled: true</code>).</li>
+<li>داخل pipe/إعادة توجيه (دون TTY)، يُعطَّل العرض في الطرفية عمدًا.</li>
+<li>يثبّت CLI الخاص بـ petdex عبر npm الحيوانات الأليفة في <code>~/.codex/pets</code>؛ بينما يستخدم Hermes بدلًا من ذلك مجلده الخاص المرتبط بالـ profile <code>&lt;HERMES_HOME&gt;/pets/</code> — لذا ثبّت عبر <code>hermes pets</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li>تتيح <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent">مهارة <code>hermes-agent</code></a>
+للوكيل تثبيت الحيوانات الأليفة والتبديل بينها نيابةً عنك عند الطلب (راجع
+<code>references/petdex.md</code> الخاص بها).</li>
+</ul>

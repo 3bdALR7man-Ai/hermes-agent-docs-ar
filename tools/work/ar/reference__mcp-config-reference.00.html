@@ -1,0 +1,177 @@
+<header><h1>مرجع إعدادات MCP</h1></header>
+<p>هذه الصفحة مرجع مختصر مُكمِّل لتوثيق MCP الرئيسي.</p>
+<p>للاطلاع على الشرح المفاهيمي، راجع:</p>
+<ul>
+<li><a href="/docs/user-guide/features/mcp">MCP (Model Context Protocol)</a></li>
+<li><a href="/docs/guides/use-mcp-with-hermes">استخدام MCP مع Hermes</a></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="root-config-shape">البنية الجذرية للإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="server-keys">مفاتيح الخادم</h2>
+<table><thead><tr><th>المفتاح</th><th>النوع</th><th>ينطبق على</th><th>المعنى</th></tr></thead><tbody><tr><td><code>command</code></td><td>string</td><td>stdio</td><td>الملف التنفيذي المراد تشغيله</td></tr><tr><td><code>args</code></td><td>list</td><td>stdio</td><td>الوسائط (arguments) المُمرَّرة إلى العملية الفرعية</td></tr><tr><td><code>env</code></td><td>mapping</td><td>stdio</td><td>البيئة المُمرَّرة إلى العملية الفرعية</td></tr><tr><td><code>url</code></td><td>string</td><td>HTTP</td><td>endpoint الخاص بخادم MCP البعيد</td></tr><tr><td><code>headers</code></td><td>mapping</td><td>HTTP</td><td>الترويسات (headers) المُرسَلة مع طلبات الخادم البعيد</td></tr><tr><td><code>ssl_verify</code></td><td>bool أو string</td><td>HTTP</td><td>التحقق من TLS. القيمة <code>true</code> (الافتراضية) تستخدم شهادات CA الخاصة بالنظام، والقيمة <code>false</code> تعطّل التحقق (غير آمن)، أو سلسلة نصية تمثّل مسارًا إلى حزمة CA مخصّصة (PEM)</td></tr><tr><td><code>client_cert</code></td><td>string أو list</td><td>HTTP</td><td>شهادة العميل لـ mTLS. السلسلة النصية = مسار إلى ملف PEM يحتوي الشهادة + المفتاح. القائمة <code>[cert, key]</code> = ملفان منفصلان. القائمة <code>[cert, key, password]</code> = مفتاح مشفّر</td></tr><tr><td><code>client_key</code></td><td>string</td><td>HTTP</td><td>مسار المفتاح الخاص للعميل، عندما تكون قيمة <code>client_cert</code> سلسلة نصية ويكون المفتاح في ملف منفصل</td></tr><tr><td><code>enabled</code></td><td>bool</td><td>كلاهما</td><td>تجاهل الخادم كليًا عندما تكون القيمة false</td></tr><tr><td><code>timeout</code></td><td>number</td><td>كلاهما</td><td>مهلة استدعاء الأداة بالثواني (الافتراضي: <code>300</code>)</td></tr><tr><td><code>connect_timeout</code></td><td>number</td><td>كلاهما</td><td>مهلة الاتصال الأولي بالثواني (الافتراضي: <code>60</code>)</td></tr><tr><td><code>protocol</code></td><td>string</td><td>كلاهما</td><td>التفاوض على جيل البروتوكول: <code>auto</code> (الافتراضي — المصافحة القديمة <code>initialize</code> أولًا، مع الرجوع إلى فحص <code>server/discover</code> عديم الحالة (stateless) الخاص بمواصفة 2026-07-28 عندما يرفض الخادم المصافحة لأنه يدعم الجيل الحديث فقط)، أو <code>stateless</code> (فحص <code>server/discover</code> أولًا؛ مع محاولة واحدة بالطريقة القديمة)، أو <code>legacy</code> (المصافحة فقط، بلا رجوع احتياطي)</td></tr><tr><td><code>supports_parallel_tool_calls</code></td><td>bool</td><td>كلاهما</td><td>السماح بتشغيل أدوات هذا الخادم بالتزامن</td></tr><tr><td><code>skip_preflight</code></td><td>bool</td><td>HTTP</td><td>تجاوز فحص content-type السريع الفشل لـ endpoints صالحة من نوع Streamable HTTP تُرجِع طلبات HEAD/GET فيها content type ليس خاصًا بـ MCP (الافتراضي: <code>false</code>)</td></tr><tr><td><code>transport</code></td><td>string</td><td>HTTP</td><td>اضبطه على <code>sse</code> لاستخدام ناقل SSE بدلًا من Streamable HTTP</td></tr><tr><td><code>keepalive_interval</code></td><td>number</td><td>كلاهما</td><td>الفاصل الزمني لإشارات ping التي تتحقق من بقاء الاتصال حيًّا بالثواني (الافتراضي: <code>180</code>، وحدّه الأدنى 5 ثوانٍ). اضبطه على قيمة أقل من مدة صلاحية الجلسة (TTL) لدى الخادم إذا كان الخادم يحذف الجلسات الخاملة سريعًا</td></tr><tr><td><code>idle_timeout_seconds</code></td><td>number</td><td>stdio</td><td>إعادة تدوير اختيارية لخادم stdio بعد مدة خمول (<code>0</code> يعطّلها). يمكن وضعه أيضًا تحت mapping باسم <code>lifecycle:</code></td></tr><tr><td><code>max_lifetime_seconds</code></td><td>number</td><td>stdio</td><td>إعادة تدوير اختيارية لخادم stdio بعد بلوغه عمرًا معيّنًا (<code>0</code> يعطّلها). يمكن وضعه أيضًا تحت mapping باسم <code>lifecycle:</code></td></tr><tr><td><code>tools</code></td><td>mapping</td><td>كلاهما</td><td>سياسة التصفية والأدوات المساعدة</td></tr><tr><td><code>auth</code></td><td>string</td><td>HTTP</td><td>طريقة المصادقة. اضبطه على <code>oauth</code> لتفعيل OAuth 2.1 مع PKCE</td></tr><tr><td><code>sampling</code></td><td>mapping</td><td>كلاهما</td><td>سياسة طلبات LLM التي يبادر بها الخادم (راجع دليل MCP)</td></tr><tr><td><code>elicitation</code></td><td>mapping</td><td>كلاهما</td><td>طلبات إدخال المستخدم التي يبادر بها الخادم. يضم <code>enabled</code> (الافتراضي <code>true</code>) و <code>timeout</code> بالثواني (الافتراضي <code>300</code>). تمر الطلبات من نوع النموذج (form) عبر واجهة الموافقة، أما طلبات نوع URL فتُرفَض (راجع دليل MCP)</td></tr><tr><td><code>trust</code></td><td>string</td><td>كلاهما</td><td>مستوى الثقة: <code>full</code> (الافتراضي) أو <code>untrusted</code>. على خادم <code>untrusted</code>، يتطلب كل استدعاء لأداة قادرة على الكتابة (أي أداة لا تحمل التعليق التوضيحي <code>readOnlyHint: true</code>) موافقة المستخدم عبر واجهة الموافقة القياسية قبل تشغيله. <code>readOnlyHint</code> مجرد <em>تلميح</em> يقدّمه الخادم — فأقصى ما يستطيعه خادم كاذب هو تخطي الموافقة للأدوات التي يدّعي أنها للقراءة فقط، دون أن يكتسب أي وصول إضافي — لذا صنّف أي خادم لا تتحكم فيه بالكامل على أنه <code>untrusted</code>. تُعامَل القيم غير المعروفة على أنها <code>untrusted</code> (الإغلاق عند الفشل)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-references">الإشارة إلى متغيرات البيئة</h2>
+<p>يمكن لقيم السلاسل النصية في أي موضع من إدخال الخادم (<code>env</code> و <code>headers</code> و <code>args</code> و <code>url</code> و…) أن تشير إلى متغيرات البيئة (environment variables) بالصيغة <code>${VAR}</code> أو بصيغة SecretRef المتّبعة في Cursor ‏<code>${env:VAR}</code> — وكلتاهما تُحلّان إلى المتغير نفسه، لذا تعمل مقتطفات MCP المنسوخة من إعدادات Cursor / Claude دون تعديل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تُحلّ القيم من نطاق الأسرار الخاص بالـ profile النشط (مع الرجوع إلى بيئة العملية)، لذا ضع السرّ في <code>~/.hermes/.env</code>. أما المتغير غير المضبوط فيبقى العنصر النائب الخاص به كما هو حرفيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-variables">متغيرات السياق</h3>
+<p>إلى جانب متغيرات البيئة، تُستبدَل أيضًا متغيرات السياق المتّبعة في Cursor (أسماؤها حساسة لحالة الأحرف):</p>
+<table><thead><tr><th>المتغير</th><th>يُحلّ إلى</th></tr></thead><tbody><tr><td><code>${userHome}</code></td><td>المجلد الرئيسي (home) للمستخدم الحالي</td></tr><tr><td><code>${workspaceFolder}</code></td><td>جذر مساحة عمل الجلسة (مجلد العمل الحالي cwd لطرفية الجلسة إن كان معروفًا، وإلا فمجلد العمل الحالي للعملية)</td></tr><tr><td><code>${workspaceFolderBasename}</code></td><td>الاسم الأساسي (basename) لـ <code>${workspaceFolder}</code></td></tr><tr><td><code>${pathSeparator}</code> / <code>${/}</code></td><td>فاصل المسارات في نظام التشغيل (<code>os.sep</code>)</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أي إشارة أخرى بالصيغة <code>${...}</code> تنتقل إلى البحث في متغيرات البيئة الموضّح أعلاه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools-policy-keys">مفاتيح سياسة <code>tools</code></h2>
+<table><thead><tr><th>المفتاح</th><th>النوع</th><th>المعنى</th></tr></thead><tbody><tr><td><code>include</code></td><td>string أو list</td><td>قائمة سماح لأدوات MCP الأصلية الخاصة بالخادم. يمكن أن تكون الإدخالات أسماء مطابقة تمامًا أو أنماط glob بأسلوب fnmatch ‏(<code>*_radar_*</code>، <code>get_zones_*</code>)</td></tr><tr><td><code>exclude</code></td><td>string أو list</td><td>قائمة حظر لأدوات MCP الأصلية الخاصة بالخادم. دلالات الاسم المطابق / glob نفسها المتّبعة في <code>include</code></td></tr><tr><td><code>resources</code></td><td>قيمة شبيهة بـ bool</td><td>تفعيل/تعطيل <code>list_resources</code> + <code>read_resource</code></td></tr><tr><td><code>prompts</code></td><td>قيمة شبيهة بـ bool</td><td>تفعيل/تعطيل <code>list_prompts</code> + <code>get_prompt</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtering-semantics">دلالات التصفية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="include"><code>include</code></h3>
+<p>إذا ضُبط <code>include</code>، فلن تُسجَّل إلا أدوات MCP الأصلية المذكورة فيه.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exclude"><code>exclude</code></h3>
+<p>إذا ضُبط <code>exclude</code> ولم يُضبط <code>include</code>، فستُسجَّل كل أدوات MCP الأصلية الخاصة بالخادم باستثناء الأسماء المذكورة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="precedence">الأولوية</h3>
+<p>إذا ضُبط كلاهما، تكون الغلبة لـ <code>include</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>النتيجة:</p>
+<ul>
+<li>تبقى <code>create_issue</code> مسموحًا بها</li>
+<li>تُتجاهَل <code>delete_issue</code> لأن <code>include</code> له الأولوية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="utility-tool-policy">سياسة الأدوات المساعدة</h2>
+<p>قد يسجّل Hermes أغلفة (wrappers) الأدوات المساعدة التالية لكل خادم MCP:</p>
+<p>الموارد (Resources):</p>
+<ul>
+<li><code>list_resources</code></li>
+<li><code>read_resource</code></li>
+</ul>
+<p>الـ Prompts:</p>
+<ul>
+<li><code>list_prompts</code></li>
+<li><code>get_prompt</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disable-resources">تعطيل الموارد</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disable-prompts">تعطيل الـ Prompts</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="capability-aware-registration">التسجيل بحسب القدرات المتاحة</h3>
+<p>حتى عند ضبط <code>resources: true</code> أو <code>prompts: true</code>، لا يسجّل Hermes تلك الأدوات المساعدة إلا إذا كانت جلسة MCP تُتيح القدرة (capability) المقابلة فعلًا.</p>
+<p>لذا فإن الحالة التالية طبيعية:</p>
+<ul>
+<li>تفعّل الـ prompts</li>
+<li>لكن لا تظهر أي أدوات مساعدة للـ prompts</li>
+<li>لأن الخادم لا يدعم الـ prompts</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabled-false"><code>enabled: false</code></h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>لا محاولة للاتصال</li>
+<li>لا اكتشاف</li>
+<li>لا تسجيل للأدوات</li>
+<li>تبقى الإعدادات في مكانها لإعادة استخدامها لاحقًا</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="empty-result-behavior">السلوك عند النتيجة الفارغة</h2>
+<p>إذا أزالت التصفية كل الأدوات الأصلية للخادم ولم تُسجَّل أي أدوات مساعدة، فلن ينشئ Hermes toolset تشغيليًا فارغًا من نوع MCP لذلك الخادم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-configs">أمثلة على الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="safe-github-allowlist">قائمة سماح آمنة لـ GitHub</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stripe-blacklist">قائمة حظر لـ Stripe</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resource-only-docs-server">خادم توثيق يقتصر على الموارد</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tls-client-certificate-mtls">شهادة عميل TLS ‏(mTLS)</h3>
+<p>لخوادم HTTP/SSE التي تتطلب شهادة عميل، اضبط <code>client_cert</code> (و <code>client_key</code> اختياريًا):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>تدعم المسارات توسيع <code>~</code>. تفشل الملفات المفقودة فورًا عند الاتصال مع رسالة خطأ خاصة بالخادم المعني.</li>
+<li>يعطّل <code>ssl_verify: false</code> التحقق من شهادة الخادم كليًا. لا تستخدمه مع خدمات حقيقية.</li>
+<li>يعمل مع ناقلَي Streamable HTTP و SSE كليهما.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reloading-config">إعادة تحميل الإعدادات</h2>
+<p>بعد تغيير إعدادات MCP، أعد تحميل الخوادم باستخدام:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-naming">تسمية الأدوات</h2>
+<p>تصبح أدوات MCP الأصلية الخاصة بالخادم بالشكل التالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أمثلة:</p>
+<ul>
+<li><code>mcp__github__create_issue</code></li>
+<li><code>mcp__filesystem__read_file</code></li>
+<li><code>mcp__my_api__query_data</code></li>
+</ul>
+<p>تتبع الأدوات المساعدة نمط البادئة نفسه:</p>
+<ul>
+<li><code>mcp__&lt;server&gt;__list_resources</code></li>
+<li><code>mcp__&lt;server&gt;__read_resource</code></li>
+<li><code>mcp__&lt;server&gt;__list_prompts</code></li>
+<li><code>mcp__&lt;server&gt;__get_prompt</code></li>
+</ul>
+<p>يتوافق فاصل الشرطتين السفليتين المزدوجتين (<code>mcp__…__…</code>) مع الاصطلاح الذي تستخدمه Claude Code و Codex و OpenCode، ويزيل الالتباس عن الحدّ الفاصل بين الخادم والأداة حتى عندما يحتوي أيٌّ من الجزأين على شرطات سفلية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="name-sanitization">تنقية الأسماء</h3>
+<p>يُستبدَل بشرطة سفلية أيُّ حرف ليس حرفًا أبجديًا أو رقمًا أو شرطة سفلية (الشرطات والنقاط والمسافات وغيرها) في أسماء الخوادم وأسماء الأدوات على حدٍّ سواء قبل التسجيل. يضمن ذلك أن تكون أسماء الأدوات معرّفات صالحة لواجهات API الخاصة باستدعاء الدوال (function-calling) في نماذج LLM.</p>
+<p>على سبيل المثال، الخادم المسمّى <code>my-api</code> الذي يُتيح أداة تُدعى <code>list-items.v2</code> يصبح:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>ضع هذا في حسبانك عند كتابة مرشّحات <code>include</code> / <code>exclude</code> — استخدم اسم أداة MCP <strong>الأصلي</strong> (بشرطاته/نقاطه)، لا النسخة المُنقّاة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="oauth-21-authentication">المصادقة عبر OAuth 2.1</h2>
+<p>لخوادم HTTP التي تتطلب OAuth، اضبط <code>auth: oauth</code> في إدخال الخادم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>يستخدم Hermes تدفّق OAuth 2.1 PKCE الخاص بـ MCP SDK (اكتشاف البيانات الوصفية، وتعريف العميل، وتبادل الـ token، والتحديث)</li>
+<li>عند الاتصال الأول، تُفتح نافذة متصفح للتفويض</li>
+<li>تُحفَظ الـ tokens في <code>~/.hermes/mcp-tokens/&lt;server&gt;.json</code> ويُعاد استخدامها عبر الجلسات</li>
+<li>يتم تحديث الـ token تلقائيًا؛ ولا يُطلَب التفويض من جديد إلا عند فشل التحديث</li>
+<li>ينطبق فقط على ناقل HTTP/StreamableHTTP (الخوادم المعتمدة على <code>url</code>)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="device-code-login-rfc-8628">تسجيل الدخول برمز الجهاز (RFC 8628)</h3>
+<p>بالنسبة إلى خادم تفويض يُعلن عن <code>device_authorization_endpoint</code>، اختر صراحةً
+تفويض الجهاز من طرفية على الجهاز الذي يشغّل Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>افتح عنوان URL الخاص بالتحقق المطبوع على أي جهاز وأدخل رمز المستخدم المعروض.
+يستطلع Hermes حالة الموافقة، ويحترم <code>authorization_pending</code> و <code>slow_down</code>، ويتوقف
+عند الرفض أو انتهاء الصلاحية. لا يُفتح أي متصفح ولا حاجة إلى مستمع لاستقبال الـ callback.
+يحدّد <code>oauth.timeout</code> مدة انتظار الموافقة (الافتراضي 300 ثانية)، وهي محدودة أيضًا بمدة صلاحية الرمز.</p>
+<p>اضبط <code>oauth.flow: device</code> على الخادم لجعل <code>hermes mcp login</code> و <code>hermes mcp reauth</code>
+(بما في ذلك <code>reauth --all</code>) تستخدم تفويض الجهاز. يتجاوز <code>login --flow browser</code> هذا
+الإعداد لعملية تسجيل دخول واحدة؛ ويبقى PKCE عبر المتصفح هو الافتراضي. تؤدي البيانات الوصفية غير المدعومة
+إلى خطأ يوضّح ما يجب فعله بدلًا من الرجوع بصمت إلى تدفّق مختلف.</p>
+<p>يطلب تسجيل الدخول بالجهاز منحتَي device و refresh أثناء التسجيل الديناميكي، أو يستخدم
+قيم <code>oauth.client_id</code> و <code>oauth.client_secret</code> و <code>oauth.token_endpoint_auth_method</code> التي ضبطتها.
+يجب أن يسمح العميل المسجَّل بتفويض الجهاز. لا يُستخدَم مستند CIMD الخاص بالمتصفح.
+يُرسَل <code>oauth.scope</code> مع طلب تفويض الجهاز؛ وينطبق <code>oauth.user_agent</code> أيضًا
+على استطلاع الـ token. تبقى الـ tokens والتسجيل والبيانات الوصفية للجهة المُصدِرة في مخزن tokens الخاص بـ MCP
+ضمن الـ profile النشط، ويعيد مسار التحديث الحالي وقت التشغيل استخدامها بعد إعادة التشغيل.
+لا تحلّ منح الأجهزة الفاشلة محلّ بيانات الاعتماد المحفوظة سابقًا.</p>
+<p>تسجيل الدخول الأولي بالجهاز متاح من الطرفية فقط: فلا تبدأ الـ callbacks الخاصة بلوحة التحكم/المتصفح ولا عمليات إعادة الاتصال في الخلفية
+تفويضَ الجهاز. شغّل أمر تسجيل الدخول على <strong>الـ profile نفسه والمضيف نفسه</strong>
+اللذين يعمل عليهما الـ gateway. تتطلب منحة الجهاز المنتهية/المرفوضة التي لا يرافقها refresh token صالح
+تسجيل دخول صريحًا آخر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-identification-cimd-and-dcr">تعريف العميل: CIMD و DCR</h3>
+<p>يعرّف Hermes نفسه لخوادم التفويض عبر <strong>Client ID Metadata Document</strong> ‏(CIMD)، وهي الآلية التي اعتمدتها مواصفة MCP ‏<code>2026-07-28</code> بدلًا من Dynamic Client Registration. يُنشَر المستند على
+<code>https://nousresearch.github.io/hermes-agent/docs/oauth/client-metadata.json</code>، وهذا العنوان <em>هو</em> قيمة <code>client_id</code> — إذ يجلبه خادم التفويض ليتعرّف على اسم Hermes وشعاره وعناوين URI المسموح بإعادة التوجيه إليها. لا يُسجَّل أي شيء لكل عملية تثبيت، ولا يوجد أي شيء خاص بالمستخدم.</p>
+<p>القرار النهائي يعود إلى خادم التفويض: إذ يرسل الـ SDK عنوان المستند بوصفه <code>client_id</code> فقط عندما يُعلن الخادم عن <code>client_id_metadata_document_supported: true</code> في بياناته الوصفية، وإلا فإنه يسجّل عبر DCR تمامًا كما كان من قبل. أصبح DCR مهملًا (deprecated) في مواصفة MCP، لكنه لا يزال ما تستخدمه تقريبًا كل الخوادم المنشورة اليوم.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="callback-ports">منافذ الـ Callback</h4>
+<p>يُصرّح المستند بمجموعة ثابتة من عناوين URI لإعادة التوجيه عبر loopback، وتشترط المواصفة أن يكون عنوان URI لإعادة التوجيه في طلب التفويض <em>مطابقًا حرفيًا</em> لأحدها — لذا لا يستطيع تدفّق CIMD استخدام المنفذ العالي العشوائي الذي يختاره Hermes عادةً. ولهذا يثبّت Hermes الـ callback على أحد المنافذ <code>27890</code>–<code>27894</code>.</p>
+<p>يجب اختيار هذا المنفذ المثبّت قبل معرفة قدرات الخادم، لأن عنوان URI لإعادة التوجيه يُحدَّد في بداية التدفّق بينما لا تصل البيانات الوصفية للخادم إلا في منتصفه. لذا يثبّت Hermes المنفذ لأي تدفّق <em>قد</em> ينتهي باستخدام CIMD، ويعود إلى منفذ عشوائي في بقية الحالات:</p>
+<ul>
+<li>الخادم الذي اتصل به Hermes من قبل ولا تُعلن بياناته الوصفية المخزّنة مؤقتًا عن دعم CIMD يحتفظ بالمنفذ العشوائي الذي استخدمه دائمًا.</li>
+<li>الخادم الذي لم يصل إليه Hermes قط يحصل على منفذ مثبّت في أول تسجيل دخول، إذ إن التخمين هو السبيل الوحيد لاستخدام CIMD أصلًا.</li>
+<li>كل ما من شأنه نقل الـ callback إلى مكان آخر يعيد الأمر إلى المنفذ العشوائي أيضًا: قيمة <code>oauth.client_id</code> مسجّلة مسبقًا، أو <code>oauth.client_secret</code>، أو قيمة مخصّصة لـ <code>oauth.client_name</code> أو <code>oauth.token_endpoint_auth_method</code>، أو تجاوز عبر <code>oauth.redirect_uri</code> أو <code>oauth.redirect_port</code>، أو تسجيل دخول تقوده لوحة التحكم أو تطبيق سطح المكتب، أو تسجيل عميل موجود مسبقًا على القرص، أو انشغال المنافذ الخمسة كلها بعمليات أخرى.</li>
+</ul>
+<p>يُربَط كل منفذ مثبّت فور اختياره ويبقى محجوزًا حتى تصل إعادة التوجيه من المتصفح، لذا لا يمكن لعمليتَي تسجيل دخول متزامنتين — لـ profile ثانٍ، أو لخادم آخر في العملية نفسها — أن تنتهيا على المستمع نفسه.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-a-server-rejects-the-document">عندما يرفض الخادم المستند</h4>
+<p>إذا جلب الخادم المستند ثم رفضه عند endpoint الخاص بالـ <em>token</em> ‏(<code>invalid_client</code>)، يسجّل Hermes هذا الرفض في السجلات، ويدوّنه في <code>~/.hermes/mcp-tokens/&lt;server&gt;.cimd-off</code>، ويستخدم DCR مع ذلك الخادم من ذلك الحين فصاعدًا.</p>
+<p>أما الخادم الذي لا يستطيع جلب المستند أو التحقق من صحته أصلًا، فيُجهض العملية عند endpoint الخاص بـ <em>التفويض</em>، قبل حدوث أي إعادة توجيه. لا توجد هناك إشارة يستطيع Hermes رصدها، لذا يعرض المتصفح خطأ invalid-client وتنتهي مهلة تسجيل الدخول بعد خمس دقائق. تذكر رسالة انتهاء المهلة المستند وتشير إلى <code>cimd: false</code>. يؤدي تشغيل <code>hermes mcp login &lt;server&gt;</code> إلى مسح الرفض المسجّل، لتحظى النسخة المصحّحة من المستند بفرصة أخرى.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-per-server-keys">مفاتيح اختيارية لكل خادم</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>يجب أن تكون قيمة <code>client_metadata_url</code> عنوان URL بـ HTTPS يتضمّن مسارًا (لا أصل مجرّد، ولا جزء fragment، ولا userinfo، ولا مقاطع <code>.</code>/<code>..</code>) ويُرجِع <code>200</code> و <code>Content-Type: application/json</code> <strong>دون إعادة توجيه</strong> — إذ يُحظَر على خوادم التفويض اتّباع إعادة التوجيه عند جلبه. لا يزال Hermes يثبّت الـ callback على النطاق نفسه <code>27890</code>–<code>27894</code>، لذا يجب أن يُصرّح المستند المستضاف ذاتيًا بعناوين loopback العشرة كلها (<code>http://127.0.0.1:&lt;port&gt;/callback</code> و <code>http://localhost:&lt;port&gt;/callback</code> لكل منفذ)، ويجب أن تكون قيمة <code>client_id</code> فيه هي عنوان URL الخاص به.</p>
+<p>يستبدل <code>user_agent</code> ترويسة <code>User-Agent</code> الافتراضية لمكتبة HTTP في <strong>طلبات endpoint الخاص بالـ token فقط</strong> (تبادل رمز التفويض والتحديث) — إذ ترفض بعض خوادم التفويض وجدران WAF القيمة الافتراضية <code>python-httpx/...</code> هناك. لا ينطبق مطلقًا على حركة MCP أو اكتشاف OAuth، ولا يمكن ضبط أي ترويسات أخرى لطلبات الـ token. تُتجاهَل القيم الفارغة أو null.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="add-to-hermes-link">رابط Add to Hermes</h2>
+<p>يمكن لمورّدي MCP ولصفحات التوثيق تقديم زر <strong>&quot;Add to Hermes&quot;</strong> بنقرة واحدة يفتح تطبيق Hermes لسطح المكتب مع إعدادات خادم معبّأة مسبقًا، على غرار مخطط <code>cursor://anysphere.cursor-deeplink/mcp/install</code> الخاص بـ Cursor:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<ul>
+<li><code>name</code> — اسم الخادم. يجب أن يطابق <code>^[A-Za-z0-9._-]{1,64}$</code>.</li>
+<li><code>config</code> — كائن إعدادات الخادم على شكل <strong>JSON مُرمَّز بـ base64url</strong> (يُقبَل base64 القياسي أيضًا). يجب أن يكون الـ JSON بعد فك ترميزه كائنًا يحتوي إما حقلًا نصيًا <code>url</code> (بـ <code>http://</code>/<code>https://</code> فقط) أو حقلًا نصيًا <code>command</code>، ويمكن أن يتضمن أيًّا من مفاتيح الخادم الموضّحة أعلاه. تُرفَض الحمولات التي تتجاوز 32KB.</li>
+</ul>
+<p>مثال (JavaScript):</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>فتح الرابط لا يثبّت أي شيء من تلقاء نفسه: إذ يعرض تطبيق سطح المكتب مربع حوار للتأكيد يتضمن اسم الخادم والإعدادات كاملةً بتنسيق مقروء (مع تنبيه إضافي للخوادم المعتمدة على <code>command</code>، لأنها تشغّل عملية محلية)، ويجب على المستخدم التأكيد صراحةً. لا يُستبدَل أبدًا اسم خادم موجود — بل يُطلَب من المستخدم إعادة التسمية أو الإلغاء.</p>

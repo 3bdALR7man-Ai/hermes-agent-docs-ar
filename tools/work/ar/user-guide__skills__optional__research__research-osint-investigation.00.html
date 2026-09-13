@@ -1,0 +1,134 @@
+
+<header><h1>Osint Investigation</h1></header>
+<p>تتبّع الأموال عبر السجلات العامة وبيانات العقوبات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/research/osint-investigation</code></td></tr><tr><td>المسار</td><td><code>optional-skills/research/osint-investigation</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent (مقتبس من ShinMegamiBoson/OpenPlanter، MIT)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>osint</code>, <code>investigation</code>, <code>public-records</code>, <code>sec</code>, <code>sanctions</code>, <code>corporate-registry</code>, <code>property</code>, <code>courts</code>, <code>due-diligence</code>, <code>journalism</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/research/research-domain-intel"><code>domain-intel</code></a>, <a href="/docs/user-guide/skills/bundled/research/research-arxiv"><code>arxiv</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>تحقيق OSINT — الربط المرجعي بين السجلات العامة</h1>
+<p>إطار تحقيقي لـ OSINT القائم على السجلات العامة: العقود الحكومية،
+الإيداعات الشركاتية، جماعات الضغط (lobbying)، العقوبات، تسريبات الشركات الخارجية (offshore leaks)، سجلات الملكية،
+سجلات المحاكم، أرشيفات الويب، قواعد المعرفة، والأخبار العالمية. حلّ
+الكيانات عبر مصادر متباينة، وابنِ روابط مرجعية بمستوى ثقة صريح، وشغّل
+اختبارات إحصائية زمنية، وأنتِج سلاسل أدلة منظّمة.</p>
+<p><strong>مكتبة Python القياسية (stdlib) فقط.</strong> بلا تثبيت. تعمل على Linux وmacOS وWindows. تعمل معظم
+المصادر دون مفتاح API (لدى OpenCorporates رمز مجاني اختياري
+يرفع حدود المعدل).</p>
+<p>مقتبسة من مشروع ShinMegamiBoson/OpenPlanter المرخَّص بـ MIT؛ وسّعت لتغطية
+مصادر الهوية / الملكية / التقاضي / الأرشيفات / الأخبار التي
+لم يتناولها المشروع الأصلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this-skill">متى تُستخدم هذه المهارة</h2>
+<p>استخدمها عندما يطلب المستخدم:</p>
+<ul>
+<li>&quot;تتبّع الأموال&quot; — العقود الحكومية، جماعات الضغط ← التشريعات، العقوبات</li>
+<li>العناية الواجبة الشركاتية (due diligence) — من يسيطر على الشركة X، وأين
+تأسّست، ومن يشغل مقاعد مجلس إدارتها، وما الإيداعات التي قدّمتها</li>
+<li>فحص العقوبات — هل الكيان X مدرج في قائمة OFAC SDN، أو تسريبات ICIJ الخارجية</li>
+<li>تحقيق الدفع مقابل النفوذ (pay-to-play) — مقاولون لديهم روابط خارجية،
+أو عملاء ضغط يفوزون بعقود</li>
+<li>ملكية العقارات — إيجاد سندات/رهون مسجَّلة بالاسم أو العنوان
+(نيويورك؛ بالنسبة للمقاطعات الأخرى وجّه المستخدمين إلى مسجِّل السجلات المختص)</li>
+<li>سجل التقاضي — إيجاد آراء المحاكم الفدرالية والولائية وملفات PACER</li>
+<li>حل الكيانات عبر مصادر متعددة عندما تتفاوت التسميات (لواحق LLC، الاختصارات)</li>
+<li>بناء سلسلة أدلة بمستويات ثقة صريحة</li>
+<li>&quot;ماذا قيل عن X&quot; — الأخبار الدولية (GDELT) + سرد ويكيبيديا
++ Wayback Machine لاستعادة الروابط الميتة</li>
+</ul>
+<p>لا تستخدم هذه المهارة من أجل:</p>
+<ul>
+<li>البحث العام في الويب ← <code>web_search</code> / <code>web_extract</code></li>
+<li>استخبارات النطاقات/البنية التحتية ← مهارة <code>domain-intel</code></li>
+<li>الأدبيات الأكاديمية ← مهارة <code>arxiv</code></li>
+<li>اكتشاف الحسابات على وسائل التواصل الاجتماعي ← مهارة <code>sherlock</code> (اختيارية)</li>
+<li>تمويل الحملات الفدرالية <strong>الأمريكية</strong> — لا يُغطّى FEC هنا عمدًا
+(الواجهة (API) غير موثوقة لاستعلامات أسماء المتبرعين العشوائية على مستوى
+DEMO_KEY المجاني). بالنسبة للتبرعات الفدرالية، وجّه المستخدمين إلى
+<a href="https://www.fec.gov/data/" data-ext>https://www.fec.gov/data/</a> مباشرةً.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow">سير العمل</h2>
+<p>يشغّل الوكيل السكربتات عبر أداة <code>terminal</code>. <code>SKILL_DIR</code> هو المجلد
+الذي يحتوي ملف SKILL.md هذا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-identify-which-sources-apply">1. حدِّد المصادر المعنية</h3>
+<p>اقرأ مدخلات wiki الخاصة بمصادر البيانات لتخطيط التحقيق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يتبع كل مدخل قالبًا من 9 أقسام: ملخص، وصول، بنية البيانات (schema)، التغطية،
+مفاتيح الربط المرجعي، جودة البيانات، الحصول، الجوانب القانونية، المراجع.</p>
+<p>يُحدِّد قسم <strong>إمكانية الربط المرجعي</strong> مفاتيح الربط (join keys) بين المصادر — اقرأ
+هذا القسم أولًا لاختيار الزوج المناسب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-acquire-data">2. جلب البيانات</h3>
+<p>لكل مصدر سكربت جلب باستخدام stdlib فقط في <code>SKILL_DIR/scripts/</code>:</p>
+<p><strong>المالية/التنظيمية الفدرالية</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>الهوية / الملكية / التقاضي / الأرشيفات / الأخبار</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>جميع المخرجات بصيغة CSV موحَّدة مع صف عناوين. أعد تشغيل السكربتات وهي مُتَحصِّنة ضد النتائج المكرَّرة (idempotent).</p>
+<p>عندما لا يظهر شخص خاص في مصدر ما (مثل SEC EDGAR لشخص لا يمثّل شركة عامة، أو
+USAspending لشخص ليس مقاولًا فدراليًا، أو Senate LDA لشخص ليس عميل ضغط)،
+يعيد السكربت 0 صفوف مع تحذير واضح بدلًا من كتابة ملف CSV فارغ بصمت. يُشير EDGAR
+تحديدًا عندما يطابق محلِّل اسم الشركة مُودِعًا فرديًا لنموذج Form 3/4/5
+بدلًا من كيان شركاتي مسجَّل.</p>
+<p>ملاحظات حدّ المعدل مذكورة في مدخل wiki الخاص بكل مصدر. تنتظر أدوات الجلب الافتراضية بأدب
+بين الطلبات المُقسَّمة على صفحات. <strong>تزيد مفاتيح API حدود المعدل</strong> للمصادر
+التي تدعمها (<code>SEC_USER_AGENT</code>، <code>SENATE_LDA_TOKEN</code>،
+<code>OPENCORPORATES_API_TOKEN</code>، <code>COURTLISTENER_TOKEN</code>). تُظهر جميع السكربتات
+استجابات 429 فورًا مع رسالة الحصة من المصدر بحيث يعرف المستخدم
+أن عليه الإبطاء أو توفير مفتاح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-resolve-entities-across-sources">3. حلّ الكيانات عبر المصادر</h3>
+<p>وحِّد الأسماء وابحث عن تطابقات بين ملفي CSV:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثلاثة مستويات مطابقة بمستوى ثقة صريح:</p>
+<table><thead><tr><th>المستوى</th><th>الطريقة</th><th>مستوى الثقة</th></tr></thead><tbody><tr><td><code>exact</code></td><td>سلاسل موحَّدة متطابقة بعد إزالة اللواحق/علامات الترقيم</td><td>مرتفع</td></tr><tr><td><code>fuzzy</code></td><td>تطابق ترتيب الرموز (word-bag match)</td><td>متوسط</td></tr><tr><td><code>token_overlap</code></td><td>تداخل ≥60% في الرموز، ≥2 رمز مشترك، رموز بطول ≥4 أحرف</td><td>منخفض</td></tr></tbody></table>
+<p>أعمدة مخرَجات <code>cross_links.csv</code>: <code>match_type, confidence, left_name, right_name, left_normalized, right_normalized, left_row, right_row</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-statistical-timing-correlation-optional">4. الارتباط الزمني الإحصائي (اختياري)</h3>
+<p>اختبر ما إذا كانت سلسلتان زمنيتان تتجمّعان بشكل مثير للريبة بالقرب من بعضهما — مثل
+إيداعات ضغط قريبة من منح العقود — باستخدام اختبار تبديل (permutation test):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>أعلام أعمدة السكربت عامة عن قصد — كُتبت الأداة الأصلية للتبرعات مقابل
+منح العقود، لكنها تعمل مع أي سلسلة زمنية (حدث، مدفوع له) مربوطة عبر روابط
+مرجعية. الفرضية الصفرية: توقيت الحدث مستقل عن تواريخ المنح. قيمة p أحادية الطرف
+= نسبة التبديلات التي متوسط مسافتها إلى أقرب منح ≤ القيمة المرصودة. الحد الأدنى 3
+أحداث لكل زوج (جهة دفع، مورِّد) لتشغيل الاختبار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-build-the-findings-json-evidence-chain">5. بناء ملف findings بصيغة JSON (سلسلة الأدلة)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يحتوي كل استنتاج على <code>id, title, severity, confidence, summary, evidence[], sources[]</code>.
+يشير كل عنصر دليل إلى صف محدَّد في ملف CSV مصدر. يمكن للمستخدم (أو
+لوكيل متابعة) التحقّق من كل ادّعاء مقابل مصدره.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="confidence-and-evidence-discipline">انضباط الثقة والأدلة</h2>
+<p>هذه القاعدة الأساسية التي تقوم عليها المهارة. أخبِر المستخدم:</p>
+<ul>
+<li>يجب أن يُنسب كل ادّعاء إلى سجل. لا تصريحات مجردة دون دليل.</li>
+<li>يُرافق مستوى الثقة الادّعاء دائمًا. <code>match_type=fuzzy</code> تعني &quot;محتمل&quot;،
+لا &quot;مؤكَّد&quot;.</li>
+<li>ينتج حل الكيانات مرشَّحات، لا استنتاجات. التطابق من نوع <code>fuzzy</code>
+بين &quot;ACME LLC&quot; و&quot;Acme Holdings Group&quot; خيط بحث لا حقيقة مؤكَّدة.</li>
+<li>الدلالة الإحصائية لا تعني بالضرورة مخالفة. p &lt; 0.05 تعني أن نمط التوقيت
+غير مرجَّح تحت الفرضية الصفرية. وهذا لا يُثبت الفساد.</li>
+<li>جميع مصادر البيانات هنا سجلات عامة. قد تحتوي مع ذلك
+أخطاء، أو معلومات قديمة، أو تنقيحات (GDPR، سجلات مختومة).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-a-new-data-source">إضافة مصدر بيانات جديد</h2>
+<p>استخدم القالب:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>املأ جميع الأقسام التسعة. اكتب سكربت <code>fetch_&lt;source&gt;.py</code> في <code>scripts/</code>
+يستخدم stdlib فقط ويكتب ملف CSV موحَّدًا. حدِّث قائمة المصادر في قسم
+&quot;متى تُستخدم&quot; أعلاه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools-and-their-limits">الأدوات وحدودها</h2>
+<ul>
+<li>لا يستخدم <code>entity_resolution.py</code> مكتبات مطابقة تقريبية (fuzzy) خارجية (لا rapidfuzz،
+ولا jellyfish). مطابقة حزمة الرموز (token-bag) هي الحد الأقصى هنا. إذا احتجت
+مطابقة Levenshtein أو نقلًا حرفيًا (transliteration) أو مطابقة صوتية، ثبِّتها عبر pip بشكل منفصل.</li>
+<li>يستخدم <code>timing_analysis.py</code> وحدة <code>random</code> في Python للتبديلات. من أجل
+إمكانية إعادة الإنتاج، مرِّر <code>--seed N</code>.</li>
+<li>تستخدم سكربتات <code>fetch_*.py</code> وحدة <code>urllib.request</code> وتحترم <code>Retry-After</code>. قد يظل
+الاستخدام الكثيف بالجملة مخالفًا لشروط الخدمة (ToS) — اقرأ القسم القانوني لكل مصدر أولًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="legal-note">ملاحظة قانونية</h2>
+<p>جميع مصادر المرحلة الأولى سجلات عامة. الحصول بالجملة مسموح ضمن
+شروط وصول كل منها (FOIA، قانون السجلات العامة، نشر ICIJ الصريح،
+بيانات OFAC العامة). ومع ذلك:</p>
+<ul>
+<li>تحدّ بعض المصادر من المعدل بشدة. احترم ترويسات (headers) الطلبات الخاصة بها.</li>
+<li>تُنقِّح بعض المصادر معلومات المسجِّل (GDPR على WHOIS، إيداعات مختومة).</li>
+<li>قد يكون للربط المرجعي بين السجلات العامة لتحديد هوية أفراد خاصين
+تبعات أخلاقية. تُنتج المهارة سلاسل أدلة، لا اتهامات.</li>
+</ul>

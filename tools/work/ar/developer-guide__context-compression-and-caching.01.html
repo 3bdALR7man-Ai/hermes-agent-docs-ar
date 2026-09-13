@@ -1,0 +1,107 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compression-algorithm">خوارزمية الضغط</h2>
+<p>تتبع الدالة <code>ContextCompressor.compress()</code> خوارزمية من 4 مراحل:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-1-prune-old-tool-results-cheap-no-llm-call">المرحلة 1: تقليم نتائج الأدوات القديمة (منخفضة التكلفة، دون استدعاء LLM)</h3>
+<p>تُستبدل نتائج الأدوات القديمة (&gt;200 حرف) الواقعة خارج الذيل المحمي بما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>هذه مرحلة تمهيدية منخفضة التكلفة توفّر قدرًا كبيرًا من الـ tokens في مخرجات الأدوات
+المطوّلة (محتويات الملفات، ومخرجات الطرفية، ونتائج البحث).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-2-determine-boundaries">المرحلة 2: تحديد الحدود</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تعتمد حماية الذيل على <strong>ميزانية الـ tokens</strong>: إذ تسير إلى الخلف بدءًا من النهاية،
+مراكمةً الـ tokens حتى تنفد الميزانية. وتعود إلى العدد الثابت
+<code>protect_last_n</code> إذا كانت الميزانية ستحمي عددًا أقل من الرسائل.</p>
+<p>تُحاذى الحدود لتجنّب تقسيم مجموعات tool_call/tool_result.
+إذ تتجاوز الدالة <code>_align_boundary_backward()</code> نتائج الأدوات المتتالية
+للعثور على رسالة المساعد الأم، مع الحفاظ على المجموعات سليمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-3-generate-structured-summary">المرحلة 3: توليد ملخّص منظّم</h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>طول سياق نموذج التلخيص</div><div class="admonitionContent_BuS1"><p>يجب أن تكون context window الخاصة بنموذج التلخيص <strong>مساوية على الأقل</strong> لنافذة نموذج الوكيل الرئيسي. إذ يُرسَل القسم الأوسط بأكمله إلى نموذج التلخيص في استدعاء واحد <code>call_llm(task=&quot;compression&quot;)</code>. وإذا كان سياق نموذج التلخيص أصغر، يُرجع API خطأً في طول السياق — فيلتقطه <code>_generate_summary()</code>، ويسجّل تحذيرًا، ويُرجع <code>None</code>. عندئذٍ يُسقط الضاغط الأدوار الوسطى <strong>دون ملخّص</strong>، فيفقد سياق المحادثة بصمت. وهذا هو السبب الأكثر شيوعًا لتدهور جودة الضغط.</p></div></div>
+<p>تُلخَّص الأدوار الوسطى باستخدام الـ LLM المساعد وفق قالب
+منظّم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تتناسب ميزانية الملخّص مع حجم المحتوى المراد ضغطه:</p>
+<ul>
+<li>المعادلة: <code>content_tokens × 0.20</code> (الثابت <code>_SUMMARY_RATIO</code>)</li>
+<li>الحد الأدنى: 2,000 token</li>
+<li>الحد الأقصى: <code>min(context_length × 0.05, 12,000)</code> token</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-4-assemble-compressed-messages">المرحلة 4: تجميع الرسائل المضغوطة</h3>
+<p>تتكوّن قائمة الرسائل المضغوطة مما يلي:</p>
+<ol>
+<li>رسائل البداية (مع ملاحظة تُلحق بالـ system prompt عند أول ضغط)</li>
+<li>رسالة الملخّص (يُختار الـ role الخاص بها لتجنّب مخالفة تتالي رسالتين بالـ role نفسه)</li>
+<li>رسائل الذيل (دون تعديل)</li>
+</ol>
+<p>تُنظَّف أزواج tool_call/tool_result اليتيمة بواسطة <code>_sanitize_tool_pairs()</code>:</p>
+<ul>
+<li>نتائج الأدوات التي تشير إلى استدعاءات محذوفة → تُحذف</li>
+<li>استدعاءات الأدوات التي حُذفت نتائجها → تُحقن نتيجة بديلة (stub)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iterative-re-compression">إعادة الضغط التكرارية</h3>
+<p>في عمليات الضغط اللاحقة، يُمرَّر الملخّص السابق إلى الـ LLM مع
+تعليمات <strong>بتحديثه</strong> بدلًا من التلخيص من الصفر. يحافظ ذلك
+على المعلومات عبر عمليات ضغط متعددة — إذ تنتقل العناصر من &quot;In Progress&quot; إلى &quot;Done&quot;،
+ويُضاف التقدّم الجديد، وتُزال المعلومات المتقادمة.</p>
+<p>يخزّن الحقل <code>_previous_summary</code> في نسخة الضاغط نصَّ الملخّص الأخير
+لهذا الغرض.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="beforeafter-example">مثال: قبل الضغط وبعده</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-compression-45-messages-95k-tokens">قبل الضغط (45 رسالة، ~95K token)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="after-compression-25-messages-45k-tokens">بعد الضغط (25 رسالة، ~45K token)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching-anthropic">التخزين المؤقت للـ Prompt (Anthropic)</h2>
+<p>المصدر: <code>agent/prompt_caching.py</code></p>
+<p>يخفّض تكاليف tokens المدخلات بنحو ~75% في المحادثات متعددة الأدوار عبر التخزين المؤقت
+لبادئة المحادثة. ويستخدم نقاط التوقف (breakpoints) <code>cache_control</code> لدى Anthropic.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="strategy-system_and_3">الاستراتيجية: system_and_3</h3>
+<p>تسمح Anthropic بحد أقصى 4 نقاط توقف <code>cache_control</code> لكل طلب. ويستخدم Hermes
+استراتيجية &quot;system_and_3&quot;:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<p>تنسخ الدالة <code>apply_anthropic_cache_control()</code> الرسائل نسخًا عميقًا وتحقن
+علامات <code>cache_control</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تُطبَّق العلامة بشكل مختلف بحسب نوع المحتوى:</p>
+<table><thead><tr><th>نوع المحتوى</th><th>موضع العلامة</th></tr></thead><tbody><tr><td>محتوى نصي (string)</td><td>يُحوَّل إلى <code>[{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: ..., &quot;cache_control&quot;: ...}]</code></td></tr><tr><td>محتوى من نوع قائمة (list)</td><td>يُضاف إلى قاموس (dict) العنصر الأخير</td></tr><tr><td>None/فارغ</td><td>يُضاف بصيغة <code>msg[&quot;cache_control&quot;]</code></td></tr><tr><td>رسائل الأدوات</td><td>يُضاف بصيغة <code>msg[&quot;cache_control&quot;]</code> (في Anthropic الأصلي فقط)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cache-aware-design-patterns">أنماط تصميم تراعي التخزين المؤقت</h3>
+<ol>
+<li>
+<p><strong>System prompt ثابت</strong>: الـ system prompt هو نقطة التوقف 1 ويُخزَّن مؤقتًا عبر
+جميع الأدوار. تجنّب تعديله في منتصف المحادثة (يُلحق الضغط ملاحظة
+عند أول عملية ضغط فقط).</p>
+</li>
+<li>
+<p><strong>ترتيب الرسائل مهم</strong>: تتطلب إصابات التخزين المؤقت (cache hits) مطابقة البادئة. وإضافة
+رسائل في المنتصف أو إزالتها تُبطل التخزين المؤقت لكل ما يليها.</p>
+</li>
+<li>
+<p><strong>تفاعل الضغط مع التخزين المؤقت</strong>: بعد الضغط، يُبطَل التخزين المؤقت
+للمنطقة المضغوطة، لكن التخزين المؤقت للـ system prompt يبقى. وتعيد النافذة
+المتحركة المكوّنة من 3 رسائل إرساء التخزين المؤقت خلال 1-2 دور.</p>
+</li>
+<li>
+<p><strong>اختيار TTL</strong>: القيمة الافتراضية <code>5m</code> (5 دقائق). استخدم <code>1h</code> للجلسات
+طويلة الأمد التي يأخذ فيها المستخدم فترات راحة بين الأدوار.</p>
+</li>
+<li>
+<p><strong>هوية النموذج جزء من مفتاح التخزين المؤقت</strong>: ترتبط ذاكرات التخزين المؤقت لدى المزوّد
+بالنموذج (والحساب/مفتاح API) الذي يخدم الطلب. فأي تغيير للنموذج
+في منتصف المحادثة — سواء أكان تبديلًا صريحًا عبر <code>/model</code>، أم انتقالًا احتياطيًا (fallback) من النموذج الأساسي، أم
+تدويرًا لمجمّع بيانات الاعتماد إلى حساب مختلف — يعني أن الطلب التالي
+لن يحقق أي إصابة في التخزين المؤقت، وسيعيد قراءة المحادثة كاملة بسعر المدخلات
+غير المخفّض. هذا متأصل في طريقة عمل ذاكرات التخزين المؤقت لدى المزوّدين، وليس أمرًا
+يستطيع Hermes تجنّبه؛ ولهذا السبب تتضمن وثائق المستخدم الخاصة بـ <code>/model</code> والمزوّدين الاحتياطيين
+ومجمّعات بيانات الاعتماد تحذيرات بشأن التكلفة. لا تُضف ميزات
+تبدّل النموذج أو بيانات الاعتماد بصمت في منتصف الجلسة.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling-prompt-caching">تفعيل التخزين المؤقت للـ Prompt</h3>
+<p>يُفعَّل التخزين المؤقت للـ prompt تلقائيًا عندما:</p>
+<ul>
+<li>يكون النموذج من نماذج Anthropic Claude (يُكتشف ذلك من اسم النموذج)</li>
+<li>يدعم المزوّد <code>cache_control</code> (Anthropic API الأصلي أو OpenRouter)</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>يعرض CLI حالة التخزين المؤقت عند بدء التشغيل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-pressure-warnings">تحذيرات امتلاء السياق</h2>
+<p>أُزيلت تحذيرات امتلاء السياق الوسيطة (راجع كتلة ميزانية التكرارات في <code>agent/turn_iteration_prep.py</code>، التي تنص على: &quot;No intermediate pressure warnings — they caused models to &#x27;give up&#x27; prematurely on complex tasks&quot;). يبدأ الضغط عندما تصل tokens الـ prompt إلى قيمة <code>compression.threshold</code> المضبوطة (الافتراضية 50%) دون أي خطوة تحذير مسبقة؛ ويعمل تنظيف جلسات gateway بوصفه شبكة الأمان الثانوية عند 85% من context window الخاصة بالنموذج.</p>

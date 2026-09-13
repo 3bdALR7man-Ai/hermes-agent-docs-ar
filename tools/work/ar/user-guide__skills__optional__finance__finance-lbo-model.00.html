@@ -1,0 +1,282 @@
+
+<header><h1>نموذج LBO</h1></header>
+<p>ابنِ مصنفات LBO (الاستحواذ الممول بالرافعة المالية) مع IRR/MOIC في Excel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/finance/lbo-model</code></td></tr><tr><td>المسار</td><td><code>optional-skills/finance/lbo-model</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Anthropic (بتكييف من Nous Research)</td></tr><tr><td>الترخيص</td><td>Apache-2.0</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>finance</code>, <code>valuation</code>, <code>lbo</code>, <code>private-equity</code>, <code>excel</code>, <code>openpyxl</code>, <code>modeling</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/finance/finance-excel-author"><code>excel-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-pptx-author"><code>pptx-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-dcf-model"><code>dcf-model</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-3-statement-model"><code>3-statement-model</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="1"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment">بيئة التشغيل</h2>
+<p>تفترض هذه المهارة استخدام <strong>openpyxl بلا واجهة رسومية (headless)</strong> — أنت تُنتج ملف .xlsx على القرص.
+اتّبع اصطلاحات مهارة <code>excel-author</code> فيما يخص تلوين الخلايا والصيغ والنطاقات المسمّاة وجداول الحساسية.
+أعد الحساب قبل التسليم: <code>python /path/to/excel-author/scripts/recalc.py ./out/model.xlsx</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="template-requirement">متطلب القالب</h2>
+<p><strong>تعتمد هذه المهارة على قوالب لنماذج LBO. تحقّق دائمًا أولًا من وجود ملف قالب مرفق.</strong></p>
+<p>قبل البدء بأي نموذج LBO:</p>
+<ol>
+<li><strong>إذا كان هناك ملف قالب مرفق أو مُقدَّم</strong>: استخدم بنية ذلك القالب بالضبط - انسخه واملأه ببيانات المستخدم</li>
+<li><strong>إذا لم يكن هناك قالب مرفق</strong>: اسأل المستخدم: <em>"هل لديك قالب LBO محدد تريد مني استخدامه؟ إن لم يكن كذلك، يمكنني استخدام القالب القياسي الذي يتضمن Sources &amp; Uses، والنموذج التشغيلي، وجدول الدين، وتحليل العوائد."</em></li>
+<li><strong>إذا كنت تستخدم القالب القياسي</strong>: انسخ <code>examples/LBO_Model.xlsx</code> كنقطة بداية واملأه بافتراضات المستخدم</li>
+</ol>
+<p><strong>مهم</strong>: عندما يُرفق ملف مثل <code>LBO_Model.xlsx</code>، يجب عليك استخدامه كقالبك - لا تبنِ من الصفر. حتى لو بدا القالب معقّدًا أو يحتوي على مزايا أكثر من اللازم، انسخه وكيّفه وفق متطلبات المستخدم. لا تقرر أبدًا "البناء من الصفر" عندما يكون هناك قالب مُقدَّم.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="critical-instructions--read-first">تعليمات حاسمة — اقرأ أولًا</h2>
+<p>استخدم Python/openpyxl. اكتب سلاسل الصيغ (<code>ws[&quot;D20&quot;] = &quot;=B5*B6&quot;</code>)، ثم شغّل، من مهارة <code>excel-author</code>، أداة <code>recalc.py</code> المساعدة قبل التسليم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-principles">المبادئ الأساسية</h3>
+<ul>
+<li><strong>يجب أن يكون كل حساب صيغة Excel</strong> - لا تحسب القيم أبدًا في Python وتُدرجها كأرقام ثابتة في الخلايا. عند استخدام openpyxl، اكتب <code>cell.value = &quot;=B5*B6&quot;</code> (سلسلة صيغة)، وليس <code>cell.value = 1250</code> (نتيجة محسوبة مسبقًا). يجب أن يكون النموذج ديناميكيًا ويتحدّث عند تغيّر المدخلات.</li>
+<li><strong>استخدم بنية القالب</strong> - اتّبع التنظيم الوارد في <code>examples/LBO_Model.xlsx</code> أو القالب المُقدَّم من المستخدم. لا تخترع تخطيطك الخاص.</li>
+<li><strong>استخدم مراجع خلايا صحيحة</strong> - يجب أن تشير جميع الصيغ إلى الخلايا المناسبة. لا تكتب أبدًا أرقامًا يجب أن تأتي من خلايا أخرى.</li>
+<li><strong>حافظ على اتساق اصطلاح الإشارة</strong> - اتّبع اصطلاح الإشارة الذي يستخدمه القالب (بعضها يستخدم السالب للتدفقات الخارجة، وبعضها يستخدم الموجب). كن متسقًا في كل مكان.</li>
+<li><strong>اعمل قسمًا تلو الآخر، وتحقّق مع المستخدم في كل خطوة</strong> - أكمل قسمًا واحدًا بالكامل، واعرض على المستخدم ما تم بناؤه، وشغّل عمليات التحقق الخاصة بالقسم، واحصل على التأكيد قبل الانتقال إلى القسم التالي. لا تبنِ النموذج بأكمله من البداية إلى النهاية ثم تعرضه — فالأقسام اللاحقة تعتمد على السابقة، ولذلك فإن اكتشاف خطأ في Sources &amp; Uses بعد بناء العوائد بالفعل يعني إعادة العمل في كل مكان.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="formula-color-conventions">اصطلاحات ألوان الصيغ</h3>
+<ul>
+<li><strong>أزرق (0000FF)</strong>: مدخلات ثابتة مكتوبة يدويًا - أرقام مكتوبة لا تشير إلى خلايا أخرى</li>
+<li><strong>أسود (000000)</strong>: صيغ تتضمن حسابات - أي صيغة تستخدم عوامل حسابية أو دوال (<code>=B4*B5</code>، <code>=SUM()</code>، <code>=-MAX(0,B4)</code>)</li>
+<li><strong>بنفسجي (800080)</strong>: روابط إلى خلايا في <strong>نفس التبويب (tab)</strong> - مراجع مباشرة بلا حساب (<code>=B9</code>، <code>=B45</code>)</li>
+<li><strong>أخضر (008000)</strong>: روابط إلى خلايا في <strong>تبويبات مختلفة</strong> - مراجع عبر الأوراق (<code>=Assumptions!B5</code>، <code>=&#x27;Operating Model&#x27;!C10</code>)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fill-color-palette--professional-blues--greys-default-unless-usertemplate-specifies-otherwise">لوحة ألوان التعبئة — أزرق ورمادي مهنيان (الافتراضي ما لم يحدد المستخدم/القالب غير ذلك)</h3>
+<ul>
+<li><strong>حافظ على البساطة</strong> — استخدم الأزرق والرمادي فقط لتعبئة الخلايا. لا تُدخل الأخضر أو الأصفر أو الأحمر أو ألوانًا إضافية متعددة. النموذج المهني لـ LBO يعتمد على ضبط النفس.</li>
+<li><strong>لوحة التعبئة الافتراضية:</strong>
+<ul>
+<li><strong>عناوين الأقسام</strong> (Sources &amp; Uses، النموذج التشغيلي، إلخ): أزرق داكن <code>#1F4E79</code> مع نص أبيض عريض</li>
+<li><strong>عناوين الأعمدة</strong> (السنة 1، السنة 2، إلخ): أزرق فاتح <code>#D9E1F2</code> مع نص أسود عريض</li>
+<li><strong>خلايا الإدخال</strong>: رمادي فاتح <code>#F2F2F2</code> (أو أبيض فقط) — لون <em>الخط</em> الأزرق هو الإشارة الأساسية، والتعبئة ثانوية</li>
+<li><strong>خلايا الصيغ/المحسوبة</strong>: أبيض، بلا تعبئة</li>
+<li><strong>المخرجات الرئيسية</strong> (IRR، MOIC، Exit Equity): أزرق متوسط <code>#BDD7EE</code> مع نص أسود عريض</li>
+</ul>
+</li>
+<li><strong>هذه هي اللوحة كاملة.</strong> 3 درجات من الأزرق + درجة رمادي واحدة + أبيض. إذا كان القالب يستخدم ألوانه الخاصة، اتّبع القالب بدلًا من ذلك.</li>
+<li>ملاحظة: ألوان <strong>الخط</strong> الأزرق/الأسود/البنفسجي/الأخضر أعلاه تُستخدم للتمييز بين المدخلات والصيغ والروابط. وهي منفصلة عن لوحة <strong>التعبئة</strong> هنا — يعمل الاثنان معًا.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="number-formatting-standards">معايير تنسيق الأرقام</h3>
+<ul>
+<li><strong>العملة</strong>: <code>$#,##0;($#,##0);&quot;-&quot;</code> أو <code>$#,##0.0</code> حسب القالب</li>
+<li><strong>النسب المئوية</strong>: <code>0.0%</code> (منزلة عشرية واحدة)</li>
+<li><strong>المضاعفات</strong>: <code>0.0&quot;x&quot;</code> (منزلة عشرية واحدة)</li>
+<li><strong>MOIC/النسب التفصيلية</strong>: <code>0.00&quot;x&quot;</code> (منزلتان عشريتان للدقة)</li>
+<li><strong>جميع الخلايا الرقمية</strong>: محاذاة إلى اليمين</li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clarify-requirements-first">وضّح المتطلبات أولًا</h3>
+<p>قبل ملء أي صيغ:</p>
+<ul>
+<li><strong>افحص بنية القالب</strong> - حدد جميع الأقسام، وافهم الجدول الزمني (أي الأعمدة تمثل أي فترات)، ولاحظ أي صيغ موجودة مسبقًا</li>
+<li><strong>اسأل المستخدم إن كان أي شيء غير واضح</strong> - إذا كانت بنية القالب أو طرق الحساب أو المتطلبات غامضة، اسأل قبل المتابعة</li>
+<li><strong>أكّد الافتراضات الأساسية</strong> - أي مدخلات رئيسية أو تفضيلات حسابية أو متطلبات محددة</li>
+<li><strong>بعد فهم القالب فقط</strong>، انتقل إلى ملء الصيغ</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="template-analysis-phase---do-this-first">مرحلة تحليل القالب - افعل هذا أولًا</h2>
+<p>قبل ملء أي صيغ، افحص القالب بدقة:</p>
+<ol>
+<li>
+<p><strong>ارسم خريطة البنية</strong> - حدد أين يقع كل قسم وكيف ترتبط الأقسام ببعضها. لاحظ أي الأقسام تُغذّي أقسامًا أخرى.</p>
+</li>
+<li>
+<p><strong>افهم الجدول الزمني</strong> - أي الأعمدة تمثل أي فترات؟ هل هناك عمود "Closing" أو "Pro Forma"؟ أين تبدأ فترة التوقّعات؟</p>
+</li>
+<li>
+<p><strong>ميّز بين خلايا الإدخال وخلايا الصيغ</strong> - غالبًا ما تستخدم القوالب ترميزًا لونيًا أو حدودًا أو تظليلًا للإشارة إلى الخلايا التي تحتاج إدخالًا مقابل التي تحتاج صيغة. احترم هذه الاصطلاحات.</p>
+</li>
+<li>
+<p><strong>اقرأ التسميات الموجودة بعناية</strong> - تسميات الصفوف تخبرك بالضبط ما هو الحساب المتوقع. لا تفترض - اقرأ ما يطلبه القالب فعليًا.</p>
+</li>
+<li>
+<p><strong>تحقّق من الصيغ الموجودة</strong> - بعض القوالب تأتي مملوءة جزئيًا. لا تستبدل صيغًا تعمل بشكل صحيح ما لم يُطلب منك ذلك تحديدًا.</p>
+</li>
+<li>
+<p><strong>لاحظ الاصطلاحات الخاصة بالقالب</strong> - اصطلاحات الإشارة، وبنى المجاميع الفرعية، وكيفية تنظيم الأقسام، وما إذا كانت هناك تبويبات منفصلة للمكونات المختلفة، إلخ.</p>
+</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="filling-formulas---general-approach">ملء الصيغ - النهج العام</h2>
+<p>لكل خلية تحتاج إلى صيغة، اتّبع هذا التسلسل الهرمي:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-check-the-template">الخطوة 1: تحقّق من القالب</h3>
+<ul>
+<li>هل تحتوي الخلية بالفعل على صيغة؟ إن كان الأمر كذلك، تحقّق من صحتها وانتقل إلى ما بعدها.</li>
+<li>هل هناك تعليق أو ملاحظة تشير إلى الحساب المتوقع؟</li>
+<li>هل تسمية الصف/العمود توضّح الحساب بشكل بديهي؟</li>
+<li>هل تُظهر الخلايا المجاورة نمطًا يجب اتّباعه؟</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-check-the-users-instructions">الخطوة 2: تحقّق من تعليمات المستخدم</h3>
+<ul>
+<li>هل حدد المستخدم طريقة حساب معينة؟</li>
+<li>هل هناك افتراضات مذكورة تؤثر على هذه الصيغة؟</li>
+<li>هل ذُكرت أي متطلبات خاصة؟</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-apply-standard-practice">الخطوة 3: طبّق الممارسة القياسية</h3>
+<ul>
+<li>إذا لم يحدد القالب ولا المستخدم شيئًا، استخدم اصطلاحات نمذجة LBO القياسية</li>
+<li>وثّق أي افتراضات تضعها</li>
+<li>إذا كنت غير متأكد فعلًا، اسأل المستخدم</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-problem-areas">مناطق المشكلات الشائعة</h2>
+<p>أنماط الحساب التالية تسبب مشاكل بشكل متكرر عبر نماذج LBO. انتبه بشكل خاص عند مواجهتها:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="balancing-sections">الأقسام المتوازنة</h3>
+<ul>
+<li>عندما يجب أن يتساوى قسمان (مثل Sources = Uses)، يكون أحد البنود عادة هو "الرقم المُوازِن" (plug)</li>
+<li>حدد أي بند هو الرقم المُوازِن واحسبه كفرق</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tax-calculations">حسابات الضرائب</h3>
+<ul>
+<li>يجب أن تشير صيغ الضرائب فقط إلى بند الدخل ذي الصلة ومعدل الضريبة</li>
+<li>يجب ألا تشير إلى أقسام غير ذات صلة (مثل جداول الدين)</li>
+<li>ضع في اعتبارك ما إذا كانت الخسائر تنشئ حماية ضريبية أو يتم تجاهلها ببساطة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interest-and-circular-references">الفوائد والمراجع الدائرية</h3>
+<ul>
+<li>يمكن أن تخلق حسابات الفوائد دائرية إذا كانت تشير إلى أرصدة تتأثر بالتدفقات النقدية</li>
+<li>استخدم <strong>الرصيد الافتتاحي (Beginning Balance)</strong> (وليس المتوسط أو الختامي) لكسر المراجع الدائرية</li>
+<li>النمط: الفائدة ← التدفق النقدي ← السداد ← الرصيد الختامي (إذا استخدمت الفائدة الرصيد الختامي، تعود الدائرية)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debt-paydown--cash-sweeps">سداد الدين / كنس النقد (Cash Sweeps)</h3>
+<ul>
+<li>عندما توجد شرائح دين متعددة، يوجد عادة ترتيب أولوية</li>
+<li>يجب أن يحترم كنس النقد تسلسل الأولوية (waterfall)</li>
+<li>لا يمكن أن تكون الأرصدة سالبة - استخدم دوال MAX أو MIN حسب الحاجة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returns-calculations-irrmoic">حسابات العوائد (IRR/MOIC)</h3>
+<ul>
+<li>يجب أن تحمل التدفقات النقدية إشارات صحيحة: الاستثمار = سالب، العائدات = موجب</li>
+<li>إذا استخدمت XIRR، تحتاج إلى تواريخ مطابقة</li>
+<li>إذا استخدمت IRR، يجب أن تكون التدفقات النقدية في فترات متتالية</li>
+<li>MOIC = إجمالي العائدات / إجمالي الاستثمار</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sensitivity-tables">جداول الحساسية</h3>
+<ul>
+<li><strong>استخدم أبعادًا فردية</strong> (5×5 أو 7×7) — لا تستخدم أبدًا 4×4 أو 6×6. الأبعاد الفردية تضمن وجود خلية مركزية حقيقية.</li>
+<li><strong>الخلية المركزية = الحالة الأساسية.</strong> ابنِ قيم محور الصف والعمود بشكل متماثل حول افتراضات النموذج الفعلية (مثلًا، إذا كان مضاعف الدخول الأساسي = 10.0x، فالمحور = <code>[8.0x, 9.0x, 10.0x, 11.0x, 12.0x]</code>). يجب حينها أن يتساوى IRR/MOIC للخلية المركزية مع مخرجات IRR/MOIC الفعلية للنموذج — هذا هو الدليل على أن الجدول موصول بشكل صحيح.</li>
+<li><strong>أبرز الخلية المركزية</strong> — بتعبئة زرقاء متوسطة (<code>#BDD7EE</code>) + خط عريض ليكون واضحًا أن الحالة الأساسية مرتكزة بصريًا.</li>
+<li>قد لا تعمل دالة DATA TABLE في Excel مع openpyxl — بدلًا من ذلك اكتب صيغًا صريحة تشير إلى عناوين الصفوف/الأعمدة</li>
+<li>يجب أن تُظهر كل خلية قيمة مختلفة — إذا كانت جميعها متطابقة، فالصيغ لا تتغير بشكل صحيح</li>
+<li>استخدم مراجع مختلطة (مثل <code>$A5</code> لمدخل الصف، <code>B$4</code> لمدخل العمود)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist---run-after-completion">قائمة التحقق - تُشغَّل بعد الانتهاء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-formula-validation">شغّل التحقق من صحة الصيغ</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يجب أن يعيد النجاح بلا أي أخطاء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-balancing">توازن الأقسام</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="2"></x-keep> جميع الأقسام التي يجب أن تتوازن (Sources/Uses، الأصول/الخصوم) متوازنة تمامًا</li>
+<li class="task-list-item"><x-keep id="3"></x-keep> بنود الترصيد محسوبة بشكل صحيح كرقم موازِن</li>
+<li class="task-list-item"><x-keep id="4"></x-keep> المبالغ التي يجب أن تتطابق عبر الأقسام متسقة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="incomeoperating-projections">توقّعات الدخل/التشغيل</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="5"></x-keep> يُبنى الإيراد/البند الأعلى بشكل صحيح من المحرّكات أو معدلات النمو</li>
+<li class="task-list-item"><x-keep id="6"></x-keep> جميع بنود التكاليف والمصاريف محسوبة بشكل مناسب</li>
+<li class="task-list-item"><x-keep id="7"></x-keep> المجاميع الفرعية والإجمالية تُجمع بشكل صحيح</li>
+<li class="task-list-item"><x-keep id="8"></x-keep> الهوامش والنسب معقولة</li>
+<li class="task-list-item"><x-keep id="9"></x-keep> الروابط إلى الافتراضات صحيحة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="balance-sheet-if-applicable">الميزانية العمومية (إن وُجدت)</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="10"></x-keep> الأصول = الخصوم + حقوق الملكية (يجب أن تتوازن)</li>
+<li class="task-list-item"><x-keep id="11"></x-keep> جميع البنود مرتبطة بالجداول أو الترحيلات (roll-forwards) المناسبة</li>
+<li class="task-list-item"><x-keep id="12"></x-keep> الأرصدة الافتتاحية = الأرصدة الختامية للفترة السابقة</li>
+<li class="task-list-item"><x-keep id="13"></x-keep> صف التحقق مُدرج ويُظهر صفرًا</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cash-flow-if-applicable">التدفق النقدي (إن وُجد)</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="14"></x-keep> يبدأ برقم الدخل الصحيح</li>
+<li class="task-list-item"><x-keep id="15"></x-keep> البنود غير النقدية مُضافة/مطروحة بشكل مناسب</li>
+<li class="task-list-item"><x-keep id="16"></x-keep> تغييرات رأس المال العامل تحمل إشارات صحيحة</li>
+<li class="task-list-item"><x-keep id="17"></x-keep> الرصيد النقدي الختامي = الرصيد الافتتاحي + صافي التدفق النقدي</li>
+<li class="task-list-item"><x-keep id="18"></x-keep> الأرصدة النقدية متسقة عبر القوائم</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supporting-schedules">الجداول الداعمة</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="19"></x-keep> جداول الترحيل متوازنة (الافتتاحي + التغييرات = الختامي)</li>
+<li class="task-list-item"><x-keep id="20"></x-keep> الجداول مرتبطة بشكل صحيح بالقوائم الرئيسية</li>
+<li class="task-list-item"><x-keep id="21"></x-keep> البنود المحسوبة تستخدم محرّكات مناسبة</li>
+<li class="task-list-item"><x-keep id="22"></x-keep> جميع الفترات محسوبة بشكل متسق</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debtfinancing-schedules-if-applicable">جداول الدين/التمويل (إن وُجدت)</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="23"></x-keep> الأرصدة الافتتاحية مرتبطة بالمصادر أو الفترة السابقة</li>
+<li class="task-list-item"><x-keep id="24"></x-keep> الفائدة محسوبة على الرصيد المناسب (عادة الرصيد الافتتاحي)</li>
+<li class="task-list-item"><x-keep id="25"></x-keep> السدادات تحترم توفر النقد والأولوية</li>
+<li class="task-list-item"><x-keep id="26"></x-keep> لا يمكن أن تكون الأرصدة الختامية سالبة</li>
+<li class="task-list-item"><x-keep id="27"></x-keep> الإجماليات تجمع الشرائح بشكل صحيح</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="returnsoutput-analysis">تحليل العوائد/المخرجات</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="28"></x-keep> قيم الخروج/النهائية محسوبة بشكل صحيح</li>
+<li class="task-list-item"><x-keep id="29"></x-keep> جميع التعديلات ذات الصلة مُدرجة</li>
+<li class="task-list-item"><x-keep id="30"></x-keep> إشارات التدفق النقدي صحيحة (سالب للاستثمار، موجب للعائدات)</li>
+<li class="task-list-item"><x-keep id="31"></x-keep> صيغ IRR/MOIC تشير إلى نطاقات كاملة</li>
+<li class="task-list-item"><x-keep id="32"></x-keep> النتائج معقولة بالنسبة للسيناريو</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sensitivity-tables-if-applicable">جداول الحساسية (إن وُجدت)</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="33"></x-keep> أبعاد الجدول فردية (5×5 أو 7×7) — توجد خلية مركزية حقيقية</li>
+<li class="task-list-item"><x-keep id="34"></x-keep> قيم محور الصف والعمود متماثلة حول الحالة الأساسية (<code>[base-2Δ, base-Δ, base, base+Δ, base+2Δ]</code>)</li>
+<li class="task-list-item"><x-keep id="35"></x-keep> مخرجات الخلية المركزية تساوي IRR/MOIC الفعلية للنموذج — يؤكد أن الجدول موصول بشكل صحيح</li>
+<li class="task-list-item"><x-keep id="36"></x-keep> الخلية المركزية مميّزة (تعبئة زرقاء متوسطة <code>#BDD7EE</code>، خط عريض)</li>
+<li class="task-list-item"><x-keep id="37"></x-keep> عناوين الصفوف والأعمدة تحتوي على قيم إدخال مناسبة</li>
+<li class="task-list-item"><x-keep id="38"></x-keep> كل خلية بيانات تحتوي على صيغة (وليست قيمة ثابتة)</li>
+<li class="task-list-item"><x-keep id="39"></x-keep> كل خلية بيانات تُظهر قيمة مختلفة</li>
+<li class="task-list-item"><x-keep id="40"></x-keep> تتحرك القيم في الاتجاهات المتوقعة (مضاعف خروج أعلى ← IRR أعلى، إلخ)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="formatting">التنسيق</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="41"></x-keep> المدخلات الثابتة زرقاء (0000FF)</li>
+<li class="task-list-item"><x-keep id="42"></x-keep> الصيغ المحسوبة سوداء (000000)</li>
+<li class="task-list-item"><x-keep id="43"></x-keep> الروابط داخل نفس التبويب بنفسجية (800080)</li>
+<li class="task-list-item"><x-keep id="44"></x-keep> الروابط عبر التبويبات خضراء (008000)</li>
+<li class="task-list-item"><x-keep id="45"></x-keep> جميع الأرقام محاذاة إلى اليمين</li>
+<li class="task-list-item"><x-keep id="46"></x-keep> تُطبَّق تنسيقات الأرقام المناسبة في كل مكان</li>
+<li class="task-list-item"><x-keep id="47"></x-keep> لا تُظهر أي خلية قيم خطأ (#REF!، #DIV/0!، #VALUE!، #NAME?)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="logical-sanity-checks">فحوصات المنطق السليم</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="48"></x-keep> الأرقام ذات رتبة حجم معقولة</li>
+<li class="task-list-item"><x-keep id="49"></x-keep> الاتجاهات منطقية (نمو، انخفاض، استقرار كما هو متوقع)</li>
+<li class="task-list-item"><x-keep id="50"></x-keep> لا توجد قيم خاطئة بشكل واضح (سالب حيث يجب أن يكون موجبًا، نسب مئوية مستحيلة، إلخ)</li>
+<li class="task-list-item"><x-keep id="51"></x-keep> المخرجات الرئيسية ضمن نطاقات معقولة لنوع التحليل</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-errors-to-avoid">أخطاء شائعة يجب تجنبها</h2>
+<table><thead><tr><th>الخطأ</th><th>ما الذي يحدث خطأ</th><th>كيفية الإصلاح</th></tr></thead><tbody><tr><td>تثبيت القيم المحسوبة كأرقام</td><td>لا يتحدث النموذج عند تغيّر المدخلات</td><td>استخدم دائمًا صيغًا تشير إلى الخلايا المصدر</td></tr><tr><td>مراجع خلايا خاطئة بعد النسخ</td><td>تشير الصيغ إلى خلايا خاطئة</td><td>تحقّق من جميع الروابط، واستخدم تثبيت $ المناسب</td></tr><tr><td>أخطاء المراجع الدائرية</td><td>لا يمكن للنموذج الحساب</td><td>استخدم الأرصدة الافتتاحية لحسابات نوع الفائدة، واكسر الدائرية</td></tr><tr><td>الأقسام لا تتوازن</td><td>الإجماليات التي يجب أن تتطابق لا تتطابق</td><td>تأكد من أن أحد البنود هو الرقم الموازِن (محسوب كفرق)</td></tr><tr><td>أرصدة سالبة حيث يستحيل ذلك</td><td>دفع/استخدام أكثر مما هو متاح</td><td>استخدم MAX(0, ...) أو دوال MIN حسب الحاجة</td></tr><tr><td>أخطاء IRR/العوائد</td><td>إشارات خاطئة أو نطاقات غير مكتملة</td><td>تحقّق من إشارات التدفق النقدي وتأكد من أن الصيغة تغطي جميع الفترات</td></tr><tr><td>جدول الحساسية يُظهر نفس القيمة</td><td>الصيغة لا تتغير مع المدخلات</td><td>تحقّق من مراجع الخلايا - تحتاج إلى مراجع مختلطة ($A5، B$4)</td></tr><tr><td>جداول الترحيل لا تتطابق</td><td>الافتتاحي ≠ الختامي السابق</td><td>تحقّق من الروابط بين الفترات</td></tr><tr><td>اصطلاحات إشارة غير متسقة</td><td>تتحول الإضافات إلى طرح أو العكس</td><td>اتّبع اصطلاح القالب باستمرار في كل مكان</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-with-the-user--section-by-section-checkpoints">العمل مع المستخدم — نقاط تحقق قسمًا بقسم</h2>
+<ul>
+<li><strong>إذا كانت بنية القالب غير واضحة</strong>، اسأل قبل المتابعة</li>
+<li><strong>إذا تعارضت متطلبات المستخدم مع القالب</strong>، تأكّد من تفضيله</li>
+<li><strong>بعد إكمال كل قسم رئيسي</strong>، توقّف وتحقّق مع المستخدم قبل المتابعة:
+<ul>
+<li><strong>بعد Sources &amp; Uses</strong> ← اعرض الجدول المتوازن، تأكّد من صحة الرقم الموازِن، واحصل على الموافقة قبل بناء النموذج التشغيلي</li>
+<li><strong>بعد النموذج التشغيلي/التوقّعات</strong> ← اعرض قائمة الدخل المتوقعة، تأكّد من أن معدلات النمو والهوامش تبدو صحيحة، واحصل على الموافقة قبل جدول الدين</li>
+<li><strong>بعد جدول الدين</strong> ← اعرض الأرصدة الافتتاحية/الختامية والفائدة، تأكّد من منطق التسلسل (waterfall)، واحصل على الموافقة قبل العوائد</li>
+<li><strong>بعد العوائد (IRR/MOIC)</strong> ← اعرض سلسلة التدفق النقدي والمخرجات، تأكّد من الإشارات والنطاقات، واحصل على الموافقة قبل جداول الحساسية</li>
+<li><strong>بعد جداول الحساسية</strong> ← أظهر أن كل خلية تتغير، وتأكّد من أن الحالة الأساسية تقع حيث هو متوقع</li>
+</ul>
+</li>
+<li><strong>إذا وُجدت أخطاء أثناء التحقق</strong>، أصلحها قبل الانتقال إلى القسم التالي</li>
+<li><strong>اعرض عملك</strong> - اشرح الصيغ أو الافتراضات الرئيسية عند الحاجة</li>
+<li><strong>لا تعرض أبدًا نموذجًا مكتملًا دون التحقق في كل قسم</strong> — من الأسرع اكتشاف مرجع خلية خاطئ من مصدره بدلًا من تتبعه للخلف من IRR معطّل</li>
+</ul>
+<hr>
+<p><strong>تُنتج هذه المهارة نماذج LBO بجودة الاستثمار المصرفي عن طريق ملء القوالب بصيغ صحيحة، وتنسيق مناسب، وحسابات مُتحقَّق منها. تتكيف المهارة مع أي بنية قالب مع ضمان الدقة المالية ومعايير العرض المهنية.</strong></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-sources--mcp-first-web-fallback">مصادر البيانات — MCP أولًا، ثم الويب كاحتياطي</h2>
+<p>تذكر الفقرات أدناه "استخدم S&amp;P Kensho MCP / Daloopa MCP / FactSet MCP". هذه أدوات MCP تجارية للبيانات المالية من سياق إضافة Cowork الأصلية. في Hermes:</p>
+<ul>
+<li><strong>إذا كان لديك أي MCP مُهيّأ للبيانات المالية المنظّمة</strong> (يدعم Hermes MCP — راجع مهارة <code>native-mcp</code>)، فضّله للمقارنات في وقت محدد، والمعاملات السابقة، والملفات التنظيمية.</li>
+<li><strong>خلاف ذلك</strong>، ارجع إلى:
+<ul>
+<li><code>web_search</code> / <code>web_extract</code> على SEC EDGAR (<code>https://www.sec.gov/cgi-bin/browse-edgar</code>) للملفات الأمريكية</li>
+<li>صفحات علاقات المستثمرين في الشركة للبيانات الصحفية وعروض الأرباح</li>
+<li><code>browser_navigate</code> لبوابات البيانات التفاعلية</li>
+<li>بيانات مُقدَّمة من المستخدم (اسأل صراحة عندما لا يتوفر ذلك في السياق)</li>
+</ul>
+</li>
+<li><strong>لا تختلق البيانات أبدًا</strong>. إذا تعذّر توثيق مضاعف أو معاملة سابقة أو رقم من ملف تنظيمي، ضع علامة على الخلية بـ <code>[UNSOURCED]</code> وأبرزها للمستخدم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="attribution">الإسناد</h2>
+<p>هذه المهارة مُكيَّفة من مجموعة إضافات Claude for Financial Services من Anthropic (Apache-2.0). تمت إزالة مسارات Office-JS / Cowork للـ Excel المباشر (live-Excel)؛ يستهدف هذا الإصدار openpyxl بلا واجهة رسومية عبر اصطلاحات مهارة <code>excel-author</code>. الأصل: <a href="https://github.com/anthropics/financial-services" data-ext>https://github.com/anthropics/financial-services</a></p>

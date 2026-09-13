@@ -1,0 +1,169 @@
+
+<header><h1>Google Workspace</h1></header>
+<p>Gmail وCalendar وDrive وDocs وSheets عبر gws CLI أو Python.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/productivity/google-workspace</code></td></tr><tr><td>الإصدار</td><td><code>1.2.0</code></td></tr><tr><td>المؤلف</td><td>Nous Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>Google</code>، <code>Gmail</code>، <code>Calendar</code>، <code>Drive</code>، <code>Sheets</code>، <code>Docs</code>، <code>Contacts</code>، <code>Email</code>، <code>OAuth</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/email/email-himalaya"><code>himalaya</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Google Workspace</h1>
+<p>Gmail وCalendar وDrive وContacts وSheets وDocs — عبر OAuth الذي يديره Hermes وغلاف CLI رفيع. عندما يكون <code>gws</code> مثبّتًا، تستخدمه المهارة كـ backend للتنفيذ لتغطية أوسع لـ Google Workspace؛ وإلا فإنها تتراجع إلى تطبيق عميل Python المضمَّن.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><code>references/gmail-search-syntax.md</code> — عوامل بحث Gmail (is:unread، from:، newer_than:، إلخ)</li>
+<li><code>references/daily-brief.md</code> — إجراء الملخّص اليومي/الصباحي: الجدول + التعارضات + التحضير للاجتماعات + البريد العاجل من Gmail وCalendar. حمّله عندما يطلب المستخدم ملخّصًا صباحيًا أو تحضيرًا لاجتماع أو "ما الموجود في تقويمي وما البريد الذي يحتاج انتباهًا."</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scripts">السكربتات (Scripts)</h2>
+<ul>
+<li><code>scripts/setup.py</code> — إعداد OAuth2 (نفّذه مرة واحدة للتفويض)</li>
+<li><code>scripts/google_api.py</code> — غلاف CLI للتوافق. يفضّل استخدام <code>gws</code> للعمليات عند توفره، مع الحفاظ على عقد مخرجات JSON الحالي الخاص بـ Hermes.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="first-time-setup">الإعداد لأول مرة</h2>
+<p>الإعداد غير تفاعلي بالكامل — أنت تقوده خطوة بخطوة بحيث يعمل
+على CLI أو Telegram أو Discord أو أي منصة.</p>
+<p>عرّف اختصارًا أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-0-check-if-already-set-up">الخطوة 0: تحقّق مما إذا كان الإعداد قد تم مسبقًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا طُبعت <code>AUTHENTICATED</code>، انتقل إلى قسم الاستخدام — الإعداد تم بالفعل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-triage--ask-the-user-what-they-need">الخطوة 1: الفرز — اسأل المستخدم عمّا يحتاجه</h3>
+<p>قبل بدء إعداد OAuth، اسأل المستخدم سؤالين:</p>
+<p><strong>السؤال 1: "ما خدمات Google التي تحتاجها؟ البريد الإلكتروني فقط، أم أيضًا
+Calendar/Drive/Sheets/Docs؟"</strong></p>
+<ul>
+<li>
+<p><strong>البريد الإلكتروني فقط</strong> ← لا يحتاجون هذه المهارة على الإطلاق. استخدم مهارة <code>himalaya</code>
+بدلًا منها — فهي تعمل بكلمة مرور تطبيق Gmail (Settings ← Security ← App
+Passwords) وتستغرق دقيقتين للإعداد. لا حاجة إلى مشروع Google Cloud.
+حمّل مهارة himalaya واتّبع تعليمات إعدادها.</p>
+</li>
+<li>
+<p><strong>البريد الإلكتروني + Calendar</strong> ← تابع مع هذه المهارة، لكن استخدم
+<code>--services email,calendar</code> أثناء المصادقة بحيث تطلب شاشة الموافقة النطاقات
+(scopes) التي يحتاجونها فعلًا فقط.</p>
+</li>
+<li>
+<p><strong>Calendar/Drive/Sheets/Docs فقط</strong> ← تابع مع هذه المهارة واستخدم
+مجموعة <code>--services</code> أضيق مثل <code>calendar,drive,sheets,docs</code>.</p>
+</li>
+<li>
+<p><strong>وصول كامل إلى Workspace</strong> ← تابع مع هذه المهارة واستخدم مجموعة الخدمات
+الافتراضية <code>all</code>.</p>
+</li>
+</ul>
+<p><strong>السؤال 2: "هل يستخدم حساب Google الخاص بك الحماية المتقدمة (Advanced Protection) (تتطلب
+مفاتيح أمان مادية لتسجيل الدخول)؟ إذا لم تكن متأكدًا، فالأرجح أنك لا تستخدمها
+— فهذا أمر كنت ستشترك فيه صراحةً."</strong></p>
+<ul>
+<li><strong>لا / غير متأكد</strong> ← إعداد عادي. تابع أدناه.</li>
+<li><strong>نعم</strong> ← يجب على مسؤول Workspace الخاص بهم إضافة معرّف عميل OAuth إلى قائمة
+التطبيقات المسموح بها في المؤسسة قبل أن تعمل الخطوة 4. أخبرهم بذلك مسبقًا.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-oauth-credentials-one-time-5-minutes">الخطوة 2: إنشاء بيانات اعتماد OAuth (لمرة واحدة، ~5 دقائق)</h3>
+<p>أخبر المستخدم:</p>
+<blockquote>
+<p>تحتاج إلى عميل Google Cloud OAuth. هذا إعداد لمرة واحدة:</p>
+<ol>
+<li>أنشئ مشروعًا أو اختر واحدًا:
+<a href="https://console.cloud.google.com/projectselector2/home/dashboard" data-ext>https://console.cloud.google.com/projectselector2/home/dashboard</a></li>
+<li>فعّل واجهات API المطلوبة من مكتبة API:
+<a href="https://console.cloud.google.com/apis/library" data-ext>https://console.cloud.google.com/apis/library</a>
+فعّل: Gmail API وGoogle Calendar API وGoogle Drive API
+وGoogle Sheets API وGoogle Docs API وPeople API</li>
+<li>أنشئ عميل OAuth هنا:
+<a href="https://console.cloud.google.com/apis/credentials" data-ext>https://console.cloud.google.com/apis/credentials</a>
+Credentials ← Create Credentials ← OAuth 2.0 Client ID</li>
+<li>نوع التطبيق: "Desktop app" ← Create</li>
+<li>إذا كان التطبيق لا يزال في وضع Testing، أضف حساب Google الخاص بالمستخدم كمستخدم اختبار هنا:
+<a href="https://console.cloud.google.com/auth/audience" data-ext>https://console.cloud.google.com/auth/audience</a>
+Audience ← Test users ← Add users</li>
+<li>نزّل ملف JSON وأخبرني بمسار الملف</li>
+</ol>
+<p>ملاحظة مهمة بخصوص Hermes CLI: إذا كان مسار الملف يبدأ بـ <code>/</code>، فلا ترسل المسار المجرّد وحده كرسالة مستقلة في CLI، لأنه قد يُفهَم خطأً كأمر slash command. أرسله ضمن جملة بدلًا من ذلك، مثل:
+<code>The JSON file path is: ~/Downloads/client_secret_....json</code></p>
+</blockquote>
+<p>بمجرد أن يزوّدوك بالمسار:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>إذا لصقوا قيم معرّف العميل / سر العميل الخام بدلًا من مسار ملف،
+فاكتب لهم بنفسك ملف OAuth JSON صالحًا من نوع Desktop، واحفظه في مكان
+واضح (مثلًا <code>~/Downloads/hermes-google-client-secret.json</code>)، ثم نفّذ
+<code>--client-secret</code> على ذلك الملف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-get-authorization-url">الخطوة 3: احصل على رابط التفويض</h3>
+<p>استخدم مجموعة الخدمات المختارة في الخطوة 1. أمثلة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يُعيد هذا JSON يحتوي على حقل <code>auth_url</code> ويحفظ أيضًا الرابط الدقيق في
+<code>~/.hermes/google_oauth_last_url.txt</code>.</p>
+<p>قواعد الوكيل لهذه الخطوة:</p>
+<ul>
+<li>استخرج حقل <code>auth_url</code> وأرسل ذلك الرابط الدقيق إلى المستخدم في سطر واحد.</li>
+<li>أخبر المستخدم أن المتصفح سيفشل غالبًا على <code>http://localhost:1</code> بعد الموافقة، وأن هذا متوقَّع.</li>
+<li>اطلب منهم نسخ الرابط المُعاد توجيهه بالكامل من شريط عنوان المتصفح.</li>
+<li>إذا ظهر للمستخدم <code>Error 403: access_denied</code>، أرسله مباشرة إلى <code>https://console.cloud.google.com/auth/audience</code> لإضافة نفسه كمستخدم اختبار.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-exchange-the-code">الخطوة 4: استبدال الرمز (code)</h3>
+<p>سيلصق المستخدم إما رابطًا مثل <code>http://localhost:1/?code=4/0A...&amp;scope=...</code>
+أو سلسلة الرمز فقط. كلاهما يعمل. تخزّن خطوة <code>--auth-url</code> جلسة OAuth
+معلَّقة مؤقتة محليًا بحيث يمكن لِـ <code>--auth-code</code> إتمام استبدال PKCE
+لاحقًا، حتى على الأنظمة بلا واجهة رسومية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إذا فشل <code>--auth-code</code> لانتهاء صلاحية الرمز، أو لأنه استُخدم من قبل، أو لأنه جاء من
+علامة تبويب متصفح أقدم، فإنه يُعيد الآن رابط <code>fresh_auth_url</code> جديدًا. في هذه الحالة،
+أرسل الرابط الجديد إلى المستخدم فورًا واطلب منه إعادة المحاولة بأحدث
+إعادة توجيه من المتصفح فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-verify">الخطوة 5: تحقّق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يجب أن تُطبع <code>AUTHENTICATED</code>. الإعداد مكتمل — يتجدَّد الـ token تلقائيًا من الآن فصاعدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h3>
+<ul>
+<li>يُخزَّن الـ token في <code>~/.hermes/google_token.json</code> ويتجدَّد تلقائيًا.</li>
+<li>تُخزَّن حالة/مُحقِّق (verifier) جلسة OAuth المعلَّقة مؤقتًا في <code>~/.hermes/google_oauth_pending.json</code> حتى يكتمل الاستبدال.</li>
+<li>إذا كان <code>gws</code> مثبّتًا، فإن <code>google_api.py</code> يوجّهه إلى ملف بيانات الاعتماد نفسه <code>~/.hermes/google_token.json</code>. لا يحتاج المستخدمون إلى تنفيذ مسار <code>gws auth login</code> منفصل.</li>
+<li>للإلغاء: <code>$GSETUP --revoke</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage">الاستخدام</h2>
+<p>تمر جميع الأوامر عبر سكربت API. اضبط <code>GAPI</code> كاختصار:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gmail">Gmail</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="calendar">Calendar</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="drive">Drive</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="contacts">Contacts</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sheets">Sheets</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docs">Docs</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-format">صيغة المخرجات</h2>
+<p>تُعيد جميع الأوامر JSON. حلّلها بـ <code>jq</code> أو اقرأها مباشرة. الحقول الرئيسية:</p>
+<ul>
+<li><strong>بحث Gmail</strong>: <code>[{id, threadId, from, to, subject, date, snippet, labels}]</code></li>
+<li><strong>جلب Gmail (get)</strong>: <code>{id, threadId, from, to, subject, date, labels, body}</code></li>
+<li><strong>إرسال/ردّ Gmail</strong>: <code>{status: &quot;sent&quot;, id, threadId}</code></li>
+<li><strong>سرد Calendar</strong>: <code>[{id, summary, start, end, location, description, htmlLink}]</code></li>
+<li><strong>إنشاء Calendar</strong>: <code>{status: &quot;created&quot;, id, summary, htmlLink}</code></li>
+<li><strong>بحث Drive</strong>: <code>[{id, name, mimeType, modifiedTime, webViewLink}]</code></li>
+<li><strong>جلب Drive (get)</strong>: <code>{id, name, mimeType, modifiedTime, size, webViewLink, parents, owners}</code></li>
+<li><strong>رفع Drive</strong>: <code>{status: &quot;uploaded&quot;, id, name, mimeType, webViewLink}</code></li>
+<li><strong>تنزيل Drive</strong>: <code>{status: &quot;downloaded&quot;, id, name, path, mimeType}</code></li>
+<li><strong>إنشاء مجلد Drive</strong>: <code>{status: &quot;created&quot;, id, name, webViewLink}</code></li>
+<li><strong>مشاركة Drive</strong>: <code>{status: &quot;shared&quot;, permissionId, fileId, role, type}</code></li>
+<li><strong>حذف Drive</strong>: <code>{status: &quot;trashed&quot; | &quot;deleted&quot;, fileId, permanent}</code></li>
+<li><strong>سرد Contacts</strong>: <code>[{name, emails: [...], phones: [...]}]</code></li>
+<li><strong>جلب Sheets (get)</strong>: <code>[[cell, cell, ...], ...]</code></li>
+<li><strong>إنشاء Sheets</strong>: <code>{status: &quot;created&quot;, spreadsheetId, title, spreadsheetUrl}</code></li>
+<li><strong>إنشاء Docs</strong>: <code>{status: &quot;created&quot;, documentId, title, url}</code></li>
+<li><strong>إلحاق Docs (append)</strong>: <code>{status: &quot;appended&quot;, documentId, inserted_at, characters}</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rules">القواعد</h2>
+<ol>
+<li><strong>لا ترسل أبدًا بريدًا إلكترونيًا، ولا تنشئ/تحذف أحداث تقويم، ولا تحذف ملفات Drive، ولا تشارك ملفات، ولا تعدّل Docs/Sheets دون التأكيد مع المستخدم أولًا.</strong> اعرض ما سيُنفَّذ (المستلمون، معرّفات الملفات، المحتوى، دور المشاركة) واطلب الموافقة. بالنسبة لِـ <code>drive delete</code>، فضّل سلة المحذوفات الافتراضية (القابلة للتراجع) على <code>--permanent</code>.</li>
+<li><strong>تحقّق من المصادقة قبل أول استخدام</strong> — نفّذ <code>setup.py --check</code>. إذا فشل، أرشد المستخدم خلال الإعداد.</li>
+<li><strong>استخدم مرجع صياغة بحث Gmail</strong> للاستعلامات المعقّدة — حمّله بواسطة <code>skill_view(&quot;google-workspace&quot;, file_path=&quot;references/gmail-search-syntax.md&quot;)</code>.</li>
+<li><strong>يجب أن تتضمّن أوقات Calendar المنطقة الزمنية</strong> — استخدم دائمًا ISO 8601 مع إزاحة (مثلًا <code>2026-03-01T10:00:00-06:00</code>) أو UTC (<code>Z</code>).</li>
+<li><strong>احترم حدود المعدل</strong> — تجنّب استدعاءات API متتالية سريعة. اجمع عمليات القراءة في دفعات عند الإمكان.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td><code>NOT_AUTHENTICATED</code></td><td>نفّذ خطوات الإعداد 2-5 أعلاه</td></tr><tr><td><code>REFRESH_FAILED</code></td><td>تم إلغاء الـ token أو انتهت صلاحيته — أعد تنفيذ الخطوات 3-5</td></tr><tr><td><code>HttpError 403: Insufficient Permission</code></td><td>نطاق API مفقود — نفّذ <code>$GSETUP --revoke</code> ثم أعد تنفيذ الخطوات 3-5</td></tr><tr><td><code>AUTHENTICATED (partial)</code> أو "Token missing scopes"</td><td>إمكانات الكتابة الجديدة (كتابة/حذف في Drive، إنشاء/تحرير في Docs) تتطلب إعادة تفويض. نفّذ <code>$GSETUP --revoke</code> ثم أعد تنفيذ الخطوات 3-5 لمنح النطاقات المُحدَّثة.</td></tr><tr><td><code>HttpError 403: Access Not Configured</code></td><td>واجهة API غير مفعّلة — يحتاج المستخدم إلى تفعيلها في Google Cloud Console</td></tr><tr><td><code>ModuleNotFoundError</code></td><td>نفّذ <code>$GSETUP --install-deps</code></td></tr><tr><td>الحماية المتقدمة تحجب المصادقة</td><td>يجب على مسؤول Workspace إدراج معرّف عميل OAuth في القائمة المسموح بها</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="revoking-access">إلغاء الوصول</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>

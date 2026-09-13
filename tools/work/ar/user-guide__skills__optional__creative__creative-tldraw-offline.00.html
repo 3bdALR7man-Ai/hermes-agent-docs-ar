@@ -1,0 +1,194 @@
+
+<header><h1>Tldraw Offline</h1></header>
+<p>شغّل واكتب سكربتات لوحات tldraw دون اتصال بالإنترنت باستخدام وكيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/creative/tldraw-offline</code></td></tr><tr><td>المسار</td><td><code>optional-skills/creative/tldraw-offline</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Teknium + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>tldraw</code>, <code>canvas</code>, <code>whiteboard</code>, <code>document-script</code>, <code>diagramming</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="4"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة tldraw offline</h1>
+<p>اعمل مع تطبيق tldraw offline لسطح المكتب (offline.tldraw.com): اقرأ
+اللوحة المفتوحة، وأجرِ التعديلات عليها، واكتب <strong>سكربتات المستند</strong> — وهي كود JavaScript مضمّن في
+ملف <code>.tldraw</code> يعمل عند التحميل ويمنح الملف سلوكًا دائمًا. يشغّل التطبيق
+<strong>API محلي عبر HTTP</strong> (الافتراضي <code>localhost:7236</code>) يستخدمه وكيل البرمجة عبر
+أمر <code>curl</code> عادي من الطرفية الخاصة به — وهذه بالضبط طريقة عمل عرض الصفحة
+الرئيسية للتطبيق نفسه (Codex يحرّر لوحة مباشرة). لا يستخدم الوكيل computer-use أو
+النقر عبر واجهة المستخدم الرسومية، ولا يعدّل ملف <code>.tldraw</code> يدويًا مباشرة. أبقِ tldraw
+offline مفتوحًا أثناء عملك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>عندما يفتح المستخدم tldraw offline ويطلب منك إنشاء لوحة أو تعديلها
+(مخططات، تصاميم أولية wireframes، تخطيطات).</li>
+<li>عندما تريد إضافة سلوك دائم لرسمة (أشكال تفاعلية، أزرار تفاعلية،
+حركة، منطق ربط) عبر سكربت مستند مضمّن.</li>
+</ul>
+<p>لا تضع الأشكال يدويًا لتقليد رسمة — اكتب الكود الذي يولّدها. الوكلاء
+أفضل بكثير في كتابة سكربتات اللوحة من الرسم عليها مباشرة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>تثبيت tldraw offline وتشغيله</strong>، مع فتح مستند. الإصدارات:
+<a href="https://github.com/tldraw/tldraw-offline/releases/latest" data-ext>https://github.com/tldraw/tldraw-offline/releases/latest</a> (DMG لنظام macOS، Windows
+x64/Arm64، Linux <code>x86_64</code>/<code>arm64</code> بصيغة AppImage أو amd64/arm64 <code>.deb</code>).</li>
+<li><strong>تثبيت Agent Skills داخل التطبيق</strong>: <code>Develop → Install Agent Skills</code>. يكتب
+التطبيق مهارة tldraw الخاصة به إلى <code>~/.codex/skills/</code>، و<code>~/.claude/skills/</code>،
+و<code>~/.cursor/skills/</code>، و<code>~/.gemini/skills/</code> — ليعلّم ذلك الوكيل وصفات
+<code>curl</code> أدناه. (تعكس مهارة Hermes هذه نفس التوجيهات لصالح Hermes.)</li>
+<li><strong>الـ API المحلي للتحكم.</strong> عند الإطلاق يكتب التطبيق ملف <code>server.json</code> إلى مجلد
+إعداداته (Linux: <code>~/.config/tldraw/</code>، macOS: <code>~/Library/Application Support/tldraw/</code>،
+Windows: <code>%APPDATA%\tldraw\</code>) ويحتوي على <code>port</code> (الافتراضي <code>7236</code>)، و<code>token</code> من نوع bearer،
+و<code>pid</code>، و<code>startedAt</code>. يحتاج كل طلب باستثناء <code>GET /</code> إلى
+<code>Authorization: Bearer &lt;token&gt;</code>. الإغلاق النظيف يحذف <code>server.json</code>؛ فإذا كان
+موجودًا لكن المنفذ لا يستجيب، فهذا يعني أن التطبيق أُغلق بشكل غير نظيف — اعتبره غير
+شغّال.</li>
+<li><strong>أعد قراءة المنفذ والـ token في كل استدعاء shell.</strong> كل استدعاء طرفية هو shell
+جديد، لذا لا يبقى token تم تصديره عبر <code>export</code> — فـ"صدّره مرة واحدة وأعد استخدامه"
+يرسل token فارغًا ويسبب أخطاء 401. اقرأ الاثنين ضمن سطر واحد في بداية كل استدعاء:
+<code>PORT=$(jq -r .port &lt;server.json&gt;); TOKEN=$(jq -r .token &lt;server.json&gt;)</code>.</li>
+<li>لا حاجة لحساب أو اتصال بالشبكة للتحرير المحلي.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p>يوجد سير عملان مختلفان. اختر بحسب ما إذا كان يجب أن يبقى التغيير بعد إعادة التحميل.</p>
+<p><strong>أ. تعديلات لوحة لمرة واحدة (<code>/exec</code>)</strong> — التخطيط، توليد الأشكال، التنظيف. هذا
+تعديل مباشر وليس سكربتًا محفوظًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>ب. سلوك دائم (<code>script/main.js</code>)</strong> — منطق تفاعلي/تجاوبي يجب أن يبقى بعد
+إعادة التحميل. عدّل الملف على القرص؛ يطبّق المراقب (watcher) الخاص بالتطبيق التغيير:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>سكربت المستند الجاهز للتكييف هو <code>scripts/main.js</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<p>عقد سكربت المستند (تم التحقق منها مقابل ملف <code>script-context.d.ts</code>
+المضمّن في التطبيق):</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<ul>
+<li><code>ctx.editor</code> — كائن <code>Editor</code> الحيّ (<code>createShape</code>، <code>updateShape</code>، <code>deleteShapes</code>،
+<code>getCurrentPageShapes</code>، <code>getShape</code>، <code>getBindingsFromShape</code>، <code>zoomToFit</code>،
+<code>on(&#x27;tick&#x27;|&#x27;event&#x27;, fn)</code>، <code>run(fn, { history: &#x27;ignore&#x27; })</code>).</li>
+<li><code>ctx.helpers</code> — <code>createShapeIfMissing</code>، <code>createShapesIfMissing</code>،
+<code>createArrowBetweenShapes(from, to, { arrowheadEnd })</code>، <code>translateShapes</code>،
+<code>onShapeTranslate(id, fn, { signal })</code>، <code>richTextToPlainText</code>، <code>boxShapes</code>،
+<code>getLints</code>.</li>
+<li><code>ctx.signal</code> — كائن <code>AbortSignal</code>؛ اربط به كل عملية إلغاء لمستمع أو مؤقّت.</li>
+<li>ملف <code>config.js</code> (منفصل) يسجّل أدوات مخصصة للأشكال/الأدوات/المكوّنات
+ويعمل قبل التركيب (mount)؛ بينما يعمل <code>main.js</code> على المحرر بعد تركيبه ويُعاد تشغيله عند الحفظ.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-ui-clickable-buttons-that-drive-state">واجهة تفاعلية (أزرار قابلة للنقر تتحكم في الحالة)</h2>
+<p>يمكن للأشكال المرسومة أن تتصرف كتطبيق حقيقي — وهذا ما لا تستطيعه لوحة ثابتة.
+مثال كامل: <code>scripts/counter.js</code> (عرض رقمي + أزرار MINUS وRESET وPLUS).</p>
+<p>حدود التحقق — اقرأ هذا قبل الادعاء أن التفاعل يعمل أو لا يعمل.
+يوصي دليل الوكيل الخاص بالتطبيق نفسه بالتحقق من سكربت واجهة قابلة للنقر عبر &quot;نقرة
+محاكاة واحدة وقراءة حالة واحدة&quot; باستخدام <code>/exec</code> (يستدعي <code>editor.dispatch</code> حدث pointer، وينتظر
+دورة (tick)، ثم يقرأ حالة الشكل) — وليس عبر تحريك ماوس حقيقي. وبهذا
+المعيار، فإن العدّاد مُتحقَّق منه: النقرات المُطلقة برمجيًا خفضته
+<code>0 → 1 → 2 → 1 → 0</code>. وهناك تنبيهان يستحقان التسجيل:</p>
+<ul>
+<li><strong>لا يعمل السكربت إلا بعد أن يطبّقه مراقب الملفات (file-watcher) الخاص بالتطبيق.</strong> على Linux يستخدم
+هذا المراقب inotify؛ وعلى مضيف نفدت فيه قيمة <code>fs.inotify.max_user_instances</code>
+تظهر رسالة <code>inotify_add_watch ... No space left on device</code>، ويعرض <code>script-status</code>
+<code>state: &quot;not-watching&quot;</code> / <code>hasEntry: false</code>، ولا يُنفَّذ السكربت أبدًا.
+هذا حد من حدود المضيف، وليس خللًا في السكربت — سطح المكتب العادي لا يتأثر بذلك.</li>
+<li><strong>تشغيل اللوحة باستخدام computer-use يحتاج توصيلًا في المقدمة (foreground)
+لا في الخلفية.</strong> يعيد نمط التوصيل الافتراضي <code>background</code> في cua-driver
+<code>background_unavailable</code> ضد renderer محجوب من Electron — لكن هذه أول
+عقبة وليست جدارًا. يعيد cua-driver تلميحًا <code>escalation: &quot;foreground&quot;</code>؛
+اضبط <code>delivery_mode: &quot;foreground&quot;</code> (مع <code>bring_to_front</code>) وسيصل مسار X11 XTest
+الخاص به (<code>x11_xtest_fg</code>) بالنقرات — وهذا يُغلق مربع حوار الموافقة على
+&quot;Run Script&quot; وينقر على اللوحة. تم التحقق من ذلك من قبل فريق Cua على نفس
+إصدار AppImage رقم v1.11.0 (Linux/X11). لا تستنتج أن &quot;Electron يرفض النقرات
+الاصطناعية&quot; وتستسلم في وضع الخلفية — بل انتقل إلى المقدمة. (المسار الفعلي
+للمنتج يبقى <code>/exec</code>، وليس النقرات؛ هذه الملاحظة تخص الاختبار المدفوع بـ computer-use.)</li>
+</ul>
+<p>النمط:</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<ul>
+<li>ابحث عن الأزرار عبر <code>meta</code> (أو التسمية المرئية عبر <code>helpers.richTextToPlainText</code>)،
+لا عبر إحداثيات ثابتة مُبرمَجة مسبقًا.</li>
+<li><strong>يجب أن يتولى سكربت واحد كلًا من البناء والقراءة.</strong> فإذا أُنشئت الأشكال بمسار
+كود (بـ <code>meta.action: &#x27;inc&#x27;</code>) بينما يقرأ المعالج اصطلاحًا آخر
+(<code>meta.action === &#x27;PLUS&#x27;</code>)، لا تفعل النقرات شيئًا بصمت. اجعل الأزرار مبنية
+بنفس السكربت الذي يتولى معالجتها، أو ابدأ بلوحة فارغة ليبنيها السكربت من جديد — لا
+تضع أبدًا أشكالًا غير متطابقة مسبقًا في قاعدة بيانات الملف.</li>
+<li>احفظ حالة التطبيق داخل <code>meta</code> الخاصة بالشكل (مثل <code>meta.count</code>) واعرضها في
+تسمية <code>richText</code> لذلك الشكل، لتبقى بعد الحفظ وقابلة للقراءة عند التحقق.</li>
+<li><strong>افصل المستمع عند إلغاء <code>signal</code>.</strong> تجاهل هذا ليس أمرًا شكليًا: عند
+الحفظ التالي يبقى <code>onEvent</code> القديم متصلًا إلى جانب الجديد، فتُطلق كل نقرة مرتين
+ويقفز العدّاد بمقدار 2 بدلًا من 1.</li>
+<li>للحركة المستمرة استخدم <code>editor.on(&#x27;tick&#x27;, fn)</code>؛ ولنقطة ارتكاز متحركة مع
+أجزاء متصلة بها استخدم <code>helpers.onShapeTranslate(id, fn, { signal })</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shipping-a-self-running-scripted-tldraw">تسليم ملف <code>.tldraw</code> مُبرمَج يعمل تلقائيًا</h3>
+<p>ملف <code>.tldraw</code> هو ملف zip يحتوي <code>metadata.json</code> + <code>session.json</code> + <code>db.sqlite</code> + <code>assets/</code></p>
+<ul>
+<li><code>script/</code> (هذه المدخلات فقط قابلة للتعبئة). لكي يعمل السكربت تلقائيًا دون
+ظهور مربع حوار الموافقة &quot;This document contains a script → Run Script&quot;:</li>
+</ul>
+<ul>
+<li>يجب أن يحمل <code>metadata.json</code> بيانًا لـ <code>script</code>: <code>{ &quot;sha256&quot;: &quot;&lt;digest&gt;&quot; }</code>، حيث
+البصمة (digest) هي <code>sha256</code> محسوبة على كل مسار مرتّب ضمن <code>script/</code> بالصيغة <code>`${path}\0${sha256hex(bytes)}\n`</code>.
+وأي تعارض يُرفض باعتباره تلاعبًا.</li>
+<li>ثِق مسبقًا بالبصمة بإضافتها إلى <code>~/.tldraw/script-trust.json</code>
+(<code>{ &quot;trusted&quot;: [&quot;&lt;digest&gt;&quot;] }</code>، أو <code>$TLDRAW_SCRIPT_TRUST</code>). يتخطى التطبيق
+الموافقة عندما تكون <code>isScriptTrusted(digest)</code> صحيحة (true).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<ol>
+<li>اقرأ الـ token والمنفذ الحاليين من <code>server.json</code>. حدّد المستند المستهدف عبر
+<code>api.getFocusedDoc()</code> (أو <code>api.getDocs()</code>)؛ سمِّه صراحةً إن كان هناك عدة مستندات
+مفتوحة.</li>
+<li>للتخطيط/التوليد استخدم <code>/exec</code>. أما للسلوك الدائم فعدّل
+<code>script/main.js</code> عبر <code>/script-workspace</code>.</li>
+<li>اجعل السكربتات متكافئة القوة (idempotent): أنشئ الأشكال الدائمة باستخدام <code>helpers.createShapeIfMissing</code>
+ومعرّفات ثابتة عبر <code>createShapeId(&#x27;name&#x27;)</code>. تُعاد السكربتات عند كل تحميل.</li>
+<li>أبقِ الكتابات التي يملكها السكربت خارج سجل تراجع المستخدم:
+<code>editor.run(fn, { history: &#x27;ignore&#x27; })</code> (أو <code>helpers.translateShapes</code>، التي
+تفعل ذلك فعليًا).</li>
+<li>للتفاعلية، استخدم <code>editor.store.listen(cb)</code> وأزله عند إلغاء <code>signal</code>.
+وللتفاعل استخدم <code>editor.on(&#x27;event&#x27;, h)</code> (اختبار الاصطدام لـ <code>pointer_down</code> بإحداثيات
+الصفحة)؛ وللحركة استخدم <code>editor.on(&#x27;tick&#x27;, h)</code>.</li>
+<li>لنقطة ارتكاز متحركة واحدة مع مكوّنات داخلية مرتبطة بها، يُفضَّل استخدام
+<code>helpers.onShapeTranslate(anchorId, fn, { signal })</code> بدلًا من مستمع عام على
+المخزن — إذ يمكن لمستمع عام أن يحوّل كتاباتك الخاصة إلى حلقات ارتداد (feedback loops).</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="shape-props-validated-against-tldraw-sdk-v5-schema">خصائص الأشكال (تم التحقق منها مقابل مخطط tldraw SDK v5)</h2>
+<p>تقبل <code>editor.createShape</code> / <code>createShapeIfMissing</code> خصائص جزئية (تملأ أدوات
+الشكل القيم الافتراضية). أما عند بناء <strong>سجلات خام</strong> لقطة ملف، فكل خاصية
+أدناه مطلوبة (شغّل <code>scripts/validate_shapes.mjs</code>):</p>
+<table><thead><tr><th>الشكل</th><th>الخصائص المطلوبة</th></tr></thead><tbody><tr><td><code>note</code></td><td><code>richText</code>، <code>color</code>، <code>labelColor</code>، <code>size</code>، <code>font</code>، <code>align</code>، <code>verticalAlign</code>، <code>growY</code>، <code>fontSizeAdjustment</code>، <code>url</code>، <code>scale</code>، <code>textLastEditedBy</code></td></tr><tr><td><code>text</code></td><td><code>richText</code>، <code>color</code>، <code>size</code>، <code>font</code>، <code>textAlign</code>، <code>w</code>، <code>scale</code>، <code>autoSize</code></td></tr><tr><td><code>frame</code></td><td><code>w</code>، <code>h</code>، <code>name</code>، <code>color</code></td></tr><tr><td><code>geo</code></td><td><code>geo</code>، <code>w</code>، <code>h</code>، <code>color</code>، <code>fill</code>، <code>richText</code> (+ dash/size/إلخ بقيم افتراضية)</td></tr></tbody></table>
+<p>يجب أن يكون <code>richText</code> ناتجًا من <code>toRichText(&#x27;...&#x27;)</code> — أي سلسلة نصية عادية تُرفض. تعداد
+<code>color</code>: <code>black grey light-violet violet blue light-blue yellow orange green light-green light-red red white</code>. تعداد <code>font</code>: <code>draw sans serif mono</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق شائعة</h2>
+<ul>
+<li><strong><code>store.listen</code> يُطلَق في الدورة (tick) التالية بعد التنفيذ (commit)، وليس بشكل متزامن.</strong> إن
+كتبت شكلًا وقرأت الحالة فورًا متوقعًا أن يكون المستمع قد عمل، فلن يكون قد عمل بعد.
+تم التحقق مباشرة: تُظهر قراءة ضمن نفس الدور 0 عمليات إطلاق؛ وبعد دورة واحدة
+من <code>setTimeout</code> تظهر عملية إطلاق واحدة. لنفس السبب يذكر التطبيق أن <code>editor.dispatch</code>
+غير متزامن — انتظر دورة قبل التحقق.</li>
+<li><strong><code>ctx</code>، وليس متغيرات عامة (globals).</strong> نقطة الدخول هي <code>export default function ({ editor, helpers, signal })</code>. لا يوجد كائن <code>editor</code> عام في سكربت المستند.
+تأتي <code>createShapeId</code> / <code>toRichText</code> / <code>Vec</code> من <code>import ... from &#x27;tldraw&#x27;</code>.</li>
+<li><strong><code>richText</code>، وليس <code>text</code>.</strong> تستخدم تسميات النص/الملاحظة/الشكل الهندسي <code>richText: toRichText(s)</code>.</li>
+<li><strong>السجلات الخام تحتاج كل خاصية؛ أما <code>createShape</code> فلا.</strong> ضمن التطبيق، مرّر فقط
+الخصائص التي تهمك؛ أما لقطة <code>.tldraw</code> المبنية يدويًا فتحتاج المجموعة الكاملة (الجدول).</li>
+<li><strong>تُعاد السكربتات عند كل تحميل — اجعلها متكافئة القوة.</strong> استخدم <code>createShapeIfMissing</code>
+بمعرّفات ثابتة وإلا كرّرت المحتوى وأتلفت تعديلات المستخدم.</li>
+<li><strong>نظّف عند إلغاء <code>signal</code>.</strong> استخدم <code>signal.addEventListener(&#x27;abort&#x27;, () =&gt; stop())</code> لكل
+<code>store.listen</code> / <code>editor.on</code> / <code>setInterval</code>؛ يُطلَق الإشارة قبل إعادة التشغيل وعند الإغلاق.</li>
+<li><strong>أبقِ كتابات السكربت خارج التراجع:</strong> <code>editor.run(fn, { history: &#x27;ignore&#x27; })</code>.</li>
+<li><strong>يتوقف <code>editor.on(&#x27;tick&#x27;)</code> عند إخفاء النافذة</strong> (فهو حلقة RAF)؛
+بينما يستمر <code>setInterval</code> بالإطلاق لكن Electron يحدّه إلى نحو مرة واحدة في الثانية في الخلفية.</li>
+<li><strong>يحتاج الـ API إلى الـ token من نوع bearer</strong> من <code>server.json</code>؛ ويمكن أن يكون المنفذ غير
+الافتراضي (يختار <code>server.listen(0)</code> منفذًا) — اقرأ الملف دائمًا، ولا تكتب <code>7236</code> ثابتًا.</li>
+<li><strong>لا تستورد إلا <code>tldraw</code> / <code>react</code> / <code>react-dom</code></strong> — فهذا ليس مشروع Node.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li><strong>مخطط الأشكال (دون اتصال، بلا تطبيق):</strong> <code>node scripts/validate_shapes.mjs</code> — يبني
+مخطط tldraw الفعلي ويتحقق من note/text/frame. عند النجاح تُطبع <code>3/3</code>.</li>
+<li><strong>تعديلات اللوحة الحية:</strong> بعد <code>/exec</code>، تحقق بالقراءة عبر <code>/api/search</code> →
+<code>api.getShapes(docId)</code> (تُعيد <code>{ page, viewport, shapes }</code>) و
+<code>api.getBindings(docId)</code> (مصفوفة). تأكد من وجود الأشكال/الروابط المتوقعة. احصل على
+<code>api.getScreenshot(docId)</code> (تُعيد <code>{ filePath, ... }</code>) وافحص صورة PNG/JPEG
+باستخدام <code>vision_analyze</code>.</li>
+<li><strong>تطبيق السكربت الدائم:</strong> <code>GET /api/doc/:id/script-status</code>. النجاح يعني
+<code>state: &quot;applied&quot;</code> (<code>currentDiskDigest === lastAppliedDigest === manifestSha256</code>،
+و<code>pendingApply === false</code>، و<code>lastApplyError === null</code>). إذا بقيت الحالة <code>&quot;pending&quot;</code>
+بعد إعادة محاولة قصيرة، أبلغ بذلك بدلًا من ادعاء النجاح؛ أما <code>&quot;error&quot;</code> فتعني
+فشل التطبيق — اقرأ <code>errorLogPath</code>.</li>
+</ul>

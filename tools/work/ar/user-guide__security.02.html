@@ -1,0 +1,115 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-credential-handling">التعامل مع بيانات اعتماد MCP</h2>
+<p>تتلقى عمليات MCP (Model Context Protocol) الفرعية <strong>بيئة مُرشَّحة</strong> لمنع تسريب بيانات الاعتماد عن طريق الخطأ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="safe-environment-variables">متغيرات البيئة الآمنة</h3>
+<p>تُمرَّر هذه المتغيرات فقط من المضيف إلى عمليات MCP الفرعية القائمة على stdio:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>بالإضافة إلى أي متغيرات <code>XDG_*</code>. تُزال <strong>جميع</strong> متغيرات البيئة الأخرى (مفاتيح API، الرموز، الأسرار).</p>
+<p>المتغيرات المُعرَّفة صراحة في إعدادات <code>env</code> الخاصة بخادم MCP تُمرَّر:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-redaction">تنقيح بيانات الاعتماد</h3>
+<p>تُعقَّم رسائل الخطأ من أدوات MCP قبل إعادتها إلى LLM. تُستبدَل الأنماط التالية بـ <code>[REDACTED]</code>:</p>
+<ul>
+<li>رموز GitHub PAT (<code>ghp_...</code>)</li>
+<li>مفاتيح على غرار OpenAI (<code>sk-...</code>)</li>
+<li>رموز Bearer</li>
+<li>معاملات <code>token=</code>، <code>key=</code>، <code>API_KEY=</code>، <code>password=</code>، <code>secret=</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="website-access-policy">سياسة الوصول إلى المواقع</h3>
+<p>يمكنك تقييد المواقع التي يستطيع الوكيل الوصول إليها عبر أدواته الخاصة بالويب والمتصفح. هذا مفيد لمنع الوكيل من الوصول إلى الخدمات الداخلية، أو لوحات الإدارة، أو أي عناوين URL حساسة أخرى.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>عند طلب رابط محجوب، تُعيد الأداة خطأً يوضح أن النطاق محجوب بموجب السياسة. تُطبَّق قائمة الحظر عبر <code>web_search</code>، و<code>web_extract</code>، و<code>browser_navigate</code>، وجميع الأدوات القادرة على التعامل مع عناوين URL.</p>
+<p>انظر <a href="/docs/user-guide/configuration#website-blocklist">قائمة حظر المواقع</a> في دليل الإعدادات لكل التفاصيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssrf-protection">الحماية من SSRF</h3>
+<p>تتحقق جميع الأدوات القادرة على التعامل مع عناوين URL (البحث في الويب، استخراج الويب، الرؤية، المتصفح) من عناوين URL قبل جلبها لمنع هجمات تزوير الطلب من جانب الخادم (SSRF). العناوين المحجوبة تشمل:</p>
+<ul>
+<li><strong>الشبكات الخاصة</strong> (RFC 1918): <code>10.0.0.0/8</code>، <code>172.16.0.0/12</code>، <code>192.168.0.0/16</code></li>
+<li><strong>Loopback</strong>: <code>127.0.0.0/8</code>، <code>::1</code></li>
+<li><strong>Link-local</strong>: <code>169.254.0.0/16</code> (يشمل بيانات التعريف السحابية عند <code>169.254.169.254</code>)</li>
+<li><strong>CGNAT / مساحة العناوين المشتركة</strong> (RFC 6598): <code>100.64.0.0/10</code> (شبكات Tailscale، وWireGuard الافتراضية الخاصة)</li>
+<li><strong>أسماء مضيفي بيانات التعريف السحابية</strong>: <code>metadata.google.internal</code>، <code>metadata.goog</code></li>
+<li><strong>العناوين المحجوزة، والبثّ المتعدد (multicast)، وغير المُحدَّدة</strong></li>
+</ul>
+<p>الحماية من SSRF مفعّلة دائمًا للاستخدام المُتاح على الإنترنت، وتُعامَل إخفاقات DNS باعتبارها محجوبة (fail-closed). تُعاد سلاسل إعادة التوجيه للتحقق عند كل قفزة لمنع الالتفافات القائمة على إعادة التوجيه.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="intentionally-allowing-private-urls">السماح المتعمَّد بعناوين URL خاصة</h4>
+<p>بعض الإعدادات تحتاج فعلًا وصولًا إلى عناوين URL خاصة/داخلية — الشبكات المنزلية التي تُحلِّل <code>home.arpa</code> إلى مساحة RFC 1918، وendpoints Ollama/llama.cpp المحصورة بالشبكة المحلية، والويكي الداخلي، وتصحيح بيانات التعريف السحابية، وما شابه. لهذه الحالات يوجد خيار تعطيل عام:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>عند تفعيله، لم تعد أدوات الويب والمتصفح وجلب عناوين URL الخاصة بالرؤية وتنزيلات وسائط الـ gateway ترفض وجهات RFC 1918 / loopback / link-local / CGNAT / بيانات التعريف السحابية. <strong>هذا حدّ ثقة متعمَّد</strong> — فعِّله فقط على الأجهزة حيث يكون تشغيل الوكيل عناوين URL عشوائية مُحقَنة عبر prompt injection ضد الشبكة المحلية خطرًا مقبولًا. أما gateways المواجهة للعموم فيجب أن تُبقيه معطَّلًا.</p>
+<p>حماية substring المضيف (التي تحجب حيل نطاقات Unicode المشابهة حتى عندما يكون عنوان IP الأساسي عامًا) تبقى مفعّلة بغضّ النظر عن هذا الإعداد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tirith-pre-exec-security-scanning">فحص أمان Tirith قبل التنفيذ</h3>
+<p>يدمج Hermes <a href="https://github.com/sheeki03/tirith" data-ext>tirith</a> لفحص الأوامر على مستوى المحتوى قبل التنفيذ. يكتشف Tirith تهديدات لا تُدركها مطابقة الأنماط وحدها:</p>
+<ul>
+<li>انتحال روابط URL شبيهة (homograph) (هجمات النطاقات المُدوَّلة)</li>
+<li>أنماط التمرير عبر أنبوب إلى مفسّر (<code>curl | bash</code>، <code>wget | sh</code>)</li>
+<li>هجمات حقن الـ terminal</li>
+</ul>
+<p>يُثبَّت Tirith تلقائيًا من إصدارات GitHub عند أول استخدام مع تحقق من مجموع تحقق SHA-256 (وتحقق من مصدر cosign إذا كان cosign متاحًا).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>عندما يكون <code>tirith_fail_open</code> مضبوطًا على <code>true</code> (الافتراضي)، تستمر الأوامر إذا لم يكن tirith مُثبَّتًا أو انتهت مهلته. اضبطه على <code>false</code> في البيئات عالية الأمان لحجب الأوامر عندما يكون tirith غير متاح.</p>
+<p>يشحن Tirith ثنائيات جاهزة لـ Linux (x86_64 / aarch64) وmacOS (x86_64 / arm64). على المنصات التي لا يتوفر لها ثنائي جاهز (Windows وغيرها)، يُتخطَّى tirith بصمت — وتستمر حماية مطابقة الأنماط في العمل، ولا يُظهر CLI شريط "غير متاح". لاستخدام tirith على Windows، شغّل Hermes تحت WSL.</p>
+<p>يتكامل حكم Tirith مع مسار الموافقة: الأوامر الآمنة تمرّ، بينما الأوامر المشبوهة والمحجوبة على حدّ سواء تُثير موافقة المستخدم مع نتائج tirith كاملة (الخطورة، العنوان، الوصف، البدائل الأكثر أمانًا). يمكن للمستخدمين الموافقة أو الرفض — والخيار الافتراضي هو الرفض للحفاظ على أمان السيناريوهات غير المراقَبة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-file-injection-protection">الحماية من حقن ملفات السياق</h3>
+<p>تُفحَص ملفات السياق (AGENTS.md، .cursorrules، SOUL.md) بحثًا عن حقن الـ prompt قبل إدراجها في system prompt. يتحقق الفاحص من:</p>
+<ul>
+<li>تعليمات لتجاهل/إسقاط التعليمات السابقة</li>
+<li>تعليقات HTML مخفية بكلمات مفتاحية مشبوهة</li>
+<li>محاولات قراءة الأسرار (<code>.env</code>، <code>credentials</code>، <code>.netrc</code>)</li>
+<li>تسريب بيانات الاعتماد عبر <code>curl</code></li>
+<li>أحرف Unicode غير مرئية (مسافات بعرض صفري، تجاوزات ثنائية الاتجاه)</li>
+</ul>
+<p>يتطلب فحص "الترجمة والتنفيذ" عبارة لغة/صيغة قصيرة (على سبيل المثال،
+"ترجم هذا إلى سكربت bash ونفّذه"). ولا يربط بين أفعال الترجمة
+والتنفيذ عبر نثر أدوار غير مترابط مفصول بفواصل. هذه الأنماط
+استدلالية (heuristics)، وليست كشفًا للنية الدلالية.</p>
+<p>الملفات المحجوبة تُظهر تحذيرًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices-for-production-deployment">أفضل الممارسات لنشر الإنتاج</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-deployment-checklist">قائمة تحقق نشر Gateway</h3>
+<ol>
+<li><strong>اضبط قوائم سماح صريحة</strong> — لا تستخدم <code>GATEWAY_ALLOW_ALL_USERS=true</code> أبدًا في الإنتاج</li>
+<li><strong>استخدم backend الحاوية</strong> — اضبط <code>terminal.backend: docker</code> في config.yaml</li>
+<li><strong>قيّد حدود الموارد</strong> — اضبط حدودًا مناسبة للمعالج والذاكرة والقرص</li>
+<li><strong>خزّن الأسرار بأمان</strong> — احتفظ بمفاتيح API في <code>~/.hermes/.env</code> بصلاحيات ملف مناسبة</li>
+<li><strong>فعّل اقتران DM</strong> — استخدم أكواد الاقتران بدلًا من تثبيت معرّفات المستخدمين في الكود عندما يكون ذلك ممكنًا</li>
+<li><strong>راجع قائمة سماح الأوامر</strong> — دقّق دوريًا <code>command_allowlist</code> في config.yaml</li>
+<li><strong>اضبط <code>terminal.cwd</code></strong> — لا تدع الوكيل يعمل من أدلة حساسة</li>
+<li><strong>شغّل بدون root</strong> — لا تشغّل الـ gateway كـ root أبدًا</li>
+<li><strong>راقب السجلات</strong> — تحقق من <code>~/.hermes/logs/</code> بحثًا عن محاولات وصول غير مُصرَّح بها</li>
+<li><strong>حافظ على التحديث</strong> — شغّل <code>hermes update</code> بانتظام للحصول على تصحيحات الأمان</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="securing-api-keys">تأمين مفاتيح API</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="network-isolation">عزل الشبكة</h3>
+<p>للحصول على أقصى قدر من الأمان، شغّل الـ gateway على جهاز أو VM منفصل. اضبط <code>terminal.backend: ssh</code> في <code>config.yaml</code>، ثم زوّد تفاصيل المضيف عبر متغيرات البيئة في <code>~/.hermes/.env</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>تعيش تفاصيل اتصال SSH في <code>.env</code> (وليس <code>config.yaml</code>) حتى لا تُدرَج أو تُشارَك مع تصديرات الـ profile. هذا يبقي اتصالات مراسلة الـ gateway منفصلة عن تنفيذ أوامر الوكيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supply-chain-advisory-checking">فحص إشعارات سلسلة التوريد</h2>
+<p>يأتي Hermes مزوَّدًا بفاحص إشعارات مدمج يُبلغ عن حزم Python في venv النشط التي تطابق كتالوجًا منسَّقًا من الإصدارات المعروف اختراقها (ديدان سلسلة التوريد مثل تسميم <code>mistralai 2.4.6</code> في مايو 2026). التنفيذ موجود في <code>hermes_cli/security_advisories.py</code>.</p>
+<p>كيف يعمل:</p>
+<ul>
+<li><strong>شريط بدء تشغيل CLI.</strong> يُطبَع تحذير من سطر واحد إذا طابق أي إشعار، مع إشارة إلى <code>hermes doctor</code> للحصول على المعالجة الكاملة.</li>
+<li><strong><code>hermes doctor</code>.</strong> يُظهر كل إشعار نشط مع تفاصيل الإصدار وتعليمات معالجة من 2-4 خطوات.</li>
+<li><strong>بدء تشغيل Gateway.</strong> يُسجَّل في <code>gateway.log</code>؛ وتحصل أول رسالة تفاعلية على شريط تنبيه قصير للمشغّل.</li>
+</ul>
+<p>يحمل كل إشعار معرّفًا ثابتًا. بمجرد أن تقرأه وتتخذ إجراءً بشأنه يمكنك رفضه نهائيًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>يُحفَظ الإقرار في <code>config.security.acked_advisories</code> ويبقى بعد إعادة التشغيل. الإشعارات القديمة لا تُزال <strong>عمدًا</strong> من الكتالوج — إبقاؤها يُبقي التثبيتات الجديدة مُنبَّهة بشأن الإصدارات المُسمَّمة تاريخيًا التي قد تظل مخبَّأة في مرآة (mirror) خاصة.</p>
+<p>الفحص نفسه قائم على المكتبة القياسية فقط ويعمل من استعلام <code>importlib.metadata.version()</code> واحد لكل إشعار، لذا فمن الآمن تشغيله عند كل بدء تشغيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lazy-install-of-optional-dependencies">التثبيت الكسول للاعتماديات الاختيارية</h3>
+<p>تعتمد ميزات كثيرة (Mistral TTS، وElevenLabs، وذاكرة Honcho، وBedrock، وSlack، وMatrix، …) على حزم Python لا يحتاجها كل مستخدم. يُثبِّت Hermes هذه الحزم <strong>كسوليًا</strong> عند أول استخدام بدلًا من تثبيتها استباقيًا تحت <code>hermes-agent[all]</code>. التنفيذ موجود في <code>tools/lazy_deps.py</code>.</p>
+<p>المفاضلة التي تحلّها هذه الآلية:</p>
+<ul>
+<li><strong>الهشاشة.</strong> عندما تصبح اعتمادية متعدية لإحدى الإضافات الاختيارية (extra) غير متاحة على PyPI (حُجرت لاحتوائها برمجيات خبيثة، أو سُحبت، أو تعطّل رفعها)، يفشل تحليل <code>[all]</code> بأكمله وتتراجع التثبيتات الجديدة بصمت إلى مستوى مُجرَّد — وتخسر أكثر من 10 إضافات غير مرتبطة دفعة واحدة. التثبيت الكسول يعزل كل backend بحيث لا تستطيع اعتمادية واحدة مُسمَّمة كسر ميزات غير مرتبطة بها.</li>
+<li><strong>التضخم.</strong> المستخدم الذي يتحدث مع مزوّد واحد فقط لن يسحب بعد الآن مئات الحزم التي لن يستوردها أبدًا.</li>
+</ul>
+<p>كيف يعمل:</p>
+<ol>
+<li>تستدعي وحدة backend الدالة <code>ensure(&quot;feature.name&quot;)</code> في أعلى مسار أول استيراد لها.</li>
+<li>إذا كانت الاعتماديات مفقودة، تتحقق <code>ensure</code> من <code>security.allow_lazy_installs</code> في <code>config.yaml</code> (الافتراضي <code>true</code>) وتُشغِّل <code>pip install</code> مُقيَّدًا بنطاق venv للمواصفات المسموح بها.</li>
+<li>إذا فشل التثبيت أو عطّل المستخدم التثبيتات الكسولة، يُطلق الاستدعاء <code>FeatureUnavailable</code> مع stderr الفعلي لـ pip وإشارة إلى <code>hermes tools</code>.</li>
+</ol>
+<p>ضمانات الأمان التي يفرضها <code>tools/lazy_deps.py</code>:</p>
+<table><thead><tr><th>الضمان</th><th>ماذا يعني</th></tr></thead><tbody><tr><td>مُقيَّد بنطاق venv فقط</td><td>التثبيتات تستهدف <code>sys.executable</code> في venv النشط — أبدًا Python الخاص بالنظام</td></tr><tr><td>من PyPI بالاسم فقط</td><td>تقبل المواصفات صيغة <code>&quot;package&gt;=1.0,&lt;2&quot;</code>. لا <code>--index-url</code>، ولا <code>git+https://</code>، ولا مسارات file: — فملف <code>config.yaml</code> خبيث لا يمكنه إعادة توجيه التثبيت</td></tr><tr><td>قائمة سماح</td><td>فقط المواصفات الموجودة في خريطة <code>LAZY_DEPS</code> ضمن الشجرة يمكن تثبيتها عبر هذا المسار. خطأ إملائي في اسم ميزة لا يمنح دلالات "ثبّت أي شيء"</td></tr><tr><td>خيار تعطيل</td><td>اضبط <code>security.allow_lazy_installs: false</code> لتعطيل التثبيتات وقت التشغيل بالكامل. مفيد للشبكات المقيَّدة أو مواقف الأمان الصارمة</td></tr><tr><td>لا إعادة محاولة صامتة</td><td>تظهر الإخفاقات كـ <code>FeatureUnavailable</code> — لا تخزين مؤقت لحالة سيئة، ولا عواصف إعادة محاولة</td></tr></tbody></table>
+<p>لتعطيل التثبيتات وقت التشغيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>عند التعطيل، ستُخبر backends التي تحتاج اعتماديات اختيارية المستخدمَ بتشغيل التثبيت يدويًا (<code>pip install …</code>) أو اختيار backend مختلف عبر <code>hermes tools</code>.</p>

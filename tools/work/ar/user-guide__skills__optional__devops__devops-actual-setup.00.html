@@ -1,0 +1,103 @@
+
+<header><h1>إعداد Actual</h1></header>
+<p>إعداد inference من Actual Computer (actual.inc) في Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/devops/actual-setup</code></td></tr><tr><td>المسار</td><td><code>optional-skills/devops/actual-setup</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>shl0ms + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>actual</code>, <code>actual-inc</code>, <code>provider</code>, <code>local-inference</code>, <code>relay</code>, <code>gguf</code>, <code>setup</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة إعداد Actual Computer</h1>
+<p>تُعِدّ <a href="https://actual.inc" data-ext>actual.inc</a> (Actual Computer) كمزوّد inference لـ
+Hermes. يحوّل Actual عتاد المستخدم الخاص إلى عنقود inference خاص ويعرض
+واجهة برمجية متوافقة مع OpenAI بطريقتين: relay مستضاف ومشفّر من طرف إلى طرف
+على <code>https://api.actual.inc</code> (يُصادَق عليه بمفتاح <code>ac_</code>)، وdaemon محلي على
+الجهاز على <code>http://127.0.0.1:8080</code> (بلا مصادقة على loopback). هذه المهارة
+لا تُثبّت daemon Actual للمستخدم — تفويض الجهاز يتطلب إنسانًا في متصفح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يريد المستخدم إضافة actual.inc كمزوّد inference (relay سحابي أو محلي).</li>
+<li>لدى المستخدم مفتاح <code>ac_</code> ويريد توجيه Hermes عبر عنقود Actual الخاص به.</li>
+<li>يريد المستخدم inference محليًا بالكامل على الجهاز عبر daemon Actual.</li>
+<li>استكشاف الأخطاء: طلبات Actual تفشل بأخطاء 400 غامضة أو تدفقات فارغة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<ul>
+<li>يمتلك Hermes <strong>دعمًا أصيلًا (first-class) لمزوّد <code>actual</code></strong> (معرّف المزوّد <code>actual</code>،
+والأسماء البديلة <code>actual-computer</code>، <code>actualcomputer</code>، <code>aci</code>). لا تُعِدّ Actual
+كإدخال <code>custom_providers</code> / <code>providers.actual.*</code> على Hermes الحالي — فالمزوّد
+المدمج يمتلك الاسم ويتولى تلقائيًا توحيد صيغة عنوان URL الأساسي، ونقل
+Responses، ووضع عدم المصادقة المحلي.</li>
+<li>وضع relay: حساب Actual ومفتاح inference من نوع <code>ac_</code> من
+<a href="https://actual.inc/user/keys" data-ext>https://actual.inc/user/keys</a>.</li>
+<li>الوضع المحلي: ثبّت المستخدم الـ daemon
+(<code>curl -fsSL &quot;https://actual.inc/install&quot; | bash</code>) وأكمل تفويض الجهاز
+بتشغيل <code>actual</code> مرة واحدة وفتح رابط <code>https://actual.inc/device?code=...</code>
+المطبوع في متصفح. مرّر ذلك الرابط للمستخدم وانتظر — لا تختلق بريدًا
+إلكترونيًا أبدًا ولا تفوّض نيابة عنه. تنتهي صلاحية الرموز خلال 5 دقائق؛
+أعد تشغيل <code>actual</code> للحصول على رمز جديد.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">طريقة التشغيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="relay--api-mode">وضع Relay / API</h3>
+<ol>
+<li>ضع المفتاح في <code>.env</code> (الأسرار فقط — أبدًا في config.yaml):
+أضِف <code>ACTUAL_API_KEY=ac_...</code> إلى <code>~/.hermes/.env</code>.</li>
+<li>تحقّق من المفتاح واكتشف النماذج عبر <code>terminal</code>:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li>اختر المزوّد + النموذج:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+</li>
+<li>تحقّق من طرف إلى طرف:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-mode">الوضع المحلي</h3>
+<ol>
+<li>ثبّت الإنسان وفوّض الـ daemon (انظر المتطلبات الأساسية).</li>
+<li>نزّل حمّل نموذجًا (قابل للأتمتة بعد التفويض):
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+</li>
+<li>وجّه Hermes نحو الـ daemon. يحوّل <code>ACTUAL_BASE_URL</code> بمضيف loopback
+المزوّد المدمج تلقائيًا إلى وضع عدم المصادقة المحلي — بلا حاجة إلى مفتاح:
+أضِف <code>ACTUAL_BASE_URL=http://127.0.0.1:8080</code> إلى <code>~/.hermes/.env</code>، ثم:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+</li>
+<li>تحقّق (toolset مخفَّض — انظر مزلق نافذة السياق أدناه):
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>العنصر</th><th>القيمة</th></tr></thead><tbody><tr><td>Relay المستضاف</td><td><code>https://api.actual.inc/v1</code> (يُوحَّد تلقائيًا من المضيف المجرّد)</td></tr><tr><td>Daemon المحلي</td><td><code>http://127.0.0.1:8080/v1</code> (بلا مصادقة على loopback)</td></tr><tr><td>متغير بيئة المفتاح</td><td><code>ACTUAL_API_KEY</code> (<code>ac_...</code>)</td></tr><tr><td>متغير بيئة عنوان URL الأساسي</td><td><code>ACTUAL_BASE_URL</code> (مضيف loopback ⇐ وضع عدم مصادقة محلي)</td></tr><tr><td>معرّف المزوّد / الأسماء البديلة</td><td><code>actual</code> / <code>actual-computer</code>, <code>actualcomputer</code>, <code>aci</code></td></tr><tr><td>النقل</td><td>واجهة Responses API (<code>codex_responses</code>) — مدمجة، لا تتجاوزها</td></tr><tr><td>تثبيت العنقود (pinning)</td><td>ترويسة <code>X-Cluster-ID</code> عبر <code>providers.actual.extra_headers</code> في config.yaml</td></tr><tr><td>دليل حجم النموذج</td><td>0.5B Q4_K_M ~470 ميغابايت (تجريبي)، 7-8B Q4_K_M ~4.5 غيغابايت (للاستخدام اليومي)، 32B ~20 غيغابايت</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ol>
+<li><strong>مزلق reasoning_effort (يعالجه Hermes منذ صار المزوّد أصيلًا).</strong>
+تقبل backends من نوع SGLang/vLLM في Actual فقط <code>none/low/medium/high/max</code>؛
+وكانت <code>xhigh</code>/<code>ultra</code> تفشل سابقًا بخطأ غامض
+<code>Expecting value: line 1 column 1 (char 0)</code> (خطأ HTTP 400 مغلّف). يقيّد
+المزوّد المدمج <code>xhigh→high</code> و<code>ultra→max</code> عند الإرسال. إذا استمر
+الطلب بإرجاع 400 على نسخة Hermes قديمة، اضبط حدًا أقصى لكل نموذج:
+<code>agent.reasoning_overrides.&lt;model&gt;: high</code> في config.yaml.</li>
+<li><strong>فيضان نافذة السياق على النماذج المحلية الصغيرة.</strong> toolset الافتراضي في
+Hermes حوالي 26 ألف token من المخططات مع system prompt حوالي 9 آلاف token.
+النموذج المحمَّل بسياق 32 ألف token يفيض قبل الدور الأول، وخوادم عائلة
+llama.cpp تُصدر <code>data: [DONE]</code> مجرّدة — يُبلّغ Hermes بـ
+<code>Provider returned an empty stream with no finish_reason</code>. هذه ليست
+مشكلة SSE. الحلول: قيّد الأدوات (<code>-t file,web</code>)، أو حمّل النموذج بـ <code>n_ctx</code>
+أكبر، أو اختر نموذجًا بسياق &gt;=64 ألف لدعم toolset الكامل.
+تتبّع upstream: #51448 (لا تفتح مشكلات جديدة؛ أضف الأدلة هناك).
+ذات صلة لكن مختلفة: #65631 (SSE بحالة HTTP-200 يحمل خطأ 400)، #56516
+(تدفقات استدلال فقط).</li>
+<li><strong>معرّفات التنزيل مقابل الأسماء المثبّتة.</strong> يأخذ <code>actual models download</code>
+صيغة <code>repo/QUANT</code> ويعيد خطأ 409 بلا تحديد صريح للتكميم (quantization)؛
+بينما يأخذ <code>actual models load</code> الاسم المثبَّت من <code>actual models list</code>.</li>
+<li><strong>نماذج الاستدلال تُعيد محتوى فارغًا.</strong> تصدر متغيرات استدلال GLM/Qwen
+التفكير في حقل <code>reasoning</code> منفصل ويمكن أن تستهلك <code>max_tokens</code> صغيرة
+بالكامل على الاستدلال. امنح max_tokens سخيّة قبل افتراض الفشل.</li>
+<li><strong>لا تنشئ مزوّدًا مخصصًا باسم <code>actual</code>.</strong> بعض أدلة الإعداد الأقدم (قبل
+الدعم الأصيل) كتبت كتل إعدادات <code>providers.actual.*</code>. على Hermes الحالي،
+يفوز المزوّد المدمج بالاسم؛ وكتل الإعداد المخصصة القديمة تُتجاهَل أو
+تتعارض. احذفها واستخدم مسار متغيرات البيئة + model.provider أعلاه.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>لعملاء آخرين متوافقين مع OpenAI (مثل OpenCode)، راجع
+<code>references/opencode.md</code>.</p>

@@ -1,0 +1,201 @@
+<header><h1>إعداد Google Chat</h1></header>
+<p>اربط Hermes Agent بـ Google Chat كبوت. يعتمد هذا التكامل على اشتراكات السحب (pull subscriptions) في Cloud Pub/Sub لاستقبال الأحداث الواردة، وعلى Chat REST API لإرسال الرسائل الصادرة.
+تجربة الاستخدام مماثلة لـ Slack Socket Mode أو long-polling في Telegram: لا تحتاج عملية Hermes إلى URL عام أو نفق (tunnel) أو شهادة TLS. فهي تتصل وتُصادِق ثم تستمع على اشتراك، تمامًا كما يستمع بوت Telegram على token.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>Google Chat</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>إصدار Workspace</div><div class="admonitionContent_BuS1"><p>Google Chat جزء من Google Workspace. يمكنك استخدام هذا التكامل مع Workspace شخصي (<code>@yourdomain.com</code> مسجَّل عبر Google) أو مع Workspace للعمل تملك فيه صلاحيات المسؤول (Admin) اللازمة لنشر تطبيق. لا يمكن للحسابات التي تقتصر على Gmail استضافة تطبيقات Chat.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<table><thead><tr><th>المكوّن</th><th>القيمة</th></tr></thead><tbody><tr><td><strong>المكتبات</strong></td><td><code>google-cloud-pubsub</code>، <code>google-api-python-client</code>، <code>google-auth</code></td></tr><tr><td><strong>النقل الوارد</strong></td><td>اشتراك سحب في Cloud Pub/Sub (بدون endpoint عام)</td></tr><tr><td><strong>النقل الصادر</strong></td><td>Chat REST API (<code>chat.googleapis.com</code>)</td></tr><tr><td><strong>المصادقة</strong></td><td>ملف JSON لـ Service Account مع الدور <code>roles/pubsub.subscriber</code> على الاشتراك</td></tr><tr><td><strong>تعريف المستخدم</strong></td><td>أسماء موارد Chat (<code>users/{id}</code>) + البريد الإلكتروني</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-or-pick-a-gcp-project">الخطوة 1: أنشئ مشروع GCP أو اختر مشروعًا قائمًا</h2>
+<p>تحتاج إلى مشروع Google Cloud لاستضافة موضوع (topic) Pub/Sub. إن لم يكن لديك مشروع، فأنشئه من
+<a href="https://console.cloud.google.com" data-ext>console.cloud.google.com</a> —
+تحصل الحسابات الشخصية على فئة مجانية (free tier) تغطي حركة البوت بسهولة.</p>
+<p>دوّن معرّف المشروع (مثل <code>my-chat-bot-123</code>)، إذ ستستخدمه في كل الخطوات اللاحقة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-enable-two-apis">الخطوة 2: فعّل واجهتَي API</h2>
+<p>في وحدة التحكم (console)، انتقل إلى <strong>APIs &amp; Services → Library</strong> وفعّل:</p>
+<ul>
+<li><strong>Google Chat API</strong></li>
+<li><strong>Cloud Pub/Sub API</strong></li>
+</ul>
+<p>كلتاهما مجانية ضمن أحجام الاستخدام التي يولّدها بوت شخصي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-create-a-service-account">الخطوة 3: أنشئ Service Account</h2>
+<p><strong>IAM &amp; Admin → Service Accounts → Create Service Account.</strong></p>
+<ul>
+<li>الاسم: <code>hermes-chat-bot</code></li>
+<li>تخطَّ خطوة &quot;Grant this service account access to project&quot;. كل ما تحتاجه هو صلاحيات IAM على الاشتراك المحدد — <strong>لا</strong> تمنح أدوار Pub/Sub على مستوى المشروع.</li>
+</ul>
+<p>بعد الإنشاء، افتح الـ SA، وانتقل إلى <strong>Keys → Add Key → Create new key → JSON</strong> ثم نزّل الملف. احفظه في مكان لا يستطيع قراءته إلا Hermes (مثل
+<code>~/.hermes/google-chat-sa.json</code> مع <code>chmod 600</code>).</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>لا يوجد دور باسم &quot;Chat Bot Caller&quot;</div><div class="admonitionContent_BuS1"><p>من الأخطاء الشائعة البحث عن دور IAM خاص بـ Chat ومنحه على مستوى المشروع. هذا الدور غير موجود أصلًا. تأتي صلاحية بوت Chat من تثبيته في مساحة (space)، لا من IAM. كل ما يحتاجه الـ SA هو دور مشترك Pub/Sub على الاشتراك الذي ستنشئه في الخطوة التالية.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-create-the-pubsub-topic-and-subscription">الخطوة 4: أنشئ موضوع Pub/Sub والاشتراك</h2>
+<p><strong>Pub/Sub → Topics → Create topic.</strong></p>
+<ul>
+<li>Topic ID: <code>hermes-chat-events</code></li>
+<li>اترك بقية الإعدادات على قيمها الافتراضية.</li>
+</ul>
+<p>بعد الإنشاء، تحتوي صفحة تفاصيل الموضوع على تبويب <strong>Subscriptions</strong>. أنشئ اشتراكًا:</p>
+<ul>
+<li>Subscription ID: <code>hermes-chat-events-sub</code></li>
+<li>Delivery type: <strong>Pull</strong></li>
+<li>Message retention: <strong>7 days</strong> (كي تبقى الرسائل المتراكمة بعد إعادة تشغيل hermes)</li>
+<li>اترك الباقي على الافتراضي.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-iam-binding-on-the-topic-critical">الخطوة 5: ربط IAM على الموضوع (خطوة حاسمة)</h2>
+<p>على <strong>الموضوع</strong> (وليس الاشتراك)، أضف IAM principal:</p>
+<ul>
+<li>Principal: <code>chat-api-push@system.gserviceaccount.com</code></li>
+<li>Role: <code>Pub/Sub Publisher</code></li>
+</ul>
+<p>بدون هذه الخطوة، لن يتمكن Google Chat من نشر الأحداث إلى موضوعك، ولن يستقبل البوت أي شيء على الإطلاق.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-iam-binding-on-the-subscription">الخطوة 6: ربط IAM على الاشتراك</h2>
+<p>على <strong>الاشتراك</strong>، أضف Service Account الخاص بك بوصفه principal:</p>
+<ul>
+<li>Principal: <code>hermes-chat-bot@&lt;your-project&gt;.iam.gserviceaccount.com</code></li>
+<li>Role: <code>Pub/Sub Subscriber</code></li>
+</ul>
+<p>امنحه كذلك الدور <code>Pub/Sub Viewer</code> على الاشتراك نفسه — إذ يستدعي Hermes
+<code>subscription.get()</code> عند بدء التشغيل للتحقق من إمكانية الوصول.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-configure-the-chat-app">الخطوة 7: اضبط تطبيق Chat</h2>
+<p>انتقل إلى <strong>APIs &amp; Services → Google Chat API → Configuration</strong>.</p>
+<ul>
+<li><strong>App name</strong>: أي اسم تريد أن يراه المستخدمون (&quot;Hermes&quot; خيار معقول).</li>
+<li><strong>Avatar URL</strong>: أي صورة PNG عامة (توفّر Google بعض الصور الافتراضية).</li>
+<li><strong>Description</strong>: جملة قصيرة تظهر في دليل التطبيقات.</li>
+<li><strong>Functionality</strong>: فعّل <strong>Receive 1:1 messages</strong> و <strong>Join spaces and group
+conversations</strong>.</li>
+<li><strong>Connection settings</strong>: اختر <strong>Cloud Pub/Sub</strong>، وأدخل اسم الموضوع
+<code>projects/&lt;your-project&gt;/topics/hermes-chat-events</code>.</li>
+<li><strong>Visibility</strong>: اقصر الظهور على مساحة العمل الخاصة بك (أو على مستخدمين محددين) — لا تنشره للجميع أثناء الاختبار.</li>
+</ul>
+<p>احفظ.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8-install-the-bot-in-a-test-space">الخطوة 8: ثبّت البوت في مساحة اختبار</h2>
+<p>افتح Google Chat في المتصفح. ابدأ محادثة مباشرة (DM) مع تطبيقك بالبحث عن اسمه من قائمة <strong>+ New Chat</strong>. عند مراسلته أول مرة، ترسل Google حدث
+<code>ADDED_TO_SPACE</code> يستخدمه Hermes لتخزين معرّف البوت نفسه <code>users/{id}</code> مؤقتًا بغرض تصفية الرسائل الذاتية.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-9-configure-hermes">الخطوة 9: اضبط Hermes</h2>
+<p>أضف قسم Google Chat إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يعود معرّف المشروع احتياطيًا إلى <code>GOOGLE_CLOUD_PROJECT</code>، ويعود مسار الـ SA احتياطيًا إلى <code>GOOGLE_APPLICATION_CREDENTIALS</code> — استخدم الاصطلاح الذي تفضّله.</p>
+<p>ضمن <a href="/docs/user-guide/multi-profile-gateways">gateway متعدد الـ profiles</a>، يُقرأ كل إعداد
+<code>GOOGLE_CHAT_*</code> من ملف <code>.env</code> الخاص بالـ profile الذي وُجِّهت إليه الرسالة؛ ولا يرث أي profile ثانوي مشروع الـ profile الافتراضي أو اشتراكه أو Service Account الخاص به. إذا لم يكن لدى profile ما SA مضبوط بينما تحمل بيئة العملية SA يخص profile آخر، يرفض المحوِّل (adapter) الرجوع احتياطيًا إلى Application Default Credentials (لأن ذلك سيؤدي إلى المصادقة بهوية ذلك الـ profile الآخر)، ويسجّل بدلًا من ذلك خطأً صريحًا — ضع
+<code>GOOGLE_CHAT_SERVICE_ACCOUNT_JSON</code> في ملف <code>.env</code> الخاص بذلك الـ profile.</p>
+<p>ثبّت اعتماديات محوِّل Google Chat عبر المُثبّت (installer) المُعتمَد له، إذ يطبّق الحدود الدنيا نفسها للإصدارات الآمنة المثبّتة التي تستخدمها فحوصات وقت التشغيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>شغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُفترض أن ترى سطر سجل مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>أرسل &quot;hola&quot; في المحادثة المباشرة التجريبية. ينشر البوت مؤشر &quot;Hermes is thinking…&quot;، ثم يحرّر الرسالة نفسها في مكانها ليضع الرد الفعلي — دون أي آثار من نوع &quot;message deleted&quot;.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="customizing-the-working-state-marker">تخصيص مؤشر حالة العمل</h3>
+<p>يمكن ضبط نص المؤشر عبر <code>typing_status_text</code> في
+<code>~/.hermes/config.yaml</code> — مثلًا لمساعدة على هيئة قطة صغيرة اسمها Ada:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>على عكس سطر الحالة المؤقت في Slack، فهذه <strong>رسالة منشورة حقيقية</strong> تُحرَّر في مكانها لتحمل الرد — لذا فأي نص تضبطه هنا يظهر لفترة وجيزة في المحادثة كرسالة عادية. اضبط <code>typing_indicator: false</code> لتعطيل المؤشر كليًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="formatting-and-capabilities">التنسيق والإمكانات</h2>
+<p>يعرض Google Chat مجموعة فرعية محدودة من markdown:</p>
+<table><thead><tr><th>مدعوم</th><th>غير مدعوم</th></tr></thead><tbody><tr><td><code>*bold*</code>، <code>_italic_</code>، <code>~strike~</code>، <code>`code`</code></td><td>العناوين، القوائم</td></tr><tr><td>الصور المضمّنة عبر URL</td><td>أزرار Card v2 التفاعلية (في الإصدار v1 من هذا الـ gateway)</td></tr><tr><td>المرفقات الأصلية للملفات (بعد <code>/setup-files</code> — راجع الخطوة 10)</td><td>الملاحظات الصوتية الأصلية / ملاحظات الفيديو الدائرية</td></tr></tbody></table>
+<p>يتضمن system prompt الخاص بالوكيل تلميحًا مخصصًا لـ Google Chat كي يعرف هذه القيود ويتجنب التنسيقات التي لن تُعرض.</p>
+<p>حد حجم الرسالة: 4000 حرف لكل رسالة. تُقسَّم ردود الوكيل الأطول تلقائيًا على عدة رسائل.</p>
+<p>دعم سلاسل الرسائل (threads): عندما يرد مستخدم داخل سلسلة، يكتشف Hermes قيمة
+<code>thread.name</code> وينشر رده في السلسلة نفسها، فتحصل كل سلسلة على جلسة Hermes مستقلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clarify-questions-as-interactive-cards">أسئلة التوضيح كبطاقات تفاعلية</h3>
+<p>عندما يطرح الوكيل سؤال توضيح (clarify) متعدد الخيارات، يعرضه المحوِّل على هيئة <strong>Card v2</strong> أصلية فيها زر لكل خيار، إضافة إلى زر
+<strong>&quot;Other / type answer&quot;</strong>، بدلًا من قائمة نصية مرقّمة عادية.
+يؤدي النقر على زر إلى الإجابة عن السؤال مباشرة (إذ توجّه أحداث <code>CARD_CLICKED</code> الخيار عائدةً إلى الجلسة المنتظرة). إذا فشل إرسال البطاقة، أو لم يكن للسؤال خيارات ثابتة، يرجع المحوِّل احتياطيًا إلى سؤال التوضيح النصي المعتاد. لا حاجة إلى أي إعداد.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-10-native-attachment-delivery-optional">الخطوة 10: تسليم المرفقات الأصلية (اختياري)</h2>
+<p>افتراضيًا، يستطيع البوت نشر النصوص والصور المضمّنة عبر URL وبطاقات تنزيل للصوت والفيديو والمستندات. ولتسليم مرفقات Chat <strong>أصلية</strong> — أي عنصر الملف نفسه الذي تحصل عليه عندما يسحب شخص ملفًا ويُفلته — يفوّض كل مستخدم البوت مرة واحدة عبر تدفق OAuth خاص بكل مستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-a-separate-flow">لماذا تدفق منفصل</h3>
+<p>يرفض endpoint ‏<code>media.upload</code> في Google Chat رفضًا قاطعًا المصادقة عبر Service Account:</p>
+<blockquote>
+<p>This method doesn&#x27;t support app authentication with a service account.
+Authenticate with a user account.</p>
+</blockquote>
+<p>لا يوجد دور IAM أو نطاق (scope) يحل هذه المشكلة، فهذا الـ endpoint لا يقبل إلا بيانات اعتماد المستخدم. لذا يجب أن يتصرف البوت <em>بصفته مستخدمًا</em> كلما رفع ملفًا —
+وتحديدًا بصفة المستخدم الذي طلب الملف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-time-setup-per-profile">إعداد لمرة واحدة (لكل profile)</h3>
+<ol>
+<li>انتقل إلى <strong>APIs &amp; Services → Credentials</strong> في مشروع GCP نفسه.</li>
+<li><strong>Create credentials → OAuth client ID → Desktop app</strong>.</li>
+<li>نزّل ملف JSON، ثم انقله إلى المضيف الذي يشغّل Hermes.</li>
+<li>سجّل العميل لدى Hermes (نفّذ الأمر ضمن الـ profile الذي تريد حصر العميل فيه):</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يكتب ذلك سرّ العميل (client secret) في مجلد Hermes الرئيسي للـ profile النشط (مثل
+<code>~/.hermes/google_chat_user_client_secret.json</code> للـ profile الافتراضي). سرّ العميل <strong>محصور في الـ profile ولا يُشارَك بين الـ profiles</strong> — إذ يسجّل كل profile سرّه الخاص. وهذا مقصود: فالـ profiles حدود مصادقة معزولة، لذا يمكن لـ profile‏ين أن يشيرا إلى تطبيقات أو حسابات Google OAuth مختلفة. سجّله مرة واحدة لكل profile يحتاج إلى تسليم مرفقات Google Chat.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-user-authorization-in-chat">التفويض لكل مستخدم (داخل المحادثة)</h3>
+<p>ينفّذ كل مستخدم هذا التدفق مرة واحدة، في محادثته المباشرة مع البوت:</p>
+<ol>
+<li>يرسل <code>/setup-files</code> إلى البوت، فيرد بالحالة والخطوة التالية.</li>
+<li>يرسل <code>/setup-files start</code>، فيرد البوت بـ URL خاص بـ OAuth.</li>
+<li>يفتح الـ URL وينقر <strong>Allow</strong>، ثم يرى المتصفح يفشل في تحميل
+<code>http://localhost:1/?...&amp;code=...</code>. هذا الفشل متوقع — فرمز المصادقة موجود في شريط العنوان.</li>
+<li>ينسخ الـ URL الذي فشل تحميله (أو قيمة <code>code=...</code> فقط) ويلصقه في المحادثة بصيغة <code>/setup-files &lt;PASTED_URL&gt;</code>. يستبدله البوت بـ refresh token.</li>
+</ol>
+<p>يُحفَظ الـ token في <code>~/.hermes/google_chat_user_tokens/&lt;sanitized_email&gt;.json</code>.
+تستخدم طلبات الملفات اللاحقة في المحادثة المباشرة لذلك المستخدم الـ token <em>الخاص به</em>، فيرفع البوت الملفات بهويته وتصل الرسالة إلى مساحته.</p>
+<p>للإلغاء لاحقًا: يحذف <code>/setup-files revoke</code> الـ token الخاص بذلك المستخدم فقط، ولا تتأثر tokens المستخدمين الآخرين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scope">النطاق (Scope)</h3>
+<p>يطلب التدفق نطاقًا واحدًا فقط: <code>chat.messages.create</code>. وهو يغطي كلًّا من
+<code>media.upload</code> واستدعاء <code>messages.create</code> الذي يشير إلى
+<code>attachmentDataRef</code> المرفوع. لا Drive، ولا نطاقات Chat أوسع — فمبدأ أقل الصلاحيات مقصود هنا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-user-behavior">السلوك مع تعدد المستخدمين</h3>
+<p>عندما لا يكون لدى صاحب الطلب token خاص به بعد، يرجع البوت احتياطيًا إلى token قديم لمستخدم واحد في <code>~/.hermes/google_chat_user_token.json</code> (إن كان موجودًا من تثبيت سابق لدعم تعدد المستخدمين). وعندما لا يتوفر أيٌّ منهما، ينشر البوت إشعارًا نصيًا واضحًا يطلب من صاحب الطلب تنفيذ <code>/setup-files</code>.</p>
+<p>إلغاء مستخدم للتفويض لا يمسح إلا خانته. واستجابة 401/403 من token مستخدم ما لا تُخرج من التخزين المؤقت إلا بيانات ذلك المستخدم. لا يؤثر المستخدمون بعضهم على بعض.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>يبقى البوت صامتًا بعد إرسال &quot;hola.&quot;</strong></p>
+<ol>
+<li>تحقّق في وحدة التحكم مما إذا كان اشتراك Pub/Sub يحتوي على رسائل غير مُسلَّمة.
+إن وُجدت، فهذا يعني أن Hermes غير مُصادَق — تحقّق من <code>GOOGLE_CHAT_SERVICE_ACCOUNT_JSON</code>
+ومن أن الـ SA مُدرَج بدور <code>Pub/Sub Subscriber</code> على الاشتراك.</li>
+<li>إذا لم يكن في الاشتراك أي رسائل، فإن Google Chat لا ينشر الأحداث.
+تحقّق مجددًا من ربط IAM على <strong>الموضوع</strong>:
+يجب أن يمتلك <code>chat-api-push@system.gserviceaccount.com</code> الدور <code>Pub/Sub Publisher</code>.</li>
+<li>ابحث في سجلات <code>hermes gateway</code> عن <code>[GoogleChat] Connected</code>. إذا رأيت
+<code>[GoogleChat] Config validation failed</code>، فرسالة الخطأ تخبرك بمتغير البيئة الذي يجب إصلاحه.</li>
+</ol>
+<p><strong>يرد البوت، لكن تظهر رسالة خطأ بدلًا من إجابة الوكيل.</strong></p>
+<p>ابحث في السجلات عن <code>[GoogleChat] Pub/Sub stream died</code> — إذا تكررت، فربما جرى تدوير بيانات اعتماد الـ SA أو حُذف الاشتراك. بعد 10 محاولات يعلن المحوِّل حالته خطأً فادحًا (fatal).</p>
+<p><strong>ظهور &quot;403 Forbidden&quot; مع كل رسالة صادرة.</strong></p>
+<p>أُزيل البوت من المساحة، أو ألغيته من وحدة تحكم Chat API.
+أعد تثبيته في المساحة (سيعيد حدث <code>ADDED_TO_SPACE</code> التالي تفعيل المراسلة تلقائيًا).</p>
+<p><strong>كثرة تحذيرات &quot;Rate limit hit&quot;.</strong></p>
+<p>تسمح الحصص الافتراضية لـ Chat API بـ 60 رسالة لكل مساحة في الدقيقة. إذا كان وكيلك يُنتج ردودًا متدفقة طويلة تتجاوز ذلك، يعيد المحوِّل المحاولة مع تراجع أُسّي (exponential backoff) — لكنك ستظل ترى تأخيرًا ملحوظًا للمستخدم. فكّر في ردود موجزة أو في رفع الحصة من وحدة تحكم GCP.</p>
+<p><strong>يواصل البوت نشر إشعار &quot;/setup-files&quot; بدلًا من الملفات.</strong></p>
+<p>لا يملك صاحب الطلب token ‏OAuth خاصًا به، ولا يوجد token قديم احتياطي. نفّذ
+<code>/setup-files</code> في محادثته المباشرة واتبع الخطوة 10. بعد اكتمال الاستبدال، سيُرفع طلب الملف التالي بشكل أصلي دون الحاجة إلى إعادة تشغيل الـ gateway.</p>
+<p><strong>يعرض <code>/setup-files start</code> الرسالة &quot;No client credentials stored.&quot;</strong></p>
+<p>لم يُنفَّذ الإعداد لمرة واحدة <em>لهذا الـ profile</em> (سرّ العميل محصور في الـ profile، لذا فالتسجيل تحت profile لن يراه profile آخر).
+من الطرفية، نفّذه ضمن الـ profile الذي يستخدمه الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ثم أرسل <code>/setup-files start</code> مرة أخرى.</p>
+<p><strong>يعرض <code>/setup-files &lt;PASTED_URL&gt;</code> الرسالة &quot;Token exchange failed.&quot;</strong></p>
+<p>رمز المصادقة صالح للاستخدام مرة واحدة وقصير العمر (عادةً بضع دقائق). أرسل
+<code>/setup-files start</code> للحصول على URL جديد وأعد المحاولة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-notes">ملاحظات أمنية</h2>
+<ul>
+<li><strong>نطاق Service Account</strong>: يطلب المحوِّل النطاقين <code>chat.bot</code> و <code>pubsub</code>.
+ينبغي أن يكون IAM هو أداة الإنفاذ الفعلية — امنح الـ SA الحد الأدنى
+(<code>roles/pubsub.subscriber</code> + <code>roles/pubsub.viewer</code> على الاشتراك)، لا أدوار Pub/Sub على مستوى المشروع أو المؤسسة.</li>
+<li><strong>حماية تنزيل المرفقات</strong>: لن يُرفق Hermes الـ bearer token الخاص بالـ SA إلا بعناوين URL يطابق مضيفها قائمة سماح (allowlist) قصيرة من النطاقات المملوكة لـ Google
+(<code>googleapis.com</code>، <code>drive.google.com</code>، <code>lh[3-6].googleusercontent.com</code>، وبعض النطاقات الأخرى). يُرفَض أي مضيف آخر قبل إرسال طلب HTTP، للحماية من سيناريوهات SSRF التي قد يعيد فيها حدث مُصمَّم بخبث توجيه الـ bearer token إلى خدمة البيانات الوصفية (metadata service) في GCE.</li>
+<li><strong>التنقيح (Redaction)</strong>: تُزال عناوين البريد الإلكتروني لـ Service Account ومسارات الاشتراكات ومسارات المواضيع من مخرجات السجل بواسطة <code>agent/redact.py</code>. ويمر تفريغ الأظرف لأغراض التصحيح
+(<code>GOOGLE_CHAT_DEBUG_RAW=1</code>) عبر مرشح التنقيح نفسه ويُسجَّل بمستوى DEBUG.</li>
+<li><strong>الامتثال</strong>: إذا كنت تخطط لربط هذا البوت بمساحة عمل خاضعة للتنظيم (أي مساحة لها سياسة لإقامة البيانات أو لحوكمة الذكاء الاصطناعي)، فاحصل على تلك الموافقة قبل التثبيت الأول.</li>
+<li><strong>نطاق OAuth للمستخدم</strong>: يطلب تدفق المرفقات لكل مستخدم <em>فقط</em>
+<code>chat.messages.create</code> — وهو الحد الأدنى الذي يغطي <code>media.upload</code> إضافة إلى استدعاء
+<code>messages.create</code> اللاحق. تُحفَظ الـ tokens بصيغة JSON نصية عادية في
+<code>~/.hermes/google_chat_user_tokens/&lt;sanitized_email&gt;.json</code> (صلاحيات نظام الملفات هي وسيلة الحماية — النموذج نفسه المتبع مع ملف مفتاح الـ SA). كل token يملكه مستخدم واحد بالضبط، والإلغاء محصور في ذلك المستخدم.</li>
+</ul>

@@ -1,0 +1,55 @@
+<header><h1>مراجع السياق (Context References)</h1></header>
+<p>اكتب <code>@</code> متبوعًا بمرجع لحقن المحتوى مباشرةً في رسالتك. يوسّع Hermes المرجع ضمن النص ويُلحق المحتوى تحت قسم <code>--- Attached Context ---</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-references">المراجع المدعومة</h2>
+<table><thead><tr><th>الصيغة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>@file:path/to/file.py</code></td><td>حقن محتويات الملف</td></tr><tr><td><code>@file:path/to/file.py:10-25</code></td><td>حقن نطاق أسطر محدد (يبدأ الترقيم من 1، ويشمل الطرفين)</td></tr><tr><td><code>@folder:path/to/dir</code></td><td>حقن شجرة محتويات المجلد مع البيانات الوصفية للملفات</td></tr><tr><td><code>@diff</code></td><td>حقن <code>git diff</code> (تغييرات شجرة العمل غير المُجهّزة للـ commit)</td></tr><tr><td><code>@staged</code></td><td>حقن <code>git diff --staged</code> (التغييرات المُجهّزة للـ commit)</td></tr><tr><td><code>@git:5</code></td><td>حقن آخر N من الـ commits مع الـ patches الخاصة بها (بحد أقصى 10)</td></tr><tr><td><code>@url:https://example.com</code></td><td>جلب محتوى صفحة الويب وحقنه</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage-examples">أمثلة على الاستخدام</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يمكنك استخدام عدة مراجع في رسالة واحدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تُزال علامات الترقيم اللاحقة (<code>,</code> و <code>.</code> و <code>;</code> و <code>!</code> و <code>?</code>) تلقائيًا من قيم المراجع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-tab-completion">الإكمال بمفتاح Tab في CLI</h2>
+<p>في واجهة CLI التفاعلية، تؤدي كتابة <code>@</code> إلى تشغيل الإكمال التلقائي:</p>
+<ul>
+<li>يعرض <code>@</code> جميع أنواع المراجع (<code>@diff</code> و <code>@staged</code> و <code>@file:</code> و <code>@folder:</code> و <code>@git:</code> و <code>@url:</code>)</li>
+<li>يُشغّل <code>@file:</code> و <code>@folder:</code> إكمال مسارات نظام الملفات مع بيانات وصفية عن حجم الملفات</li>
+<li>يعرض <code>@</code> المجرّد المتبوع بنص جزئي الملفات والمجلدات المطابقة من المجلد الحالي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="line-ranges">نطاقات الأسطر</h2>
+<p>يدعم المرجع <code>@file:</code> نطاقات الأسطر لحقن المحتوى بدقة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يبدأ ترقيم الأسطر من 1. تُتجاهل النطاقات غير الصالحة بصمت (ويُعاد الملف كاملًا).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-limits">حدود الحجم</h2>
+<p>تخضع مراجع السياق لحدود تمنعها من إغراق context window الخاصة بالنموذج:</p>
+<table><thead><tr><th>العتبة</th><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td>الحد المرن (Soft limit)</td><td>25% من طول السياق</td><td>يُلحق تحذير، ويستمر التوسيع</td></tr><tr><td>الحد الصارم (Hard limit)</td><td>50% من طول السياق</td><td>يُرفض التوسيع، وتُعاد الرسالة الأصلية دون تغيير</td></tr><tr><td>عناصر المجلد</td><td>200 ملف كحد أقصى</td><td>تُستبدل العناصر الزائدة بـ <code>- ...</code></td></tr><tr><td>Git commits</td><td>10 كحد أقصى</td><td>تُحصر قيمة <code>@git:N</code> ضمن النطاق [1, 10]</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sensitive-path-blocking">حظر المسارات الحساسة</h3>
+<p>تُحظر هذه المسارات دائمًا في مراجع <code>@file:</code> لمنع كشف بيانات الاعتماد:</p>
+<ul>
+<li>مفاتيح SSH وإعداداته: <code>~/.ssh/id_rsa</code>، <code>~/.ssh/id_ed25519</code>، <code>~/.ssh/authorized_keys</code>، <code>~/.ssh/config</code></li>
+<li>ملفات تهيئة الـ shell: <code>~/.bashrc</code>، <code>~/.zshrc</code>، <code>~/.profile</code>، <code>~/.bash_profile</code>، <code>~/.zprofile</code></li>
+<li>ملفات بيانات الاعتماد: <code>~/.netrc</code>، <code>~/.pgpass</code>، <code>~/.npmrc</code>، <code>~/.pypirc</code></li>
+<li>ملف env الخاص بـ Hermes: <code>$HERMES_HOME/.env</code></li>
+</ul>
+<p>تُحظر هذه المجلدات بالكامل (أي ملف بداخلها):</p>
+<ul>
+<li><code>~/.ssh/</code>، <code>~/.aws/</code>، <code>~/.gnupg/</code>، <code>~/.kube/</code>، <code>$HERMES_HOME/skills/.hub/</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-traversal-protection">الحماية من اجتياز المسارات (Path Traversal)</h3>
+<p>تُحَل جميع المسارات نسبةً إلى مجلد العمل. وتُرفض المراجع التي تُحَل إلى موقع خارج جذر مساحة العمل المسموح بها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="binary-file-detection">اكتشاف الملفات الثنائية</h3>
+<p>تُكتشف الملفات الثنائية عبر نوع MIME وفحص البايتات الصفرية (null bytes). أما الامتدادات النصية المعروفة (<code>.py</code> و <code>.md</code> و <code>.json</code> و <code>.yaml</code> و <code>.toml</code> و <code>.js</code> و <code>.ts</code> وغيرها) فتتجاوز الاكتشاف القائم على MIME. وتُرفض الملفات الثنائية مع إصدار تحذير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-availability">التوفر على المنصات</h2>
+<p>مراجع السياق هي في الأساس <strong>ميزة خاصة بـ CLI</strong>. فهي تعمل في واجهة CLI التفاعلية حيث يُشغّل <code>@</code> الإكمال بمفتاح Tab، وتُوسَّع المراجع قبل إرسال الرسالة إلى الوكيل.</p>
+<p>في <strong>منصات المراسلة</strong> (Telegram و Discord وغيرهما)، لا يوسّع الـ gateway صيغة <code>@</code> — إذ تُمرَّر الرسائل كما هي. ومع ذلك يظل بإمكان الوكيل نفسه الإشارة إلى الملفات عبر الأدوات <code>read_file</code> و <code>search_files</code> و <code>web_extract</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interaction-with-context-compression">التفاعل مع ضغط السياق</h2>
+<p>عند ضغط سياق المحادثة، يُضمَّن محتوى المراجع الموسّعة في ملخّص الضغط. وهذا يعني أن:</p>
+<ul>
+<li>محتويات الملفات الكبيرة المحقونة عبر <code>@file:</code> تُسهم في استهلاك السياق</li>
+<li>إذا ضُغطت المحادثة لاحقًا، يُلخَّص محتوى الملف (ولا يُحتفظ به حرفيًا)</li>
+<li>بالنسبة إلى الملفات الكبيرة جدًا، فكّر في استخدام نطاقات الأسطر (<code>@file:main.py:100-200</code>) لحقن الأقسام ذات الصلة فقط</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-handling">معالجة الأخطاء</h2>
+<p>تُنتج المراجع غير الصالحة تحذيرات ضمن النص بدلًا من إفشال العملية:</p>
+<table><thead><tr><th>الحالة</th><th>السلوك</th></tr></thead><tbody><tr><td>الملف غير موجود</td><td>تحذير: &quot;file not found&quot;</td></tr><tr><td>ملف ثنائي</td><td>تحذير: &quot;binary files are not supported&quot;</td></tr><tr><td>المجلد غير موجود</td><td>تحذير: &quot;folder not found&quot;</td></tr><tr><td>فشل أمر git</td><td>تحذير يتضمن مخرجات stderr الخاصة بـ git</td></tr><tr><td>عنوان URL لا يُعيد أي محتوى</td><td>تحذير: &quot;no content extracted&quot;</td></tr><tr><td>مسار حساس</td><td>تحذير: &quot;path is a sensitive credential file&quot;</td></tr><tr><td>مسار خارج مساحة العمل</td><td>تحذير: &quot;path is outside the allowed workspace&quot;</td></tr></tbody></table>

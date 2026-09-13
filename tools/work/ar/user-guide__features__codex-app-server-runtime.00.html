@@ -1,0 +1,177 @@
+<header><h1>بيئة تشغيل Codex App-Server</h1></header>
+<p>يمكن لـ Hermes اختياريًا تسليم أدوار <code>openai/*</code> و <code>openai-codex/*</code> إلى <a href="https://github.com/openai/codex" data-ext>Codex CLI app-server</a> بدلًا من تشغيل حلقة الأدوات الخاصة به. عند التفعيل، تُنفَّذ أوامر الطرفية وتعديلات الملفات والـ sandboxing واستدعاءات أدوات MCP جميعها داخل بيئة تشغيل Codex — ويصبح Hermes الغلاف المحيط بها (قاعدة بيانات الجلسات، و slash commands، والـ gateway، ومراجعة الذاكرة والمهارات).</p>
+<p>هذه الميزة <strong>اختيارية بالكامل (opt-in)</strong>. يبقى سلوك Hermes الافتراضي دون تغيير ما لم تفعّل الخيار. ولا يوجّهك Hermes تلقائيًا أبدًا إلى بيئة التشغيل هذه.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لا تستخدم OpenAI Codex؟ يضبط الأمر <code>hermes setup --portal</code> backend غير تابع لـ Codex مع Claude/Gemini وغيرها في خطوة واحدة. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why">لماذا؟</h2>
+<ul>
+<li>شغّل أدوار وكيل OpenAI على <strong>اشتراك ChatGPT</strong> الخاص بك (دون الحاجة إلى مفتاح API) باستخدام مسار المصادقة نفسه الذي يستخدمه Codex CLI.</li>
+<li>استخدم <strong>toolset و sandbox الخاصين بـ Codex</strong> — <code>shell</code> للطرفية/القراءة/الكتابة/البحث، و <code>apply_patch</code> للتعديلات المنظّمة، و <code>update_plan</code> للتخطيط، وكلها تعمل داخل sandboxing من نوع seatbelt/landlock.</li>
+<li><strong>إضافات Codex الأصلية (Native Codex plugins)</strong> — مثل Linear و GitHub و Gmail و Calendar و Canva وغيرها — المثبّتة عبر <code>codex plugin</code> تُرحَّل تلقائيًا وتكون نشطة في جلسة Hermes.</li>
+<li><strong>أدوات Hermes الأغنى تأتي معها</strong> — تعمل web_search و web_extract وأتمتة المتصفح والرؤية (vision) وتوليد الصور والمهارات و TTS عبر MCP callback. إذ يعود Codex إلى Hermes لاستدعاء الأدوات غير المدمجة فيه.</li>
+<li><strong>تستمر تنبيهات الذاكرة والمهارات (nudges) في العمل</strong> — تُسقَط أحداث Codex على بنية رسائل Hermes، فترى حلقة التحسين الذاتي سجل محادثة يبدو عاديًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-tools-the-model-actually-has">الأدوات المتاحة فعليًا للنموذج</h2>
+<p>هذا هو الجزء الذي يريد معظم المستخدمين معرفته مسبقًا. عند تفعيل بيئة التشغيل هذه، يكون لدى النموذج الذي يشغّل دورك ثلاثة مصادر مستقلة للأدوات:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-codexs-built-in-toolset-always-on">1. الـ toolset المدمج في Codex (مفعّل دائمًا)</h3>
+<p>تأتي هذه الأدوات مع <code>codex app-server</code> نفسه — دون تدخل من Hermes، ودون MCP، ودون إضافات. والأدوات الخمس كلها متاحة لحظة بدء بيئة التشغيل:</p>
+<ul>
+<li><strong><code>shell</code></strong> — تشغّل أي أوامر shell داخل الـ sandbox. وبها يقرأ النموذج الملفات (<code>cat</code>، <code>head</code>، <code>tail</code>)، ويكتبها (<code>echo &gt; foo</code>، و heredocs)، ويبحث فيها (<code>find</code>، <code>rg</code>، <code>grep</code>)، ويتنقل بين الأدلة (<code>ls</code>، <code>cd</code>)، ويشغّل عمليات البناء، ويدير العمليات، وأي شيء آخر قد تفعله في bash.</li>
+<li><strong><code>apply_patch</code></strong> — تطبّق diff منظّمًا متعدد الملفات بصيغة patch الخاصة بـ Codex. يستخدمها النموذج لتعديلات الكود غير البسيطة (مثل إضافة دالة، أو إعادة الهيكلة عبر عدة ملفات)؛ ولا تزال heredocs في الـ shell متاحة لعمليات الكتابة لمرة واحدة.</li>
+<li><strong><code>update_plan</code></strong> — متتبّع المهام / الخطط الداخلي في codex. وهو مكافئ لأداة <code>todo</code> في Hermes، لكنه يُدار بالكامل داخل بيئة تشغيل codex.</li>
+<li><strong><code>view_image</code></strong> — تحمّل ملف صورة محليًا إلى المحادثة كي يتمكن النموذج من رؤيته.</li>
+<li><strong><code>web_search</code></strong> — لدى codex بحث ويب مدمج خاص به عند إعداده. كما يتيح Hermes أيضًا <code>web_search</code> (المعتمد على Firecrawl) عبر الـ callback الموضح أدناه؛ ويختار النموذج أيهما يفضّل.</li>
+</ul>
+<p>لذا فإن <strong>كل ما قد تفعله عبر الطرفية — القراءة/الكتابة/البحث/الإيجاد/التشغيل — يفعله codex بشكل أصلي</strong>. ويتحكم profile الـ sandbox (وهو <code>:workspace</code> افتراضيًا عند تفعيل بيئة التشغيل) فيما يمكن الكتابة إليه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-native-codex-plugins-auto-migrated-from-your-codex-plugin-install">2. إضافات Codex الأصلية (تُرحَّل تلقائيًا من تثبيت <code>codex plugin</code> لديك)</h3>
+<p>عند تفعيل بيئة التشغيل، يستعلم Hermes عبر <code>plugin/list</code> RPC الخاص بـ codex، ويكتب مدخلًا <code>[plugins.&quot;&lt;name&gt;@openai-curated&quot;]</code> لكل إضافة ثبّتها. أما الإضافات نفسها فيديرها codex، ويُصرَّح لها مرة واحدة عبر واجهة codex الخاصة.</p>
+<p>أمثلة (تلك التي أبرزها نقاش OpenClaw على أنها &quot;تستحق فيديو على YouTube&quot;):</p>
+<ul>
+<li><strong>Linear</strong> — إيجاد issues وتحديثها</li>
+<li><strong>GitHub</strong> — البحث في الكود، وعرض PRs، والتعليق</li>
+<li><strong>Gmail</strong> — قراءة البريد وإرساله</li>
+<li><strong>Google Calendar</strong> — إنشاء الأحداث وإيجادها</li>
+<li><strong>Outlook calendar/email</strong> — البنية نفسها عبر موصّل Microsoft</li>
+<li><strong>Canva</strong> — توليد التصاميم</li>
+<li>...وأي شيء آخر ثبّتته عبر <code>codex plugin marketplace add openai-curated</code> + <code>codex plugin install ...</code></li>
+</ul>
+<p>ما لا يُرحَّل:</p>
+<ul>
+<li>الإضافات التي لم تثبّتها بعد — ثبّتها في Codex أولًا.</li>
+<li>مدخلات متجر تطبيقات ChatGPT (<code>app/list</code>) — فهي مفعّلة مسبقًا داخل codex بحكم مصادقة حسابك.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-hermes-tool-callback-mcp-server-registered-in-codexconfigtoml">3. الـ tool callback الخاص بـ Hermes (خادم MCP مسجّل في <code>~/.codex/config.toml</code>)</h3>
+<p>يسجّل Hermes نفسه كخادم MCP كي يتمكن codex من استدعائه للأدوات التي لا تأتي مع codex. المتاح عبر الـ callback:</p>
+<ul>
+<li><strong><code>web_search</code></strong> / <strong><code>web_extract</code></strong> — معتمدتان على Firecrawl؛ وتميلان إلى تقديم نتائج أنظف من الـ scraping للمحتوى المنظّم.</li>
+<li><strong><code>browser_navigate</code> / <code>browser_click</code> / <code>browser_type</code> / <code>browser_press</code> / <code>browser_snapshot</code> / <code>browser_scroll</code> / <code>browser_back</code> / <code>browser_get_images</code> / <code>browser_console</code> / <code>browser_vision</code></strong> — أتمتة كاملة للمتصفح عبر Camofox أو Browserbase.</li>
+<li><strong><code>vision_analyze</code></strong> — تستدعي نموذج رؤية منفصلًا لفحص صورة (وهي تختلف عن <code>view_image</code> في codex التي تحمّل الصورة إلى المحادثة).</li>
+<li><strong><code>image_generate</code></strong> — توليد الصور عبر سلسلة إضافات image_gen في Hermes.</li>
+<li><strong><code>skill_view</code> / <code>skills_list</code></strong> — القراءة من مكتبة مهارات Hermes.</li>
+<li><strong><code>text_to_speech</code></strong> — TTS عبر المزوّد المضبوط في Hermes.</li>
+</ul>
+<p>عندما يريد النموذج إحدى هذه الأدوات، يُنشئ codex العملية الفرعية <code>hermes_tools_mcp_server</code> عبر stdio MCP، ويُوزَّع الاستدعاء عبر <code>model_tools.handle_function_call()</code> (مسار الكود نفسه في بيئة تشغيل Hermes الافتراضية)، وتُعاد النتيجة إلى codex مثل أي استجابة MCP أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-not-available-on-this-runtime">ما لا يتوفر في بيئة التشغيل هذه</h3>
+<p>تتطلب أدوات Hermes الأربع التالية سياق AIAgent قيد التشغيل (حالة منتصف الحلقة) كي تُوزَّع، ولا يستطيع MCP callback عديم الحالة تشغيلها. عُد إلى بيئة التشغيل الافتراضية (<code>/codex-runtime auto</code>) عندما تحتاج إلى أي منها:</p>
+<ul>
+<li><strong><code>delegate_task</code></strong> — إنشاء subagents</li>
+<li><strong><code>memory</code></strong> — مخزن الذاكرة الدائمة في Hermes</li>
+<li><strong><code>session_search</code></strong> — البحث عبر الجلسات</li>
+<li><strong><code>todo</code></strong> — مخزن المهام في Hermes (والأداة <code>update_plan</code> في codex هي المكافئ داخل بيئة التشغيل)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-features-goal-kanban-cron">ميزات سير العمل (<code>/goal</code>، و kanban، و cron)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="goal-the-ralph-loop"><code>/goal</code> (حلقة Ralph)</h3>
+<p><strong>يعمل في بيئة التشغيل هذه.</strong> تُحفظ الأهداف في <code>state_meta</code> مفهرسةً بمعرّف الجلسة، ويُعاد prompt المتابعة كرسالة مستخدم عادية عبر <code>run_conversation()</code>، وينفّذ codex الدور التالي بشكل أصلي. ويعمل حَكَم الأهداف (goal judge) عبر العميل المساعد (المضبوط عبر <code>auxiliary.goal_judge</code> في config.yaml)، بمعزل عن بيئة التشغيل النشطة. ويُعد حكم الحَكَم &quot;blocked, needs user input&quot; مخرجًا نظيفًا إذا تعثّر codex عند الموافقات.</p>
+<p><strong>أمر يجب الانتباه إليه:</strong> كل prompt متابعة هو دور جديد في codex، ما يعني أن codex يعيد تقييم سياسة الموافقة على الأوامر من الصفر. إذا كنت تنفّذ هدفًا طويل الأمد بكثير من عمليات الكتابة، فتوقّع طلبات موافقة أكثر مما قد تراه في مهمة واحدة داخل الجلسة. اضبط <code>default_permissions = &quot;:workspace&quot;</code> (وهو ما يفعله Hermes تلقائيًا عند تفعيل بيئة التشغيل) كي لا تتطلب عمليات الكتابة البسيطة في مساحة العمل طلب موافقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="kanban-multi-agent-worktree-dispatch">Kanban (توزيع worktree متعدد الوكلاء)</h3>
+<p><strong>يعمل في بيئة التشغيل هذه، مع اعتمادية دقيقة واحدة.</strong> يُنشئ مُوزِّع kanban كل عامل كعملية فرعية منفصلة <code>hermes chat -q</code> تقرأ إعدادات المستخدم — ما يعني أنه إذا ضُبط <code>model.openai_runtime: codex_app_server</code> على المستوى العام، فإن العمّال أيضًا سيعملون على بيئة تشغيل codex.</p>
+<p>ما يعمل داخل عامل يستخدم بيئة تشغيل codex:</p>
+<ul>
+<li>الـ toolset الكامل في Codex (shell و apply_patch و update_plan و view_image و web_search) — ينفّذ العامل عمله الفعلي على المهمة بشكل أصلي</li>
+<li>إضافات codex المُرحَّلة — Linear و GitHub وغيرها</li>
+<li>الـ tool callback الخاص بـ Hermes لأدوات browser_* والرؤية و image_gen والمهارات و TTS</li>
+</ul>
+<p>وما يعمل أيضًا لأن MCP callback يتيحه:</p>
+<ul>
+<li><strong><code>kanban_complete</code> / <code>kanban_block</code> / <code>kanban_comment</code> / <code>kanban_heartbeat</code></strong> — أدوات التسليم (handoff) الخاصة بالعامل. تقرأ هذه الأدوات <code>HERMES_KANBAN_TASK</code> من البيئة (يضبطه المُوزِّع)، وتتحكم في الوصول بشكل صحيح، وتكتب إلى قاعدة بيانات SQLite الخاصة بكل لوحة والمثبّتة عبر <code>HERMES_KANBAN_DB</code>. ولولا وجودها في الـ callback، لتمكّن العامل في بيئة التشغيل هذه من أداء مهمته دون أن يستطيع الإبلاغ عنها، فيبقى معلّقًا حتى انتهاء مهلة المُوزِّع.</li>
+<li><strong><code>kanban_show</code> / <code>kanban_list</code></strong> — استعلامات على اللوحة للقراءة فقط كي يتحقق العامل من سياقه الخاص.</li>
+<li><strong><code>kanban_create</code> / <code>kanban_unblock</code> / <code>kanban_link</code></strong> — عمليات خاصة بالمنسّق (orchestrator) فقط. متاحة لوكلاء المنسّق العاملين على بيئة تشغيل codex الذين يحتاجون إلى توزيع مهام جديدة.</li>
+</ul>
+<p>تُقيَّد أدوات kanban بمتغير البيئة <code>HERMES_KANBAN_TASK</code> الذي يضبطه المُوزِّع — ويُمرَّر هذا المتغير إلى العملية الفرعية لـ codex (إذ يرث codex البيئة) ومنها إلى العملية الفرعية لخادم MCP المسمى <code>hermes-tools</code> التي يُنشئها. لذا ترى الأدوات معرّف المهمة الصحيح وتتحكم في الوصول بشكل صحيح. ولعمّال Codex app-server، يمرّر Hermes أيضًا تجاوزات sandbox ضيقة إلى app-server عند وجود <code>HERMES_KANBAN_TASK</code>: الإبقاء على sandboxing من نوع <code>workspace-write</code>، وإضافة <strong>دليل قاعدة بيانات اللوحة إضافة إلى كل مسار Kanban ثبّته المُوزِّع</strong> كجذور إضافية قابلة للكتابة (<code>HERMES_KANBAN_WORKSPACES_ROOT</code>، و <code>HERMES_KANBAN_WORKSPACE</code>، و <code>HERMES_KANBAN_ROOT</code> القديم — مع إزالة التكرار، ودليل قاعدة البيانات أولًا)، وإبقاء الشبكة معطّلة افتراضيًا. يتجنب هذا الحلَّ البديل الهش <code>:danger-no-sandbox</code>، مع السماح لـ <code>kanban_complete</code> / <code>kanban_block</code> بتحديث قاعدة بيانات اللوحة <strong>و</strong> السماح للعمّال بكتابة التقارير/الملفات الناتجة تحت نقاط تركيب مساحات العمل الموجودة خارج دليل قاعدة البيانات (مثل <code>/media/.../kanban-workspaces/...</code> على قرص منفصل — <a href="https://github.com/NousResearch/hermes-agent/issues/27941" data-ext>issue #27941</a>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-jobs">مهام Cron</h3>
+<p><strong>لم يُختبر تحديدًا.</strong> تعمل مهام cron عبر <code>cronjob</code> → <code>AIAgent.run_conversation</code>، وهو مسار الكود نفسه في CLI. إذا كانت إعدادات مهمة cron تحتوي على <code>openai_runtime: codex_app_server</code> فستعمل على codex. وتنطبق قواعد توفر الأدوات نفسها — تعمل أدوات codex المدمجة + الإضافات + MCP callback، بينما لا تعمل أدوات حلقة الوكيل (delegate_task و memory و session_search و todo). إذا كانت مهمة cron لديك تعتمد على تلك الأدوات، فاجعل نطاقها profile يستخدم بيئة التشغيل الافتراضية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trade-offs">المفاضلات</h2>
+<table><thead><tr><th></th><th>بيئة تشغيل Hermes الافتراضية</th><th>Codex app-server (اختياري)</th></tr></thead><tbody><tr><td>subagents عبر <code>delegate_task</code></td><td>نعم</td><td>غير متاح — يحتاج إلى سياق حلقة الوكيل</td></tr><tr><td><code>memory</code>، <code>session_search</code>، <code>todo</code></td><td>نعم</td><td>غير متاح — يحتاج إلى سياق حلقة الوكيل</td></tr><tr><td><code>web_search</code>، <code>web_extract</code></td><td>نعم</td><td>نعم (عبر MCP callback)</td></tr><tr><td>أتمتة المتصفح (Camofox/Browserbase)</td><td>نعم</td><td>نعم (عبر MCP callback)</td></tr><tr><td><code>vision_analyze</code>، <code>image_generate</code></td><td>نعم</td><td>نعم (عبر MCP callback)</td></tr><tr><td><code>skill_view</code>، <code>skills_list</code></td><td>نعم</td><td>نعم (عبر MCP callback)</td></tr><tr><td><code>text_to_speech</code></td><td>نعم</td><td>نعم (عبر MCP callback)</td></tr><tr><td><code>shell</code> في Codex (الطرفية/القراءة/الكتابة/البحث/الإيجاد/التشغيل)</td><td>—</td><td>نعم (مدمج في Codex)</td></tr><tr><td><code>apply_patch</code> في Codex (تعديلات منظّمة متعددة الملفات)</td><td>—</td><td>نعم (مدمج في Codex)</td></tr><tr><td><code>update_plan</code> في Codex (قائمة مهام داخل بيئة التشغيل)</td><td>—</td><td>نعم (مدمج في Codex)</td></tr><tr><td><code>view_image</code> في Codex (تحميل صورة إلى المحادثة)</td><td>—</td><td>نعم (مدمج في Codex)</td></tr><tr><td>sandbox في Codex (seatbelt/landlock، و profiles)</td><td>—</td><td>نعم (مدمج في Codex)</td></tr><tr><td>المصادقة عبر اشتراك ChatGPT</td><td>—</td><td>نعم (عبر المزوّد <code>openai-codex</code>)</td></tr><tr><td>إضافات Codex الأصلية (Linear و GitHub وغيرها)</td><td>—</td><td>نعم (تُرحَّل تلقائيًا)</td></tr><tr><td>خوادم MCP الخاصة بالمستخدم</td><td>نعم</td><td>نعم (تُرحَّل تلقائيًا إلى codex)</td></tr><tr><td>مراجعة الذاكرة + المهارات (في الخلفية)</td><td>نعم</td><td>نعم (عبر إسقاط العناصر)</td></tr><tr><td>المحادثات متعددة الأدوار</td><td>نعم</td><td>نعم</td></tr><tr><td><code>/goal</code> (حلقة Ralph)</td><td>نعم</td><td>نعم</td></tr><tr><td>توزيع عمّال Kanban</td><td>نعم</td><td>نعم (عبر الـ callback)</td></tr><tr><td>أدوات منسّق Kanban</td><td>نعم</td><td>نعم (عبر الـ callback)</td></tr><tr><td>جميع منصات الـ gateway</td><td>نعم</td><td>نعم</td></tr><tr><td>المزوّدون من غير OpenAI</td><td>نعم</td><td>لا ينطبق — مقتصر على OpenAI/Codex</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="live-display">العرض الحي</h3>
+<p>رغم أن حلقة الوكيل تعمل داخل العملية الفرعية لـ Codex، فإن بيئة التشغيل تربط تدفق أحداث Codex بمسار العرض نفسه الذي تستخدمه بيئة التشغيل الافتراضية:</p>
+<ul>
+<li>تظهر الأجزاء الحية المتدفقة (deltas) من رد المساعد، والاستدلال (بما في ذلك أجزاء الملخص)، وأحداث بدء الأدوات واكتمالها ذات المعرّفات الثابتة في TUI وتطبيق سطح المكتب و messaging gateways أثناء تنفيذ الدور. ويبقى مُسقِط السجل الخاص بأحداث الاكتمال فقط منفصلًا، لذا فإن الجلسة المستأنفة تعيد بناء بطاقات الأدوات نفسها التي عُرضت أثناء الدور.</li>
+<li>يبقى تعليق الـ gateway مرئيًا عند تعطيل بث الـ token، وتُمرَّر أحداث الأدوات الحية حتى للإشعارات المُستهلكة قبل طلب الموافقة. ويلتزم التعليق بالإعداد <code>display.show_commentary</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ol>
+<li>
+<p><strong>تثبيت Codex CLI:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li>
+<p><strong>تسجيل الدخول إلى Codex عبر OAuth.</strong> تقرأ العملية الفرعية لـ codex الملف <code>~/.codex/auth.json</code>. هناك طريقتان لملئه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>الأمر <code>hermes auth add openai-codex</code> الخاص بـ Hermes يكتب إلى <code>~/.hermes/auth.json</code> — وتلك جلسة منفصلة. <strong>نفّذ <code>codex login</code> بشكل منفصل</strong> إذا لم تكن قد فعلت ذلك.</p>
+</li>
+<li>
+<p><strong>(اختياري) ثبّت إضافات Codex التي تريدها.</strong> عند تفعيل بيئة التشغيل، يرحّل Hermes تلقائيًا أي إضافات منتقاة (curated) ثبّتها مسبقًا عبر Codex CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>سيكتشفها Hermes ويكتب مدخلات <code>[plugins.&quot;&lt;name&gt;@openai-curated&quot;]</code> إلى <code>~/.codex/config.toml</code> تلقائيًا.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling">التفعيل</h2>
+<p>داخل جلسة Hermes:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>هذا الأمر:</p>
+<ul>
+<li>يتحقق من تثبيت <code>codex</code> CLI (ويتوقف مع تلميح للتثبيت إن لم يكن مثبّتًا).</li>
+<li>يحفظ <code>model.openai_runtime: codex_app_server</code> في ملف config.yaml لديك.</li>
+<li>يرحّل خوادم MCP الخاصة بالمستخدم من <code>~/.hermes/config.yaml</code> إلى <code>~/.codex/config.toml</code>.</li>
+<li><strong>يكتشف إضافات Codex الأصلية المثبّتة ويرحّلها</strong> (Linear و GitHub و Gmail و Calendar و Canva وغيرها) عبر الاستعلام من <code>plugin/list</code> RPC الخاص بـ Codex.</li>
+<li><strong>يسجّل أدوات Hermes الخاصة كخادم MCP</strong> كي تتمكن العملية الفرعية لـ codex من استدعائه للأدوات التي لا تأتي مع codex.</li>
+<li><strong>يكتب <code>default_permissions = &quot;:workspace&quot;</code></strong> كي يسمح الـ sandbox بالكتابة داخل مساحة العمل دون طلب موافقة لكل عملية.</li>
+<li>يخبرك بما رُحِّل. ويسري التغيير في الجلسة <strong>التالية</strong> — إذ يحتفظ الوكيل المخزّن مؤقتًا حاليًا ببيئة التشغيل السابقة كي تبقى ذاكرات الـ prompt المؤقتة (prompt caches) صالحة.</li>
+</ul>
+<p>مرادفات: <code>/codex-runtime on</code>، <code>/codex-runtime off</code>، <code>/codex-runtime auto</code>.</p>
+<p>للتحقق من الحالة الحالية دون تغيير أي شيء:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يمكنك أيضًا ضبطه يدويًا في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-improvement-loop-memory--skill-nudges">حلقة التحسين الذاتي (تنبيهات الذاكرة + المهارات)</h2>
+<p>تنطلق عملية التحسين الذاتي في خلفية Hermes عند بلوغ عتبات العدّادات:</p>
+<ul>
+<li>كل 10 prompts من المستخدم → يفحص وكيل مراجعة متفرّع (forked) المحادثة ويقرر ما إذا كان ينبغي حفظ أي شيء في الذاكرة.</li>
+<li>كل 10 تكرارات للأدوات ضمن دور واحد → الفكرة نفسها لكن للمهارات (عمليات الكتابة عبر <code>skill_manage</code>).</li>
+</ul>
+<p><strong>يستمر كلاهما في العمل على بيئة تشغيل codex.</strong> يُسقط مسار codex كل عنصر مكتمل من نوع <code>commandExecution</code> / <code>fileChange</code> / <code>mcpToolCall</code> / <code>dynamicToolCall</code> إلى رسالة اصطناعية <code>assistant tool_call</code> + نتيجة <code>tool</code>، بحيث ترى المراجعة عند تشغيلها البنية نفسها التي تراها في بيئة تشغيل Hermes الافتراضية.</p>
+<p>كيف يبقى الربط متكافئًا:</p>
+<table><thead><tr><th></th><th>بيئة التشغيل الافتراضية</th><th>بيئة تشغيل Codex</th></tr></thead><tbody><tr><td>زيادة <code>_turns_since_memory</code></td><td>لكل prompt من المستخدم، في مرحلة ما قبل الحلقة داخل run_conversation</td><td>مسار الكود نفسه، قبل الإرجاع المبكر</td></tr><tr><td>زيادة <code>_iters_since_skill</code></td><td>لكل تكرار أداة في حلقة chat-completions</td><td>بمقدار <code>turn.tool_iterations</code> بعد عودة دور codex</td></tr><tr><td>مُشغِّل الذاكرة (<code>_turns_since_memory &gt;= _memory_nudge_interval</code>)</td><td>يُحسب قبل الحلقة، وينطلق بعد الرد</td><td>يُحسب قبل الحلقة، ويُمرَّر إلى الدالة المساعدة لـ codex</td></tr><tr><td>مُشغِّل المهارات (<code>_iters_since_skill &gt;= _skill_nudge_interval</code>)</td><td>يُحسب بعد الحلقة</td><td>يُحسب بعد دور codex</td></tr><tr><td><code>_spawn_background_review(messages_snapshot=..., review_memory=..., review_skills=...)</code></td><td>يُستدعى عند انطلاق أي من المُشغِّلين</td><td>يُستدعى بالطريقة نفسها عند انطلاق أي من المُشغِّلين</td></tr></tbody></table>
+<p>تفصيل واحد: يحتاج فرع المراجعة نفسه إلى استدعاء أدوات حلقة الوكيل في Hermes (<code>memory</code>، <code>skill_manage</code>)، والتي تتطلب آلية التوزيع الخاصة بـ Hermes. لذا عندما يكون الوكيل الأب على <code>codex_app_server</code>، فإن فرع المراجعة <strong>يُخفَّض إلى <code>codex_responses</code></strong> — بيانات اعتماد OAuth نفسها، والمزوّد <code>openai-codex</code> نفسه، لكنه يتواصل مع Responses API من OpenAI مباشرة كي يمتلك Hermes الحلقة وتعمل أدوات حلقة الوكيل. وهذا غير مرئي للمستخدم.</p>
+<p>النتيجة الصافية: فعّل بيئة تشغيل codex وستستمر تنبيهات الذاكرة + المهارات في الانطلاق تمامًا كما كانت ستفعل بدونها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-approvals-work">كيف تعمل الموافقات</h2>
+<p>يطلب Codex الموافقة قبل تنفيذ الأوامر أو تطبيق الـ patches. وتُحوَّل هذه الطلبات إلى طلب &quot;Dangerous Command&quot; القياسي في Hermes:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<ul>
+<li><strong>Allow once</strong> → الموافقة على هذا الأمر فقط.</li>
+<li><strong>Allow for this session</strong> → لن يطلب Codex الموافقة مجددًا للأوامر المشابهة.</li>
+<li><strong>Deny</strong> → يُرفض الأمر؛ ويستمر Codex في وضع القراءة فقط.</li>
+</ul>
+<p>بالنسبة لموافقات <code>apply_patch</code> (تعديل الملفات)، يعرض Hermes ملخصًا لما تغيّر (<code>1 add, 1 update: /tmp/new.py, /tmp/old.py</code>) عندما يوفّر codex البيانات عبر عنصر <code>fileChange</code> المقابل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-profiles">ملفات تعريف الصلاحيات (Permission profiles)</h2>
+<p>لدى Codex ثلاثة profiles صلاحيات مدمجة:</p>
+<ul>
+<li><code>:read-only</code> — لا كتابة؛ وكل أمر shell يتطلب موافقة</li>
+<li><code>:workspace</code> — يُسمح بالكتابة داخل مساحة العمل الحالية دون طلب موافقة (الافتراضي في Hermes عند تفعيل بيئة التشغيل)</li>
+<li><code>:danger-no-sandbox</code> — بلا sandbox على الإطلاق (لا تستخدمه إلا إذا كنت تفهم عواقبه)</li>
+</ul>
+<p>يمكنك تجاوز القيمة الافتراضية في <code>~/.codex/config.toml</code> خارج الكتلة التي يديرها Hermes:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>(سيحافظ Hermes على تجاوزك عند إعادة الترحيل ما دام موجودًا خارج العلامتين <code># managed by hermes-agent</code>.)</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-tasks-and-chatgpt-subscription-token-cost">المهام المساعدة وتكلفة الـ token في اشتراك ChatGPT</h2>
+<p>عند تفعيل بيئة التشغيل هذه مع المزوّد <code>openai-codex</code>، <strong>تمر المهام المساعدة (توليد العناوين، وضغط السياق، والاكتشاف التلقائي للرؤية، وفرع مراجعة التحسين الذاتي في الخلفية) أيضًا عبر اشتراك ChatGPT الخاص بك افتراضيًا</strong>، لأن العميل المساعد في Hermes يستخدم المزوّد/النموذج الرئيسي عند عدم ضبط تجاوز خاص بكل مهمة.</p>
+<p>هذا ليس خاصًا بـ <code>codex_app_server</code> — فهو ينطبق على المسار الحالي <code>codex_responses</code> أيضًا — لكنه أوضح هنا لأنك تختار صراحةً الفوترة عبر الاشتراك.</p>
+<p>لتوجيه مهام مساعدة محددة إلى نموذج أرخص / مختلف، اضبط تجاوزات صريحة في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يرث فرع مراجعة التحسين الذاتي بيئة التشغيل الرئيسية عبر <code>_current_main_runtime()</code>، ويخفّضه Hermes من <code>codex_app_server</code> إلى <code>codex_responses</code> تلقائيًا (كي يتمكن الفرع فعلًا من استدعاء <code>memory</code> و <code>skill_manage</code> — وهما من أدوات حلقة الوكيل الخاصة بـ Hermes). ولا يزال ذلك الفرع يستخدم مصادقة اشتراكك ما لم تكن قد وجّهت المهام المساعدة إلى مكان آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-codexconfigtoml-safely">تعديل <code>~/.codex/config.toml</code> بأمان</h2>
+<p>يغلّف Hermes كل ما يديره بين تعليقَين يعملان كعلامتين:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>كل ما يقع <strong>خارج</strong> تلك الكتلة ملك لك. تستبدل إعادة تشغيل الترحيل (عبر <code>/codex-runtime codex_app_server</code> أو كلما فعّلت بيئة التشغيل) الكتلة المُدارة في مكانها، لكنها تحافظ حرفيًا على محتوى المستخدم الموجود فوقها وتحتها. هذا يعني أنه يمكنك:</p>
+<ul>
+<li>إضافة خوادم MCP خاصة بك لا يعرفها Hermes</li>
+<li>تجاوز <code>default_permissions</code> إلى <code>:read-only</code> إذا كنت تفضّل أن تُطلب منك الموافقة</li>
+<li>ضبط خيارات خاصة بـ codex فقط (النموذج، والمزوّدين، و otel، وغيرها)</li>
+<li>إضافة profiles صلاحيات يعرّفها المستخدم في جداول <code>[permissions.&lt;name&gt;]</code></li>
+</ul>
+<p>أي شيء تضيفه <strong>داخل</strong> الكتلة المُدارة سيُستبدل عند الترحيل التالي. إذا احتجت إلى تعديل يتطلب تحرير الكتلة المُدارة، فافتح issue وسنضيف خيار الضبط المناسب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-profile--multi-tenant-setups">إعدادات متعددة الـ profiles / متعددة المستأجرين (multi-tenant)</h2>
+<p>افتراضيًا، يوجّه Hermes العملية الفرعية لـ codex إلى <code>~/.codex/</code> بغض النظر عن الـ profile النشط في Hermes. هذا يعني أن <code>hermes -p work</code> و <code>hermes -p personal</code> يتشاركان مصادقة Codex وإضافاته وإعداداته نفسها. وبالنسبة لمعظم المستخدمين، هذا هو السلوك الصحيح — فهو يطابق ما يحدث عند تشغيل <code>codex</code> CLI مباشرة.</p>
+<p>إذا أردت عزل Codex لكل profile (مصادقة منفصلة، وإضافات مثبّتة منفصلة، وإعدادات منفصلة)، فاضبط <code>CODEX_HOME</code> صراحةً لكل profile. وأنظف طريقة هي توجيهه إلى دليل تحت <code>HERMES_HOME</code> الخاص بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>ستحتاج إلى إعادة تنفيذ <code>codex login</code> مرة واحدة مع ضبط <code>CODEX_HOME</code> ذاك كي تُحفظ OAuth tokens في الموقع الخاص بالـ profile. بعد ذلك، سيعمل <code>hermes -p work</code> على حالة Codex معزولة.</p>
+<p>لا نحدد هذا النطاق تلقائيًا لأن نقل <code>~/.codex/</code> الخاص بمستخدم حالي سيُبطل بصمت مصادقة Codex CLI لديه — فأي شخص نفّذ <code>codex login</code> مسبقًا سيضطر إلى إعادة المصادقة. ويبدو التفعيل الاختياري (opt-in) أكثر أمانًا من مفاجأة المستخدمين.</p>

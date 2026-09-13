@@ -1,0 +1,75 @@
+
+<header><h1>Blogwatcher</h1></header>
+<p>راقب المدونات وخلاصات RSS/Atom عبر أداة blogwatcher-cli.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/research/blogwatcher</code></td></tr><tr><td>المسار</td><td><code>optional-skills/research/blogwatcher</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>JulienTant (فرع من Hyaxia/blogwatcher)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>RSS</code>, <code>Blogs</code>, <code>Feed-Reader</code>, <code>Monitoring</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Blogwatcher</h1>
+<p>تتبّع تحديثات المدونات وخلاصات RSS/Atom باستخدام أداة <code>blogwatcher-cli</code>. تدعم الأداة الاكتشاف التلقائي للخلاصات، والرجوع إلى استخراج HTML عند الحاجة (scraping fallback)، واستيراد OPML، وإدارة حالة المقالات المقروءة/غير المقروءة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-with-hermes-tools-read-this-first">العمل مع أدوات Hermes (اقرأ هذا أولًا)</h2>
+<p><code>blogwatcher-cli</code> هي قاعدة بيانات الخلاصات؛ أدوات Hermes تتكفّل بالأتمتة حولها:</p>
+<ul>
+<li><strong>المراقبة المتكررة — استخدم حقل <code>monitor</code> في أداة cronjob، لا جدولًا مجردًا.</strong> يشغّل <code>monitor</code> سكربتًا في كل دورة ولا يوقظ الوكيل إلا عند تغيّر المخرجات: اضبطه على سكربت يشغّل <code>blogwatcher-cli scan &gt;/dev/null 2&gt;&amp;1 &amp;&amp; blogwatcher-cli articles</code> (مخرجات حتمية؛ ظهور مقالات جديدة = تغيّر المخرجات = يستيقظ الوكيل مع حقن الفرق (diff)). الدورات التي لا تغيّر فيها المخرجات لا تكلّف أي استدعاء LLM. اضبط <code>deliver</code> لتوجيه الملخصات إلى محادثة/قناة؛ أضف <code>continuity: true</code> ليتسنى للملخصات المتتالية إزالة التكرار.</li>
+<li><strong>قراءة مقال يسأل عنه المستخدم</strong>: استخدم <code>web_extract([url])</code> على رابط المقال من <code>blogwatcher-cli articles</code> — لا تُعِد استخراج المحتوى يدويًا.</li>
+<li><strong>طلب لمرة واحدة لـ"مراقبة هذه الصفحة عند تغيّرها" بدون دلالات الخلاصات</strong>: تجاوز هذه المهارة؛ حقل <code>monitor</code> في أداة cronjob يقبل رابط http(s) مباشرةً.</li>
+<li><strong>قراءة لمرة واحدة لخلاصة أو أحدث منشورات موقع، دون الحاجة للتثبيت</strong>: استخدم مهارة <code>rss-feeds</code> المضمّنة (<code>scripts/feed.py read URL</code>)؛ تستحق blogwatcher التثبيت عندما تتبّع خلاصات كثيرة بحالة مقروء/غير مقروء.</li>
+<li><strong>تتبّع الشركات/المنافسين مع تحليل واستشهادات</strong>: يُفضَّل استخدام مهارة <code>competitor-news-monitor</code>؛ وتُعد blogwatcher الطبقة الأخف للخلاصات الخام التي يمكن أن تعتمد عليها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<p>اختر إحدى الطرق:</p>
+<ul>
+<li><strong>Go:</strong> <code>go install github.com/JulienTant/blogwatcher-cli/cmd/blogwatcher-cli@latest</code></li>
+<li><strong>Docker:</strong> <code>docker run --rm -v blogwatcher-cli:/data ghcr.io/julientant/blogwatcher-cli</code></li>
+<li><strong>ملف تنفيذي (Linux amd64):</strong> <code>curl -sL https://github.com/JulienTant/blogwatcher-cli/releases/latest/download/blogwatcher-cli_linux_amd64.tar.gz | tar xz -C /usr/local/bin blogwatcher-cli</code></li>
+<li><strong>ملف تنفيذي (Linux arm64):</strong> <code>curl -sL https://github.com/JulienTant/blogwatcher-cli/releases/latest/download/blogwatcher-cli_linux_arm64.tar.gz | tar xz -C /usr/local/bin blogwatcher-cli</code></li>
+<li><strong>ملف تنفيذي (macOS Apple Silicon):</strong> <code>curl -sL https://github.com/JulienTant/blogwatcher-cli/releases/latest/download/blogwatcher-cli_darwin_arm64.tar.gz | tar xz -C /usr/local/bin blogwatcher-cli</code></li>
+<li><strong>ملف تنفيذي (macOS Intel):</strong> <code>curl -sL https://github.com/JulienTant/blogwatcher-cli/releases/latest/download/blogwatcher-cli_darwin_amd64.tar.gz | tar xz -C /usr/local/bin blogwatcher-cli</code></li>
+</ul>
+<p>جميع الإصدارات: <a href="https://github.com/JulienTant/blogwatcher-cli/releases" data-ext>https://github.com/JulienTant/blogwatcher-cli/releases</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-with-persistent-storage">Docker مع تخزين دائم</h3>
+<p>افتراضيًا تقيم قاعدة البيانات في <code>~/.blogwatcher-cli/blogwatcher-cli.db</code>. وفي Docker يُفقد هذا الملف عند إعادة تشغيل الحاوية. استخدم <code>BLOGWATCHER_DB</code> أو تركيب volume للحفاظ عليه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="migrating-from-the-original-blogwatcher">الانتقال من blogwatcher الأصلية</h3>
+<p>عند الترقية من <code>Hyaxia/blogwatcher</code>، انقل قاعدة بياناتك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تغيّر اسم الملف التنفيذي من <code>blogwatcher</code> إلى <code>blogwatcher-cli</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-commands">الأوامر الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-blogs">إدارة المدونات</h3>
+<ul>
+<li>إضافة مدونة: <code>blogwatcher-cli add &quot;My Blog&quot; https://example.com</code></li>
+<li>إضافة مع تحديد الخلاصة صراحةً: <code>blogwatcher-cli add &quot;My Blog&quot; https://example.com --feed-url https://example.com/feed.xml</code></li>
+<li>إضافة مع استخراج HTML: <code>blogwatcher-cli add &quot;My Blog&quot; https://example.com --scrape-selector &quot;article h2 a&quot;</code></li>
+<li>عرض قائمة المدونات المتتبَّعة: <code>blogwatcher-cli blogs</code></li>
+<li>حذف مدونة: <code>blogwatcher-cli remove &quot;My Blog&quot; --yes</code></li>
+<li>الاستيراد من OPML: <code>blogwatcher-cli import subscriptions.opml</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scanning-and-reading">الفحص والقراءة</h3>
+<ul>
+<li>فحص جميع المدونات: <code>blogwatcher-cli scan</code></li>
+<li>فحص مدونة واحدة: <code>blogwatcher-cli scan &quot;My Blog&quot;</code></li>
+<li>عرض المقالات غير المقروءة: <code>blogwatcher-cli articles</code></li>
+<li>عرض جميع المقالات: <code>blogwatcher-cli articles --all</code></li>
+<li>التصفية حسب المدونة: <code>blogwatcher-cli articles --blog &quot;My Blog&quot;</code></li>
+<li>التصفية حسب الفئة: <code>blogwatcher-cli articles --category &quot;Engineering&quot;</code></li>
+<li>تعليم مقال كمقروء: <code>blogwatcher-cli read 1</code></li>
+<li>تعليم مقال كغير مقروء: <code>blogwatcher-cli unread 1</code></li>
+<li>تعليم الكل كمقروء: <code>blogwatcher-cli read-all</code></li>
+<li>تعليم الكل كمقروء لمدونة معينة: <code>blogwatcher-cli read-all --blog &quot;My Blog&quot; --yes</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة (Environment Variables)</h2>
+<p>يمكن ضبط جميع الخيارات عبر متغيرات بيئة تبدأ بالبادئة <code>BLOGWATCHER_</code>:</p>
+<table><thead><tr><th>المتغير</th><th>الوصف</th></tr></thead><tbody><tr><td><code>BLOGWATCHER_DB</code></td><td>مسار ملف قاعدة بيانات SQLite</td></tr><tr><td><code>BLOGWATCHER_WORKERS</code></td><td>عدد عمليات الفحص المتزامنة (الافتراضي: 8)</td></tr><tr><td><code>BLOGWATCHER_SILENT</code></td><td>طباعة &quot;scan done&quot; فقط عند الفحص</td></tr><tr><td><code>BLOGWATCHER_YES</code></td><td>تخطي مطالبات التأكيد</td></tr><tr><td><code>BLOGWATCHER_CATEGORY</code></td><td>الفلتر الافتراضي لتصفية المقالات حسب الفئة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-output">مثال على المخرجات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li>تكتشف الأداة تلقائيًا خلاصات RSS/Atom من الصفحات الرئيسية للمدونات عندما لا يُحدَّد <code>--feed-url</code>.</li>
+<li>تلجأ إلى استخراج HTML إذا فشل RSS وكان <code>--scrape-selector</code> مضبوطًا.</li>
+<li>تُحفظ الفئات المستخرجة من خلاصات RSS/Atom ويمكن استخدامها لتصفية المقالات.</li>
+<li>استورد المدونات بالجملة من ملفات OPML المصدَّرة من Feedly أو Inoreader أو NewsBlur وغيرها.</li>
+<li>تُخزَّن قاعدة البيانات افتراضيًا في <code>~/.blogwatcher-cli/blogwatcher-cli.db</code> (يمكن تجاوز ذلك عبر <code>--db</code> أو <code>BLOGWATCHER_DB</code>).</li>
+<li>استخدم <code>blogwatcher-cli &lt;command&gt; --help</code> لاكتشاف جميع الخيارات والإعدادات.</li>
+</ul>

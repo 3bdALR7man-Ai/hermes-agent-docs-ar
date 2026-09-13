@@ -1,0 +1,256 @@
+<header><h1>التكامل مع ACP Host</h1></header>
+<p>يمكن تشغيل Hermes Agent كخادم ACP، ما يتيح للمضيفات (hosts) المتوافقة مع ACP التواصل مع
+Hermes عبر stdio. ويمكن للمحررات عرض:</p>
+<ul>
+<li>رسائل المحادثة</li>
+<li>نشاط الأدوات</li>
+<li>الفروقات في الملفات (diffs)</li>
+<li>أوامر الطرفية</li>
+<li>مطالبات الموافقة</li>
+<li>أجزاء التفكير والاستجابة المتدفقة (streamed)</li>
+</ul>
+<p>ويمكن للمضيفات الأخرى استخدام البروتوكول نفسه لتوجيه أحداث التعاون إلى
+Hermes. يُعدّ ACP خيارًا مناسبًا عندما تريد أن يحتفظ Hermes بهويته الحالية
+وإعداد المزوّد (provider) والذاكرة والمهارات والأدوات، بينما يتولى تطبيق آخر
+نقل المحادثة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-hermes-exposes-in-acp-mode">ما يوفّره Hermes في وضع ACP</h2>
+<p>يعمل Hermes باستخدام toolset منتقاة باسم <code>hermes-acp</code> مصمَّمة لسير العمل (workflow) داخل المحررات. وتتضمن:</p>
+<ul>
+<li>أدوات الملفات: <code>read_file</code> و <code>write_file</code> و <code>patch</code> و <code>search_files</code></li>
+<li>أدوات الطرفية: <code>terminal</code> و <code>process</code></li>
+<li>أدوات الويب والمتصفح</li>
+<li>الذاكرة، وقائمة المهام (todo)، والبحث في الجلسات</li>
+<li>المهارات</li>
+<li>أداتا execute_code و delegate_task</li>
+<li>الرؤية (vision)</li>
+</ul>
+<p>وتستبعد عمدًا ما لا يلائم تجربة الاستخدام المعتادة في المحررات، مثل تسليم الرسائل وإدارة مهام cron.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<p>ثبّت Hermes بالطريقة المعتادة، ثم أضف الإضافة (extras) الخاصة بـ ACP من النسخة المسحوبة (checkout) للتثبيت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يثبّت هذا الاعتمادية <code>agent-client-protocol</code> ويفعّل:</p>
+<ul>
+<li><code>hermes acp</code></li>
+<li><code>hermes-acp</code></li>
+<li><code>python -m acp_adapter</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="launching-the-acp-server">تشغيل خادم ACP</h2>
+<p>أيٌّ من الأوامر التالية يشغّل Hermes في وضع ACP:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يكتب Hermes سجلاته إلى stderr كي يبقى stdout مخصصًا لحركة ACP JSON-RPC.</p>
+<p>للفحوصات غير التفاعلية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-tools-optional">أدوات المتصفح (اختيارية)</h3>
+<p>تعتمد أدوات المتصفح (<code>browser_navigate</code> و <code>browser_click</code> وغيرهما) على
+حزمة npm المسماة <code>agent-browser</code> وعلى Chromium، وهما ليسا جزءًا من حزمة wheel
+الخاصة بـ Python. ثبّتهما باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>هذا هو الأمر المستقل. كما يعرض مسار المصادقة عبر الطرفية (<code>hermes acp --setup</code>) تهيئة المتصفح كسؤال لاحق بعد اختيار النموذج، لذا لا يحتاج معظم المستخدمين إلى تشغيل <code>--setup-browser</code> مباشرةً.</p>
+<p>ما الذي يفعله:</p>
+<ul>
+<li>يثبّت Node.js 26 في <code>~/.hermes/node/</code> إن لم يكن موجودًا</li>
+<li>ينفّذ <code>npm install -g agent-browser @askjo/camofox-browser</code> داخل تلك البادئة (دون الحاجة إلى sudo — إذ يشير خيار <code>npm</code> المسمى <code>--prefix</code> إلى نسخة Node التي يديرها Hermes والقابلة للكتابة من قِبل المستخدم)</li>
+<li>يثبّت Playwright Chromium، أو يستخدم Chrome/Chromium المثبّت على النظام إن اكتُشف</li>
+</ul>
+<p>عملية التهيئة متساوية الأثر (idempotent) — فإعادة تشغيلها سريعة وتتخطى الخطوات التي أُنجزت مسبقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-setup">إعداد المضيف</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="buzz-channels-relay-bridge">قنوات Buzz (جسر الـ relay)</h3>
+<p>تُعدّ <a href="https://github.com/block/buzz" data-ext>Buzz</a> منصة تعاون مبنية على Nostr
+للأشخاص والوكلاء. وتربط أداة التشغيل (harness) الخاصة بها <code>buzz-acp</code> قنوات Buzz بأي وكيل ACP
+عبر stdio:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>هذا تكامل على مستوى النقل، وليس تثبيتًا ثانيًا لـ Hermes. فالعملية
+الفرعية التي يطلقها <code>buzz-acp</code> تستخدم إعدادات Hermes نفسها،
+وبيانات الاعتماد والذاكرة والمهارات والحالة نفسها التي يستخدمها <code>hermes</code> على ذلك المضيف.</p>
+<p>(يختلف هذا عن <a href="#buzz-desktop">بيئة التشغيل المُدارة في Buzz Desktop</a>، التي
+تُطلق Hermes محليًا كأداة تشغيل مُعدّة مسبقًا. أما جسر الـ relay فهو للانضمام إلى
+<em>قنوات</em> Buzz بهوية وكيل، وعادةً على خادم.)</p>
+<p>المتطلبات المسبقة:</p>
+<ul>
+<li>أكمل تثبيت ACP وفحص <code>hermes acp --check</code> الموضّحين أعلاه.</li>
+<li>ابنِ <code>buzz-acp</code> وأداة <code>buzz</code> CLI من
+<a href="https://github.com/block/buzz" data-ext>مستودع Buzz</a>
+(<code>cargo build --release -p buzz-acp</code>).</li>
+<li>أنشئ زوج مفاتيح Nostr مخصصًا لـ Hermes (<code>buzz-admin generate-key</code>) و
+سجّله كعضو في الـ relay (<code>buzz-admin add-member</code>). يحتاج كل وكيل إلى
+هويته الخاصة — لا تُعِد استخدام زوج مفاتيح شخص بشري.</li>
+<li>أضف تلك الهوية إلى قنوات Buzz المقصودة.</li>
+</ul>
+<p>شغّل جسرًا باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>لا حاجة إلى <code>BUZZ_API_TOKEN</code> إلا عندما يفرض الـ relay المصادقة بالـ token.
+لا تُجرِ commit للمفتاح الخاص أو الـ API token ولا تلصقهما في أي مكان.</p>
+<p>لنشر دائم على خادم، شغّل <code>buzz-acp</code> تحت مدير خدمات باسم
+مستخدم نظام التشغيل نفسه الذي يملك مجلد Hermes المقصود. أما الإعداد
+وتوليد المفاتيح واكتشاف القنوات والخيارات الخاصة بكل وكيل فموثّقة في
+<a href="https://github.com/block/buzz/tree/main/crates/buzz-acp" data-ext>ملف README الخاص بـ buzz-acp</a>.</p>
+<p>يكتشف الجسر كل قناة Buzz تكون هوية Hermes عضوًا فيها،
+ويشترك تلقائيًا عند إضافتها إلى قناة أخرى. وبذلك تبقى عضوية قنوات Buzz
+هي حدّ الوصول؛ ولا يحتاج Hermes إلى قائمة
+قنوات منفصلة في إعداداته.</p>
+<p>لعرض نشاط Hermes ACP في Buzz Desktop الخاص بالمالك، أضف:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ينشر هذا إطارات مراقبة مشفّرة من النوع <code>24200</code> موجّهة إلى مالك
+الوكيل (NIP-AO الخاص بـ Buzz). ويعرض Desktop تدفق دورة الحياة والأدوات والاستجابات
+والاستخدام مباشرةً في <strong>Activity log</strong> الخاص بالوكيل. ويتعامل الـ relay مع هذه الإطارات على أنها
+عابرة (ephemeral)، لذا يجب أن يكون Desktop متصلًا قبل بدء الدور؛ ويمثّل أرشيف المراقبة
+المحلي لديه السجل الدائم من جهة المالك.</p>
+<p>تجيب الجسور التي تعمل دون واجهة (headless) على طلبات صلاحيات ACP بنفسها، لأنه لا يوجد محرر
+لعرض مربعات حوار الموافقة — راجع
+<a href="#keep-buzz-agents-owner-only">اجعل وكلاء Buzz مقتصرين على المالك</a>. تعامل مع الجسر
+على أنه أتمتة ذات امتيازات: استخدم حساب نظام تشغيل مخصصًا، وقيّد
+مستخدمي Buzz الذين يمكنهم إرسال prompt إلى الوكيل (يدعم <code>buzz-acp</code> بوابة استجابة مقتصرة
+على المالك عبر <code>BUZZ_ACP_AGENT_OWNER</code>)، ولا تمنح العضوية إلا في القنوات
+التي يُتوقع أن يعمل فيها Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vs-code">VS Code</h3>
+<p>ثبّت امتداد <a href="https://marketplace.visualstudio.com/items?itemName=formulahendry.acp-client" data-ext>ACP Client</a>.</p>
+<p>للاتصال:</p>
+<ol>
+<li>افتح لوحة ACP Client من Activity Bar.</li>
+<li>اختر <strong>Hermes Agent</strong> من قائمة الوكلاء المدمجة.</li>
+<li>اتصل وابدأ المحادثة.</li>
+</ol>
+<p>إذا أردت تعريف Hermes يدويًا، فأضفه عبر إعدادات VS Code تحت <code>acp.agents</code>:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="zed">Zed</h3>
+<p>اضبط Hermes كخادم وكيل مخصص في إعدادات Zed:</p>
+<ol>
+<li>افتح Agent Panel.</li>
+<li>أضف خادم وكيل مخصصًا بالإعدادات التالية:</li>
+</ol>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<ol start="3">
+<li>ابدأ سلسلة محادثة جديدة مع وكيل Hermes الخارجي.</li>
+</ol>
+<p>المتطلبات المسبقة:</p>
+<ul>
+<li>اضبط بيانات اعتماد مزوّد Hermes أولًا باستخدام <code>hermes model</code>، أو عيّنها في <code>~/.hermes/.env</code> / <code>~/.hermes/config.yaml</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="jetbrains">JetBrains</h3>
+<p>استخدم إضافة (plugin) متوافقة مع ACP ووجّهها إلى <code>hermes acp</code> أو <code>hermes-acp</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="buzz-desktop">Buzz Desktop</h3>
+<p>تتضمن <a href="https://github.com/block/buzz" data-ext>Buzz</a> وكيل Hermes Agent كبيئة تشغيل مُعدّة مسبقًا.
+وعند تثبيت Hermes بالطريقة المعتادة، تكتشفه Buzz تلقائيًا —
+افتح <strong>Settings → Runtimes</strong> وسيظهر Hermes ضمن بيئات التشغيل لديك.</p>
+<p>إذا فشل الاكتشاف (في عمليات التثبيت القديمة)، فتأكد من أن مُشغّل ACP يمكن العثور عليه ضمن
+PATH الخاص بـ login shell:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تكتب عمليات التثبيت الحديثة المُشغّلين <code>hermes</code> و <code>hermes-acp</code> كليهما في
+<code>~/.local/bin</code>؛ ويؤدي تشغيل <code>hermes update</code> إلى إضافة المُشغّل <code>hermes-acp</code> إلى
+عمليات التثبيت القديمة. وكحلّ احتياطي يدوي، اضبط أمر الوكيل في Buzz على
+<code>hermes</code> مع الوسائط <code>[&quot;acp&quot;]</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-picker">منتقي النماذج</h4>
+<p>يعرض Buzz Desktop (الإصدار v0.5.1 فما فوق) قائمة نماذج Hermes الكاملة في إعدادات
+بيئة تشغيل الوكيل. وتأتي القائمة من Hermes نفسه عبر ACP: إذ تعرض كل نموذج
+من المزوّدين الذين أجريت المصادقة معهم في Hermes (وهي القائمة نفسها التي يعتمد عليها
+<code>hermes model</code> والأمر <code>/model</code>)، لذا فإن غياب نموذج من القائمة
+يعني أن مزوّده ليست له بيانات اعتماد مضبوطة من جهة Hermes.</p>
+<p>تأخذ معرّفات العناصر الصيغة <code>provider:model</code> (مثل <code>openrouter:z-ai/glm-5.1</code>)، أو
+<code>custom:&lt;name&gt;:&lt;model&gt;</code> لـ endpoints المخصصة المتوافقة مع OpenAI والمعرّفة في
+<code>config.yaml</code>. ويسري اختيار النموذج على جلسة ذلك الوكيل فقط؛ ولا
+يغيّر النموذج الافتراضي على مستوى Hermes كله — استخدم <code>hermes model</code> لذلك.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="keep-buzz-agents-owner-only">اجعل وكلاء Buzz مقتصرين على المالك</h4>
+<p>تُنشئ Buzz كل وكيل مع ضبط <strong>Who can talk to this agent</strong> على <code>Owner only</code>.
+أبقِه كذلك عندما تكون بيئة التشغيل هي Hermes.</p>
+<p>يجتمع سلوكان في هذا المسار. فالـ toolset المسماة <code>hermes-acp</code> تتضمن <code>terminal</code>
+و <code>execute_code</code>، وجسر ACP في Buzz يجيب على طلبات الصلاحيات من Hermes
+بنفسه بالقيمة <code>allow_once</code> بدلًا من عرضها. لذلك فإن وكيل Hermes في Buzz
+ينفّذ أوامر الـ shell على المضيف دون أن يطلب الموافقة. طلبتُ من أحدها تشغيل
+<code>rm -rf</code> على مجلد تجريبي فحذفه، دون أي مطالبة في أي مكان.</p>
+<p>اختيار <code>Anyone</code> يمنح صلاحية الوصول نفسها إلى الـ shell لكل كاتب يستطيع الوصول إلى
+القناة. ولا تُصدر Buzz أي تحذير عند اختياره.</p>
+<p>لا يُجدي أيٌّ من الحلول البديهية للتخفيف من ذلك حاليًا:</p>
+<ul>
+<li>يجعل <code>approvals.mode: manual</code> Hermes يرفع طلب الصلاحية فعلًا، لكن
+Buzz توافق عليه تلقائيًا ويُنفَّذ الأمر رغم ذلك.</li>
+<li>لا يضيّق <code>platform_toolsets.acp</code> نطاق toolset الخاصة بـ ACP، لذا لا يمكن استخدامه
+لاستبعاد <code>terminal</code>.</li>
+</ul>
+<p>يوقف الأمر <code>!shutdown</code> الصادر من المالك الوكيلَ في أي وضع، وتتجاهل Buzz هذا
+الأمر إذا صدر من أي شخص آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-and-credentials">الإعدادات وبيانات الاعتماد</h2>
+<p>يستخدم وضع ACP إعدادات Hermes نفسها التي يستخدمها CLI:</p>
+<ul>
+<li><code>~/.hermes/.env</code></li>
+<li><code>~/.hermes/config.yaml</code></li>
+<li><code>~/.hermes/skills/</code></li>
+<li><code>~/.hermes/state.db</code></li>
+</ul>
+<p>يعتمد تحديد المزوّد على آلية التحديد المعتادة في Hermes وقت التشغيل، لذا يرث ACP المزوّد وبيانات الاعتماد المضبوطة حاليًا. كما يعلن Hermes عن طريقة مصادقة عبر الطرفية (<code>--setup</code>) لعملاء ACP عند التشغيل الأول؛ وهي تفتح إعداد النموذج/المزوّد التفاعلي في Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-integration">التكامل مع المضيف</h2>
+<p>تُعيَّن هذه المتغيرات بواسطة <strong>عملية مضيف ACP</strong> (محرر أو أداة تشغيل وكيل
+أخرى) على العملية الفرعية لـ Hermes التي تُطلقها. وهي ليست إعدادات للمستخدم —
+لا تعيّنها يدويًا في <code>.env</code> أو <code>config.yaml</code>.</p>
+<table><thead><tr><th>المتغير</th><th>القيمة</th><th>التأثير</th></tr></thead><tbody><tr><td><code>HERMES_ACP_SKIP_CONFIGURED_MCP</code></td><td><code>1</code></td><td>يتخطى تشغيل خوادم MCP <strong>المضبوطة على المستوى العام</strong> من <code>config.yaml</code> قبل بدء حلقة ACP JSON-RPC.</td></tr></tbody></table>
+<p>يشغّل Hermes عادةً كل خادم MCP مضبوط في <code>config.yaml</code> قبل
+دخول حلقة ACP JSON-RPC. أما المضيف الذي يتولى إدارة MCP بنفسه — فيمرّر
+خوادم الجلسة صراحةً عبر <code>session/new</code> — فلا يحتاج إلى ذلك التشغيل
+العام، إذ قد يؤدي خادم MCP بطيء أو تفاعلي لا علاقة له بالأمر إلى تأخير
+<code>initialize</code>. وضبط هذا المؤشر على القيمة <code>1</code> تحديدًا يتيح لمثل هذا المضيف تخطيه.</p>
+<p>لا يُتخطّى إلا الاكتشاف العام من <code>config.yaml</code>. <strong>أما خوادم MCP التي توفرها
+جلسة ACP عبر <code>session/new</code> فتظل تُسجَّل</strong>، لذا لا يفقد المضيف
+أي قدرة طلبها. وأي قيمة أخرى (غير معيّنة، أو فارغة، أو <code>0</code>، أو <code>false</code>) تُبقي
+السلوك الافتراضي، كي لا تتمكن سلسلة نصية عشوائية تبدو كقيمة صحيحة من
+تعطيل MCP بصمت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-behavior">سلوك الجلسات</h2>
+<p>يتتبّع مدير الجلسات داخل الذاكرة في محوّل ACP جلسات ACP طوال مدة تشغيل الخادم.</p>
+<p>تخزّن كل جلسة:</p>
+<ul>
+<li>معرّف الجلسة</li>
+<li>مجلد العمل</li>
+<li>النموذج المختار</li>
+<li>سجل المحادثة الحالي</li>
+<li>حدث الإلغاء</li>
+</ul>
+<p>تُحفظ المحادثات في قاعدة بيانات الجلسات الخاصة بـ Hermes، ويمكن سردها وتحميلها
+واستئنافها أو إنشاء تفرّع (fork) منها بعد إعادة تشغيل خادم ACP. أما فتح جلسة جديدة دون
+prompt فيُبقيها في الذاكرة فقط: إذ لا تُنشئ عمليات استكشاف النماذج صفوف سجل
+فارغة. ويُحفظ التفرّع غير الفارغ فورًا، ويظل بالإمكان تحديث البيانات الوصفية للجلسة الموجودة
+حتى عندما يكون سجلها الحالي فارغًا.</p>
+<p>لا تُحذف الصفوف الفارغة الموجودة من الإصدارات القديمة تلقائيًا. ووجود صف ACP
+مفتوح لا يثبت أن عميله قد قطع الاتصال. بعد إغلاق جلسات المحرر
+المعنية، افحص الصفوف غير المرغوب فيها باستخدام <code>hermes sessions show &lt;id&gt;</code> ولا تحذف إلا
+الجلسات التي تأكدت من عدم الحاجة إليها باستخدام <code>hermes sessions delete &lt;id&gt;</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-directory-behavior">سلوك مجلد العمل</h2>
+<p>تربط جلسات ACP مجلد العمل الحالي (cwd) للمحرر بمعرّف مهمة Hermes، بحيث تعمل أدوات الملفات والطرفية نسبةً إلى مساحة عمل المحرر، لا إلى cwd الخاص بعملية الخادم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="approvals">الموافقات</h2>
+<p>يمكن توجيه أوامر الطرفية الخطرة مجددًا إلى المحرر في صورة مطالبات موافقة. وخيارات الموافقة في ACP أبسط من مسار CLI:</p>
+<ul>
+<li>السماح مرة واحدة</li>
+<li>السماح دائمًا</li>
+<li>الرفض</li>
+</ul>
+<p>أما ظهور المطالبة لك فعلًا فيعود إلى المضيف. إذ يحق للمضيف أن يجيب على
+الطلب برمجيًا بدلًا من عرضه عليك، وفي هذه الحالة تكون هذه
+الخيارات موجودة في البروتوكول لكنها لا تصل إلى أي إنسان. وهذا ما يفعله Buzz Desktop، لذا
+تعامل مع هذا المسار على أنه تنفيذ دون إشراف بغض النظر عن إعداد <code>approvals</code> لديك.</p>
+<p>عند انتهاء المهلة أو حدوث خطأ، يرفض جسر الموافقات الطلب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-scoped-edit-auto-approval">الموافقة التلقائية على التعديلات على مستوى الجلسة</h3>
+<p>يوفّر ACP مستوى ثالثًا بين <em>السماح مرة واحدة</em> و<em>السماح دائمًا</em>: <strong>Allow for session</strong>. واختياره من مطالبة الصلاحية في المحرر يسجّل الموافقة داخل جلسة ACP الحالية فقط — فكل أمر مطابق لاحق في تلك الجلسة يمرّ دون مطالبة، لكن جلسة ACP جديدة (أو إعادة تشغيل المحرر) تعيد الأمور إلى البداية وتطلب الموافقة مجددًا في المرة الأولى.</p>
+<table><thead><tr><th>الخيار</th><th>التسمية في المحرر</th><th>النطاق</th><th>يُحفظ بعد إعادة التشغيل</th></tr></thead><tbody><tr><td><code>allow_once</code></td><td>Allow once</td><td>استدعاء الأداة هذا فقط</td><td>لا</td></tr><tr><td><code>allow_session</code></td><td>Allow for session</td><td>كل الاستدعاءات المطابقة في جلسة ACP هذه</td><td>لا — يُمسح عند انتهاء الجلسة</td></tr><tr><td><code>allow_always</code></td><td>Allow always</td><td>كل الجلسات المستقبلية</td><td>نعم (يُكتب في قائمة السماح الدائمة في Hermes)</td></tr><tr><td><code>deny</code></td><td>Deny</td><td>استدعاء الأداة هذا فقط</td><td>لا</td></tr></tbody></table>
+<p>يُعدّ <code>allow_session</code> الخيار الافتراضي المناسب لسير عمل المحرر حين تثق بالوكيل طوال مدة مهمة ما لكنك لا تريد منح إدخال طويل الأمد في قائمة السماح. والمفاضلة الأمنية هنا واضحة: كلما اتسع النطاق، قلّت مقاطعة المحرر لك، وزاد الضرر الذي يمكن أن يُحدثه وكيل يسيء التصرف (أو حقن prompt) قبل أن تنتبه. ابدأ بـ <code>allow_once</code> للأوامر غير المألوفة؛ وارتقِ إلى <code>allow_session</code> بعد أن ترى الوكيل ينفّذ النمط نفسه بشكل صحيح عدة مرات؛ واحتفظ بـ <code>allow_always</code> للأوامر متساوية الأثر حقًا التي تثق بها إلى الأبد (مثل <code>git status</code>).</p>
+<p>يربط جسر ACP هذه الخيارات بدلالات الموافقة الداخلية في Hermes — إذ يكتب <code>allow_always</code> إدخالًا دائمًا في قائمة السماح بالطريقة نفسها التي يتبعها CLI، بينما لا يؤثر <code>allow_session</code> إلا في ذاكرة التخزين المؤقت للموافقات داخل العملية لجلسة ACP الحالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="acp-agent-does-not-appear-in-the-editor">وكيل ACP لا يظهر في المحرر</h3>
+<p>تحقق مما يلي:</p>
+<ul>
+<li>في التطوير اليدوي/المحلي، تأكد من أن أمر المضيف يشير إلى <code>hermes acp</code>.</li>
+<li>أن Hermes مثبّت وموجود ضمن PATH لديك.</li>
+<li>أن الإضافة (extras) الخاصة بـ ACP مثبّتة (<code>cd ~/.hermes/hermes-agent &amp;&amp; uv pip install -e &#x27;.[acp]&#x27;</code>).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="acp-starts-but-immediately-errors">ACP يبدأ لكنه يُظهر خطأً فورًا</h3>
+<p>جرّب هذه الفحوصات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="missing-credentials">بيانات اعتماد مفقودة</h3>
+<p>يستخدم وضع ACP إعداد المزوّد الحالي في Hermes. اضبط بيانات الاعتماد باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>أو بتحرير <code>~/.hermes/.env</code>. كما يمكن لمسار المصادقة عبر الطرفية (<code>hermes acp --setup</code>) أن يُطلق إعداد المزوّد/النموذج التفاعلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><a href="https://github.com/block/buzz/tree/main/crates/buzz-acp" data-ext>أداة تشغيل Buzz ACP</a></li>
+<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
+<li><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</a></li>
+<li><a href="/docs/developer-guide/tools-runtime">وقت تشغيل الأدوات (Tools Runtime)</a></li>
+</ul>

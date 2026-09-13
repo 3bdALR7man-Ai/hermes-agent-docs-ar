@@ -1,0 +1,144 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-else-can-plugins-do">ماذا يمكن للإضافات أن تفعل أيضًا؟</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ship-data-files">شحن ملفات بيانات</h3>
+<p>ضع أي ملفات في دليل الإضافة واقرأها وقت الاستيراد:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>هذا للملفات التي <em>تشحنها</em>. الحالة التي <em>تكتبها</em> مختلفة — انظر القسم
+التالي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-durable-state">تخزين الحالة الدائمة</h3>
+<p>لا تكتب أبدًا حالة وقت التشغيل داخل دليل الإضافة: فهذا هو شجرة التثبيت،
+و<code>hermes plugins update</code> / <code>remove</code> يسحبان التحديثات عبر git أو يحذفانها — فتموت بيانات
+مستخدميك معها. المكان المعتمد هو جذر البيانات الخاص بكل إضافة،
+والذي يبقى بعد كليهما ويتبع الـ profile النشط:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>وجود دليل واحد لكل إضافة يعني أن بيانات كل إضافة قابلة للفحص في مكان
+واحد يمكن التنبؤ به. الأسرار لا مكان لها هنا — فقراءة بيانات الاعتماد تمر
+عبر مسار <code>.env</code> / secret-scope المعتاد كما في كل مكان آخر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bundle-skills">تضمين المهارات (Skills)</h3>
+<p>يمكن للإضافات شحن ملفات مهارات يحمّلها الوكيل عبر <code>skill_view(&quot;plugin:skill&quot;)</code>. سجّلها في <code>__init__.py</code> الخاص بك:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>يمكن للوكيل الآن تحميل مهاراتك باستخدام اسمها المُميّز بالنطاق (namespaced):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p><strong>الخصائص الأساسية:</strong></p>
+<ul>
+<li>مهارات الإضافة <strong>للقراءة فقط</strong> — فهي لا تدخل <code>~/.hermes/skills/</code> ولا يمكن تعديلها عبر <code>skill_manage</code>.</li>
+<li>مهارات الإضافة <strong>غير</strong> مُدرجة في فهرس <code>&lt;available_skills&gt;</code> الخاص بـ system prompt — فهي تحميلات صريحة تتطلب الاختيار (opt-in).</li>
+<li>أسماء المهارات المجردة تبقى دون تأثير — إذ يمنع النطاق (namespace) أي تصادم مع المهارات المدمجة.</li>
+<li>عندما يحمّل الوكيل مهارة إضافة، تُضاف في المقدمة لافتة سياق تجميعة (bundle context banner) تسرد المهارات الشقيقة من نفس الإضافة.</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="76"></x-keep></span>نمط قديم</div><div class="admonitionContent_BuS1"><p>النمط القديم <code>shutil.copy2</code> (نسخ مهارة إلى <code>~/.hermes/skills/</code>) لا يزال يعمل لكنه يخلق خطر تصادم أسماء مع المهارات المدمجة. يُفضَّل استخدام <code>ctx.register_skill()</code> للإضافات الجديدة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gate-on-environment-variables">التقييد بمتغيرات البيئة (Environment Variables)</h3>
+<p>إذا كانت إضافتك بحاجة إلى مفتاح API:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>إذا لم يكن <code>WEATHER_API_KEY</code> مضبوطًا، تُعطَّل الإضافة برسالة واضحة. لا انهيار، ولا خطأ في الوكيل — فقط &quot;Plugin weather disabled (missing: WEATHER_API_KEY)&quot;.</p>
+<p>عندما يُشغّل المستخدمون <code>hermes plugins install</code>، تتم <strong>مطالبتهم تفاعليًا</strong> بأي متغيرات <code>requires_env</code> مفقودة. تُحفظ القيم في <code>.env</code> تلقائيًا.</p>
+<p>لتجربة تثبيت أفضل، استخدم الصيغة الغنية مع الأوصاف وروابط التسجيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<table><thead><tr><th>الحقل</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>name</code></td><td>نعم</td><td>اسم متغير البيئة</td></tr><tr><td><code>description</code></td><td>لا</td><td>يُعرض على المستخدم أثناء مطالبة التثبيت</td></tr><tr><td><code>url</code></td><td>لا</td><td>مكان الحصول على بيانات الاعتماد</td></tr><tr><td><code>secret</code></td><td>لا</td><td>إذا كانت <code>true</code>، يُخفى الإدخال (كحقل كلمة مرور)</td></tr></tbody></table>
+<p>يمكن مزج الصيغتين في القائمة نفسها. المتغيرات المضبوطة مسبقًا تُتجاوَز بصمت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lazy-install-optional-python-dependencies">التثبيت الكسول (Lazy) للاعتماديات الاختيارية في Python</h3>
+<p>إذا كانت إضافتك تغلّف SDK لن يمتلكه كل مستخدم مثبَّتًا (SDK تابع لمزوّد، أو مكتبة ML ثقيلة، أو حزمة خاصة بمنصة معينة)، فلا تستورده (<code>import</code>) في أعلى الوحدة (module). استخدم المساعد <code>tools.lazy_deps.ensure(...)</code> داخل معالج الأداة — سيُثبّت Hermes الحزمة عند أول استخدام، مقيّدًا بإعداد <code>security.allow_lazy_installs</code> الخاص بالمستخدم.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>قاعدتان من النموذج الأمني في <code>tools/lazy_deps.py</code>:</p>
+<table><thead><tr><th>القاعدة</th><th>السبب</th></tr></thead><tbody><tr><td>يجب أن يظهر مفتاح ميزتك في قائمة السماح <code>LAZY_DEPS</code> الموجودة داخل الشجرة</td><td>يمنع أي إعدادات ضارة من دفع Hermes لتثبيت حزم عشوائية — فقط المواصفات التي يشحنها Hermes نفسه مؤهلة</td></tr><tr><td>المواصفات تكون بالاسم من PyPI فقط</td><td>لا <code>--index-url</code>، ولا <code>git+https://</code>، ولا مسارات file:. ثبّت الإصدارات بصيغة PEP 440 (<code>&quot;my-sdk&gt;=1.2,&lt;2&quot;</code>) داخل مدخل قائمة السماح</td></tr></tbody></table>
+<p>بالنسبة للإضافات من طرف ثالث الموزَّعة عبر pip، أعلن الاعتماديات الاختيارية كإضافات (extras) في <code>[project.optional-dependencies]</code> ضمن <code>pyproject.toml</code> الخاص بك، وأخبر المستخدمين بتنفيذ <code>pip install your-plugin[backend]</code> — فهذا المسار لا يمر عبر <code>lazy_deps</code>. أسلوب التثبيت الكسول مفيد أكثر ما يكون للإضافات <strong>المضمّنة (bundled)</strong> حيث يؤدي شحن اعتمادية إلزامية مع كل تثبيت إلى تضخيم البصمة الأساسية لـ Hermes.</p>
+<p>عندما يُضبط <code>security.allow_lazy_installs: false</code> عالميًا، تُطلق <code>ensure()</code> استثناء <code>FeatureUnavailable</code> فورًا مع تلميح للمعالجة — يجب أن تلتقطه إضافتك وتتدهور بأمان (إعادة نتيجة خطأ، لا انهيار في حلقة الأداة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="thread-safe-lazy-singletons">Singletons كسولة وآمنة للـ threads</h3>
+<p>كثيرًا ما تخزّن الإضافات كائنًا مكلفًا — عميل SDK، جلسة HTTP، مجمّع اتصالات — مؤقتًا في متغير على مستوى الوحدة (module) يُبنى عند أول استخدام:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>هذا فخّ. يشغّل Hermes عدة threads في عملية واحدة (استدعاءات الأدوات المفوَّضة، العمّال في الخلفية، fork التحسين الذاتي)، لذا يمكن لخيطين الوصول إلى <code>get_client()</code> قبل أن يُضبط <code>_client</code>، فيجتاز <strong>كلاهما</strong> فحص <code>is not None</code>، ويُشغّل <strong>كلاهما</strong> عملية البناء المكلفة، وتُتلِف الكتابة الثانية الأولى — مما يُسرّب أيًا كان المورد الذي فتحه الخاسر (اتصال، مقبض ملف، thread في الخلفية).</p>
+<p>لا تصنع القفل بنفسك. استخدم المساعدات في <code>plugins/plugin_utils.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>كلاهما يسلسل الاستدعاءات الأولى المتزامنة بقفل مزدوج الفحص (double-checked locking) ويشغّل المصنع (factory) مرة واحدة على الأكثر. إذا أطلق المصنع استثناءً، لا يُخزَّن شيء ويُعاد المحاولة في الاستدعاء التالي. إضافة ذاكرة honcho (<code>plugins/memory/honcho/client.py</code>) هي المرجع المستهلك لهذا النمط.</p>
+<blockquote>
+<p>قاعدة عامة: في أي مرة تكتب فيها <code>global _something</code> متبوعًا بفحص <code>is None</code> ثم بناء، الجأ إلى إحدى هاتين الأداتين بدلًا من ذلك.</p>
+</blockquote>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conditional-tool-availability">توفّر الأداة المشروط</h3>
+<p>للأدوات التي تعتمد على مكتبات اختيارية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="overriding-a-built-in-tool">استبدال أداة مدمجة</h3>
+<p>لاستبدال أداة مدمجة بتنفيذك الخاص (مثلًا استبدال أداة المتصفح الافتراضية
+بـ backend من نوع headed-Chrome CDP، أو استبدال
+<code>web_search</code> بفهرس داخلي مخصص للشركة)، مرّر <code>override=True</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>بدون <code>override=True</code>، يرفض السجل أي تسجيل قد يحجب
+أداة موجودة من toolset مختلفة — وهذا يمنع
+الاستبدالات العرَضية. استبدال أداة <strong>مدمجة</strong> يتطلب إضافة إلى ذلك
+موافقة المشغّل صراحة عبر
+<code>plugins.entries.&lt;plugin_id&gt;.allow_tool_override: true</code> في <code>config.yaml</code>؛
+وبدون هذا التصريح، يُطلق <code>register_tool(override=True)</code>
+<code>PluginToolOverrideError</code>. يُسجَّل الاستبدال بحيث يكون
+قابلًا للتدقيق في <code>~/.hermes/logs/agent.log</code>. تُحمَّل الإضافات بعد الأدوات
+المدمجة، لذا يكون ترتيب التسجيل صحيحًا: يستبدل معالِجك المعالِج
+المدمج.</p>
+<p><strong>الإضافات غير المضمّنة تحتاج أيضًا إلى منح من المشغّل.</strong> بالنسبة لأي إضافة
+لا تُشحن مع نواة Hermes (مصدرها المستخدم أو المشروع أو pip)،
+يتطلب <code>override=True</code> ضد أداة مدمجة موجودة إضافةً إلى ذلك
+اختيارًا صريحًا لكل إضافة في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>بدون هذا المنح، يُطلق <code>ctx.register_tool(..., override=True)</code>
+<code>PluginToolOverrideError</code>؛ وبما أن استثناءات <code>register()</code> يلتقطها
+المحمّل، تُعطَّل الإضافة ويستمر Hermes في العمل. يوجد هذا التقييد
+لأن إضافة مفعّلة تستبدل بصمت أداة مدمجة ذات صلاحيات مثل
+<code>shell_exec</code> أو <code>write_file</code> يمكن أن تعترض كل ما يوجّهه النموذج
+عبرها. الإضافات المضمّنة مُستثناة: فالاستبدال هناك قرار
+للقائمين على الصيانة. إذا تعذّر تحميل الإعدادات، يفشل هذا التقييد بأمان (fail closed).</p>
+<p>لا تحتاج عادةً إلى تعديل هذا المفتاح يدويًا أبدًا. يسأل <code>hermes plugins enable &lt;name&gt;</code>
+عمّا إذا كان يجب منح الصلاحية عند تفعيل إضافة غير مضمّنة
+(الافتراضي هو الرفض)، وتتجاوز الخيارات
+<code>--allow-tool-override</code> / <code>--no-allow-tool-override</code> هذا السؤال في عمليات التثبيت المُبرمَجة.
+يقيّد هذا المنح نفسه أيضًا <code>deregister()</code>: فبدونه، لا يمكن لإضافة
+إزالة أداة لا تملكها (وهو ما كان سيمثّل وسيلة للالتفاف على
+فحص الاستبدال).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="register-multiple-hooks">تسجيل عدة hooks</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hook-reference">مرجع الـ hooks</h3>
+<p>كل hook موثّق بالكامل في <strong><a href="/docs/user-guide/features/hooks#plugin-hooks">مرجع Event Hooks</a></strong> — توقيعات الاستدعاء (callback signatures)، وجداول المعاملات، وتوقيت إطلاق كل واحد بالضبط، والأمثلة. إليك الملخص:</p>
+<table><thead><tr><th>Hook</th><th>يُطلَق عند</th><th>توقيع الاستدعاء</th><th>يُعيد</th></tr></thead><tbody><tr><td><a href="/docs/user-guide/features/hooks#pre_tool_call"><code>pre_tool_call</code></a></td><td>قبل تنفيذ أي أداة</td><td><code>tool_name: str, args: dict, task_id: str</code></td><td>توجيه اختياري: <code>{&quot;action&quot;: &quot;block&quot;, &quot;message&quot;: ...}</code> يُبطل الاستدعاء؛ <code>{&quot;action&quot;: &quot;approve&quot;, &quot;message&quot;: ...}</code> يصعّد إلى بوابة الموافقة البشرية</td></tr><tr><td><a href="/docs/user-guide/features/hooks#post_tool_call"><code>post_tool_call</code></a></td><td>بعد إعادة أي أداة نتيجتها</td><td><code>tool_name: str, args: dict, result: str, task_id: str, duration_ms: int</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#pre_llm_call"><code>pre_llm_call</code></a></td><td>مرة واحدة لكل دور، قبل حلقة استدعاء الأدوات</td><td><code>session_id: str, user_message: str, conversation_history: list, is_first_turn: bool, model: str, platform: str</code></td><td><a href="#pre_llm_call-context-injection">حقن السياق</a></td></tr><tr><td><a href="/docs/user-guide/features/hooks#post_llm_call"><code>post_llm_call</code></a></td><td>مرة واحدة لكل دور، بعد حلقة استدعاء الأدوات (الأدوار الناجحة فقط)</td><td><code>session_id: str, user_message: str, assistant_response: str, conversation_history: list, model: str, platform: str</code></td><td>يُتجاهَل</td></tr><tr><td><code>pre_api_request</code></td><td>قبل كل طلب API خام للمزوّد (عدة طلبات لكل دور عندما يستدعي النموذج أدوات)</td><td><code>session_id: str, model: str, provider: str, base_url: str, api_mode: str, api_call_count: int, message_count: int, tool_count: int, approx_input_tokens: int, max_tokens: int, request: dict</code></td><td>يُتجاهَل</td></tr><tr><td><code>post_api_request</code></td><td>بعد إعادة كل طلب API خام للمزوّد نتيجته</td><td>حقول <code>pre_api_request</code> بالإضافة إلى <code>api_duration: float, finish_reason: str, response_model: str | None, usage: dict, response: dict, assistant_content_chars: int, assistant_tool_call_count: int</code></td><td>يُتجاهَل</td></tr><tr><td><code>api_request_error</code></td><td>عند إطلاق استدعاء API للمزوّد استثناءً</td><td>حقول الربط بالإضافة إلى <code>status_code: int | None, retry_count: int | None, max_retries: int | None, retryable: bool | None, reason: str | None, error: dict, request: dict</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#on_session_start"><code>on_session_start</code></a></td><td>إنشاء جلسة جديدة (الدور الأول فقط)</td><td><code>session_id: str, model: str, platform: str</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#on_session_end"><code>on_session_end</code></a></td><td>نهاية كل استدعاء <code>run_conversation</code> + خروج CLI</td><td><code>session_id: str, completed: bool, interrupted: bool, model: str, platform: str</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#on_session_finalize"><code>on_session_finalize</code></a></td><td>يفكّك CLI/gateway جلسة نشطة</td><td><code>session_id: str | None, platform: str</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#on_session_reset"><code>on_session_reset</code></a></td><td>يستبدل gateway مفتاح جلسة بآخر جديد (<code>/new</code>, <code>/reset</code>)</td><td><code>session_id: str, platform: str</code></td><td>يُتجاهَل</td></tr><tr><td><a href="/docs/user-guide/features/hooks#gateway_platform_event"><code>gateway_platform_event</code></a></td><td>تطبيع حدث أصلي مُصرَّح به من منصة عند حدود gateway (تفاعلات Telegram حاليًا)</td><td><code>platform: str, event_type: str, payload: dict</code></td><td>يُتجاهَل</td></tr><tr><td><code>kanban_task_claimed</code></td><td>يُطالَب بمهمة kanban (عملية الموزّع، قبل تشغيل العامل)</td><td><code>task_id: str, board: str | None, assignee: str | None, run_id: int | None, profile_name: str</code></td><td>يُتجاهَل</td></tr><tr><td><code>kanban_task_completed</code></td><td>اكتمال مهمة kanban (عملية العامل)</td><td><code>task_id, board, assignee, run_id, profile_name, summary: str | None</code></td><td>يُتجاهَل</td></tr><tr><td><code>kanban_task_blocked</code></td><td>حظر مهمة kanban (عملية العامل)</td><td><code>task_id, board, assignee, run_id, profile_name, reason: str | None</code></td><td>يُتجاهَل</td></tr></tbody></table>
+<p>معظم الـ hooks هي مراقبات إطلاق-وتناسَ (fire-and-forget) — تُتجاهَل قيمها المُعادة. الاستثناءان هما <code>pre_llm_call</code>، الذي يمكنه حقن سياق في المحادثة، و<code>pre_tool_call</code>، الذي يمكنه إعادة توجيه حظر/موافقة.</p>
+<p>يجب أن تقبل كل الاستدعاءات (callbacks) <code>**kwargs</code> لضمان التوافق المستقبلي. إذا انهار استدعاء hook، يُسجَّل ويُتجاوز. تستمر بقية الـ hooks والوكيل بشكل طبيعي.</p>
+<p>تُطلَق hooks دورة حياة kanban <strong>بعد</strong> تثبيت تغيير قاعدة بيانات اللوحة، بحيث يرى الاستدعاء دائمًا حالة دائمة ولا يمكنه أبدًا الاحتفاظ بقفل الكتابة الخاص بـ SQLite. ولأن عمّال kanban يعملون كعمليات فرعية منفصلة من نوع <code>hermes -p &lt;profile&gt; chat -q</code>، يُطلَق <code>kanban_task_claimed</code> في عملية <strong>الموزّع (dispatcher)</strong> بينما تُطلَق <code>kanban_task_completed</code> / <code>kanban_task_blocked</code> في عملية <strong>العامل (worker)</strong> — استخدم الـ hook في الموزّع لمراقبة كل انتقال مركزيًا، أو في العامل للسياق داخل الجلسة لكل مهمة.</p>
+<p><strong>hooks طلب API</strong> هي مراقبات للطلب الخام للمزوّد، بمستوى أدنى من زوج <code>pre_llm_call</code> / <code>post_llm_call</code> لكل دور: دور واحد يستدعي أدوات يُصدر عدة طلبات API، وتُطلَق هذه الـ hooks حول كل واحد منها. توجد لأجل إضافات المراقبة (تتبّع، محاسبة التكلفة، لوحات زمن الاستجابة). وسيطا <code>request</code> و<code>response</code> عبارة عن عروض JSON مُنقّاة ومحدودة الحجم لحمولة المزوّد (المفاتيح الحساسة مُخفاة، والسلاسل الطويلة مقصوصة، وكائنات SDK مُطبَّعة)، و<code>usage</code> هو قاموس ملخّص توكن بسيط. تحمل كل حمولة حقول الربط <code>turn_id</code>، و<code>api_request_id</code>، و<code>task_id</code>، و<code>session_id</code>، و<code>api_call_count</code>، بحيث يمكن للإضافة ربط الطلبات واستدعاءات الأدوات والأدوار معًا. تُطلَق <code>api_request_error</code> عندما يُطلق استدعاء المزوّد استثناءً وتضيف <code>status_code</code>، و<code>retry_count</code> / <code>max_retries</code>، و<code>retryable</code>، و<code>reason</code>، وقاموس <code>error</code> يحتوي على <code>type</code> و<code>message</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre_llm_call-context-injection">حقن السياق في <code>pre_llm_call</code></h3>
+<p>هذا هو الـ hook الوحيد الذي تُهم قيمته المُعادة. عندما يُعيد استدعاء <code>pre_llm_call</code> قاموسًا يحوي مفتاح <code>&quot;context&quot;</code> (أو سلسلة نصية عادية)، يحقن Hermes ذلك النص في <strong>رسالة المستخدم للدور الحالي</strong>. هذه هي الآلية المستخدمة في إضافات الذاكرة، وتكاملات RAG، والحواجز الوقائية (guardrails)، وأي إضافة تحتاج إلى تزويد النموذج بسياق إضافي.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="return-format">صيغة القيمة المُعادة</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>أي قيمة مُعادة غير فارغة وغير None تحمل مفتاح <code>&quot;context&quot;</code> (أو سلسلة نصية غير فارغة) تُجمَع وتُلحَق برسالة المستخدم للدور الحالي.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="oversized-context-spill">فيضان السياق الزائد الحجم</h4>
+<p>يُحدَّد سياق كل hook افتراضيًا بسقف <code>10,000</code> حرف. أي شيء يتجاوز هذا السقف يُكتب إلى <code>$HERMES_HOME/hook_outputs/&lt;session_id&gt;/&lt;uuid&gt;.txt</code> ويُستبدَل بمعاينة رأس/ذيل مع المسار المحفوظ. يمكن للنموذج قراءة المحتوى الكامل عبر <code>read_file</code> أو <code>terminal</code> إن احتاج إليه فعليًا. هذا يمنع أي إضافة منفلتة من تضخيم prompt كل دور لاحق وتفجير بادئة ذاكرة التخزين المؤقت الخاصة بالـ prompt. اضبط ذلك في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-injection-works">كيف يعمل الحقن</h4>
+<p>يُلحَق السياق المحقون بـ<strong>رسالة المستخدم</strong>، لا بـ system prompt. هذا خيار تصميمي متعمَّد:</p>
+<ul>
+<li><strong>الحفاظ على prompt cache</strong> — يبقى الـ system prompt مطابقًا عبر الأدوار. تُخزّن Anthropic وOpenRouter بادئة الـ system prompt مؤقتًا، لذا فإن إبقاءها ثابتة يوفّر أكثر من %75 على توكنات الإدخال في المحادثات متعددة الأدوار. لو عدّلت الإضافات الـ system prompt، لأصبح كل دور فرصة إخفاق للتخزين المؤقت (cache miss).</li>
+<li><strong>عابر (Ephemeral)</strong> — يحدث الحقن فقط وقت استدعاء API. رسالة المستخدم الأصلية في سجل المحادثة لا تُعدَّل أبدًا، ولا يُحفَظ شيء في قاعدة بيانات الجلسة.</li>
+<li><strong>الـ system prompt هو نطاق Hermes الخاص</strong> — فهو يحتوي على إرشادات خاصة بالنموذج، وقواعد فرض الأدوات، وتعليمات الشخصية، ومحتوى المهارات المخزَّن مؤقتًا. تسهم الإضافات بسياق إلى جانب مدخلات المستخدم، لا بتعديل تعليمات الوكيل الأساسية.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-memory-recall-plugin">مثال: إضافة استرجاع الذاكرة</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-guardrails-plugin">مثال: إضافة الحواجز الوقائية (Guardrails)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-observer-only-hook-no-injection">مثال: hook مراقبة فقط (بلا حقن)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-plugins-returning-context">عدة إضافات تُعيد سياقًا</h4>
+<p>عندما تُعيد عدة إضافات سياقًا من <code>pre_llm_call</code>، تُدمَج مخرجاتها بفواصل سطرين مزدوجة وتُلحَق برسالة المستخدم معًا. يتبع الترتيب ترتيب اكتشاف الإضافات (أبجديًا حسب اسم دليل الإضافة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="middleware-change-what-happens">Middleware: تغيير ما يحدث</h3>
+<p>تراقب الـ hooks حلقة الوكيل (مع أشكال التوجيه الموثّقة القليلة أعلاه). أما <strong>الـ middleware فيغيّر ما يحدث</strong>: تعيد middleware الطلب كتابة الحمولة الفعلية قبل أن يراها أي شيء لاحق، وتغلّف middleware التنفيذ الاستدعاء الفعلي نفسه. سجّلها من نقطة الدخول نفسها <code>register(ctx)</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<p>القائمة المرجعية للأنواع هي <code>VALID_MIDDLEWARE</code> في <code>hermes_cli/middleware.py</code>:</p>
+<table><thead><tr><th>النوع</th><th>يستقبل</th><th>عقد القيمة المُعادة</th></tr></thead><tbody><tr><td><code>tool_request</code></td><td><code>tool_name</code>، <code>args</code>، <code>original_args</code>، وسائط السياق</td><td>أعِد <code>{&quot;args&quot;: {...}}</code> لاستبدال وسائط الأداة الفعلية قبل أن تراها الـ hooks والحواجز الوقائية والموافقات والتنفيذ. أعِد <code>None</code> لترك الاستدعاء دون تغيير.</td></tr><tr><td><code>llm_request</code></td><td><code>request</code>، <code>original_request</code>، وسائط السياق</td><td>أعِد <code>{&quot;request&quot;: {...}}</code> لاستبدال وسائط المزوّد الفعلية قبل أن يرسلها Hermes.</td></tr><tr><td><code>tool_execution</code></td><td>الحمولة بالإضافة إلى <code>next_call</code></td><td>يغلّف تنفيذ الأداة. استدعِ <code>next_call(payload)</code> مرة واحدة بالضبط لتشغيل السلسلة اللاحقة (أو تجاوزها للاختصار) وأعِد النتيجة.</td></tr><tr><td><code>llm_execution</code></td><td>الحمولة بالإضافة إلى <code>next_call</code></td><td>الشكل نفسه، لكن يغلّف استدعاء المزوّد.</td></tr></tbody></table>
+<p><strong>قواعد ذات أثر عملي:</strong></p>
+<ul>
+<li>سلاسل middleware الطلب: يرى كل استدعاء الحمولة كما أعادت كتابتها الاستدعاءات السابقة، بينما تحمل <code>original_args</code> / <code>original_request</code> دائمًا النسخة قبل middleware. تُنسخ الحمولات بين الاستدعاءات، لذا يمكنك التعديل بحرية.</li>
+<li>يمكنك تضمين سلاسل <code>source</code> و<code>reason</code> و<code>name</code> في القاموس المُعاد. تنتهي في أثر middleware، الذي تستقبله hooks المراقبة اللاحقة كوسيط <code>middleware_trace</code>.</li>
+<li><code>next_call</code> في middleware التنفيذ <strong>أحادي الاستخدام</strong>. استدعاؤه مرتين يُطلق استثناءً، لأن ذلك سيُعيد تشغيل المزوّد أو الأداة.</li>
+<li>استدعاء middleware يُطلق استثناءً يُسجَّل ويُتجاوز؛ وتستمر السلسلة. أي إخفاق لاحق يُطلَق بعد <code>next_call</code> الخاص بك ينتشر كما هو. لا يمكن أبدًا لـ middleware كسر مسار وقت التشغيل الأساسي.</li>
+<li>تحمل حمولات middleware <code>middleware_schema_version</code> (<code>hermes.middleware.v1</code>) إلى جانب حقول قياس المراقبة (observer telemetry).</li>
+<li>تُسجَّل الأنواع غير المعروفة مع تحذير بدلًا من الفشل، بحيث تظل إضافة مكتوبة لإصدار أحدث من Hermes قابلة للتحميل على إصدار أقدم.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="register-cli-commands">تسجيل أوامر CLI</h3>
+<p>يمكن للإضافات إضافة شجرة أوامر فرعية <code>hermes &lt;plugin&gt;</code> خاصة بها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<p>بعد التسجيل، يمكن للمستخدمين تنفيذ <code>hermes my-plugin status</code>، و<code>hermes my-plugin config</code>، وما إلى ذلك.</p>
+<p><strong>إضافات مزوّدي الذاكرة</strong> تستخدم نهجًا قائمًا على الاصطلاح (convention-based) بدلًا من ذلك: أضف دالة <code>register_cli(subparser)</code> إلى ملف <code>cli.py</code> الخاص بإضافتك. يجد نظام اكتشاف إضافات الذاكرة هذا تلقائيًا — لا حاجة لاستدعاء <code>ctx.register_cli_command()</code>. راجع <a href="/docs/developer-guide/memory-provider-plugin#adding-cli-commands">دليل إضافة مزوّد الذاكرة</a> للتفاصيل.</p>
+<p><strong>التقييد حسب المزوّد النشط:</strong> تظهر أوامر CLI الخاصة بإضافة الذاكرة فقط عندما يكون مزوّدها هو <code>memory.provider</code> النشط في الإعدادات. إذا لم يُعِد المستخدم إعداد مزوّدك، فلن تُزاحم أوامر CLI الخاصة بك مخرجات المساعدة.</p>

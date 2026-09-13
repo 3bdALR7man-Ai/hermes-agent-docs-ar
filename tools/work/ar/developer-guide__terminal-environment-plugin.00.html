@@ -1,0 +1,56 @@
+<header><h1>إضافات مزوّدي بيئة Terminal</h1></header>
+<p>يشغّل Hermes أوامر الـ shell عبر مجموعة قابلة للإضافة من <strong>terminal backends</strong>.
+تعيش الـ backends المدمجة (المحلي، وDocker، وSingularity، وModal، وDaytona، وVercel
+Sandbox، وSSH) في المستودع الأساسي تحت <code>tools/environments/</code>. مزوّدو الصناديق الرملية (sandbox)
+من طرف ثالث يتكاملون <strong>كإضافات</strong> بدلًا من ذلك — مستودع إضافة مستقل
+يُثبَّت تحت <code>~/.hermes/plugins/</code>، ويسجّل backend يختاره المستخدم
+تمامًا كما يختار واحدًا مدمجًا عبر <code>terminal.backend</code> في <code>config.yaml</code>.</p>
+<p>تحاكي هذه الصفحة دليل <a href="/docs/developer-guide/browser-provider-plugin">إضافات مزوّدي المتصفح</a>
+— نفس تدفق التسجيل، ونفس دلالات النطاق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-a-provider-controls">ما يتحكم فيه المزوّد</h2>
+<p>يشارك backend مُسجَّل تلقائيًا في كل سطح أساسي:</p>
+<table><thead><tr><th>السطح</th><th>يُدار بواسطة</th></tr></thead><tbody><tr><td>إرسال الأوامر (<code>terminal</code>، و<code>execute_code</code>، وأدوات الملفات)</td><td><code>create_environment()</code></td></tr><tr><td>منتقي backend في <code>hermes setup</code></td><td><code>display_name</code>، و<code>description</code>، و<code>setup_instructions()</code>، و<code>post_setup()</code></td></tr><tr><td>منتقي backend الطرفية في لوحة التحكم (حالة الفحص)</td><td><code>probe()</code></td></tr><tr><td><code>hermes status</code> / <code>hermes doctor</code></td><td><code>doctor_checks()</code></td></tr><tr><td>تلميحات بيئة system prompt</td><td><code>is_remote</code>، و<code>env_description</code></td></tr><tr><td>تخطي الموافقة على الأوامر الخطيرة</td><td><code>skip_container_guards</code></td></tr><tr><td>معالجة مسار/دليل عمل الحاوية</td><td><code>is_container</code></td></tr><tr><td>ترجمة مسار ملف التخزين المؤقت المُتزامن</td><td><code>cache_path_base</code></td></tr><tr><td>تجريد الأسرار من العمليات الفرعية المُطلَقة</td><td><code>strip_env_keys</code></td></tr><tr><td>عزل الصندوق الرملي لكل جلسة (<code>container_persistent: false</code>)</td><td><code>session_isolated_when_nonpersistent</code></td></tr></tbody></table>
+<p>إعلان هذه العلامات على المزوّد يغلق فئة أخطاء &quot;backend جديد فاته
+موقع تصنيف N&quot; الكلاسيكية — إذ تستشير النواة السجل عند كل
+موقع بدلًا من قائمة أسماء ثابتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-provider">مزوّد بسيط</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/plugins/acmebox/__init__.py</div><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/plugins/acmebox/plugin.yaml</div><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>فعّله، اخترْه، وشغّل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rules">القواعد</h2>
+<ul>
+<li><strong>أسماء محجوزة.</strong> تُرفَض التسجيلات التي تتصادم مع اسم backend مدمج
+(<code>local</code>، و<code>docker</code>، و<code>singularity</code>، و<code>modal</code>، و<code>managed_modal</code>، و<code>daytona</code>،
+و<code>vercel_sandbox</code>، و<code>ssh</code>). توسّع الإضافات مجموعة الـ backends؛ ولا
+تحجب أبدًا backends ضمن الشجرة.</li>
+<li><strong>يجب أن تقبل <code>create_environment</code> معامل <code>**kwargs</code></strong> وتتجاهل المفاتيح غير المعروفة —
+عقد التوافق المستقبلي الذي يسمح لتوقيع المصنع (factory) بالتطور دون
+كسر الإضافات القديمة.</li>
+<li><strong>يجب أن تكون <code>is_available()</code> / <code>probe()</code> رخيصتي التكلفة.</strong> بلا استدعاءات شبكة — إذ تعملان
+أثناء فحوصات المتطلبات ورسم واجهة المستخدم.</li>
+<li><strong>الفشل الرشيق (fail-soft) في كل مكان.</strong> تُعامَل أي خاصية مزوّد تُطلق استثناءً كأنها على
+قيمتها الافتراضية من قِبل النواة (مثلًا <code>skip_container_guards</code> التي تُطلق استثناءً تُبقي
+طبقة الموافقة مفعَّلة). لا تعتمد على الاستثناءات للتحكم في سير التنفيذ.</li>
+<li><strong>الأسرار مكانها <code>strip_env_keys</code>.</strong> يجب ألا يكون رمز المزوّد التجاري الخاص بك
+قابلًا للقراءة أبدًا من قِبل أمر shell أنشأه النموذج؛ إدراجه يجرّده من كل
+عملية فرعية مُطلَقة دون قيد أو شرط، مثل معالجة <code>MODAL_*</code> /
+<code>DAYTONA_API_KEY</code> المدمجة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-object-contract">عقد كائن البيئة</h2>
+<p>تُعيد <code>create_environment()</code> كائنًا يحقق الواجهة نفسها ذات النمط الحر (duck-typed)
+مثل <code>tools.environments.base.BaseEnvironment</code>:</p>
+<ul>
+<li><code>execute(command, timeout=None, ...)</code> ← <code>{&quot;output&quot;: str, &quot;exit_code&quot;: int}</code></li>
+<li><code>cleanup()</code> — تحرير الموارد؛ يُستدعى عند تفكيك الجلسة / حصاد الخمول</li>
+<li>اختياري: نقاط ربط (hooks) للاستمرارية تحاكي الـ backends السحابية المدمجة</li>
+</ul>
+<p>يُنصَح بالاشتقاق من <code>BaseEnvironment</code> (فهذا يمنحك الآليات المشتركة لمزامنة الملفات
+والعمليات الخلفية) لكنه ليس مطلوبًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-isolation-semantics">دلالات عزل الجلسة</h2>
+<p>إذا كان صندوقك الرملي <strong>يُستأنَف بالاسم</strong> (آلة افتراضية دائمة يعيد الـ backend
+الاتصال بها)، اضبط <code>session_isolated_when_nonpersistent = True</code>. مع
+<code>terminal.container_persistent: false</code>، تحصل كل جلسة عندئذٍ على هوية
+صندوق رملي خاصة بها بدلًا من مشاركة واحدة — وبدون هذا، يمكن لتشغيلين
+مستقلين مؤقتين الاتصال بآلة افتراضية حية واحدة وحذفها من تحت
+أحدهما الآخر.</p>

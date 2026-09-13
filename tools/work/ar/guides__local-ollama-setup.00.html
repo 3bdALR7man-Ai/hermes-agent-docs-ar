@@ -1,0 +1,144 @@
+<header><h1>تشغيل Hermes محليًا مع Ollama — بدون أي تكلفة API</h1></header>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>مستخدمو Desktop: هناك مسار بنقرة واحدة</div><div class="admonitionContent_BuS1"><p>في تطبيق Hermes للحاسوب المكتبي، يقوم المسار <strong>Settings → Providers → Local Models</strong> بتثبيت
+خادم llama.cpp محلي وإدارته نيابة عنك — بما في ذلك تنزيل النماذج، وملاءمة
+الذاكرة، وضبط حجم السياق. راجع <a href="/docs/user-guide/local-models">Local Models</a>.
+هذا الدليل مخصص للإعداد اليدوي: تحديدًا Ollama، وسير عمل يعتمد على CLI أولًا،
+أو الخوادم التي تريد تشغيلها بنفسك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-problem">المشكلة</h2>
+<p>تفرض واجهات LLM السحابية رسومًا بحسب الـ token. يمكن أن تكلّف جلسة برمجة مكثفة 5 إلى 20 دولارًا. وبالنسبة للمشاريع الشخصية أو التعلّم أو الأعمال الحساسة للخصوصية، تتراكم هذه التكلفة — وأنت ترسل كل محادثة إلى طرف ثالث.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-guide-solves">ما يحلّه هذا الدليل</h2>
+<p>ستُعِدّ Hermes Agent ليعمل بالكامل على عتادك الخاص، باستخدام <a href="https://ollama.com" data-ext>Ollama</a> كـ backend للنموذج. لا مفاتيح API، ولا اشتراكات، ولا بيانات تغادر جهازك. بعد الإعداد، يعمل Hermes تمامًا كما يعمل مع OpenRouter أو Anthropic — أوامر الطرفية، وتحرير الملفات، وتصفح الويب، والتفويض — لكن النموذج يعمل محليًا.</p>
+<p>في نهاية هذا الدليل، سيكون لديك:</p>
+<ul>
+<li>Ollama يخدم نموذجًا واحدًا أو أكثر من النماذج مفتوحة الأوزان</li>
+<li>Hermes متصل بـ Ollama كـ endpoint مخصّص</li>
+<li>وكيل محلي يعمل يستطيع تحرير الملفات، وتشغيل الأوامر، وتصفح الويب</li>
+<li>اختياريًا: بوت Telegram/Discord يعمل بالكامل على عتادك الخاص</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-you-need">ما تحتاجه</h2>
+<table><thead><tr><th>المكوّن</th><th>الحد الأدنى</th><th>الموصى به</th></tr></thead><tbody><tr><td><strong>RAM</strong></td><td>8 جيجابايت (لنماذج 3B)</td><td>32+ جيجابايت (لنماذج 27B فأكبر)</td></tr><tr><td><strong>التخزين</strong></td><td>5 جيجابايت متاحة</td><td>30+ جيجابايت (لعدة نماذج)</td></tr><tr><td><strong>المعالج (CPU)</strong></td><td>4 أنوية</td><td>8+ أنوية (AMD EPYC، Ryzen، Intel Xeon)</td></tr><tr><td><strong>وحدة معالجة الرسوميات (GPU)</strong></td><td>غير مطلوبة</td><td>وحدة NVIDIA GPU بذاكرة VRAM 8+ جيجابايت تسرّع الأداء بشكل ملحوظ</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>يعمل بدون GPU، لكن توقّع استجابات أبطأ</div><div class="admonitionContent_BuS1"><p>يعمل Ollama على خوادم بدون GPU. يعطي نموذج 9B على معالج حديث بـ 8 أنوية نحو 10 tokens/ثانية. أما نموذج 31B على المعالج فأبطأ (~2–5 tokens/ثانية) — تستغرق كل استجابة 30 إلى 120 ثانية، لكنه يعمل. تُحسّن GPU هذا الأداء بشكل كبير. للإعدادات التي تعتمد على المعالج فقط، وسّع مهلة API عبر متغير البيئة (فهو ليس مفتاحًا في <code>config.yaml</code>):</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-install-ollama">الخطوة 1: تثبيت Ollama</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تحقّق من أنه يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-pull-a-model">الخطوة 2: سحب نموذج (Pull)</h2>
+<p>اختر بناءً على عتادك:</p>
+<table><thead><tr><th>النموذج</th><th>الحجم على القرص</th><th>الذاكرة المطلوبة</th><th style="text-align:center">استدعاء الأدوات (Tool Calling)</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><code>gemma4:31b</code></td><td>~20 جيجابايت</td><td>24+ جيجابايت</td><td style="text-align:center">نعم</td><td>أفضل جودة — استخدام أدوات وتفكير منطقي قويّين</td></tr><tr><td><code>gemma2:27b</code></td><td>~16 جيجابايت</td><td>20+ جيجابايت</td><td style="text-align:center">لا</td><td>مهام حوارية، بدون استخدام أدوات</td></tr><tr><td><code>gemma2:9b</code></td><td>~5 جيجابايت</td><td>8+ جيجابايت</td><td style="text-align:center">لا</td><td>محادثة سريعة، أسئلة وأجوبة — لا يستطيع استدعاء الأدوات</td></tr><tr><td><code>llama3.2:3b</code></td><td>~2 جيجابايت</td><td>4+ جيجابايت</td><td style="text-align:center">لا</td><td>إجابات سريعة خفيفة فقط</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>استدعاء الأدوات أمر مهم</div><div class="admonitionContent_BuS1"><p>Hermes مساعد <strong>وكيلي (agentic)</strong> — فهو يحرّر الملفات، ويشغّل الأوامر، ويتصفح الويب عبر استدعاءات الأدوات. النماذج التي لا تدعم استدعاء الأدوات تستطيع فقط المحادثة؛ ولا يمكنها اتخاذ إجراءات. للحصول على تجربة Hermes الكاملة، استخدم نموذجًا يدعم الأدوات (مثل <code>gemma4:31b</code>).</p></div></div>
+<p>اسحب النموذج الذي اخترته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>عدة نماذج</div><div class="admonitionContent_BuS1"><p>يمكنك سحب عدة نماذج والتبديل بينها داخل Hermes باستخدام <code>/model</code>. يحمّل Ollama النموذج النشط إلى الذاكرة عند الطلب ويفرّغ النماذج الخاملة تلقائيًا.</p></div></div>
+<p>تحقّق من أن النموذج يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يفترض أن ترى استجابة JSON تحتوي على رد النموذج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-hermes">الخطوة 3: إعداد Hermes</h2>
+<p>شغّل معالج إعداد Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>عند سؤالك عن المزوّد، اختر <strong>Custom Endpoint</strong> وأدخل:</p>
+<ul>
+<li><strong>Base URL:</strong> <code>http://localhost:11434/v1</code></li>
+<li><strong>API Key:</strong> اتركه فارغًا أو اكتب <code>no-key</code> (لا يحتاج Ollama إلى مفتاح)</li>
+<li><strong>Model:</strong> <code>gemma4:31b</code> (أو أي نموذج سحبته)</li>
+</ul>
+<p>بدلًا من ذلك، حرّر <code>~/.hermes/config.yaml</code> مباشرة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-start-using-hermes">الخطوة 4: ابدأ استخدام Hermes</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>هذا كل ما في الأمر. أنت الآن تشغّل وكيلًا محليًا بالكامل. جرّبه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>سيستخدم Hermes أداة الطرفية، وعمليات الملفات، ونموذجك المحلي — بلا أي استدعاءات سحابية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-pick-the-right-model-for-your-task">الخطوة 5: اختر النموذج المناسب لمهمتك</h2>
+<p>لا تحتاج كل مهمة إلى أكبر نموذج. إليك دليلًا عمليًا:</p>
+<table><thead><tr><th>المهمة</th><th>النموذج الموصى به</th><th>السبب</th></tr></thead><tbody><tr><td>تحرير الملفات، والبرمجة، وأوامر الطرفية</td><td><code>gemma4:31b</code></td><td>النموذج الوحيد ذو استدعاء أدوات موثوق</td></tr><tr><td>أسئلة وأجوبة سريعة (دون حاجة لاستخدام أدوات)</td><td><code>gemma2:9b</code></td><td>استجابات سريعة للمهام الحوارية</td></tr><tr><td>محادثة خفيفة</td><td><code>llama3.2:3b</code></td><td>الأسرع، لكن بقدرات محدودة جدًا</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>للعمل الوكيلي الكامل (تحرير الملفات، وتشغيل الأوامر، والتصفح)، يُعدّ <code>gemma4:31b</code> حاليًا أفضل خيار محلي يدعم استدعاء الأدوات. راجع <a href="https://ollama.com/library" data-ext>مكتبة نماذج Ollama</a> بحثًا عن نماذج أحدث — فدعم استدعاء الأدوات يتوسّع بسرعة.</p></div></div>
+<p>بدّل النماذج أثناء الجلسة مباشرة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-optimize-for-speed">الخطوة 6: التحسين من أجل السرعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="increase-ollamas-context-window">زيادة نافذة سياق Ollama</h3>
+<p>يستخدم Ollama افتراضيًا سياقًا بحجم 2048 token. يتطلب Hermes ما لا يقل عن 64,000 token للعمل الوكيلي مع الأدوات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>ثم حدّث إعدادات Hermes لاستخدام <code>gemma4-64k</code> كاسم النموذج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="keep-the-model-loaded">إبقاء النموذج محمّلًا</h3>
+<p>يُفرّغ Ollama افتراضيًا النماذج بعد 5 دقائق من الخمول. لبوت gateway دائم، أبقِه محمّلًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>أو اضبطه عالميًا في بيئة Ollama:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-gpu-offloading-if-available">استخدام تفريغ الحمل على GPU (إن توفّرت)</h3>
+<p>إذا كانت لديك وحدة NVIDIA GPU، يقوم Ollama تلقائيًا بتفريغ الطبقات (layers) إليها. تحقّق من ذلك بـ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>بالنسبة لنموذج 31B على GPU بذاكرة 12 جيجابايت، ستحصل على تفريغ جزئي (~40 طبقة على GPU والباقي على المعالج)، ما زال يمنحك تسريعًا ملحوظًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-run-as-a-gateway-bot-optional">الخطوة 7: التشغيل كبوت Gateway (اختياري)</h2>
+<p>بمجرد أن يعمل Hermes محليًا في CLI، يمكنك عرضه كبوت Telegram أو Discord — يعمل بالكامل على عتادك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="telegram">Telegram</h3>
+<ol>
+<li>أنشئ بوتًا عبر <a href="https://t.me/BotFather" data-ext>@BotFather</a> واحصل على الرمز (token)</li>
+<li>أضف إلى ملف <code>~/.hermes/config.yaml</code>:</li>
+</ol>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<ol start="3">
+<li>ابدأ الـ gateway:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>الآن راسِل بوتك على Telegram — سيردّ باستخدام نموذجك المحلي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord">Discord</h3>
+<ol>
+<li>أنشئ تطبيق Discord على <a href="https://discord.com/developers/applications" data-ext>discord.com/developers</a></li>
+<li>أضف إلى الإعدادات:</li>
+</ol>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<ol start="3">
+<li>ابدأ التشغيل: <code>hermes gateway</code></li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8-set-up-fallbacks-optional">الخطوة 8: إعداد الحلول الاحتياطية (اختياري)</h2>
+<p>قد تواجه النماذج المحلية صعوبة في المهام المعقدة. أعِدّ حلًا سحابيًا احتياطيًا يُفعَّل فقط عند فشل النموذج المحلي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>بهذه الطريقة، تكون 90% من استخدامك مجانيًا (محليًا)، ولا تصل إلى واجهة API المدفوعة إلا المهام الصعبة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-refused-on-startup">&quot;Connection refused&quot; عند بدء التشغيل</h3>
+<p>Ollama غير قيد التشغيل. شغّله:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="slow-responses">استجابات بطيئة</h3>
+<ul>
+<li><strong>تحقّق من حجم النموذج مقارنة بالذاكرة (RAM):</strong> إذا احتاج نموذجك ذاكرة أكثر من المتاحة، فسينتقل إلى القرص (swap). استخدم نموذجًا أصغر أو أضف ذاكرة.</li>
+<li><strong>تحقّق من <code>ollama ps</code>:</strong> إذا لم تُفرَّغ أي طبقات على GPU، تكون الاستجابات مقيّدة بالمعالج (CPU-bound). هذا طبيعي للخوادم التي تعمل بالمعالج فقط.</li>
+<li><strong>قلّل السياق:</strong> تُبطئ المحادثات الطويلة الاستدلال (inference). استخدم <code>/compress</code> بانتظام، أو اضبط عتبة ضغط أقل في الإعدادات.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="slow-first-response-prefill">استجابة أولى بطيئة (Prefill)</h3>
+<p>يرسل Hermes حمولة (payload) ثابتة في كل استدعاء API — الـ system prompt بالإضافة إلى مخططات الأدوات لجميع الأدوات المفعّلة — قبل أي محتوى من محادثتك. في الإعدادات التي تعتمد على المعالج فقط أو ذات ذاكرة VRAM منخفضة، تُهيمن معالجة هذا الـ prompt (مرحلة <em>prefill</em>) على الدور الأول: قد يبقى النموذج صامتًا لدقائق أثناء معالجة الـ prompt، ثم يولّد النص بمعدله المعتاد. هذا سلوك متوقّع وليس تعليقًا (hang). يوثّق <a href="/docs/guides/local-llm-on-mac#timeouts">دليل LLM المحلي على Mac</a> التأثير نفسه — أثناء prefill في السياقات الكبيرة، قد لا تنتج النماذج المحلية أي مخرجات لدقائق أثناء معالجة الـ prompt — ويرفع Hermes تلقائيًا مهلة قراءة البث (stream) من 120 ثانية إلى 1800 ثانية للـ endpoints المحلية (<code>HERMES_STREAM_READ_TIMEOUT</code>).</p>
+<p>ما يساعد:</p>
+<ul>
+<li><strong>إبقاء النموذج محمّلًا</strong> — يُفرّغ Ollama النماذج الخاملة بعد 5 دقائق، ما يضيف إعادة تحميل كاملة قبل الـ prefill التالي. اضبط <code>OLLAMA_KEEP_ALIVE=24h</code> (راجع <a href="#keep-the-model-loaded">الخطوة 6</a>).</li>
+<li><strong>توسيع مهلة API</strong> — اضبط <code>HERMES_API_TIMEOUT=1800</code> في <code>~/.hermes/.env</code> (راجع <a href="#what-you-need">ما تحتاجه</a>).</li>
+<li><strong>قياس الـ prompt الثابت وتقليصه</strong> — شغّل <code>hermes prompt-size</code> للحصول على تفصيل بالبايت لحجم الـ system prompt ومخططات الأدوات، ثم عطّل مجموعات الأدوات (toolsets) غير المستخدمة عبر <code>hermes tools</code> وأزل تثبيت المهارات التي لا تحتاجها عبر <code>hermes skills</code>.</li>
+<li><strong>استخدام تفريغ الحمل على GPU</strong> — حتى التفريغ الجزئي يمنح تسريعًا ملحوظًا (راجع <a href="#use-gpu-offloading-if-available">الخطوة 6</a>).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-doesnt-follow-tool-calls">النموذج لا يتبع استدعاءات الأدوات</h3>
+<p>تُنتج النماذج التي لا تدعم استدعاء الأدوات نصًا عاديًا بدلًا من استدعاءات دوال منظّمة. الحلول:</p>
+<ul>
+<li><strong>استخدم نموذجًا يدعم استدعاء الأدوات</strong> — من بين النماذج المذكورة أعلاه، <code>gemma4:31b</code> فقط لديه استدعاء أدوات موثوق.</li>
+<li><strong>يمتلك Hermes إصلاحًا تلقائيًا</strong> — فهو يكتشف استدعاءات الأدوات المُشوَّهة ويحاول إصلاحها تلقائيًا.</li>
+<li><strong>أعِدّ حلًا احتياطيًا</strong> — إذا فشل النموذج المحلي 3 مرات، يتحوّل Hermes إلى مزوّد سحابي.</li>
+</ul>
+<p>إذا طبع النموذج نص JSON خامًا مثل <code>{&quot;name&quot;: &quot;web_search&quot;, ...}</code> في رده بدلًا من تشغيل الأداة فعليًا، فهذا يعود عادة إلى <em>الخادم (server)</em> وليس النموذج — أي أن استدعاء الأدوات غير مفعّل أو أن صيغة استدعاء الأداة لا تُحلَّل (parsed). راجع جدول الإصلاح الخاص بكل خادم في <a href="/docs/integrations/providers#tool-calls-appear-as-text-instead-of-executing">تظهر استدعاءات الأدوات كنص بدلًا من التنفيذ</a> (يحتاج llama.cpp إلى <code>--jinja</code>، ويحتاج vLLM إلى <code>--enable-auto-tool-choice --tool-call-parser hermes</code>، وهكذا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-window-errors">أخطاء نافذة السياق</h3>
+<p>سياق Ollama الافتراضي (2048 token) صغير جدًا للعمل الوكيلي. راجع <a href="#step-6-optimize-for-speed">الخطوة 6</a> لزيادته.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cost-comparison">مقارنة التكلفة</h2>
+<p>إليك ما يوفّره التشغيل المحلي مقارنة بواجهات API السحابية، بناءً على جلسة برمجة نموذجية (~100 ألف token مدخلات، ~20 ألف token مخرجات):</p>
+<table><thead><tr><th>المزوّد</th><th>التكلفة لكل جلسة</th><th>شهريًا (استخدام يومي)</th></tr></thead><tbody><tr><td>Anthropic Claude Sonnet</td><td>~0.80 دولار</td><td>~24 دولارًا</td></tr><tr><td>OpenRouter (GPT-4o)</td><td>~0.60 دولار</td><td>~18 دولارًا</td></tr><tr><td><strong>Ollama (محلي)</strong></td><td><strong>0.00 دولار</strong></td><td><strong>0.00 دولار</strong></td></tr></tbody></table>
+<p>تكلفتك الوحيدة هي الكهرباء — نحو 0.01 إلى 0.05 دولار لكل جلسة حسب العتاد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-works-well-locally">ما يعمل جيدًا محليًا</h2>
+<ul>
+<li><strong>تحرير الملفات وتوليد الكود</strong> — تتعامل النماذج بحجم 9B فأكبر مع هذا جيدًا</li>
+<li><strong>أوامر الطرفية</strong> — يغلّف Hermes الأمر، ويشغّله، ويقرأ المخرجات بغض النظر عن النموذج</li>
+<li><strong>تصفح الويب</strong> — تقوم أداة المتصفح بالجلب؛ والنموذج يكتفي بتفسير النتائج</li>
+<li><strong>مهام Cron والمهام المجدولة</strong> — تعمل مطابقة للإعدادات السحابية</li>
+<li><strong>Gateway متعدد المنصات</strong> — تعمل Telegram وDiscord وSlack جميعها مع النماذج المحلية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-better-with-cloud-models">ما هو أفضل مع النماذج السحابية</h2>
+<ul>
+<li><strong>الاستدلال المعقّد جدًا متعدد الخطوات</strong> — النماذج بحجم 70B فأكبر أو النماذج السحابية مثل Claude Opus أفضل بشكل ملحوظ</li>
+<li><strong>نوافذ السياق الطويلة</strong> — تقدّم النماذج السحابية 100 ألف إلى مليون token؛ وغالبًا ما تكون بيئات التشغيل المحلية أقل افتراضيًا من حد Hermes الأدنى البالغ 64 ألف token ما لم تُعدّها يدويًا</li>
+<li><strong>السرعة في الاستجابات الطويلة</strong> — الاستدلال السحابي أسرع من التشغيل المحلي بالمعالج فقط للنصوص الطويلة</li>
+</ul>
+<p>النقطة المثلى: استخدم النموذج المحلي للمهام اليومية، وأعِدّ حلًا سحابيًا احتياطيًا للمهام الصعبة.</p>

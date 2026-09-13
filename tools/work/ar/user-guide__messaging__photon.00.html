@@ -1,0 +1,96 @@
+<header><h1>Photon iMessage</h1></header>
+<p>اربط Hermes بخدمة <strong>iMessage</strong> عبر <a href="https://photon.codes/" data-ext>Photon</a>، وهي خدمة مُدارة تتولى تخصيص خطوط Apple وطبقة منع إساءة الاستخدام، فلا تحتاج إلى تشغيل وسيط (relay) خاص بك على جهاز Mac.</p>
+<p>تستخدم الفئة المجانية مجموعة خطوط iMessage المشتركة لدى Photon — فقد يرى المستلمون المختلفون أرقام إرسال مختلفة، لكن كل محادثة تبقى ثابتة على رقمها. أما فئة Business المدفوعة فتمنح جميع المستخدمين الرقم المخصص نفسه؛ وتدعم الإضافة (plugin) كلتا الفئتين، والفئة المجانية هي نقطة البداية الموصى بها.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>مجاني للبدء</div><div class="admonitionContent_BuS1"><p>مجموعة الخطوط المشتركة لدى Photon مجانية. لا يلزمك أي اشتراك لإرسال أول رسالة iMessage من Hermes — كل ما تحتاج إليه رقم هاتف يمكن ربطه بحسابك.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية</h2>
+<p>Photon قناة تعتمد على <strong>اتصال دائم</strong>، مثل Discord أو Slack —
+<strong>لا webhook، ولا عنوان URL عام، ولا سر توقيع (signing secret) تحتاج إلى إدارته.</strong></p>
+<p>تحتفظ SDK المسمّاة <code>spectrum-ts</code> بـ <strong>تدفق gRPC</strong> طويل الأمد مع Photon في الاتجاهين. ولأن هذه الـ SDK متاحة بلغة TypeScript فقط، يشغّلها Hermes داخل <strong>Node sidecar</strong> صغير خاضع للإشراف، ويتواصل معه عبر عنوان loopback:</p>
+<ul>
+<li><strong>الوارد</strong> — يستهلك الـ sidecar تدفق gRPC ‏<code>app.messages</code> الخاص بالـ SDK ويمرّر كل رسالة إلى محوّل (adapter) Python عبر طلب loopback
+<code>GET /inbound</code> ‏(NDJSON). ويزيل المحوّل الرسائل المكررة ويوجّهها إلى الوكيل، ويعيد الاتصال تلقائيًا إذا انقطع التدفق.</li>
+<li><strong>الصادر</strong> — الردود عبارة عن طلبات POST عبر loopback إلى الـ sidecar، الذي يستدعي
+<code>space.send(...)</code> في الـ SDK.</li>
+</ul>
+<p>تتولى إضافة Python تشغيل الـ sidecar والإشراف عليه وإيقافه تلقائيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>حساب Photon — سجّل عبر <a href="https://app.photon.codes/" data-ext>app.photon.codes</a></li>
+<li><strong>Node.js 18.17 أو أحدث</strong> ضمن PATH ‏(<code>node --version</code>)</li>
+<li>رقم هاتف يستقبل رسائل iMessage (يُستخدم لربط حسابك)</li>
+</ul>
+<p>هذا كل شيء — لا يوجد عنوان URL عام أو نفق (tunnel) يلزم إعداده.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="first-time-setup">الإعداد لأول مرة</h2>
+<p>إما أن تشغّل معالج الـ gateway الموحّد وتختار <strong>Photon iMessage</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>…أو تشغّل إعداد Photon مباشرةً (يستدعي المعالج التدفق نفسه):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يقوم الإعداد بما يلي بالترتيب:</p>
+<ol>
+<li><strong>تسجيل دخول الجهاز</strong> (<code>client_id=photon-cli</code>) — يفتح
+<code>https://app.photon.codes/</code> للموافقة ويخزّن الـ bearer token.</li>
+<li><strong>يعثر على المشروع أو ينشئه</strong> — أي مشروع <code>Hermes Agent</code> في حسابك.</li>
+<li><strong>يفعّل Spectrum</strong>، ويقرأ معرّف Spectrum الخاص بالمشروع، ويدوّر سرّ المشروع.</li>
+<li><strong>يسجّل رقم هاتفك</strong> كمستخدم في Spectrum — وتُتخطى هذه الخطوة إذا كان هناك مستخدم بهذا الرقم مسبقًا، لذا فإن إعادة التشغيل آمنة.</li>
+<li><strong>يطبع خط iMessage المخصص لك</strong> — وهو الرقم الذي تراسله للوصول إلى وكيلك.</li>
+<li><strong>يشغّل <code>npm install</code></strong> داخل مجلد الـ sidecar الخاص بالإضافة. وفي أشجار التثبيت للقراءة فقط / غير القابلة للتعديل (صور Docker المستضافة، و Podman، و Nix)، يتراجع الـ sidecar تلقائيًا إلى نسخة قابلة للكتابة ضمن
+<code>~/.hermes/photon/sidecar</code>؛ واضبط <code>PHOTON_SIDECAR_DIR</code> لتثبيت موقع صريح.</li>
+</ol>
+<p>تُكتب بيانات اعتماد وقت التشغيل في <code>~/.hermes/.env</code>
+(<code>PHOTON_PROJECT_ID</code> = معرّف مشروع Spectrum، و <code>PHOTON_PROJECT_SECRET</code>)،
+وهو المكان نفسه الذي تحفظ فيه كل قناة أخرى الـ token الخاص بها. أما البيانات الوصفية للإدارة (device token، ومعرّف المشروع في لوحة التحكم) فتوجد في <code>~/.hermes/auth.json</code> ضمن
+<code>credential_pool.photon</code> / <code>credential_pool.photon_project</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorizing-users">تفويض المستخدمين</h2>
+<p>يستخدم Photon نموذج التفويض نفسه الذي تستخدمه جميع قنوات Hermes الأخرى. اختر إحدى الطرق التالية:</p>
+<p><strong>الاقتران عبر الرسائل المباشرة (DM pairing) (الافتراضي).</strong> عندما يراسل رقم غير معروف خط Photon الخاص بك، يردّ Hermes برمز اقتران. وافق عليه باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>استخدم <code>hermes pairing list</code> لعرض الرموز المعلّقة والمستخدمين الذين تمت الموافقة عليهم.</p>
+<p><strong>تفويض أرقام محددة مسبقًا</strong> (في <code>~/.hermes/.env</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>وصول مفتوح</strong> (لبيئة التطوير فقط، في <code>~/.hermes/.env</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عند ضبط <code>PHOTON_ALLOWED_USERS</code>، يُتجاهل المرسلون غير المعروفين بصمت بدلًا من إرسال رمز اقتران إليهم (إذ تدل قائمة السماح (allowlist) على أنك قيّدت الوصول عمدًا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="require-mentions-in-group-chats">اشتراط الإشارة في المحادثات الجماعية</h3>
+<p>افتراضيًا، يردّ Hermes على كل رسالة مباشرة أو جماعية مصرّح بها. ولجعل المحادثات الجماعية تعمل بالاشتراك الاختياري (opt-in)، فعّل اشتراط الإشارة (mention gating) (مع بقاء الرسائل المباشرة عاملةً دائمًا):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>مع <code>require_mention: true</code>، تُتجاهل رسائل المحادثات الجماعية ما لم تطابق نمط كلمة تنبيه. وتطابق القيم الافتراضية صيغ <code>Hermes</code> و
+<code>@Hermes agent</code>. وإذا كان للوكيل اسم مخصص، فاضبط أنماط regex:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يقبل كلا المفتاحين أيضًا متغيرات البيئة (<code>PHOTON_REQUIRE_MENTION</code>،
+<code>PHOTON_MENTION_PATTERNS</code>). وهذا هو نموذج اشتراط الإشارة نفسه الذي تستخدمه قناة BlueBubbles iMessage.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-the-gateway">تشغيل الـ gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>سترى مخرجات شبيهة بما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>أرسل رسالة iMessage إلى الرقم المخصص لك، وسيردّ Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="status--troubleshooting">الحالة واستكشاف الأخطاء وإصلاحها</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يطبع هذا الأمر بيانات الاعتماد المحفوظة، وحالة سلامة الـ sidecar، ورقمك المسجّل، وخط iMessage المخصص الذي يستخدمه Hermes. وعند توفر token لـ Photon ومشروع في لوحة التحكم، يحدّث <code>status</code> صفوف الأرقام الناقصة من لوحة التحكم دون تخصيص خطوط جديدة.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>المشكلات الشائعة:</p>
+<ul>
+<li><strong><code>sidecar deps : ✗ run hermes photon install-sidecar</code></strong> — Node مثبّت لكن
+<code>spectrum-ts</code> غير مثبّتة. شغّل الأمر المقترح.</li>
+<li><strong><code>device token : ✗ missing</code></strong> — شغّل <code>hermes photon setup</code> لتسجيل الدخول.</li>
+<li><strong><code>No iMessage line assigned yet</code></strong> — Spectrum مفعّل لكن لم يُخصَّص أي خط بعد؛ أعد تشغيل <code>hermes photon setup</code> أو راجع
+<a href="https://app.photon.codes/" data-ext>لوحة التحكم</a>.</li>
+<li><strong>الـ sidecar لا يبدأ العمل</strong> — تأكد من أن <code>node --version</code> يُظهر الإصدار 18.17 أو أحدث، ومن أن
+<code>hermes photon install-sidecar</code> اكتمل دون أخطاء.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limits-today">القيود الحالية</h2>
+<ul>
+<li><strong>المرفقات الواردة تقتصر على البيانات الوصفية.</strong> تحمل الأحداث الواردة اسم الملف + نوع MIME؛ فيرى الوكيل علامة تدل على المرفق لكنه لا يستطيع بعد قراءة محتواه. وتتيح الـ SDK محتوى المرفقات عبر <code>content.read()</code>، لذا فهذه مهمة متابعة في الـ sidecar.</li>
+<li><strong>المرفقات الصادرة مدعومة.</strong> يرسل Hermes الصور والملاحظات الصوتية ومقاطع الفيديو والمستندات عبر مُنشئات المحتوى <code>attachment()</code> /
+<code>voice()</code> في spectrum-ts، من خلال endpoint ‏<code>/send-attachment</code>
+الخاص بالـ sidecar. وتصل التعليقات التوضيحية كفقاعة iMessage منفصلة بعد الوسائط.</li>
+<li><strong>الاستطلاعات الأصلية مدعومة.</strong> يرسل Hermes محتوى الاستطلاع عبر المُنشئ <code>poll()</code> في spectrum-ts، من خلال endpoint ‏<code>/send-poll</code> الخاص بالـ sidecar.</li>
+<li><strong>إشعارات القراءة مدعومة.</strong> يضع الـ sidecar علامة &quot;مقروءة&quot; على رسالة iMessage الواردة بعد تمريرها إلى Hermes، فيرى المرسل <code>Read</code> دون انتظار دور النموذج/الأدوات. أما إشعارات القراءة الواردة للرسائل التي أرسلها Hermes فتُستهلك كبيانات قياس عن بُعد للحضور (presence telemetry) ولا تُنشئ أبدًا دورًا للوكيل. اضبط
+<code>PHOTON_READ_RECEIPTS=false</code> لإبقاء الرسائل عند حالة <code>Delivered</code>.</li>
+<li><strong>مؤثرات الرسائل مدعومة.</strong> يرسل Hermes النصوص مع مؤثرات الفقاعة/الشاشة الأصلية في iMessage عبر المُنشئ <code>effect()</code> الخاص بـ iMessage في spectrum-ts، من خلال endpoint ‏<code>/send-effect</code> الخاص بالـ sidecar.</li>
+<li><strong>الحصص المجانية في Photon:</strong> 5,000 رسالة لكل خادم يوميًا، و 50 محادثة جديدة يمكن بدؤها لكل خط مشترك يوميًا. ويمكن زيادة هذه الحصص — راسل <code>help@photon.codes</code>.</li>
+<li><strong>تحتاج مهام cron وعمليات الإرسال المستقلة إلى تشغيل الـ gateway.</strong> تعيد جهات الإرسال العاملة خارج العملية (مهام cron، و <code>hermes send</code>، ولوحة التحكم) استخدام الـ sidecar الذي أنشأه الـ gateway — إذ تقرأ المنفذ/الـ token الخاص به من
+<code>&lt;hermes-home&gt;/runtime/photon-sidecar.json</code>، الذي يُكتب بمجرد اجتياز الـ sidecar فحص السلامة ويُحذف عند توقفه. وإذا أفادت عملية إرسال مستقلة بأن الـ gateway يبدو متوقفًا، فشغّل الـ gateway (أو أعد تشغيله) أولًا.</li>
+<li><strong>لا تستطيع الخطوط المشتركة/خطوط الفئة المجانية بدء محادثات مع مستلمين جدد.</strong> وهذه سياسة من جانب Photon: لا يمكن للخط المشترك مراسلة رقم إلا بعد أن يرسل ذلك الرقم رسالة إلى الخط أولًا. لذا سيرفض Photon أي إرسال عبر cron أو إرسال مستقل إلى مستلم جديد تمامًا حتى لو كان Hermes مُعدًّا بشكل صحيح — فإما أن تطلب من المستلم مراسلة الخط مرة واحدة، أو أن تنتقل إلى خط مخصص.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="env-vars">متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>ملاحظات</th></tr></thead><tbody><tr><td><code>PHOTON_PROJECT_ID</code></td><td>من <code>.env</code></td><td>معرّف مشروع Spectrum (قيمة <code>projectId</code> في الـ SDK)؛ يضبطه الإعداد</td></tr><tr><td><code>PHOTON_PROJECT_SECRET</code></td><td>من <code>.env</code></td><td>سرّ المشروع؛ يضبطه الإعداد</td></tr><tr><td><code>PHOTON_SIDECAR_PORT</code></td><td><code>8789</code></td><td>منفذ loopback الخاص بقناة التحكم في الـ sidecar والرسائل الواردة</td></tr><tr><td><code>PHOTON_SIDECAR_AUTOSTART</code></td><td><code>true</code></td><td>ما إذا كان المحوّل يشغّل الـ sidecar</td></tr><tr><td><code>PHOTON_NODE_BIN</code></td><td><code>which node</code></td><td>تجاوز مسار الملف التنفيذي لـ Node</td></tr><tr><td><code>PHOTON_HOME_CHANNEL</code></td><td>(غير مضبوط)</td><td>معرّف المساحة (space id) الافتراضي لمهام cron والإشعارات</td></tr><tr><td><code>PHOTON_HOME_CHANNEL_NAME</code></td><td>(غير مضبوط)</td><td>اسم مقروء للقناة الرئيسية (home channel)</td></tr><tr><td><code>PHOTON_ALLOWED_USERS</code></td><td>(غير مضبوط)</td><td>قائمة سماح بأرقام بصيغة E.164 مفصولة بفواصل</td></tr><tr><td><code>PHOTON_ALLOW_ALL_USERS</code></td><td><code>false</code></td><td>لبيئة التطوير فقط — قبول أي مرسل</td></tr><tr><td><code>PHOTON_REQUIRE_MENTION</code></td><td><code>false</code></td><td>اشتراط كلمة تنبيه قبل الرد في المجموعات</td></tr><tr><td><code>PHOTON_MENTION_PATTERNS</code></td><td>كلمات التنبيه الخاصة بـ Hermes</td><td>أنماط regex للإشارات في المجموعات، على شكل قائمة JSON أو مفصولة بفواصل أو بأسطر جديدة</td></tr><tr><td><code>PHOTON_DASHBOARD_HOST</code></td><td><code>app.photon.codes</code></td><td>تجاوز مضيف لوحة التحكم / تسجيل دخول الجهاز</td></tr><tr><td><code>PHOTON_SPECTRUM_HOST</code></td><td><code>spectrum.photon.codes</code></td><td>تجاوز مضيف Spectrum API</td></tr></tbody></table>

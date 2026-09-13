@@ -1,0 +1,216 @@
+<header><h1>تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</h1></header>
+<p>يمتلك Hermes مُحلِّل تشغيل مزوّد (provider runtime resolver) مشترك يُستخدَم عبر:</p>
+<ul>
+<li>CLI</li>
+<li>gateway</li>
+<li>مهام cron</li>
+<li>ACP</li>
+<li>استدعاءات النماذج المساعدة (auxiliary)</li>
+</ul>
+<p>التنفيذ الأساسي:</p>
+<ul>
+<li><code>hermes_cli/runtime_provider.py</code> — حلّ بيانات الاعتماد، وحلّ التشغيل لنقطة النهاية (endpoint) المخصّصة</li>
+<li><code>hermes_cli/auth.py</code> — سجلّ المزوّدين، <code>resolve_provider()</code></li>
+<li><code>hermes_cli/model_switch.py</code> — مسار تبديل <code>/model</code> المشترك (CLI + gateway)</li>
+<li><code>agent/auxiliary_client.py</code> — توجيه النموذج المساعد (auxiliary)</li>
+<li><code>providers/</code> — نقاط دخول ABC + السجلّ (<code>ProviderProfile</code> و <code>register_provider</code> و <code>get_provider_profile</code> و <code>list_providers</code>)</li>
+<li><code>plugins/model-providers/&lt;name&gt;/</code> — إضافات لكل مزوّد على حدة (مضمّنة) تُصرّح <code>api_mode</code> و <code>base_url</code> و <code>env_vars</code> و <code>fallback_models</code> وتُسجّل نفسها في السجلّ عند أول وصول. إضافات المستخدم في <code>$HERMES_HOME/plugins/model-providers/&lt;name&gt;/</code> تتجاوز (override) الإضافات المضمّنة التي تحمل الاسم نفسه.</li>
+</ul>
+<p>تُعيد <code>get_provider_profile()</code> في <code>providers/</code> كائن <code>ProviderProfile</code> لمعرّف مزوّد معطى. يستدعي <code>runtime_provider.py</code> هذه الدالة وقت الحلّ للحصول على <code>base_url</code> القانوني، وقائمة أولويات <code>env_vars</code>، و <code>api_mode</code>، و <code>fallback_models</code> دون الحاجة إلى تكرار تلك البيانات في عدة ملفات. تكفي إضافة إضافة جديدة تحت <code>plugins/model-providers/&lt;your-provider&gt;/</code> (أو <code>$HERMES_HOME/plugins/model-providers/&lt;your-provider&gt;/</code>) تستدعي <code>register_provider()</code> ليلتقطها <code>runtime_provider.py</code> — دون الحاجة إلى فرع في المُحلِّل نفسه.</p>
+<p>إذا كنت تحاول إضافة مزوّد استدلال (inference) من الدرجة الأولى، اقرأ <a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a> ودليل <a href="/docs/developer-guide/model-provider-plugin">إضافات مزوّدي النماذج</a> إلى جانب هذه الصفحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-completions-reasoning-shapes">أشكال الاستدلال (reasoning) في chat-completions</h2>
+<p>يمكن للمُرحِّلات (relays) المتوافقة مع OpenAI أن تُعيد <code>reasoning</code> أو <code>reasoning_content</code>
+كسلاسل نصية، أو قواميس أجزاء نصية، أو قوائم من أجزاء نصية وشظايا سلاسل. يُسطِّح Hermes
+هذه الحقول قبل عمليات السلاسل النصية في المسار الرئيسي، وتسجيل Relay، والتدفقات
+المساعدة المتزامنة وغير المتزامنة، واستخراج الاستدلال من الاستجابة المكتملة. تحتفظ
+الشظايا بمسافاتها البيضاء الصريحة؛ ولا يضيف التطبيع أي فاصل داخل الحقل. يحتفظ المسار
+الرئيسي وتسجيل Relay بفواصل الفقرات الموجودة بين عناوين الاستدلال الغامقة الكاملة.
+يبقى الاستدلال منفصلًا عن الإجابة المرئية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resolution-precedence">أولوية الحلّ (Resolution precedence)</h2>
+<p>على مستوى عالٍ، يستخدم حلّ المزوّد:</p>
+<ol>
+<li>طلب CLI/تشغيل صريح</li>
+<li>إعدادات النموذج/المزوّد في <code>config.yaml</code></li>
+<li>متغيرات البيئة</li>
+<li>الإعدادات الافتراضية الخاصة بالمزوّد أو الحلّ التلقائي</li>
+</ol>
+<p>هذا الترتيب مهم لأن Hermes يعامل اختيار النموذج/المزوّد المحفوظ كمصدر الحقيقة
+للتشغيلات العادية. هذا يمنع تصدير (export) قديمًا في الـ shell من تجاوز نقطة النهاية
+التي اختارها المستخدم آخر مرة في <code>hermes model</code> بصمت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="providers">المزوّدون (Providers)</h2>
+<p>تشمل عائلات المزوّدين الحالية (راجع <code>plugins/model-providers/</code> للاطلاع على المجموعة المضمّنة الكاملة):</p>
+<ul>
+<li>AI Gateway (Vercel)</li>
+<li>OpenRouter</li>
+<li>Nous Portal</li>
+<li>OpenAI Codex</li>
+<li>Copilot / Copilot ACP</li>
+<li>Anthropic (أصلي)</li>
+<li>Google / Gemini (<code>gemini</code>)</li>
+<li>Alibaba / DashScope (<code>alibaba</code>، <code>alibaba-coding-plan</code>)</li>
+<li>DeepSeek</li>
+<li>Z.AI</li>
+<li>Kimi / Moonshot (<code>kimi-coding</code>، <code>kimi-coding-cn</code>)</li>
+<li>MiniMax (<code>minimax</code>، <code>minimax-cn</code>، <code>minimax-oauth</code>)</li>
+<li>Kilo Code</li>
+<li>Hugging Face</li>
+<li>OpenCode Zen / OpenCode Go</li>
+<li>AWS Bedrock</li>
+<li>Azure Foundry</li>
+<li>NVIDIA NIM</li>
+<li>xAI (Grok)</li>
+<li>Arcee</li>
+<li>GMI Cloud</li>
+<li>StepFun</li>
+<li>Qwen OAuth</li>
+<li>Xiaomi</li>
+<li>Ollama Cloud</li>
+<li>LM Studio</li>
+<li>Tencent TokenHub</li>
+<li>Custom (<code>provider: custom</code>) — مزوّد من الدرجة الأولى لأي نقطة نهاية متوافقة مع OpenAI</li>
+<li>مزوّدون مخصّصون مُسمَّون (قاموس <code>providers:</code> في config.yaml؛ لا تزال قائمة <code>custom_providers</code> القديمة تُقرأ للحفاظ على التوافق مع الإصدارات السابقة)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-of-runtime-resolution">مخرجات الحلّ وقت التشغيل</h2>
+<p>يُعيد المُحلِّل وقت التشغيل بيانات مثل:</p>
+<ul>
+<li><code>provider</code></li>
+<li><code>api_mode</code></li>
+<li><code>base_url</code></li>
+<li><code>api_key</code></li>
+<li><code>source</code></li>
+<li>بيانات وصفية خاصة بالمزوّد مثل معلومات الانتهاء/التجديد</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-this-matters">لماذا يهمّ هذا</h2>
+<p>هذا المُحلِّل هو السبب الرئيسي في قدرة Hermes على مشاركة منطق المصادقة/التشغيل بين:</p>
+<ul>
+<li><code>hermes chat</code></li>
+<li>معالجة رسائل gateway</li>
+<li>مهام cron التي تعمل في جلسات جديدة</li>
+<li>جلسات محرر ACP</li>
+<li>مهام النموذج المساعد (auxiliary)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ai-gateway">AI Gateway</h2>
+<p>اضبط <code>AI_GATEWAY_API_KEY</code> في <code>~/.hermes/.env</code> وشغّل باستخدام <code>--provider ai-gateway</code>.
+يجلب Hermes النماذج المتاحة من endpoint الخاص بـ <code>/models</code> التابع لـ gateway، مع تصفيتها
+لتقتصر على نماذج اللغة الداعمة لاستخدام الأدوات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openrouter-ai-gateway-and-custom-openai-compatible-base-urls">OpenRouter و AI Gateway وعناوين base URL المخصّصة المتوافقة مع OpenAI</h2>
+<p>يحتوي Hermes على منطق لتجنّب تسريب مفتاح API الخاطئ إلى نقطة نهاية مخصّصة عندما توجد
+مفاتيح مزوّدين متعددة (مثل <code>OPENROUTER_API_KEY</code> و <code>AI_GATEWAY_API_KEY</code> و <code>OPENAI_API_KEY</code>).</p>
+<p>مفتاح API لكل مزوّد مُقيَّد بنطاق base URL الخاص به:</p>
+<ul>
+<li><code>OPENROUTER_API_KEY</code> يُرسَل فقط إلى نقاط نهاية <code>openrouter.ai</code></li>
+<li><code>AI_GATEWAY_API_KEY</code> يُرسَل فقط إلى نقاط نهاية <code>ai-gateway.vercel.sh</code></li>
+<li><code>OPENAI_API_KEY</code> يُستخدَم لنقاط النهاية المخصّصة وكاحتياطي (fallback)</li>
+</ul>
+<p>يميّز Hermes أيضًا بين:</p>
+<ul>
+<li>نقطة نهاية مخصّصة حقيقية اختارها المستخدم</li>
+<li>مسار OpenRouter الاحتياطي المستخدَم عند عدم ضبط أي نقطة نهاية مخصّصة</li>
+</ul>
+<p>هذا التمييز مهم بشكل خاص من أجل:</p>
+<ul>
+<li>خوادم النماذج المحلية</li>
+<li>واجهات API متوافقة مع OpenAI غير تابعة لـ OpenRouter/AI Gateway</li>
+<li>تبديل المزوّدين دون إعادة تشغيل الإعداد</li>
+<li>نقاط النهاية المخصّصة المحفوظة في الإعدادات، والتي يجب أن تستمر بالعمل حتى عندما لا يكون <code>OPENAI_BASE_URL</code> مُصدَّرًا (exported) في الـ shell الحالي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-anthropic-path">المسار الأصلي لـ Anthropic</h2>
+<p>لم تعد Anthropic تُستخدَم &quot;عبر OpenRouter&quot; فقط.</p>
+<p>عندما يختار حلّ المزوّد <code>anthropic</code>، يستخدم Hermes:</p>
+<ul>
+<li><code>api_mode = anthropic_messages</code></li>
+<li>واجهة Anthropic Messages API الأصلية</li>
+<li><code>agent/anthropic_adapter.py</code> للترجمة</li>
+</ul>
+<p>أصبح حلّ بيانات الاعتماد لمسار Anthropic الأصلي يُفضِّل الآن بيانات اعتماد Claude Code
+القابلة للتجديد على tokens البيئة المنسوخة عندما يتوفّر كلاهما. عمليًا، هذا يعني:</p>
+<ul>
+<li>تُعامَل ملفات بيانات اعتماد Claude Code كمصدر مُفضَّل عندما تتضمّن مصادقة قابلة للتجديد</li>
+<li>لا تزال قيم <code>ANTHROPIC_TOKEN</code> / <code>CLAUDE_CODE_OAUTH_TOKEN</code> اليدوية تعمل كتجاوزات صريحة</li>
+<li>يُجري Hermes فحصًا مسبقًا لتجديد بيانات اعتماد Anthropic قبل استدعاءات Messages API الأصلية</li>
+<li>لا يزال Hermes يعيد المحاولة مرة واحدة عند خطأ 401 بعد إعادة بناء عميل Anthropic، كمسار احتياطي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-codex-path">مسار OpenAI Codex</h2>
+<p>يستخدم Codex مسار Responses API منفصلًا:</p>
+<ul>
+<li><code>api_mode = codex_responses</code></li>
+<li>حلّ بيانات اعتماد مخصّص ودعم مخزن مصادقة (auth store) مخصّص</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-model-routing">توجيه النموذج المساعد (auxiliary)</h2>
+<p>يمكن للمهام المساعدة مثل:</p>
+<ul>
+<li>الرؤية (vision)</li>
+<li>تلخيص الاستخراج من الويب</li>
+<li>ملخّصات ضغط السياق</li>
+<li>عمليات Skills Hub</li>
+<li>عمليات مساعدة MCP</li>
+<li>عمليات تفريغ الذاكرة</li>
+</ul>
+<p>يمكن لهذه المهام أن تستخدم توجيه مزوّد/نموذج خاصًا بها بدلًا من النموذج المحادثي الرئيسي.</p>
+<p>عندما تُضبَط مهمة مساعدة بالمزوّد <code>main</code>، يحلّها Hermes عبر مسار التشغيل المشترك ذاته
+كالمحادثة العادية. عمليًا، هذا يعني:</p>
+<ul>
+<li>نقاط النهاية المخصّصة المضبوطة عبر متغيرات البيئة لا تزال تعمل</li>
+<li>نقاط النهاية المخصّصة المحفوظة عبر <code>hermes model</code> / <code>config.yaml</code> تعمل أيضًا</li>
+<li>يمكن للتوجيه المساعد التمييز بين نقطة نهاية مخصّصة محفوظة حقيقية ومسار OpenRouter الاحتياطي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="fallback-models">النماذج الاحتياطية (Fallback models)</h2>
+<p>يدعم Hermes سلسلة مزوّدين احتياطيين مضبوطة — قائمة من إدخالات <code>(provider, model)</code>
+تُجرَّب بالترتيب عندما يواجه النموذج الأساسي أخطاء. لا يزال القاموس القديم أحادي الزوج
+<code>fallback_model</code> مقبولًا للتوافق مع الإصدارات السابقة (ويُرحَّل عند أول كتابة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-internally">كيف يعمل داخليًا</h3>
+<ol>
+<li>
+<p><strong>التخزين</strong>: تخزّن <code>AIAgent.__init__</code> قاموس <code>fallback_model</code> وتضبط <code>_fallback_activated = False</code>.</p>
+</li>
+<li>
+<p><strong>نقاط التفعيل</strong>: تُستدعى <code>_try_activate_fallback()</code> (المُحوَّلة إلى <code>try_activate_fallback()</code> في <code>agent/chat_completion_helpers.py</code>) من ثلاثة مواضع في مراحل الدور (<code>agent/turn_api_error.py</code>، <code>agent/turn_response_check.py</code>، <code>agent/turn_recovery.py</code>):</p>
+<ul>
+<li>بعد أقصى عدد من إعادات المحاولة على استجابات API غير صالحة (خيارات None، محتوى مفقود)</li>
+<li>عند أخطاء العميل غير القابلة لإعادة المحاولة (HTTP 401، 403، 404)</li>
+<li>بعد أقصى عدد من إعادات المحاولة على الأخطاء العابرة (HTTP 429، 500، 502، 503)</li>
+</ul>
+</li>
+<li>
+<p><strong>مسار التفعيل</strong> (<code>_try_activate_fallback</code>):</p>
+<ul>
+<li>يُعيد <code>False</code> فورًا إذا كان مُفعَّلًا بالفعل أو غير مُهيَّأ</li>
+<li>يستدعي <code>resolve_provider_client()</code> من <code>auxiliary_client.py</code> لبناء عميل جديد بمصادقة صحيحة</li>
+<li>يحدّد <code>api_mode</code>: <code>codex_responses</code> لـ openai-codex، و <code>anthropic_messages</code> لـ anthropic، و <code>chat_completions</code> لكل ما عدا ذلك</li>
+<li>يستبدل في المكان: <code>self.model</code> و <code>self.provider</code> و <code>self.base_url</code> و <code>self.api_mode</code> و <code>self.client</code> و <code>self._client_kwargs</code></li>
+<li>لاحتياطي anthropic: يبني عميل Anthropic أصليًا بدلًا من عميل متوافق مع OpenAI</li>
+<li>يُعيد تقييم التخزين المؤقت للـ prompt (مُفعَّل لنماذج Claude على OpenRouter)</li>
+<li>يضبط <code>_fallback_activated = True</code> — يمنع التفعيل مرة أخرى</li>
+<li>يُعيد عدّاد إعادة المحاولة إلى 0 ويكمل الحلقة</li>
+</ul>
+</li>
+<li>
+<p><strong>مسار الإعدادات</strong>:</p>
+<ul>
+<li>CLI: يقرأ سلسلة الاحتياط عبر <code>hermes_cli/fallback_config.get_fallback_chain()</code> ← يمرّرها إلى <code>AIAgent(fallback_model=...)</code></li>
+<li>Gateway: تقرأ <code>gateway/run_config_loaders.py._load_fallback_model()</code> ملف <code>config.yaml</code> ← تمرّرها إلى <code>AIAgent</code></li>
+<li>التحقق: يجب أن يكون مفتاحا <code>provider</code> و <code>model</code> غير فارغين، وإلا يُعطَّل الاحتياط</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-does-not-support-fallback">ما الذي لا يدعم الاحتياط (fallback)</h3>
+<ul>
+<li><strong>تفويض Subagent</strong> (<code>tools/delegate_tool.py</code>): يرث subagent مزوّد الوالد لكن ليس إعدادات الاحتياط</li>
+<li><strong>المهام المساعدة</strong>: تستخدم سلسلة اكتشاف تلقائي مستقلة خاصة بها للمزوّد (راجع توجيه النموذج المساعد أعلاه)</li>
+</ul>
+<p>مهام cron <strong>تدعم</strong> الاحتياط: تقرأ <code>run_job()</code> قيمة <code>fallback_providers</code> (أو
+<code>fallback_model</code> القديمة) من <code>config.yaml</code> وتمرّرها إلى <code>AIAgent(fallback_model=...)</code>،
+بما يطابق نمط <code>_load_fallback_model()</code> الخاص بـ gateway. راجع <a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-coverage">تغطية الاختبارات</h3>
+<p>يُختبَر سلوك الاحتياط عبر عدة مجموعات اختبار:</p>
+<ul>
+<li><code>tests/run_agent/test_fallback_credential_isolation.py</code> — عزل بيانات الاعتماد بين النموذج الأساسي والاحتياطي</li>
+<li><code>tests/hermes_cli/test_fallback_cmd.py</code> — أمر CLI الخاص بـ <code>/fallback</code></li>
+<li><code>tests/gateway/test_fallback_eviction.py</code> — إخلاء gateway للمزوّدين الفاشلين</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
+<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق والتخزين المؤقت (Caching)</a></li>
+</ul>

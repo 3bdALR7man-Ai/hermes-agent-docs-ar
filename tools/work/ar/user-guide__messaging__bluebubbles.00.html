@@ -1,0 +1,98 @@
+<header><h1>BlueBubbles (iMessage)</h1></header>
+<p>اربط Hermes بخدمة Apple iMessage عبر <a href="https://bluebubbles.app/" data-ext>BlueBubbles</a> — وهو خادم مجاني ومفتوح المصدر يعمل على macOS ويصل iMessage بأي جهاز.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>جهاز <strong>Mac</strong> (يعمل باستمرار) يشغّل <a href="https://bluebubbles.app/" data-ext>BlueBubbles Server</a></li>
+<li>حساب Apple ID مسجَّل الدخول في Messages.app على ذلك الـ Mac</li>
+<li>BlueBubbles Server بالإصدار v1.0.0 أو أحدث (تتطلب الـ webhooks هذا الإصدار)</li>
+<li>اتصال شبكي بين Hermes وخادم BlueBubbles</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-install-bluebubbles-server">1. تثبيت BlueBubbles Server</h3>
+<p>نزّله وثبّته من <a href="https://bluebubbles.app/" data-ext>bluebubbles.app</a>. أكمل معالج الإعداد — سجّل الدخول بحساب Apple ID الخاص بك واضبط طريقة الاتصال (الشبكة المحلية، أو Ngrok، أو Cloudflare، أو Dynamic DNS).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-get-your-server-url-and-password">2. الحصول على عنوان URL للخادم وكلمة المرور</h3>
+<p>في BlueBubbles Server → <strong>Settings → API</strong>، دوّن ما يلي:</p>
+<ul>
+<li><strong>Server URL</strong> (مثلًا <code>http://192.168.1.10:1234</code>)</li>
+<li><strong>Server Password</strong></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-configure-hermes">3. ضبط إعدادات Hermes</h3>
+<p>شغّل معالج الإعداد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اختر <strong>BlueBubbles (iMessage)</strong> وأدخل عنوان URL للخادم وكلمة المرور.</p>
+<p>أو اضبط متغيرات البيئة (environment variables) مباشرةً في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-require-mentions-in-group-chats">اختياري: اشتراط الإشارة في المحادثات الجماعية</h4>
+<p>افتراضيًا، يردّ Hermes على كل رسالة مباشرة أو جماعية مصرّح بها في BlueBubbles/iMessage. ولجعل المحادثات الجماعية تعمل بالاشتراك الاختياري (opt-in)، فعّل اشتراط الإشارة (mention gating):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>مع <code>require_mention: true</code>، تظل الرسائل المباشرة تعمل بشكل طبيعي، لكن رسائل المحادثات الجماعية تُتجاهل ما لم تطابق نمط إشارة. وإذا لم تضبط أنماطًا مخصصة، يستخدم Hermes قيمًا افتراضية متحفظة تغطي صيغ <code>Hermes</code> و <code>@Hermes agent</code>.</p>
+<p>إذا كان للوكيل اسم مخصص، فاضبط أنماط regex:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-authorize-users">4. تفويض المستخدمين</h3>
+<p>اختر إحدى الطرق التالية:</p>
+<p><strong>الاقتران عبر الرسائل المباشرة (DM Pairing) (موصى به):</strong>
+عندما يراسل شخص ما حساب iMessage الخاص بك، يرسل إليه Hermes تلقائيًا رمز اقتران (pairing). وافق عليه باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>استخدم <code>hermes pairing list</code> لعرض الرموز المعلّقة والمستخدمين الذين تمت الموافقة عليهم.</p>
+<p><strong>تفويض مستخدمين محددين مسبقًا</strong> (في <code>~/.hermes/.env</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>وصول مفتوح</strong> (في <code>~/.hermes/.env</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-start-the-gateway">5. تشغيل الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>سيتصل Hermes بخادم BlueBubbles الخاص بك، ويسجّل webhook، ثم يبدأ بالاستماع لرسائل iMessage.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<ul>
+<li><strong>الوارد:</strong> يرسل BlueBubbles أحداث webhook إلى مستمع محلي عند وصول رسائل جديدة. لا يوجد استطلاع دوري (polling) — فالتسليم فوري.</li>
+<li><strong>الصادر:</strong> يرسل Hermes الرسائل عبر BlueBubbles REST API.</li>
+<li><strong>الوسائط:</strong> الصور والرسائل الصوتية ومقاطع الفيديو والمستندات مدعومة في الاتجاهين. وتُنزَّل المرفقات الواردة وتُخزَّن مؤقتًا محليًا كي يعالجها الوكيل.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة (Environment Variables)</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>BLUEBUBBLES_SERVER_URL</code></td><td>نعم</td><td>—</td><td>عنوان URL لخادم BlueBubbles</td></tr><tr><td><code>BLUEBUBBLES_PASSWORD</code></td><td>نعم</td><td>—</td><td>كلمة مرور الخادم</td></tr><tr><td><code>BLUEBUBBLES_WEBHOOK_HOST</code></td><td>لا</td><td><code>127.0.0.1</code></td><td>العنوان الذي يرتبط به مستمع الـ webhook</td></tr><tr><td><code>BLUEBUBBLES_WEBHOOK_PORT</code></td><td>لا</td><td><code>8645</code></td><td>منفذ مستمع الـ webhook</td></tr><tr><td><code>BLUEBUBBLES_WEBHOOK_PATH</code></td><td>لا</td><td><code>/bluebubbles-webhook</code></td><td>مسار عنوان URL للـ webhook</td></tr><tr><td><code>BLUEBUBBLES_HOME_CHANNEL</code></td><td>لا</td><td>—</td><td>رقم الهاتف/البريد الإلكتروني لتسليم مخرجات cron</td></tr><tr><td><code>BLUEBUBBLES_ALLOWED_USERS</code></td><td>لا</td><td>—</td><td>المستخدمون المصرّح لهم، مفصولين بفواصل</td></tr><tr><td><code>BLUEBUBBLES_ALLOW_ALL_USERS</code></td><td>لا</td><td><code>false</code></td><td>السماح لجميع المستخدمين</td></tr><tr><td><code>BLUEBUBBLES_REQUIRE_MENTION</code></td><td>لا</td><td><code>false</code></td><td>اشتراط نمط إشارة قبل الرد في المحادثات الجماعية</td></tr><tr><td><code>BLUEBUBBLES_MENTION_PATTERNS</code></td><td>لا</td><td>كلمات التنبيه الخاصة بـ Hermes</td><td>أنماط regex لمطابقة الإشارات في المحادثات الجماعية، على شكل مصفوفة JSON أو مفصولة بأسطر جديدة أو بفواصل</td></tr></tbody></table>
+<p>يُتحكَّم في وضع علامة &quot;مقروءة&quot; على الرسائل تلقائيًا عبر المفتاح <code>send_read_receipts</code> ضمن <code>platforms.bluebubbles.extra</code> في <code>~/.hermes/config.yaml</code> (الافتراضي: <code>true</code>). ولا يوجد متغير بيئة مقابل له.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="text-messaging">المراسلة النصية</h3>
+<p>أرسل رسائل iMessage واستقبلها. ويُزال تنسيق Markdown تلقائيًا لتسليم نص عادي نظيف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rich-media">الوسائط الغنية</h3>
+<ul>
+<li><strong>الصور:</strong> تظهر الصور بشكل أصلي في محادثة iMessage</li>
+<li><strong>الرسائل الصوتية:</strong> تُرسَل الملفات الصوتية كرسائل iMessage صوتية</li>
+<li><strong>مقاطع الفيديو:</strong> مرفقات فيديو</li>
+<li><strong>المستندات:</strong> تُرسَل الملفات كمرفقات iMessage</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tapback-reactions">تفاعلات Tapback</h3>
+<p>تفاعلات الحب والإعجاب وعدم الإعجاب والضحك والتأكيد والاستفهام. تتطلب <a href="https://docs.bluebubbles.app/helper-bundle/installation" data-ext>Private API helper</a> الخاص بـ BlueBubbles.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="typing-indicators">مؤشرات الكتابة</h3>
+<p>يعرض &quot;typing...&quot; في محادثة iMessage أثناء معالجة الوكيل للرسالة. يتطلب Private API.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-receipts">إشعارات القراءة</h3>
+<p>يضع علامة &quot;مقروءة&quot; على الرسائل تلقائيًا بعد معالجتها. يتطلب Private API.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-addressing">تحديد المحادثات</h3>
+<p>يمكنك تحديد المحادثات بالبريد الإلكتروني أو رقم الهاتف — إذ يحوّلها Hermes تلقائيًا إلى معرّفات GUID للمحادثات في BlueBubbles، فلا حاجة إلى استخدام صيغة GUID الخام.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="private-api">Private API</h2>
+<p>تتطلب بعض الميزات <a href="https://docs.bluebubbles.app/helper-bundle/installation" data-ext>Private API helper</a> الخاص بـ BlueBubbles:</p>
+<ul>
+<li>تفاعلات Tapback</li>
+<li>مؤشرات الكتابة</li>
+<li>إشعارات القراءة</li>
+<li>إنشاء محادثات جديدة عبر العنوان</li>
+</ul>
+<p>ومن دون Private API، تظل المراسلة النصية الأساسية والوسائط تعمل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cannot-reach-server">ظهور &quot;Cannot reach server&quot;</h3>
+<ul>
+<li>تحقق من صحة عنوان URL للخادم ومن أن الـ Mac قيد التشغيل</li>
+<li>تحقق من أن BlueBubbles Server يعمل</li>
+<li>تأكد من الاتصال الشبكي (جدار الحماية، وإعادة توجيه المنافذ)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messages-not-arriving">الرسائل لا تصل</h3>
+<ul>
+<li>تحقق من تسجيل الـ webhook في BlueBubbles Server → Settings → API → Webhooks</li>
+<li>تحقق من إمكانية الوصول إلى عنوان URL للـ webhook من الـ Mac</li>
+<li>راجع <code>hermes logs gateway</code> بحثًا عن أخطاء الـ webhook (أو استخدم <code>hermes logs -f</code> لمتابعة السجلات لحظيًا)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="private-api-helper-not-connected">ظهور &quot;Private API helper not connected&quot;</h3>
+<ul>
+<li>ثبّت Private API helper: <a href="https://docs.bluebubbles.app/helper-bundle/installation" data-ext>docs.bluebubbles.app</a></li>
+<li>تعمل المراسلة الأساسية من دونه — ولا تتطلبه إلا التفاعلات ومؤشرات الكتابة وإشعارات القراءة</li>
+</ul>

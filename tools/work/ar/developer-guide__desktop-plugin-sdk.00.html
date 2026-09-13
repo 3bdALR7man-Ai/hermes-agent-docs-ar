@@ -1,0 +1,274 @@
+<header><h1>Desktop Plugin SDK</h1></header>
+<p>تطبيق <a href="/docs/user-guide/desktop">Hermes Desktop</a> الأصلي (native) مبني بالكامل على مبدأ المساهمة (contribution-driven): كل
+سطح في النافذة — الأجزاء (panes)، المسارات (routes)، تنقّل الشريط الجانبي، عناصر شريط الحالة، مدخلات
+لوحة الأوامر، اختصارات لوحة المفاتيح، السمات (themes) — يسجَّل في سجلّ مركزي واحد. يسجّل الأساسي (Core)
+أسطحه بنفس الطريقة التي تسجّل بها إضافة (plugin)، لذا فإن قصة الإضافات هي القصة الحقيقية،
+لا إضافة لاحقة مُلصَقة.</p>
+<p><strong>إضافة سطح المكتب (desktop plugin)</strong> هي ملف ESM واحد يُصدّر افتراضيًا <code>HermesPlugin</code>.
+يستورد وحدة واحدة — <code>@hermes/plugin-sdk</code> — ويحصل على كل شيء: حالة التطبيق
+الحية، باب gateway الخاص بـ JSON-RPC، مساحة أسماء خلفية REST/socket مخصّصة، React
+Query، وحتى عدة واجهة المستخدم (UI kit) الخاصة بالتطبيق لتبدو واجهة الإضافة أصلية افتراضيًا. دون
+استنساخ للمستودع، دون <code>npm run build</code>، ودون التعديل على كود التطبيق نفسه. ضع الملف في
+<code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/plugin.js</code> وسيحمّله التطبيق خلال ثوانٍ
+ويعيد تحميله تلقائيًا (hot-reload) مع كل حفظ.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>هذا ليس SDK إضافات لوحة تحكم الويب</div><div class="admonitionContent_BuS1"><p>كلمة &quot;Plugin&quot; (إضافة) تعني عدة أشياء غير مترابطة عبر Hermes. هذه الصفحة تخص SDK تطبيق
+<strong>سطح المكتب الأصلي (native)</strong> (<code>hermes desktop</code>) — وحدة <code>@hermes/plugin-sdk</code> ومجلد
+<code>$HERMES_HOME/desktop-plugins/</code>. أما <strong>لوحة تحكم الويب (web dashboard)</strong> (<code>hermes dashboard</code>) فلها
+نظام إضافات خاص بها غير مرتبط بهذا، على <code>window.__HERMES_PLUGIN_SDK__</code> مع
+<code>manifest.json</code> — موثّق في
+<a href="/docs/user-guide/features/extending-the-dashboard">توسيع لوحة التحكم</a>. أما إضافات Python
+الخاصة بـ CLI/gateway فموثّقة في <a href="/docs/developer-guide/plugins">بناء إضافة Hermes</a>.
+الأنظمة الثلاثة لا تتشارك الكود ولا واجهات API ولا آلية التسليم. مساحة الأسماء الخلفية <code>plugin_api.py</code> فقط
+(<code>/api/plugins/&lt;id&gt;</code>) مشتركة بين SDK سطح المكتب و SDK لوحة التحكم.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mental-model">النموذج الذهني</h2>
+<p>يتبع الـ SDK نموذج وحدات VS Code. يستورد مؤلّف الإضافة وحدة واحدة فقط
+ولا يلمس آليات التطبيق الداخلية أبدًا (فهي مستبعدة عبر lint من الإضافة
+المجمّعة (bundled)، ويفشل استيرادها في إضافة القرص). تأتي القدرات على شكل مستويات:</p>
+<ul>
+<li><strong><code>host.state.*</code></strong> — عروض للقراءة فقط على حالة التطبيق الحية (ذرّات
+nanostore): الجلسة النشطة، انشغال الدور (turn-busy) لكل جلسة، دليل العمل (cwd)، حالة socket
+الخاص بـ gateway، النموذج، profile، منفذ العرض (viewport). <code>gateway</code> هو WebSocket، وليس انشغال الدور.</li>
+<li><strong>إجراءات <code>host.*</code></strong> — أفعال آمنة مُنتقاة بعناية: toast، التنقّل، متابعة السجلات (logs)،
+إعادة تشغيل gateway، الاشتراك في مجرى أحداث gateway.</li>
+<li><strong><code>host.request</code></strong> — باب gateway الخاص بـ JSON-RPC: الجلسات، الإعدادات، المهارات،
+cron — كل ما يستدعيه التطبيق نفسه.</li>
+<li><strong><code>ctx.rest</code> / <code>ctx.socket</code></strong> — مساحة الأسماء الخلفية الخاصة بإضافتك
+(<code>/api/plugins/&lt;id&gt;</code>) إن كنت تشحن <code>plugin_api.py</code>.</li>
+<li><strong><code>ui.*</code></strong> — لغة التصميم: المكوّنات الحقيقية للتطبيق، متغيرات السمة، الأيقونات،
+والمنسّقات (formatters)، بحيث تطابق واجهة إضافتك واجهة التطبيق بكسل بكسل.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-delivery-modes">طريقتا التسليم</h2>
+<table><thead><tr><th>الطريقة</th><th>المكان</th><th>لمن</th><th>خطوة البناء</th></tr></thead><tbody><tr><td><strong>القرص (Disk)</strong> (مُوصى بها)</td><td><code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/plugin.js</code></td><td>المستخدمون، الوكلاء</td><td>لا شيء — ESM عادي، يُحمَّل دون تجميع</td></tr><tr><td><strong>الحزمة الموحّدة (Unified package)</strong></td><td><code>$HERMES_HOME/plugins/&lt;id&gt;/desktop/plugin.js</code></td><td>الإضافات التي تشحن أيضًا كودًا على جانب الوكيل</td><td>لا شيء — نفس مسار القرص</td></tr><tr><td><strong>المضمّنة (Bundled)</strong></td><td><code>apps/desktop/src/plugins/&lt;id&gt;/plugin.tsx</code></td><td>داخل الشجرة، تُشحن مع التطبيق</td><td>بناء Vite الخاص بالتطبيق نفسه</td></tr></tbody></table>
+<p>الطرق الثلاث تتبع نفس عقد <code>HermesPlugin</code>، وتظهر في <strong>Capabilities → Plugins</strong>،
+ويمكن تفعيلها/تعطيلها مباشرة. الحزمة الموحّدة ليست سوى باب القرص وهو يبحث داخل
+مجلد إضافة الوكيل الخاصة بك — راجع
+<a href="#one-package-both-sdks">حزمة واحدة، SDK-ان</a>. كل ما في هذه الصفحة
+مكتوب على أساس باب القرص (ما تكتبه أنت والوكيل)؛
+تشرح <a href="#bundled-plugins">الإضافات المضمّنة</a> الفرقين
+الاثنين. يُشحن Radio كإضافة SDK مضمّنة فقط، معطّلة افتراضيًا. فعّلها
+من <strong>Capabilities → Plugins</strong> للحصول على بث مباشر مجاني، والبحث عن المحطات، وعناصر تحكم تشغيل في شريط الحالة
+مع موجة صوتية تفاعلية. تستخدم مفتاح تفعيل الإضافات الموجود ولا تُسهم بأي شيء أثناء تعطيلها.
+عروض توضيحية مرجعية موجودة في مستودع
+<a href="https://github.com/NousResearch/hermes-example-plugins" data-ext><code>hermes-example-plugins</code></a>
+المرافق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start--your-first-plugin">البدء السريع — إضافتك الأولى</h2>
+<p>أنشئ <code>$HERMES_HOME/desktop-plugins/hello/plugin.js</code> (وهو <code>~/.hermes/...</code>
+افتراضيًا). إضافات سطح المكتب هي على مستوى التطبيق — جذر واحد لكل profile أو gateway
+أو جهاز بعيد تتصل به النافذة. يجب أن يطابق اسم المجلد معرّف الإضافة <code>id</code>.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>احفظ الملف. يراقب التطبيق مجلد <code>desktop-plugins/</code>، ويحمّل الملف خلال ثوانٍ قليلة،
+ويعيد تحميله تلقائيًا (hot-reload) في مكانه مع كل حفظ لاحق. إن لم يظهر، نفّذ ⌘K ←
+<strong>Reload desktop plugins</strong>. وإذا فشل التحميل، يظهر toast يسمّي الخطأ — أصلِحه ثم
+احفظ مجددًا.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>لا JSX، ولا بناء</div><div class="admonitionContent_BuS1"><p>يُحمَّل ملف القرص <strong>دون تجميع</strong>، لذا لن يُحلَّل صيغة JSX. اكتب واجهة المستخدم
+باستخدام استدعاءات <code>jsx()</code> / <code>jsxs()</code> من <code>react/jsx-runtime</code> (أو <code>React.createElement</code>).
+المُحدِّدات (specifiers) القابلة للاستيراد الوحيدة هي <code>@hermes/plugin-sdk</code> و <code>react</code> و
+<code>react/jsx-runtime</code> — وكل ما عداها يفشل في الحل، عمدًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-plugin-contract">عقد الإضافة</h2>
+<p>تُصدّر الإضافة افتراضيًا <code>HermesPlugin</code>:</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تتلقى <code>register</code> كائن <strong>مخصَّصًا (scoped)</strong> من نوع <code>PluginContext</code>. فهو لا يلمس السجلّ
+مباشرة أبدًا — إذ يضيف السياق تلقائيًا وسم المصدر (<code>source: &#x27;plugin:&lt;id&gt;&#x27;</code>) ويضع
+كل معرّف مساهمة في مساحة أسماء خاصة (<code>&lt;id&gt;:&lt;localId&gt;</code>)، بحيث لا يمكن أبدًا لإضافتين
+أن تتعارضا.</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>المساهمة (contribution)</strong> هي المُكوّن الأولي الوحيد الذي يشترك فيه كل سطح:</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يمكنك توفير <code>render</code> أو <code>data</code> أو كليهما، حسب المنطقة (area).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contribution-areas--the-cookbook">مناطق المساهمة — دليل الوصفات</h2>
+<p>استورد ثوابت المنطقة (area) من الـ SDK؛ ولكل منطقة حمولة <code>data</code> الخاصة بها.</p>
+<table><thead><tr><th>السطح</th><th><code>area</code></th><th>ما تُقدّمه</th></tr></thead><tbody><tr><td>جزء التخطيط (Layout pane)</td><td><code>PANES_AREA</code> (<code>&#x27;panes&#x27;</code>)</td><td><code>title</code> + <code>render</code> + <code>data: { placement, dock?, width?, height? }</code></td></tr><tr><td>صفحة كاملة</td><td><code>ROUTES_AREA</code></td><td><code>data: { path }</code> + <code>render</code></td></tr><tr><td>تنقّل الشريط الجانبي</td><td><code>SIDEBAR_NAV_AREA</code></td><td><code>data: { path, label, codicon }</code></td></tr><tr><td>شريط الحالة</td><td><code>STATUSBAR_AREAS.left</code> / <code>.right</code></td><td><code>render</code> (أو <code>data</code> كـ <code>StatusbarItem</code>)</td></tr><tr><td>شريط العنوان</td><td><code>TITLEBAR_AREAS.left</code> / <code>.center</code> / <code>.right</code></td><td><code>data</code> كـ <code>TitlebarTool</code>، أو <code>&lt;Contribute&gt;</code> مخصّصة بالتحميل (mount-scoped)</td></tr><tr><td>لوحة ⌘K</td><td><code>PALETTE_AREA</code></td><td><code>data: PaletteContribution</code></td></tr><tr><td>اختصار لوحة مفاتيح</td><td><code>KEYBINDS_AREA</code></td><td><code>data: KeybindContribution</code></td></tr><tr><td>سمة (Theme)</td><td><code>THEMES_AREA</code></td><td><code>data</code> كـ <code>DesktopTheme</code></td></tr><tr><td>محرّر الرسائل (Composer)</td><td><code>COMPOSER_AREAS.*</code></td><td>فتحات render، أو middleware / مزوّدو مرفقات</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="panes">الأجزاء (Panes)</h3>
+<p>الجزء (pane) هو بلاطة في شجرة التخطيط. <code>placement</code> هو الدور الدلالي — يتكدّس
+الجزء (كتبويبات) مع الأجزاء الحالية التي تحمل نفس الدور؛ ويمكن للمستخدم سحبه إلى أي مكان
+لاحقًا.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>قيمة <code>placement</code> هي <code>&#x27;main&#x27; | &#x27;left&#x27; | &#x27;right&#x27; | &#x27;top&#x27; | &#x27;bottom&#x27;</code>. للاستقرار على
+<strong>حافة</strong> معينة بدلًا من التكديس، أضف إيماءة <code>dock</code> — وهي بالضبط ما يحدث عند
+سحب العنصر إلى شريحة إفلات جزء ما:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>dock.pane</code> هو أي معرّف جزء (<code>workspace</code> هو الخيط الرئيسي؛ وأيضًا <code>sessions</code>،
+<code>terminal</code>، <code>files</code>، <code>review</code>، <code>logs</code>)؛ و<code>dock.pos</code> هو
+<code>&#x27;top&#x27; | &#x27;bottom&#x27; | &#x27;left&#x27; | &#x27;right&#x27; | &#x27;center&#x27;</code>. حدّد <code>width</code>/<code>height</code> حتى لا
+يستحوذ الجزء على نصف المنطقة.</p>
+<p>إغلاق الجزء الوحيد الذي ساهمت به إضافة ما يعطّل تلك الإضافة، ويمكن
+إعادة تفعيلها من <strong>Capabilities → Plugins</strong>. عندما تساهم إضافة بعدة
+أجزاء، لا يؤدي إغلاق أحدها إلا لإخفاء ذلك الجزء فقط، ويبقى بقية أجزاء الإضافة،
+وأوامرها، والـ middleware الخاص بها نشطًا. تُعيد <strong>Reset layout</strong> الأجزاء المُساهَم بها
+التي تم إغلاقها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pages-and-sidebar-nav">الصفحات وتنقّل الشريط الجانبي</h3>
+<p>يُحمّل المسار (route) صفحة كاملة داخل جزء مساحة العمل، تمامًا كأي عرض مدمج. اقرن
+ذلك بصفّ تنقّل في الشريط الجانبي (و/أو أمر في لوحة الأوامر) لجعله قابلًا للوصول.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><code>codicon</code> هو معرّف <a href="https://microsoft.github.io/vscode-codicons/dist/codicon.html" data-ext>VS Code codicon</a>.
+انتقل إلى مسار من أي مكان باستخدام <code>host.navigate(&#x27;/my-page&#x27;)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="status-bar-and-title-bar">شريط الحالة وشريط العنوان</h3>
+<p>تُعرَض عناصر شريط الحالة في التجمّع الأيسر أو الأيمن من الشريط السفلي.
+الأبسط هو دالة <code>render</code>؛ ولزر بسيط استخدم <code>data</code> كـ
+<code>StatusbarItem</code> (<code>{ id, label?, icon?, detail?, variant?, menuItems?, … }</code>).</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أدوات شريط العنوان تعيش في <code>TITLEBAR_AREAS.left | .center | .right</code> كبيانات
+<code>TitlebarTool</code> (<code>{ id, label, icon, active?, onSelect? }</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="palette-commands-and-keybinds">أوامر لوحة الأوامر واختصارات لوحة المفاتيح</h3>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>اختصارات لوحة المفاتيح قابلة لإعادة الربط من قِبل المستخدم في الإعدادات؛ <code>defaults</code> هو الربط الأولي فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="themes">السمات (Themes)</h3>
+<p>مساهمة السمة تشحن كائن <code>DesktopTheme</code> كاملًا كبياناتها <code>data</code> (الاسم، التسمية،
+الألوان، …). تظهر في منتقي السمات كأنها سمة مدمجة.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تسجيل سمة يدرجها في القائمة فقط؛ ولا يختارها. تقرأ <code>useTheme()</code> المظهر
+المُطبَّق حاليًا (<code>theme</code>، <code>themeName</code>، <code>availableThemes</code>، <code>resolvedMode</code>) وتغيّره
+(<code>setTheme</code>، <code>setMode</code>، <code>previewTheme</code>) من داخل مكوّن:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>التبديل الناتج عن شيء آخر غير عملية render — اتصال gateway، حدث socket،
+أي رد نداء <code>host.onEvent</code> — لا يملك مكوّنًا (component) يمكن تعليق الخطاف (hook) عليه.
+استخدم <code>requestTheme(name)</code> في هذه الحالة. يُرفض الاسم غير القابل للحل بدلًا من
+إجباره إلى السمة الافتراضية، بحيث تُستخدم القيمة المُعادة نفسها كفحص للتوفر
+ولا يمكن لاسم خاطئ أن يعيد ضبط مظهر أحدهم بصمت:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>كلا البابين يحفظان الاختيار لكل profile، لذا فإن التبديل الذي تقوده الإضافة يبقى محفوظًا
+تمامًا كالاختيار اليدوي. لتلوين السمة <em>النشطة</em> بدلًا من استبدالها، استخدم
+<code>setAccentOverride(hex)</code> وأزِله في <code>ctx.onDispose</code> — إضافة
+<a href="https://github.com/NousResearch/hermes-desktop-accent-picker" data-ext>Accent Picker</a>
+المستقلة هي المثال العملي (وهي أيضًا إضافة قرص كاملة وقابلة للتثبيت).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="composer-extensions">امتدادات محرّر الرسائل (Composer)</h3>
+<p>تتيح <code>COMPOSER_AREAS</code> (<code>top</code>، <code>bottom</code>، <code>leading</code>، <code>actions</code>، <code>attachments</code>،
+<code>middleware</code>) للإضافة إضافة عناصر تحكم حول محرّر الرسائل، أو توفير مصدر
+مرفقات، أو تحويل مسودة قبل إرسالها (<code>ComposerMiddleware</code>
+مع <code>handler(draft) =&gt; draft | null</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="transcript-directives--inline-components-the-model-addresses">توجيهات النسخة النصية (transcript) — مكوّنات مضمّنة يخاطبها النموذج</h3>
+<p>تجعل <code>TRANSCRIPT_DIRECTIVE_AREA</code> النسخة النصية نفسها منطقة مساهمة.
+سجّل توجيهًا مسمّى، ويمكن للوكيل عندها عرض مكوّنك مضمَّنًا داخل
+رسالة المساعد بإصدار فقرة على الصيغة <code>::name{key=&quot;value&quot;}</code>:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>القواعد التي يفرضها المضيف (host) لإبقاء السطح آمنًا:</p>
+<ul>
+<li>يجب أن يكون التوجيه <strong>الفقرة بأكملها</strong> — فـ<code>::name</code> في وسط النص العادي يبقى
+نصًا عاديًا، بحيث لا يمكن لمكوّنات الإضافة أبدًا اختطاف النص الجاري.</li>
+<li>السمات (attributes) هي <strong>مخرجات نموذج غير موثوقة</strong> (أزواج <code>key=&quot;value&quot;</code>، نصية فقط).
+تحقّق من حقولك الخاصة؛ ولا تعرض شيئًا عند بيانات فاسدة بدلًا من التخمين.</li>
+<li>التوجيه <strong>غير المُطالَب به</strong> (لا إضافة مسجَّلة بهذا الاسم) يُعرَض كفقرة
+نصية عادية كما كان دائمًا — لا شيء ينكسر عندما تكون الإضافة معطّلة.</li>
+<li>عمليات العرض ملفوفة داخل حدود خطأ المساهمة (error boundary): أي رمي استثناء
+يتحوّل إلى شريحة خطأ مضمّنة، وليس إلى رسالة ميتة.</li>
+<li>التسجيل الأول يفوز عند تعارض الأسماء؛ ضع الأسماء الطموحة في مساحة أسماء
+خاصة بمعرّفك (<code>myplugin-board</code>، وليس <code>board</code>).</li>
+</ul>
+<p>يشحن الأساسي (Core) توجيهًا واحدًا كمستهلك مرجعي: <code>::preview{file=&quot;…&quot;}</code>
+يعرض ملف HTML الخاص بمساحة العمل <strong>مباشرة داخل الرسالة</strong> — عبر إطار
+<code>srcdoc</code> معزول ذي أصل (origin) غير شفاف (تعمل النصوص البرمجية والعنصر تفاعلي بالكامل؛
+دون أي وصول إلى التطبيق أو تخزينه أو الجسر). يتحجّم الإطار
+وفق المحتوى (الارتفاع حيّ، والعرض مأخوذ من امتداد المحتوى الجوهري، محاذًا لليسار
+في تدفق الرسالة)، وتمنح مقدّمة سمة (theme prelude) المستند رموز التطبيق (tokens)
+المُحلَّلة (<code>--foreground</code>، <code>--muted-foreground</code>،
+<code>--accent</code>، <code>--border</code>، <code>--card</code>)، وخط التطبيق، وخلفية
+شفافة — بحيث تبدو واجهة HTML على شكل عنصر (widget) أصلية بينما تحافظ الصفحة الكاملة على
+تصميمها الخاص. الأهداف غير HTML و gateways البعيدة تعود إلى
+بطاقة المعاينة الكلاسيكية. أخبر الوكيل عن توجيهك في مهارة (skill) (فهكذا
+يتعلّم إصداره).</p>
+<p>يمكن للعناصر (widgets) المعروضة أيضًا <strong>الرد</strong>. داخل الإطار،
+يعطي <code>window.hermes.send(&#x27;get-price eth&#x27;)</code> (أو بشكل تصريحي عبر
+<code>&lt;button data-hermes-send=&quot;get-price eth&quot;&gt;</code> — دون الحاجة لأي نص برمجي) ذلك
+الأمر (prompt) للوكيل كدور مستخدم، خارج الشاشة: لا تشغل فقاعة أي مساحة في
+النسخة النصية، وتحديث العنصر نفسه هو الاستجابة المرئية. يبقى الدور
+حقيقيًا — فهو يوقظ الوكيل، ويسير وفق قواعد التوجيه/الانتظار (steer/queue) الخاصة بمحرّر الرسائل،
+ويُحفظ (بنوع <code>hidden</code>) بحيث يحتفظ الاستئناف وقاعدة بيانات الجلسة بالسجل الكامل.
+تُقصَّ الأوامر (prompts) وتُحدّ بسقف 500 حرف، وتُقيَّد بمعدل أمر واحد في الثانية
+لكل إطار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mount-scoped-chrome-contribute">عناصر واجهة مخصّصة بالتحميل (<code>Contribute</code>)</h3>
+<p><code>ctx.register</code> مخصّص للمساهمات <strong>الدائمة</strong>. عندما ينبغي لعنصر واجهة أن يظهر ويختفي
+مع مكوّن موجود بالفعل على الشاشة (عنصر تحكم في شريط عنوان خاص بصفحة يختفي
+عند إلغاء تحميل الصفحة)، اعرض <code>&lt;Contribute&gt;</code> داخله بدلًا من ذلك:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>يسجَّل تلقائيًا عند التحميل ويُلغى تلقائيًا عند إلغاء التحميل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-api">واجهة API الخاصة بالمضيف (Host)</h2>
+<p>كل ما في <code>host</code> يمكن الوصول إليه من أي مكان في الإضافة. ذرّات الحالة
+للقراءة فقط — اقرأها بـ<code>.get()</code> في المعالِجات (handlers)، واشترك بها بـ<code>useValue(atom)</code> في
+المكوّنات.</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><code>host.state.gateway</code> هو اتصال WebSocket، وليس ما إذا كان دور محادثة يعمل حاليًا.
+يمكن للجلسة أن تكون في منتصف دور بينما يكون الـ socket <code>open</code>؛ ويمكن لجلسة
+أخرى أن تكون خاملة في الوقت نفسه. عطّل إجراءات المحرّر أو الإضافة بناءً على انشغال دور
+<strong>الجلسة التي عليها التركيز</strong> (<code>host.state.busyBySession[sessionId]</code>، أو <code>view.$busy</code>
+الخاصة بتلك الجلسة) — لا من <code>gateway</code> أبدًا، ولا من علامة انشغال عامة على مستوى العملية.</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><code>host.request</code> هو نفس JSON-RPC الذي يستخدمه التطبيق نفسه (الجلسات، الإعدادات، المهارات،
+cron، kanban، …). تقبل <code>host.requestProfile</code> وصفًا (descriptor) من
+<code>host.profileRoutes()</code> وتوجّه ذلك الاستدعاء عبر مصدر سجلّه (registry) الدقيق و profile الخاص به
+دون تغيير المحادثة أو الـ gateway النشطين. الحمل الزائد (overload) الخاص بـ profile فقط
+مُبقًى عليه فقط للطوبولوجيا الوحيدة/المحلية القديمة؛ ينبغي للإضافات المدركة للسجلّ (registry-aware) تمرير
+الوصف بحيث لا يمكن لمصدرين يعرضان نفس اسم profile أن يتعارضا.</p>
+<p><code>host.openWorkspace(id, { render, title?, minWidth?, onClose? })</code> يُرسي عرضًا
+يعرضه الإضافة في <strong>منطقة مساحة العمل الرئيسية</strong> — نفس المنطقة الوسطى التي تستخدمها
+بلاطات الجلسات والمعاينات — كتبويب، ويُظهره. إعادة استدعائه بنفس
+<code>id</code> يحدّث المحتوى في مكانه ويعيد إحضار التبويب للأمام بدلًا من فتح نسخة
+مكرَّرة. إغلاق التبويب (عنصر تحكم الإغلاق الخاص بالتبويب أو ⌘W) يفكّك
+التسجيل ويطلق <code>onClose</code> الخاص بك؛ ويغلقه المُتخلِّص (disposer) المُعاد
+برمجيًا. اكتشف توفره (<code>typeof host.openWorkspace === &#x27;function&#x27;</code>) وارجع
+إلى جزء (pane) مساهم عادي على إصدارات سطح المكتب الأقدم — غرف المحادثة الجماعية
+في Bot Mode هي المستهلك المرجعي (استحواذ على النافذة الرئيسية عند التوفر، وعرض داخل اللوحة
+خلاف ذلك).</p>
+<p><code>host.paneVisibility(paneId)</code> تُعيد ذرّة تفاعلية للقراءة فقط تكون <code>true</code>
+طالما أن الجزء المُساهَم به موجود فعليًا على الشاشة: حاضر في شجرة التخطيط،
+غير مُغلَق أو مخفي، ومنطقته غير مصغَّرة، ويحمل فتحة التبويب النشط لمنطقته
+(الجزء الوحيد في منطقته الخاصة يُحتسَب). المعرّف هو معرّف الجزء
+المخصّص للمساهمة، <code>&lt;pluginId&gt;:&lt;paneId&gt;</code>. الذرّات محفوظة (memoized) لكل معرّف،
+لذا فإن استدعاءه أثناء render آمن. استخدمه لتسجيل واجهة مصاحبة فقط عندما يكون
+جزؤك مرئيًا — لوحة Cronjobs الخاصة بـ Bot Mode هي المستهلك المرجعي: تُسجَّل
+طالما تحمل لوحة Bots تبويب الشريط الجانبي وتُلغى تسجيلها عندما ينتقل
+المستخدم إلى Sessions. اكتشف توفره على إصدارات سطح المكتب الأقدم
+(<code>typeof host.paneVisibility === &#x27;function&#x27;</code>) وارجع إلى
+السلوك المسجَّل دائمًا.</p>
+<p><code>host.profileRoutes()</code> يجرد كل مصدر مسجَّل في سجلّ الاتصال الحالي.
+مصادر SSH التي تتصل عند الطلب تعرض مسارًا (route) أوّليًا <code>default</code> خاليًا من بيانات الاعتماد
+دون فتح نفق (tunnel)، بحيث يمكن للإضافة أن تكون أول من يستدعيها؛
+يظل <code>remoteProfile</code> الخاص بـ SSH هو <code>targetProfile</code> الخلفي للمسار. أما <code>connectionId</code>
+فهو هوية توجيه السجلّ؛
+اقرنه مع <code>profile</code> للمفاتيح والاستمرارية (persistence). <code>profile</code> هو المسار المحلي
+للمصدر المستخدم
+للطلبات؛ و<code>targetProfile</code> هو profile Hermes الخلفي الذي يخدمه ذلك المسار.
+يختلفان عندما يُخطَّط المسار صراحة إلى profile خلفي آخر (مثلًا تجاوز
+<code>remoteProfile</code> في SSH أو اسم مستعار خاص بعنوان URL لكل profile قديم). هذا التمييز
+يحافظ على هوية الخلفية دون كشف أسرار الاتصال.</p>
+<p>الإضافات المصمَّمة حول profile تحصل أيضًا على طرق (methods) من الدرجة الأولى:
+<code>profiles.list</code> (كل profile مع أحدث محادثة له كـ
+<code>last_session</code>؛ مرّر <code>include_sessions: false</code> لتخطي فحص قاعدة البيانات
+لكل profile؛ ومرّر <code>preferred_session_ids: { profileName: sessionId }</code> لبحث
+دقيق ومتحقَّق من وجوده عن جلسة واحدة مثبَّتة لكل profile — يحصل كل
+صف مسمّى على ملخّص <code>preferred_session</code> يحلّ الصفوف المخفية
+وسلاسل الضغط (compression lineages) إلى طرفها الحي، أو <code>null</code> عندما يكون المعرّف
+مفقودًا نهائيًا؛ وتتجاهل الـ gateways الأقدم هذا المعامِل وتحذف الحقل)
+و<code>profiles.create</code> (<code>name</code>، <code>description</code>، <code>clone_from</code>،
+<code>clone_all</code>، <code>no_skills</code>، <code>soul</code>، وتثبيت اختياري لـ<code>model</code> + <code>provider</code>) — وهما
+التوأمان عبر ws لمسارات <code>/api/profiles</code> REST الخاصة بلوحة التحكم.
+<code>host.state.busy</code> هو دور المحادثة التي عليها التركيز حاليًا (التفكير والبث).
+تبقى <code>host.state.awaitingResponse</code> صحيحة من الإرسال وحتى وصول أول حمولة
+من المساعد. كلاهما يتبعان المحادثة التي ينظر إليها المستخدم فعليًا — بلاطة
+الجلسة التي عليها التركيز عندما تحمل التركيز، وإلا فمحادثة مساحة العمل الرئيسية (نفس
+الإشارة التي تقرأها نبضة الانشغال في شريط الحالة). اشترك في مكوّن:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>لتفاصيل أدق على مستوى الـ token، استمع عبر <code>host.onEvent</code> (<code>message.start</code>،
+<code>message.delta</code>، <code>message.complete</code>).</p>
+<p><code>host.onEvent</code> يبثّ أحداث gateway الحية (فروقات (deltas) الرسائل،
+دورة حياة الجلسة، نشاط الأدوات). المستمعون (listeners) معزولون — أي رمي استثناء في
+مستمعك لا يمكن أن يؤثر على إرسال (dispatch) التطبيق. كل باب في <code>host</code> آمن غير متزامن (async-safe): أي رمي استثناء متزامن
+من مساعد داخلي (مثلًا عدم وجود جسر سطح مكتب في متصفح عادي) يتحوّل إلى
+رفض (rejection) يلتقطه <code>.catch()</code> الخاص بك، وليس إلى انهيار في حدود الخطأ.</p>
+<p><code>ctx.os</code> هو باب نظام التشغيل المُنتقى بعناية — كل طريقة تصل بها الإضافة إلى خارج نافذة
+التطبيق، في مساحة أسماء واحدة منسوبة إلى إضافتك. يصدر <code>ctx.os.notify</code>
+<strong>إشعار نظام تشغيل أصلي (native)</strong> — نفس أنبوب Electron الذي تستخدمه
+تنبيهات الموافقة/الدور الخاصة بالتطبيق نفسه. لا يطلق إلا عندما يكون المستخدم بعيدًا عن Hermes
+(في الخلفية / غير مركَّز عليه)؛ استخدم <code>host.notify</code> للحصول على toast داخل التطبيق عندما
+يكون المستخدم ينظر إلى التطبيق. يمكن للمستخدمين كتم الإشعار لكل جهاز من Settings ▸
+Notifications ▸ &quot;Plugin notifications&quot;، وتُقيَّد التكرارات من نفس الإضافة،
+لذا تعامل معه كإشارة لأحداث ملحوظة حقًا — لا كسجل (log).</p>
+<p>عرض غني + تفعيل (يوسّع باب <code>ctx.os</code> الأصلي):</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><code>activate</code> متوافق مع الروابط العميقة (deeplink): يحلّ كلٌّ من <code>hermes://index-network/intent/1</code> ومسار
+التجزئة (hash) <code>/index-network/intent/1</code> إلى نفس المسار داخل التطبيق (ويعمل
+نفس رابط <code>hermes://…</code> كرابط عميق لنظام التشغيل). لا تُعرَض أزرار الإجراء إلا في
+إصدارات macOS الموقَّعة؛ وفي غيرها يظل النقر على المتن يفعّل. لا يحدث التنقّل
+إلا عند نقر المستخدم — أبدًا من حدث في الخلفية وحده.</p>
+<p>الأبواب الأخرى (<code>openExternal</code>، <code>revealPath</code>، <code>writeClipboard</code>) تُرجع
+<code>false</code> بدلًا من رمي استثناء عندما لا تكون القدرة متاحة (غلاف سطح مكتب
+أقدم، متصفح عادي) — افرِّع بناءً على النتيجة بدلًا من استشعار الجسر.</p>

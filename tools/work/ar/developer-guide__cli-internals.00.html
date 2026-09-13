@@ -1,0 +1,57 @@
+<header><h1>آلية عمل CLI من الداخل</h1></header>
+<p>مكمّل لملف <code>hermes_cli/AGENTS.md</code> (القواعد) — تحتوي هذه الصفحة على الشروحات الأطول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-pipeline">خط أنابيب التحديث (Update pipeline)</h2>
+<p>العقد المرحلي (<code>plan → snapshot → apply → restart-per-kind → verify → report</code>) وحالات
+الفشل التي تحرسها كل مرحلة موثَّقة في <code>hermes_cli/AGENTS.md</code>؛ أما السلوك الظاهر للمستخدم
+(الإيصالات، <code>--plan</code>، أوضاع الـ snapshot) فموجود في <a href="/docs/getting-started/updating">التحديث</a>.</p>
+<p>ينتظر الحل الاحتياطي لإعادة التشغيل القسري في systemd مدة <code>TimeoutStopUSec</code> زائد
+<code>TimeoutStartUSec</code>، مع هامش 15 ثانية من جهة العميل. يقرأ الوحدة الهدف
+ضمن نطاق المدير نفسه لإعادة التشغيل؛ تستخدم كل من المحاولة الأولى وإعادة المحاولة
+هذه الميزانية، بما في ذلك إعادة التشغيل التعويضية بعد تحديث مُقاطَع.
+يستخدم بدء التشغيل بعد استنزاف تدريجي (graceful drain) ميزانية البدء زائد الهامش فقط.
+يعود حدّ مرحلة مفقود، أو غير قابل للتحليل، أو لا نهائي إلى القيمة الاحتياطية 90 ثانية
+لتلك المرحلة، مما يبقي التحديثات غير المراقَبة محدودة زمنيًا. انتهاء مهلة عميل
+<code>systemctl</code> <strong>لا</strong> يلغي معاملة المدير. يمكن لسلاسل أوامر إيقاف متعددة مخصّصة
+أو <code>EXTEND_TIMEOUT_USEC</code> أن تتجاوز هذا التقدير مع ذلك؛ ويبقى انتهاء المهلة الفعلي
+إعادة تشغيل غير مكتملة، وما زالت الأوامر الناجحة تتطلب التحقق القائم من صحة الخدمة
+وإصدار الأسطول (fleet-version). القيم الرقمية الخام <code>*USec</code> هي
+بالميكروثانية، بينما تستخدم القيم المنسَّقة وحدات systemd الثابتة، بما في ذلك الأيام،
+والأسابيع، والأشهر، والسنوات. المهلة المجمَّعة محدودة بأقل من حد الاستطلاع (poll)
+الأصلي الموقَّع 32-بت بالميلي ثانية (مع هامش تقريب)، لذا لا يمكن لحدود الوحدة الطويلة
+جدًا أن تتجاوز حدّ استطلاع العملية الفرعية. تستخدم حدود المرحلة الصفرية/غير
+المعروفة/اللانهائية القيمة الاحتياطية المحدودة. هذا لا يغيّر إعدادات استنزاف الدور النشط (active-turn drain).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="process-identity-never-infer-it-from-argv-substrings">هوية العملية: لا تستنتجها أبدًا من أجزاء نصية في argv</h2>
+<p>فئة الخلل وراء نحو 10 مشاكل في تحديث الأسطول (#90778، #87594، #78089، #76129، #91964، ...):
+تصنيف عملية بناءً على <code>&quot;serve&quot; in cmdline</code> أو ما شابه. يحتوي <code>kanban --preserve-cache</code> على
+&quot;serve&quot;؛ يمكن لقيمة flag أن تساوي أمرًا فرعيًا (<code>-m dashboard serve</code>)؛ تخفي سطور الأوامر
+المُقتَطعة الأمر الفرعي الحقيقي. القواعد:</p>
+<ul>
+<li>استخدم أدوات المطابقة القياسية: <code>gateway.status.looks_like_gateway_command_line</code> (تشغيل gateway)،
+و<code>hermes_cli.update_cmd._hermes_holder_subcommand</code> (الأمر الفرعي من المستوى الأعلى لأي argv خاص بـ Hermes). لا
+تكتب فحوصات رموز (token scans) يدويًا مطلقًا.</li>
+<li>يجب أن تكون مجموعات الـ flags مُشتَقّة من المحلِّل (يفحص <code>_holder_value_flags()</code>
+<code>build_top_level_parser()</code>)، وليس قوائم مكتوبة يدويًا — فهي تنحرف عن الواقع مع الوقت.</li>
+<li>لا تستبعد الأسلاف (ancestors) بشكل شامل من فحوصات العمليات مطلقًا: عندما يعمل <code>/update</code> كعملية ابنة لـ gateway، يجب أن يبقى
+سلف الـ gateway مرئيًا لآلية الإيقاف المؤقت (#87594). استبعد النسب التفاعلي (interactive ancestry)،
+واستثنِ الأسلاف على هيئة gateway.</li>
+<li>طابق على سطور الأوامر الكاملة؛ اقتطع فقط عند العرض (#78089).</li>
+<li>قبل إضافة أي طريقة فحص جديدة، اقرأ #92091 — يحلّ مقبس التحكم بالـ gateway محل الفحوصات كـ
+آلية التنسيق الأساسية؛ الفحوصات هي طبقة احتياطية للعمليات القديمة/المنهارة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skin-engine--what-skins-customize">محرك السمات (Skin Engine) — ما الذي تخصّصه السمات</h2>
+<table><thead><tr><th>العنصر</th><th>مفتاح السمة</th><th>مُستخدَم من قِبل</th></tr></thead><tbody><tr><td>حدود لوحة الشعار (banner) / العنوان / عناوين الأقسام / الخافت / المتن</td><td><code>colors.banner_border</code>، <code>banner_title</code>، <code>banner_accent</code>، <code>banner_dim</code>، <code>banner_text</code></td><td><code>banner.py</code></td></tr><tr><td>حدود صندوق الاستجابة</td><td><code>colors.response_border</code></td><td><code>cli.py</code></td></tr><tr><td>أوجه المؤشر الدوّار (spinner) (الانتظار / التفكير)</td><td><code>spinner.waiting_faces</code>، <code>spinner.thinking_faces</code></td><td><code>display.py</code></td></tr><tr><td>أفعال / أجنحة المؤشر الدوّار (اختياري)</td><td><code>spinner.thinking_verbs</code>، <code>spinner.wings</code></td><td><code>display.py</code></td></tr><tr><td>بادئة مخرجات الأداة / الرموز التعبيرية لكل أداة</td><td><code>tool_prefix</code>، <code>tool_emojis</code></td><td><code>display.py</code> ← <code>get_tool_emoji()</code></td></tr><tr><td>اسم الوكيل / رسالة الترحيب / تسمية الاستجابة / رمز الـ prompt</td><td><code>branding.agent_name</code>، <code>welcome</code>، <code>response_label</code>، <code>prompt_symbol</code></td><td><code>banner.py</code>، <code>cli.py</code></td></tr></tbody></table>
+<p>السمات المدمجة (<code>_BUILTIN_SKINS</code> في <code>hermes_cli/skin_engine.py</code>): <code>default</code> (ذهبي/kawaii كلاسيكي)،
+و<code>ares</code> (قرمزي/برونزي بأجنحة مؤشر دوّار مخصّصة)، و<code>mono</code> (تدرّج رمادي)، و<code>slate</code> (أزرق بارد). أضف
+سمة مدمجة كإدخال قاموس <code>{&quot;name&quot;, &quot;description&quot;, &quot;colors&quot;, &quot;spinner&quot;, &quot;branding&quot;, &quot;tool_prefix&quot;}</code>.
+سمات المستخدم موجودة في <code>~/.hermes/skins/&lt;name&gt;.yaml</code> بنفس المفاتيح، وتُفعَّل بـ <code>/skin &lt;name&gt;</code> أو
+<code>display.skin: &lt;name&gt;</code>؛ ويوجد قالب YAML الكامل في دليل مستخدم
+<a href="/docs/user-guide/features/skins">المظاهر والسمات (Skins &amp; Themes)</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profiles-multi-instance-support">Profiles: دعم النُّسخ المتعددة</h2>
+<p>يدعم Hermes الـ profiles — نُسخ معزولة تمامًا، لكل منها <code>HERMES_HOME</code> خاص بها (الإعدادات، ومفاتيح
+API، والذاكرة، والجلسات، والمهارات، والـ gateway). تضبط <code>_apply_profile_override()</code> في <code>hermes_cli/main.py</code>
+<code>HERMES_HOME</code> قبل استيراد أي وحدة (module)، لذا يُحدَّد نطاق كل مرجع لـ <code>get_hermes_home()</code> ضمن الـ
+profile النشط. عمليات الـ profile مرتبطة بـ HOME (تُعيد <code>_get_profiles_root()</code>
+<code>Path.home() / &quot;.hermes&quot; / &quot;profiles&quot;</code>، وليس <code>get_hermes_home() / &quot;profiles&quot;</code>) لذا
+يرى <code>hermes -p coder profile list</code> جميع الـ profiles بغض النظر عن أيها نشط — وهذا مقصود.
+قواعد البرمجة الآمنة للـ profile موجودة في ملف <code>AGENTS.md</code> الجذري؛ وقواعد نطاق الأسرار (secret-scope) للتعدد (multiplex) في
+<code>gateway/AGENTS.md</code>.</p>

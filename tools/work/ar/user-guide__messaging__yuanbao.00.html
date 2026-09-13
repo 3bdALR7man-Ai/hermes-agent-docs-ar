@@ -1,0 +1,174 @@
+<header><h1>Yuanbao</h1></header>
+<p>اربط Hermes بمنصة <a href="https://yuanbao.tencent.com/" data-ext>Yuanbao</a>، منصة المراسلة المؤسسية من Tencent. يستخدم المحوّل (adapter) بوابة WebSocket لتسليم الرسائل في الوقت الفعلي، ويدعم المحادثات المباشرة (C2C) والمحادثات الجماعية على حد سواء.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>Yuanbao منصة مراسلة مؤسسية تُستخدم أساسًا داخل Tencent وفي بيئات المؤسسات. تستخدم WebSocket للتواصل في الوقت الفعلي، ومصادقة قائمة على HMAC، وتدعم الوسائط الغنية بما فيها الصور والملفات والرسائل الصوتية.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>حساب Yuanbao يملك صلاحية إنشاء البوتات</li>
+<li>قيمتا APP_ID و APP_SECRET الخاصتان بـ Yuanbao (من مسؤول المنصة)</li>
+<li>حزم Python: <code>websockets</code> و <code>httpx</code></li>
+<li>لدعم الوسائط: <code>aiofiles</code></li>
+</ul>
+<p>ثبّت الاعتماديات المطلوبة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-a-bot-in-yuanbao">1. إنشاء بوت في Yuanbao</h3>
+<ol>
+<li>نزّل تطبيق Yuanbao من <a href="https://yuanbao.tencent.com/" data-ext>https://yuanbao.tencent.com/</a></li>
+<li>في التطبيق، انتقل إلى <strong>PAI → My Bot</strong> وأنشئ بوتًا جديدًا</li>
+<li>بعد إنشاء البوت، انسخ <strong>APP_ID</strong> و <strong>APP_SECRET</strong></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-run-the-setup-wizard">2. تشغيل معالج الإعداد</h3>
+<p>أسهل طريقة لإعداد Yuanbao هي عبر الإعداد التفاعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اختر <strong>Yuanbao</strong> عند المطالبة. سيقوم المعالج بما يلي:</p>
+<ol>
+<li>طلب قيمة APP_ID</li>
+<li>طلب قيمة APP_SECRET</li>
+<li>حفظ الإعدادات تلقائيًا</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يتضمن WebSocket URL و API Domain قيمًا افتراضية مناسبة مدمجة. لا تحتاج إلا إلى توفير APP_ID و APP_SECRET للبدء.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-configure-environment-variables">3. ضبط متغيرات البيئة</h3>
+<p>بعد الإعداد الأولي، تحقق من هذه المتغيرات في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-start-the-gateway">4. تشغيل الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>سيتصل المحوّل ببوابة WebSocket الخاصة بـ Yuanbao، ويُجري المصادقة باستخدام توقيعات HMAC، ثم يبدأ بمعالجة الرسائل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<ul>
+<li><strong>بوابة WebSocket</strong> — تواصل ثنائي الاتجاه في الوقت الفعلي</li>
+<li><strong>مصادقة HMAC</strong> — توقيع آمن للطلبات باستخدام APP_ID/APP_SECRET</li>
+<li><strong>رسائل C2C</strong> — محادثات مباشرة بين المستخدم والبوت</li>
+<li><strong>الرسائل الجماعية</strong> — محادثات داخل المجموعات</li>
+<li><strong>دعم الوسائط</strong> — الصور والملفات والرسائل الصوتية عبر COS (Cloud Object Storage)</li>
+<li><strong>تنسيق Markdown</strong> — تُجزَّأ الرسائل تلقائيًا لتلائم حدود الحجم في Yuanbao</li>
+<li><strong>إزالة تكرار الرسائل</strong> — تمنع معالجة الرسالة نفسها أكثر من مرة</li>
+<li><strong>نبضات القلب/keep-alive</strong> — تحافظ على استقرار اتصال WebSocket</li>
+<li><strong>مؤشرات الكتابة</strong> — تعرض حالة &quot;typing…&quot; أثناء معالجة الوكيل</li>
+<li><strong>إعادة الاتصال التلقائية</strong> — تتعامل مع انقطاعات WebSocket بتأخير متزايد أُسيًّا (exponential backoff)</li>
+<li><strong>الاستعلام عن معلومات المجموعات</strong> — جلب تفاصيل المجموعات وقوائم أعضائها</li>
+<li><strong>دعم الملصقات/الرموز التعبيرية</strong> — إرسال ملصقات TIMFaceElem والرموز التعبيرية في المحادثات</li>
+<li><strong>دعم سجلات محادثات WeChat المُعاد توجيهها</strong> — عندما يعيد مستخدم توجيه حزمة سجل محادثة من WeChat إلى Yuanbao، يفك المحوّل ترميز السجلات المُعاد توجيهها (أسماء المرسلين المستعارة، والنصوص، وإدخالات الوسائط المتعددة، بما في ذلك عمليات إعادة التوجيه المتداخلة) ويُدرجها في المحادثة ليتمكن الوكيل من قراءة السلسلة المُعاد توجيهها كاملة</li>
+<li><strong>Auto-sethome</strong> — يُعيَّن أول مستخدم يراسل البوت تلقائيًا مالكًا للقناة الرئيسية (home channel)</li>
+<li><strong>إشعار بطء الاستجابة</strong> — يرسل رسالة انتظار عندما يستغرق الوكيل وقتًا أطول من المتوقع</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-options">خيارات الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-id-formats">صيغ معرّفات المحادثات</h3>
+<p>يستخدم Yuanbao معرّفات ذات بادئات بحسب نوع المحادثة:</p>
+<table><thead><tr><th>نوع المحادثة</th><th>الصيغة</th><th>مثال</th></tr></thead><tbody><tr><td>رسالة مباشرة (C2C)</td><td><code>direct:&lt;account&gt;</code></td><td><code>direct:user123</code></td></tr><tr><td>رسالة جماعية</td><td><code>group:&lt;group_code&gt;</code></td><td><code>group:grp456</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-uploads">رفع الوسائط</h3>
+<p>يتولى محوّل Yuanbao تلقائيًا رفع الوسائط عبر COS (Tencent Cloud Object Storage):</p>
+<ul>
+<li><strong>الصور</strong>: يدعم JPEG و PNG و GIF و WebP</li>
+<li><strong>الملفات</strong>: يدعم جميع أنواع المستندات الشائعة</li>
+<li><strong>الرسائل الصوتية</strong>: يدعم WAV و MP3 و OGG</li>
+</ul>
+<p>يُتحقق من عناوين URL للوسائط وتُنزَّل تلقائيًا قبل الرفع لمنع هجمات SSRF.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية (Home Channel)</h2>
+<p>استخدم الأمر <code>/sethome</code> في أي محادثة على Yuanbao (رسالة مباشرة أو مجموعة) لتعيينها <strong>قناةً رئيسية</strong>. تُسلِّم المهام المجدولة (مهام cron) نتائجها إلى هذه القناة.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>Auto-sethome</div><div class="admonitionContent_BuS1"><p>إذا لم تُضبط قناة رئيسية، فسيُعيَّن أول مستخدم يراسل البوت تلقائيًا مالكًا للقناة الرئيسية. وإذا كانت القناة الرئيسية الحالية محادثة جماعية، فستُرقّيها أول رسالة مباشرة إلى قناة مباشرة.</p></div></div>
+<p>يمكنك أيضًا ضبطها يدويًا في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-set-home-channel">مثال: تعيين القناة الرئيسية</h3>
+<ol>
+<li>ابدأ محادثة مع البوت في Yuanbao</li>
+<li>أرسل الأمر: <code>/sethome</code></li>
+<li>يرد البوت: &quot;Home channel set to [chat_name] with ID [chat_id]. Cron jobs will deliver to this location.&quot;</li>
+<li>ستُرسل مهام cron والإشعارات المستقبلية إلى هذه القناة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-cron-job-delivery">مثال: تسليم مهمة Cron</h3>
+<p>أنشئ مهمة cron:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ستُسلَّم المخرجات المجدولة إلى قناتك الرئيسية في Yuanbao كل يوم في الساعة 9 صباحًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage-tips">نصائح الاستخدام</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="starting-a-conversation">بدء محادثة</h3>
+<p>أرسل أي رسالة إلى البوت في Yuanbao:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يرد البوت في سلسلة المحادثة نفسها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-commands">الأوامر المتاحة</h3>
+<p>تعمل جميع أوامر Hermes القياسية على Yuanbao:</p>
+<table><thead><tr><th>الأمر</th><th>الوصف</th></tr></thead><tbody><tr><td><code>/new</code></td><td>بدء محادثة جديدة</td></tr><tr><td><code>/model [provider:model]</code></td><td>عرض النموذج أو تغييره</td></tr><tr><td><code>/sethome</code></td><td>تعيين هذه المحادثة قناةً رئيسية</td></tr><tr><td><code>/status</code></td><td>عرض معلومات الجلسة</td></tr><tr><td><code>/help</code></td><td>عرض الأوامر المتاحة</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-files">إرسال الملفات</h3>
+<p>لإرسال ملف إلى البوت، أرفقه ببساطة مباشرةً في محادثة Yuanbao. سينزّل البوت مرفق الملف ويعالجه تلقائيًا.</p>
+<p>يمكنك أيضًا تضمين رسالة مع المرفق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="receiving-files">استقبال الملفات</h3>
+<p>عندما تطلب من البوت إنشاء ملف أو تصديره، يرسل الملف مباشرةً إلى محادثتك في Yuanbao.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-online-but-not-responding-to-messages">البوت متصل لكنه لا يرد على الرسائل</h3>
+<p><strong>السبب</strong>: فشلت المصادقة أثناء مصافحة WebSocket.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>تحقق من صحة APP_ID و APP_SECRET</li>
+<li>تحقق من إمكانية الوصول إلى WebSocket URL</li>
+<li>تأكد من أن حساب البوت يملك الصلاحيات المناسبة</li>
+<li>راجع سجلات الـ gateway: <code>tail -f ~/.hermes/logs/gateway.log</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-refused-error">خطأ &quot;Connection refused&quot;</h3>
+<p><strong>السبب</strong>: تعذّر الوصول إلى WebSocket URL أو أنه غير صحيح.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>تحقق من صيغة WebSocket URL (يجب أن يبدأ بـ <code>wss://</code>)</li>
+<li>تحقق من الاتصال الشبكي بنطاق Yuanbao API</li>
+<li>تأكد من أن جدار الحماية يسمح باتصالات WebSocket</li>
+<li>اختبر الـ URL باستخدام: <code>curl -I https://[YUANBAO_API_DOMAIN]</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-uploads-fail">فشل رفع الوسائط</h3>
+<p><strong>السبب</strong>: بيانات اعتماد COS غير صالحة أو تعذّر الوصول إلى خادم الوسائط.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>تحقق من صحة API_DOMAIN</li>
+<li>تحقق من تفعيل صلاحيات رفع الوسائط للبوت الخاص بك</li>
+<li>تأكد من إمكانية الوصول إلى ملف الوسائط وأنه غير تالف</li>
+<li>راجع إعدادات COS bucket مع مسؤول المنصة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messages-not-delivered-to-home-channel">الرسائل لا تُسلَّم إلى القناة الرئيسية</h3>
+<p><strong>السبب</strong>: صيغة معرّف القناة الرئيسية غير صحيحة أو لم تُطلَق مهمة cron.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>تحقق من أن YUANBAO_HOME_CHANNEL بالصيغة الصحيحة</li>
+<li>اختبر باستخدام الأمر <code>/sethome</code> لاكتشاف الصيغة الصحيحة تلقائيًا</li>
+<li>تحقق من جدول مهمة cron باستخدام <code>/status</code></li>
+<li>تحقق من أن البوت يملك صلاحيات الإرسال في المحادثة المستهدفة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="frequent-disconnections">انقطاعات متكررة</h3>
+<p><strong>السبب</strong>: اتصال WebSocket غير مستقر أو الشبكة غير موثوقة.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>راجع سجلات الـ gateway بحثًا عن أنماط الأخطاء</li>
+<li>زِد مهلة نبضات القلب في إعدادات الاتصال</li>
+<li>تأكد من استقرار الاتصال الشبكي بـ Yuanbao API</li>
+<li>فكّر في تفعيل السجلات المفصّلة: <code>hermes gateway run -vv</code></li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h2>
+<p>يدعم Yuanbao تحكمًا دقيقًا في الوصول لكل من الرسائل المباشرة والمحادثات الجماعية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يمكن أيضًا ضبط هذه القيم في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-configuration">الإعدادات المتقدمة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-chunking">تجزئة الرسائل</h3>
+<p>لدى Yuanbao حد أقصى لحجم الرسالة. يجزّئ Hermes الردود الكبيرة تلقائيًا بتقسيم يراعي Markdown (يحترم كتل الشيفرة المسوّرة والجداول وحدود الفقرات).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-parameters">معاملات الاتصال</h3>
+<p>معاملات الاتصال التالية مدمجة في المحوّل بقيم افتراضية مناسبة:</p>
+<table><thead><tr><th>المعامل</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td>مهلة اتصال WebSocket</td><td>15 ثانية</td><td>مدة انتظار مصافحة WS</td></tr><tr><td>الفاصل الزمني لنبضات القلب</td><td>30 ثانية</td><td>معدل إرسال ping للحفاظ على الاتصال</td></tr><tr><td>الحد الأقصى لمحاولات إعادة الاتصال</td><td>100</td><td>أقصى عدد لمحاولات إعادة الاتصال</td></tr><tr><td>تأخير إعادة الاتصال (backoff)</td><td>1s → 60s (أُسّي)</td><td>مدة الانتظار بين محاولات إعادة الاتصال</td></tr><tr><td>الفاصل الزمني لنبضات الرد</td><td>2 ثانية</td><td>معدل إرسال حالة RUNNING</td></tr><tr><td>مهلة الإرسال</td><td>30 ثانية</td><td>مهلة رسائل WS الصادرة</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا يمكن حاليًا ضبط هذه القيم عبر متغيرات البيئة، وهي مُحسَّنة لعمليات نشر Yuanbao المعتادة.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verbose-logging">السجلات المفصّلة</h3>
+<p>فعّل سجلات التصحيح (debug) لاستكشاف مشكلات الاتصال وإصلاحها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-with-other-features">التكامل مع الميزات الأخرى</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-jobs">مهام Cron</h3>
+<p>جدوِل مهامًا تعمل على Yuanbao:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تُسلَّم النتائج إلى قناتك الرئيسية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-tasks">المهام في الخلفية</h3>
+<p>شغّل العمليات الطويلة دون تعطيل المحادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-platform-messages">الرسائل عبر المنصات</h3>
+<p>أرسل رسالة من CLI إلى Yuanbao:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-documentation">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/messaging/">نظرة عامة على Messaging Gateway</a></li>
+<li><a href="/docs/reference/slash-commands">مرجع Slash Commands</a></li>
+<li><a href="/docs/user-guide/features/cron">مهام Cron</a></li>
+<li><a href="/docs/user-guide/cli#background-sessions">الجلسات في الخلفية</a></li>
+</ul>

@@ -1,0 +1,161 @@
+
+<header><h1>Dynamic Workflow</h1></header>
+<p>تفريع العمل المخطط في الكود، والتحقق التنافسي (adversarial verification)، والموجات (waves).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/autonomous-ai-agents/dynamic-workflow</code></td></tr><tr><td>المسار</td><td><code>optional-skills/autonomous-ai-agents/dynamic-workflow</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>Teknium + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>orchestration</code>, <code>fan-out</code>, <code>subagents</code>, <code>delegation</code>, <code>verification</code>, <code>migration</code>, <code>audit</code>, <code>research</code>, <code>campaign</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-simplify-code"><code>simplify-code</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Dynamic Workflow</h1>
+<p>تُنفّذ أعمال التفريع الكبيرة (fan-out) كسير عمل (workflow): تعيش الخطة والحلقة
+وكل نتيجة وسيطة في سكربت وعلى القرص، بحيث لا يحمل سياق الوالد إلا النتائج
+المُتحقَّق منها. تغطي هذه المهارة التفريع لمرة واحدة، والتقارب التنافسي
+(adversarial convergence) (محاولات + مُفنِّدون refuters)، وحملات متعددة الموجات
+تدمج عشرات فروع العمال (worker branches). لا تجعل هذه المهارة <code>delegate_task</code> دائمًا
+عبر إعادة التشغيل؛ تلك مهمة سرب Kanban (kanban swarm).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>استخدمها عندما تكون وحدة العمل واضحة (ملف، نقطة نهاية endpoint، سجل) وعدد
+الوحدات أكبر مما يتسع له سياق واحد. تجاوزها لأقل من نحو 10 وحدات أو للسلاسل
+المتسلسلة (serial). لحملة إعادة هيكلة أو إصلاح على hermes-agent نفسه، حمّل
+<code>hermes-agent</code> (سير عمل التطوير) إلى جانبها؛ هذه المهارة مسؤولة عن شكل التفريع
+فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><code>delegate_task</code> متاحة و<code>delegation.max_concurrent_children</code> مضبوطة بحجم يناسب
+الموجة (الافتراضي 10؛ يرفض وقت التشغيل قائمة <code>tasks=[]</code> أكبر من ذلك برسالة
+خطأ واضحة بدل وضعها في قائمة انتظار). <code>delegation.max_spawn_depth &gt;= 2</code> فقط إذا
+كان على الأبناء التفريع بأنفسهم.</li>
+<li>دليل تشغيل قابل للكتابة يُستنتج من مجلد temp الخاص ببيئة الطرفية
+(<code>$TMPDIR</code>، وإلا مجلد temp الخاص بالمنصة). لا تستخدم أبدًا مسارًا حرفيًا مثل <code>/tmp</code>:
+فـ Termux لا يملك <code>/tmp</code>، و Windows الأصلي يتعطل معه. استخدم <code>&lt;tmp&gt;/wf_&lt;name&gt;_&lt;uuid&gt;/</code>،
+فريدًا لكل تشغيل، بحيث لا يترك تشغيل سابق منقطع مخرجات قديمة قد تُقرأ خطأً.</li>
+<li><code>execute_code</code> للطبقة الحتمية (deterministic) (لا توجد بداخلها سوى <code>web_search</code>، و<code>web_extract</code>،
+و<code>read_file</code>، و<code>write_file</code>، و<code>search_files</code>، و<code>terminal</code>، و<code>patch</code>).</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p>طبقتان، مفصولتان بحد فعلي في القدرات:</p>
+<table><thead><tr><th></th><th>الطبقة A - سكربت <code>execute_code</code></th><th>الطبقة B - دفعة <code>delegate_task</code></th></tr></thead><tbody><tr><td>تُستخدم من أجل</td><td>العمل الحتمي (DETERMINISTIC): جلب N عنوان URL، تحليل N ملف، تشغيل N أمر، بناء N مخرج بنمط (template)، بناء بيانات وصفية (manifests)، دمج المخرجات</td><td>عمل يعتمد على حكم LLM: التصنيف، المراجعة، اتخاذ القرار، الكتابة، التفنيد، إعادة هيكلة وحدة واحدة</td></tr><tr><td>يحتوي</td><td>الحلقة، والتفرّع الشرطي، والمتغيرات الوسيطة</td><td>لا شيء؛ استدعاء واحد بقائمة <code>tasks=[...]</code>، كل مهمة وكيل معزول قائم بذاته</td></tr><tr><td>الأدوات</td><td>مجموعة الـ sandbox أعلاه؛ لا يمكنها استدعاء <code>delegate_task</code></td><td>toolsets الوالد، موروثة دون تغيير (بلا تضييق لكل مهمة)؛ يفقد الأبناء <code>delegate_task</code> و<code>clarify</code> و<code>memory</code> و<code>send_message</code> و<code>cronjob_manage</code></td></tr><tr><td>التزامن (Concurrency)</td><td>خاص بك (<code>ThreadPoolExecutor</code>، دفعات)</td><td>محدود بـ <code>delegation.max_concurrent_children</code></td></tr><tr><td>التكلفة</td><td>استدعاءات الأدوات فقط</td><td>شجرة وكيل كاملة لكل مهمة؛ تتضاعف خطيًا</td></tr></tbody></table>
+<p>نفّذ الجزء الحتمي في الطبقة A أولًا، وفرّع فقط الخطوة التي لا مفر من اعتمادها
+على LLM في الطبقة B، ثم اجمع النتائج على الوالد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-first-results-re-enter-as-messages">الخلفية أولًا: النتائج تعود كرسائل</h3>
+<p>يُعيد استدعاء <code>delegate_task</code> على المستوى الأعلى مقبضًا (handle) واحدًا لكل مهمة
+فورًا؛ وتعود نتيجة كل ابن إلى المحادثة كرسالة جديدة عند انتهائه. لا يمكنك
+قراءة <code>out_*.csv</code> في السطر التالي مباشرة بعد الاستدعاء. أنهِ ما لا يعتمد على
+الأبناء، أعطِ حالة من سطر واحد، وأنهِ دورك (END YOUR TURN)؛ ثم تصرّف مع كل رسالة
+نتيجة عند وصولها. رسالة متابعة عادية من المستخدم لا تُلغي الأبناء؛ بينما
+<code>/stop</code> و<code>/new</code> والخروج من العملية تُلغيهم. التفويض الصادر من subagent منسّق
+(orchestrator) (بعمق &gt; 0) هو وحده المتزامن (synchronous).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<ul>
+<li>يجب أن تكون الوحدة قابلة للإجابة دون مخرجات الوحدات الشقيقة، وإلا فهي متسلسلة (serial).</li>
+<li>البيانات الوصفية (Manifest): وحدة واحدة في كل سطر في <code>&lt;run&gt;/manifest.jsonl</code>؛ اطبع العدد ودليل التشغيل.</li>
+<li>لكل ابن: نحو 8-12 تعديلًا آليًا، أو نحو 2-3 آلاف سطر قراءة، أو نحو 50-70 كيلوبايت
+من المجموعة النصية (corpus)؛ حدّد الحجم حسب أكبر وحدة. توضع المخرجات المُهيكلة في
+ملفات، لا أبدًا في حقل <code>summary</code> (يُقتطع تحت الحمل)؛ وتُفضَّل الأسطر المفصولة
+بفواصل على JSON.</li>
+<li>يتحقق الوالد من عدد الملفات وحداثتها لكل تشغيل قبل الدمج.</li>
+<li>الابن "المتوقف" عادة ما يكون قد أنهى كتابته؛ تحقق من نظام الملفات أولًا.</li>
+<li>شريحة محدودة أولًا (دليل واحد، 20 سجلًا)، أبلغ عن تكلفة الـ tokens، ثم وسّع النطاق.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-fan-out">تفريع لمرة واحدة</h3>
+<ol>
+<li>حلّل العمل إلى وحدات مستقلة.</li>
+<li>يكتب تمرير الطبقة A المبدئي البيانات الوصفية (manifest).</li>
+<li>حدّد حجم الأجزاء وفق الحدود أعلاه؛ ولمهام أكثر من
+<code>max_concurrent_children</code>، أصدر موجات محدودة بنفسك.</li>
+<li>الطبقة B: استدعاء واحد لـ <code>delegate_task(tasks=[...])</code>؛ كل مهمة تقرأ شريحتها، وتكتب
+<code>&lt;run&gt;/out_&lt;i&gt;.csv</code>، وتطبع كلمة حالة، ثم تتوقف.</li>
+<li>أنهِ الدور. مع وصول رسائل النتائج، اقرأ الملفات وتحقق منها وادمجها؛ ويبقى
+التوليف الشامل على الوالد.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adversarial-convergence-finding-quality-work">التقارب التنافسي (عمل بجودة الاستنتاجات)</h3>
+<ol>
+<li>محاولات مستقلة: نفس السؤال يُوجَّه إلى N من الأبناء (2-4) بصياغات مختلفة
+في كل <code>context</code>، يكتب كل منهم ادعاءً واحدًا في كل سطر إلى
+<code>&lt;run&gt;/attempt_&lt;i&gt;.md</code>. ادعاءات محددة المكان وقابلة للدحض فرديًا فقط
+("<code>POST /api/users/:id/role</code> في <code>src/routes/users.ts:142</code> لا يوجد بها فحص للدور")؛
+لا يمكن للمُفنِّد (refuter) دحض عبارة "طبقة المصادقة بها مشاكل".</li>
+<li>ادمج وأزل التكرار على الوالد؛ ودوّن عدد مرات الاتفاق لكل ادعاء.</li>
+<li>المُفنِّدون: دفعة ثانية تُكلَّف بدحض كل ادعاء بأدلة مضادة،
+وإصدار <code>claim_idx|survives|counter_evidence</code>. أعطهم المصادر، لا منطق
+المحاولات.</li>
+<li>اعرض الناجين فقط؛ واستبعد الادعاءات المدحوضة مع سبب من سطر واحد.</li>
+<li>مرّر الادعاءات الجديدة من الجولة الثانية عبر جولة تفنيد إضافية واحدة؛ توقف عندما
+لا تضيف جولة أي ناجين، بحد أقصى 3 جولات.</li>
+</ol>
+<p>الآلية نفسها تحمي الوالد من افتراضاته الخاطئة: عندما تعطي الأبناء قاعدة
+تجريبية ("كل هدف تصحيح على واجهة (facade) هو وصلة ميتة")، اطلب منهم دحضها
+بالأدلة قبل التصرف بناءً عليها. أربع فرق فعلت ذلك فحوّلت إعادة كتابة شاملة
+لـ 647 موقعًا إلى 59 إصلاحًا حقيقيًا ووفّرت أكثر من 130 اختبارًا ناجحًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="campaign-shape-dozens-of-workers-several-waves-hours">شكل الحملة (عشرات العمال، عدة موجات، ساعات)</h3>
+<p>وصفة التفريع لمرة واحدة لا تتسع لتمريرة على قاعدة كود كاملة. وهذا ما نجح:</p>
+<ol>
+<li>قِس أولًا (عدد الأسطر LOC، النقاط الساخنة، الرموز الميتة، المجموعات المرجعية oracle
+corpora) واكتب ملف <code>BRIEF.md</code> واحدًا مشتركًا بالإضافة إلى <code>task_&lt;cluster&gt;.md</code> لكل
+مجموعة. يقرأ كل ابن كلا الملفين. عندما ينحرف الأسطول (الأبناء يشذّبون التوثيق
+بدل تقليص الكود)، عدّل الملخص مرة واحدة ووجّههم؛ ويرث من يُعاد نشرهم التصحيح.</li>
+<li>ملكية حصرية: مجموعة واحدة من الملفات لكل عامل، وتُستبعد التعديلات خارجها عند
+الدمج. التفريعات الفرعية داخل ملف واحد تملك نطاقات أسطر (line RANGES) وتُعرّف
+الدوال المساعدة داخل نطاقها كي تُدمَج الفروقات (diffs) بسلاسة.</li>
+<li>التزم (commit) بعد كل خطوة مُتحقَّق منها، محليًا، بلا push، بلا PR، بلا rebase من
+الأبناء. الحالة المُلتزَم بها (Committed) هي وسيلة التسليم الوحيدة؛ كل عامل مات
+أثناء الحملة خسر تحديدًا ذيله غير الملتزم به. العامل الذي يشارك فهرس worktree
+يلتزم بـ <code>git commit -- &lt;paths&gt;</code> فقط؛ فقد أدى commit عام إلى اكتساح تعديلات مُهيّأة
+(staged) لعامل شقيق.</li>
+<li>حجم الأسطول 12-16 متزامنًا. فوق نحو 40 عملية على منحة OAuth واحدة، يتدافع
+تجديد token الساعي إلى أخطاء 401 ويقتل الموجة. ضع الباقي في قائمة انتظار.</li>
+<li>حيوية الوالد: ابن يبلغ <code>completed</code> بضع عشرات من أسطر السجل، أو بصفر
+commits على فرعه، لم ينهِ عمله؛ ابحث عن فروعه الفرعية أو أعد نشره باستخدام
+worktree والفرق (diff) الخاصين بسلفه.</li>
+<li>الدمج لكل جولة: جمّد SHA أساسيًا، أعد ترتيب (rebase) الفروع النظيفة آليًا،
+وأعطِ كل فرع متعارض عامل rebase خاصًا به ("سلوك main هو الفائز، يُعاد تطبيقه
+داخل البنية الجديدة")، وادمج على فرع تكامل واحد، وشغّل مجموعة الاختبارات
+الكاملة على الشجرة المدمجة. التصادمات التي نجح فيها كل فرع بمفرده تظهر هنا
+فقط. تتفرّع الجولة التالية من الالتزام (commit) المُدمَج بحيث لا يمكن لعمالها
+التعارض مع بعضهم.</li>
+<li>قبل إعلان جولة مُدمجة: <code>git rev-list --count &lt;integration&gt;..&lt;branch&gt;</code>
+يساوي صفرًا لكل فرع. يواصل العمال الالتزام (commit) بعد دمج طرفهم؛ وقد
+تُركت 168 commit عبر ست شرائح مرة على هذا النحو.</li>
+<li>تشغيلات الاختبار: مُشغِّل واحد فقط على الجهاز، خلف ملف قفل (lock file)، بقيمة
+<code>-j</code> عالية. المُشغِّلات المتوازية العديدة بقيمة <code>-j</code> منخفضة كانت أبطأ وقتلت
+مجموعات عمليات بعضها البعض. تُعاد تجربة الملفات الفاشلة (red) على worktree نظيف
+لـ <code>origin/main</code> في نفس الـ venv؛ مجموعات الإخفاقات المتطابقة لكل ملف موجودة
+مسبقًا وليست ناتجة عنك.</li>
+<li>إعادة النقل الأمامي (Forward-port) في النهاية، لا في كل جولة: جمّد SHA الخاص
+بـ main، وفرّع الملفات المتعارضة حسب الدليل على عمال يحررون worktree دمج واحد
+بلا commits، ثم يلتزم الوالد بالدمج مرة واحدة. لا تُشغَّل CI أبدًا على PR
+متعارض، لذا أعد دمج main قبل كل push.</li>
+<li>ضمان الجودة الحي (Live QA) موجة قائمة بذاتها: فرقة واحدة لكل واجهة، مع
+<code>HERMES_HOME</code> معزول، وتوقّع مكتوب قبل الفحص، وأدلة على القرص، وتقرير فقط، ولا
+يُحتسب انحدارًا (regression) سوى فرق بين PR و main. اختبارات الوحدة الناجحة
+فاتها P0 واحد (مسار كود بعد تسجيل الدخول لم يغطّه أي اختبار).</li>
+<li>ادعاءات المراجع تُعامَل معاملة ادعاءات الأبناء نفسها: قارن A/B مقابل الأساس
+قبل "استعادة" أي شيء. سلوك عدة فروقات مراجعة صيغت بثقة كان كذلك أصلًا على
+الأساس.</li>
+<li>يحتاج إعادة تشغيل الوالد إلى <code>HANDOFF.md</code>: سبب توقفه، وأي المقابض (handles) ميتة،
+وبطاقة أداء لكل فرع (فرق LOC، فحص الاستيراد smoke، الاختبارات الموجّهة)، ونص
+إعادة النشر بالضبط. التقط لقطة (Snapshot) لكل worktree غير نظيف في commit من
+نوع <code>wip:</code> أولًا.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>استدعاء <code>delegate_task</code> داخل سكربت <code>execute_code</code>: غير متاح داخل الـ sandbox.</li>
+<li>التوليف في نفس الدور الذي صدر فيه استدعاء التفريع: الملفات لم تُنشأ بعد.</li>
+<li>الوعد بديمومة الخلفية لأيام من <code>delegate_task</code>: فهي محصورة بالدور (turn-scoped)
+وتموت مع العملية. الرسم البياني الدائم = سرب Kanban؛ لمرة واحدة = <code>cronjob</code>.</li>
+<li>الوثوق بـ <code>summary</code> للمحتوى، أو بـ <code>status=completed</code> للاكتمال.</li>
+<li>نفس الصياغة في كل محاولة "مستقلة": فتنهار إلى إجابة واحدة.</li>
+<li><code>git stash</code> في أي مكان داخل حملة worktree: <code>refs/stash</code> مشترك بين جميع
+الـ worktrees وسيسحب عامل آخر تعديلاتك. قارن عبر worktree مؤقت بدلًا من ذلك.</li>
+<li>الإبلاغ عن بلوغ الهدف بينما الرقم الصادق أقل. قل "16% حتى الآن، وهذا هو
+المسار إلى 30%" وشغّل الجولة التالية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li>عدد أسطر البيانات الوصفية (Manifest) يطابق عدد الوحدات المتوقَّع.</li>
+<li>كل <code>out_*.csv</code> موجود وكُتب في هذا التشغيل.</li>
+<li>كل ادعاء مستبعد له دليل مضاد مسجَّل؛ وكل ادعاء مُعروض مرّ عبر التفنيد.</li>
+<li>الحملة: كل فرع بصفر commits غير مدمجة، ومجموعة الاختبارات الكاملة على
+الشجرة المدمجة مع فرز الإخفاقات (reds) مقابل main نظيف، وتقرير ضمان جودة حي
+لكل واجهة، وتكلفة tokens مُبلَّغ عنها على الشريحة المحدودة قبل التشغيل الكامل.</li>
+</ul>

@@ -1,0 +1,82 @@
+<header><h1>التكامل البرمجي</h1></header>
+<p>يشحن Hermes ثلاثة بروتوكولات لتشغيل الوكيل من برامج خارجية — إضافات IDE، وواجهات مستخدم مخصّصة، وخطوط أنابيب CI، ووكلاء فرعيين مُضمَّنين. اختر ما يناسب النقل والمستهلك لديك.</p>
+<table><thead><tr><th>البروتوكول</th><th>النقل</th><th>الأفضل لـ</th><th>مُعرَّف في</th></tr></thead><tbody><tr><td><strong>ACP</strong></td><td>JSON-RPC عبر stdio</td><td>عملاء IDE (VS Code وZed وJetBrains) الذين يتحدّثون بالفعل <a href="https://github.com/zed-industries/agent-client-protocol" data-ext>Agent Client Protocol</a></td><td><code>acp_adapter/</code></td></tr><tr><td><strong>TUI gateway</strong></td><td>JSON-RPC عبر stdio (أو WebSocket)</td><td>المضيفون المخصّصون الذين يريدون تحكّمًا دقيقًا في الجلسات وslash commands والموافقات وأحداث البث</td><td><code>tui_gateway/server.py</code></td></tr><tr><td><strong>خادم API</strong></td><td>HTTP + Server-Sent Events</td><td>واجهات متوافقة مع OpenAI (Open WebUI وLobeChat وLibreChat…) وعملاء ويب مستقلّون عن اللغة</td><td><code>gateway/platforms/api_server.py</code></td></tr></tbody></table>
+<p>تشغّل البروتوكولات الثلاثة نفس نواة <code>AIAgent</code>. تختلف فقط في صيغة السلك (wire format) ومجموعة الميزات التي تكشفها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="acp-agent-client-protocol">ACP (Agent Client Protocol)</h2>
+<p>يشغّل <code>hermes acp</code> خادم JSON-RPC عبر stdio يتحدّث ACP. يُستخدم في الإنتاج بواسطة VS Code (إضافة ACP الخاصة بـ Zed Industries)، وZed، وأي IDE من JetBrains يملك إضافة ACP.</p>
+<p>القدرات المكشوفة: إنشاء الجلسات، وتقديم الـ prompt، وبث أجزاء رسائل الوكيل، وأحداث استدعاء الأدوات، وطلبات الصلاحيات، وتفريع الجلسة (fork)، والإلغاء، والمصادقة. تُعرَض مخرجات الأدوات في كتل محتوى <code>Diff</code>/<code>ToolCall</code> الخاصة بـ ACP التي يفهمها IDE.</p>
+<p>دورة الحياة الكاملة، وجسر الأحداث، وتدفّق الموافقة: <a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tui-gateway-json-rpc">TUI Gateway JSON-RPC</h2>
+<p><code>tui_gateway/server.py</code> هو البروتوكول الذي يتحدّث به TUI المبني بـ Ink (<code>hermes --tui</code>) وجسر PTY الخاص بلوحة التحكم المُضمَّنة. يمكن لأي مضيف خارجي التحدّث بنفس البروتوكول عبر stdio (أو WebSocket عبر <code>tui_gateway/ws.py</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-catalog-selected">كتالوج الدوال (مُنتقى)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>session.active_list</code> و<code>session.activate</code> و<code>session.close</code> هي عناصر تحكّم الجلسات الحيّة المحلية للعملية التي يستخدمها مبدّل الجلسات في TUI. استخدم <code>session.list</code> / <code>/resume</code> لاكتشاف المحادثات المحفوظة؛ واستخدم دوال الجلسة النشطة فقط للجلسات المفتوحة حاليًا في عملية TUI gateway.</p>
+<p>ضمن gateway مصادَق واحد، فإن استئناف جلسة حيّة أو تفعيلها يُلحق مشتركًا آخر في الأحداث بدلًا من استبدال الاتصال السابق. تصل أحداث البث والطرفية إلى كل العملاء المتّصلين؛ وقطع اتصال عميل واحد لا ينهي جلسة يشاهدها عميل آخر. تبقى حصرية التقديم الحالية وسياسة الإدخال أثناء الانشغال المضبوطة سارية. يمكن للعملاء المتّصلين توجيه subagents الجلسة؛ ولا تزال نتائج متحكّم المتصفح تتطلّب الاتصال الذي سجّل ذلك المتحكّم. هذا لا يتيح لعمليات gateway مستقلّة الكتابة إلى نفس الجلسة، ولا يعني قبول prompt دائمًا عبر إعادة تشغيل المالك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rewinding-history-on-promptsubmit">إرجاع السجل عند <code>prompt.submit</code></h3>
+<p>الإرجاع (rewind) / التعديل / إعادة التوليد هو <code>prompt.submit</code> يُسقط جزءًا من المحادثة المخزَّنة قبل تشغيل الدور الجديد. ولأن تلك الكتابة إعادة كتابة إتلافية لصفوف الجلسة الدائمة، لا يحترمها gateway إلا عندما يُعلن العميل نيّته صراحةً:</p>
+<table><thead><tr><th>الوسيط</th><th>المعنى</th></tr></thead><tbody><tr><td><code>truncate_before_user_ordinal</code></td><td>فهرس صفري الأساس لدور المستخدم الذي سيُقطَع عنده. يُسقَط كل شيء من ذلك الدور فصاعدًا. لا تُحسَب صفوف الجدول الزمني المخصّصة للعرض فقط (<code>display_kind</code>). يجب أن تكون قيمة صحيحة (integer) فعلية — تُرفض القيمة المنطقية (boolean) في JSON برمز <code>4004</code>.</td></tr><tr><td><code>truncate_before_row_id</code></td><td>معرّف صف SQLite صحيح (<code>messages.id</code> / <code>row_id</code>) لدور المستخدم المستهدَف الذي سيُقطَع عنده. العنوان الدائم المفضَّل. عند تقديم كل من الفهرس ومعرّف الصف معًا، يتحقّق gateway من تطابقهما (ويعيد <code>4030</code> عند عدم التطابق). يُرفض معرّف صف غير معروف/قديم برمز <code>4018</code> — <strong>ولا</strong> يعود إلى الفهرس كبديل.</td></tr><tr><td><code>confirm_truncate</code></td><td>مطلوب كلما أُرسل فهرس أو معرّف رسالة أو معرّف صف. يُعلن أن هذا التقديم إرجاع فعلي، لا إرسال عادي يحمل بالمصادفة وسائط متبقّية. يُرفض إرساله دون هدف برمز <code>4004</code>.</td></tr><tr><td><code>confirm_empty_truncate</code></td><td>مطلوب إضافةً عندما يترك القطع المحادثة فارغة (الفهرس <code>0</code>).</td></tr></tbody></table>
+<p>يُرفض وسيط اقتطاع بلا <code>confirm_truncate</code> برمز <code>4004</code> أو <code>4029</code> ولا يُكتب أي شيء. يجب على المضيفين الذين ينفّذون الإرجاع ضبط العلامة في اللحظة التي يطلبها فيها المستخدم، ويجب ألا يُبقوا وسائط الاقتطاع في الحالة عبر عمليات إرسال عادية. فضّل <code>truncate_before_row_id</code> (من <code>row_id</code> / <code>_row_id</code> عند الاستئناف) على الفهارس؛ وأبقِ الفهرس كمسار توافق قديم / صف تفاؤلي فقط عندما لا يتوفّر معرّف دائم بعد.</p>
+<p>عند نجاح تقديم اقتطاع مقابل جلسة دائمة، تحمل نتيجة <code>prompt.submit</code> إضافةً <code>survivor_user_row_ids</code> — معرّفات الصفوف الجديدة بعد إعادة الكتابة لأدوار المستخدم الناجية، بترتيب الفهرس المرئي للمستخدم. تعيد إعادة الكتابة إدراج البادئة المُبقاة كصفوف جديدة، لذا يصبح كل معرّف صف خزّنه المضيف قبل الإرجاع قديمًا بعد ذلك؛ أعد ربط المعرّفات المخزَّنة من هذه القائمة (المُدخل <code>null</code> يعني أن ذلك الدور ليس له معرّف دائم — أسقط المخزَّن منه) وإلا سيُرفض الإرجاع التالي الذي يستهدف دورًا ناجيًا أقدم برمز <code>4018</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="events-streamed-back">الأحداث المُعادة بثًا</h3>
+<p><code>message.delta</code>، <code>message.complete</code>، <code>tool.start</code>، <code>tool.progress</code>، <code>tool.complete</code>، <code>approval.request</code>، <code>clarify.request</code>، <code>sudo.request</code>، <code>sudo.expire</code>، <code>secret.request</code>، <code>secret.expire</code>، <code>gateway.ready</code>، بالإضافة إلى أحداث دورة حياة الجلسة والأخطاء. تحمل أحداث انتهاء الصلاحية قيمة <code>{ request_id }</code> الأصلية؛ وينبغي أن يمسح المضيفون الخارجيون prompt المعلَّق المطابق فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pi-style-rpc-mapping">تخطيط RPC على نمط Pi</h3>
+<p>لكل أمر في مواصفة Pi-mono RPC (<a href="https://github.com/NousResearch/hermes-agent/issues/360" data-ext>المشكلة #360</a>) مكافئ في TUI gateway:</p>
+<table><thead><tr><th>أمر Pi</th><th>المكافئ في Hermes</th></tr></thead><tbody><tr><td><code>prompt</code></td><td><code>prompt.submit</code> (أو <code>session/prompt</code> في ACP)</td></tr><tr><td><code>steer</code></td><td><code>session.steer</code></td></tr><tr><td><code>follow_up</code></td><td><code>prompt.submit</code> مُصفوف بعد الدور الحالي</td></tr><tr><td><code>abort</code></td><td><code>session.interrupt</code></td></tr><tr><td><code>set_model</code></td><td><code>command.dispatch</code> لأجل <code>/model &lt;provider:model&gt;</code> (في منتصف الجلسة، بشكل دائم)</td></tr><tr><td><code>compact</code></td><td><code>session.compress</code></td></tr><tr><td><code>get_state</code></td><td><code>session.status</code></td></tr><tr><td><code>get_messages</code></td><td><code>session.history</code></td></tr><tr><td><code>switch_session</code></td><td><code>session.resume</code></td></tr><tr><td><code>fork</code></td><td><code>session.branch</code></td></tr><tr><td><code>ui_request</code> / <code>ui_response</code></td><td><code>clarify.respond</code> / <code>sudo.respond</code> / <code>secret.respond</code> / <code>approval.respond</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-compatible-api-server">خادم API متوافق مع OpenAI</h2>
+<p>يكشف <code>gateway/platforms/api_server.py</code> عن hermes عبر HTTP لأي عميل يتحدّث بالفعل بصيغة OpenAI. مفيد عندما تريد واجهة ويب أمامية، أو مُشغِّل CI يعمل عبر curl، أو مستهلكًا غير مبني بـ Python.</p>
+<p>الـ endpoints:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>الإعداد، والترويسات (<code>X-Hermes-Session-Id</code>، <code>X-Hermes-Session-Key</code>)، وربط الواجهة الأمامية: <a href="/docs/user-guide/features/api-server">خادم API</a>.</p>
+<p>يمكن لإضافات المتصفح الاشتراك في بروتوكول المتحكّم المعطَّل افتراضيًا لأجل
+تشغيل جلسة المتصفح ذاتها التي فتحت محادثة Hermes. تشترك ناقلات API
+ولوحة التحكم في وسيط (broker) واحد مرتبط بمُخوَّل (principal) وقائمة سماح
+قدرات صريحة واحدة؛ انظر <a href="/docs/user-guide/features/api-server#browser-extension-control">التحكّم عبر إضافة المتصفح</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-catalog-surfaces">أسطح كتالوج النماذج</h3>
+<p>يُبقي API المتوافق مع OpenAI عمدًا <code>GET /v1/models</code> بسيطًا: إنه
+endpoint التوافق الذي تتوقّعه الواجهات الأمامية، لا كتالوج مزوّد/نموذج
+Hermes المنسَّق الكامل.</p>
+<p>إذا احتاجت خطة تحكّم خارجية إلى صفوف مزوّدي Hermes المنسَّقة، أو تسعير
+كل نموذج، أو تلميحات القدرات، فاستخدم أحد أسطح أداة الاختيار المصادَق عليها:</p>
+<ul>
+<li>REST خادم API: <code>GET /api/model/options</code> بمفتاح حامل خادم API</li>
+<li>REST خلفية لوحة التحكم: <code>GET /api/model/options</code> بـ <code>X-Hermes-Session-Token</code></li>
+<li>RPC الخاص بـ TUI gateway: <code>model.options</code></li>
+</ul>
+<p>تشترك تلك الأسطح في نفس بانٍ الحمولة (payload builder) ونفس سياسة
+فحص المزوّد المخصّص:</p>
+<ul>
+<li>الفتح العادي: يفحص المزوّد المخصّص الحالي فقط بحيث لا تُعطِّل
+endpoints محفوظة غير متصلة أداة الاختيار.</li>
+<li>التحديث الصريح (<code>refresh=1</code> أو <code>refresh: true</code>): يُبطل ذاكرة مزوّد النموذج
+المؤقتة ويفحص كل المزوّدين المخصّصين المحفوظين بحيث تُعاد تعبئة الكتالوجات الحيّة بالكامل.</li>
+</ul>
+<p>استخدم <code>/v1/models</code> للتوافق مع عملاء OpenAI. استخدم <code>/api/model/options</code> أو
+<code>model.options</code> عندما تبني أداة اختيار نموذج مدركة لـ Hermes.</p>
+<p><code>POST /v1/runs/{id}/steer</code> هو المكافئ عبر HTTP لأمر <code>/steer</code> في Hermes: فهو لا ينشئ دور مستخدم جديدًا ولا يعيد كتابة مخرجات المساعد الجارية فورًا. بل يُلحَق النص بالتشغيل الحيّ ويصبح مرئيًا للوكيل بعد حدّ الأداة التالي، بحيث يمكنه تصحيح مساره دون إسقاط حلقة استدعاء الأدوات الحالية.</p>
+<p>لا يُقبَل <code>/v1/runs/{id}/steer</code> إلا بينما حالة التشغيل <code>running</code>. تُعيد عمليات التشغيل المُصفوفة أو المعلّقة للموافقة أو المتوقّفة أو المُلغاة أو الفاشلة والمكتملة الرمز <code>409 run_not_accepting_steer</code>، حتى إذا كان الخادم لا يزال يحتفظ بمراجع داخلية للوكيل أثناء الإيقاف التعاوني.</p>
+<p>رمز <code>200</code> (وحدث <code>run.steered</code>) يعني أن النص وُضع في <strong>قائمة انتظار</strong>، لا أن الوكيل استهلكه. إذا وصل توجيه (steer) بعد الاستجابة النهائية للوكيل — دون حدّ أداة لاحق لتسليمه عنده — يُعاد النص غير المُسلَّم كـ <code>pending_steer</code> في حدث <code>run.completed</code> النهائي وحالة التشغيل، بحيث يمكن للعميل إعادة تشغيله كدور مستخدم تالٍ بدلًا من فقدانه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-one-should-i-use">أيّها ينبغي أن أستخدم؟</h2>
+<ul>
+<li><strong>تكتب إضافة IDE ويتحدّث IDE بالفعل ACP</strong> ← ACP. لا عمل بروتوكول على جانب IDE.</li>
+<li><strong>تكتب مضيف سطح مكتب / ويب / TUI مخصّصًا وتريد كل ميزة في Hermes</strong> (slash commands، الموافقات، clarify، متعدد الوكلاء، تفريع الجلسات) ← TUI gateway JSON-RPC.</li>
+<li><strong>تريد أي واجهة متوافقة مع OpenAI، أو عميل HTTP مستقلًا عن اللغة، أو أتمتة تعمل عبر curl</strong> ← خادم API.</li>
+<li><strong>تريد تضمينًا داخل عملية Python بدون عملية فرعية</strong> ← استورد <code>run_agent.AIAgent</code> مباشرةً. انظر <a href="/docs/developer-guide/agent-loop">Agent Loop</a>.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-hot-swapping">التبديل الفوري للنموذج</h2>
+<p>يعمل تبديل النموذج في منتصف الجلسة على كل سطح — فهو في جوهره أمر <code>/model</code>.</p>
+<ul>
+<li><strong>CLI / TUI:</strong> <code>/model claude-sonnet-4</code> أو <code>/model openrouter:anthropic/claude-sonnet-4.6</code></li>
+<li><strong>RPC الخاص بـ TUI gateway:</strong> <code>command.dispatch</code> بـ <code>{&quot;command&quot;: &quot;/model claude-sonnet-4&quot;}</code></li>
+<li><strong>ACP:</strong> يرسل IDE الـ slash command كـ prompt؛ ويوزّعه الوكيل</li>
+<li><strong>خادم API:</strong> أدرج حقل <code>model</code> في جسم الطلب</li>
+</ul>
+<p>الحسم المُدرك للمزوّد (نفس اسم النموذج يختار الصيغة الصحيحة لأي مزوّد أنت عليه) مُضمَّن مسبقًا. انظر <code>hermes_cli/model_switch.py</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-note-on---mode-rpc">ملاحظة حول <code>--mode rpc</code></h2>
+<p>لا يملك Hermes علامة <code>--mode rpc</code>. تغطّي البروتوكولات الثلاثة أعلاه بالفعل حالات الاستخدام — ACP لعملاء بروتوكول IDE، وTUI gateway للمضيفين الذين يستخدمون JSON-RPC عبر stdio، وخادم API لـ HTTP. إذا وجدت فجوة حقيقية لا يسدّها أيّ منها، افتح مشكلة (issue) مع المستهلك الملموس الذي تبنيه.</p>

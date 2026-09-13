@@ -1,0 +1,108 @@
+<header><h1>إضافة Platform Adapter</h1></header>
+<p>يشرح هذا الدليل كيفية إضافة منصة مراسلة جديدة إلى gateway الخاص بـ Hermes. يربط الـ platform adapter بين Hermes وخدمة مراسلة خارجية (Telegram، Discord، WeCom، إلخ) حتى يتمكّن المستخدمون من التفاعل مع الوكيل عبر تلك الخدمة.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>هناك طريقتان لإضافة منصة:</p><ul>
+<li><strong>Plugin</strong> (موصى بها للمجتمع والأطراف الثالثة): ضع مجلد إضافة داخل <code>~/.hermes/plugins/</code> — دون الحاجة إلى أي تغيير في الشيفرة الأساسية. راجع <a href="#plugin-path-recommended">مسار الإضافة</a> أدناه.</li>
+<li><strong>Built-in</strong> (مدمجة): عدّل أكثر من 20 ملفًا عبر الشيفرة والإعدادات والوثائق. استخدم <a href="#step-by-step-checklist-built-in-path">قائمة التحقق للمسار المدمج</a> أدناه.</li>
+</ul></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يرث كل adapter من <code>BasePlatformAdapter</code> الموجودة في <code>gateway/platforms/base.py</code> ويطبّق ما يلي:</p>
+<ul>
+<li><strong><code>connect()</code></strong> — إنشاء الاتصال (WebSocket أو long-poll أو خادم HTTP، إلخ) <em>(مجردة)</em></li>
+<li><strong><code>disconnect()</code></strong> — إيقاف نظيف <em>(مجردة)</em></li>
+<li><strong><code>send()</code></strong> — إرسال رسالة نصية إلى محادثة <em>(مجردة)</em></li>
+<li><strong><code>send_typing()</code></strong> — إظهار مؤشر الكتابة (تجاوز اختياري)</li>
+<li><strong><code>get_chat_info()</code></strong> — إرجاع البيانات الوصفية للمحادثة (تجاوز اختياري)</li>
+</ul>
+<p>يستقبل الـ adapter الرسائل الواردة ويمرّرها عبر <code>self.handle_message(event)</code>، التي توجّهها الفئة الأساسية (base class) إلى مشغّل الـ gateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-path-recommended">مسار الإضافة (موصى به)</h2>
+<p>يتيح لك نظام الإضافات إضافة platform adapter دون تعديل أي جزء من الشيفرة الأساسية لـ Hermes. إضافتك عبارة عن مجلد يحتوي على ملفين:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluginyaml">plugin.yaml</h3>
+<p>البيانات الوصفية للإضافة. تملأ الكتلتان <code>requires_env</code> و <code>optional_env</code> عناصر واجهة <code>hermes config</code> تلقائيًا (راجع <a href="#surfacing-env-vars-in-hermes-config">إظهار متغيرات البيئة</a> أدناه).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-client-tools-provides_tools">أدوات العميل الصادرة: <code>provides_tools</code></h4>
+<p>إضافات <code>kind: platform</code> <strong>مؤجّلة التحميل (deferred)</strong>: لا تُحمَّل وحدة الـ adapter (واستيرادات الـ SDK الخاصة بها) إلا عندما يطلب مسار gateway أو cron أو <code>send_message</code> المنصةَ من سجل المنصات (platform registry) لأول مرة. إذا كانت إضافتك تتضمّن أيضًا <em>أدوات عميل</em> صادرة يجب أن يتمكّن الوكيل من استدعائها من أي جلسة (مثل أدوات إضافة <code>a2a</code> المضمّنة: <code>a2a_call</code> / <code>a2a_discover</code> وغيرها)، فضعها في ملف <code>tools.py</code> مخصّص يحتوي على دالة <code>register_tools(ctx)</code> وصرّح بها في ملف التعريف (manifest):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>عند التصريح بـ <code>provides_tools</code>، لا يستورد Hermes سوى <code>tools.py</code> أثناء اكتشاف الإضافات، ويسجّل أدوات العميل في كل عملية — بما في ذلك CLI و TUI — بينما يبقى الـ adapter مؤجّلًا. أبقِ ملف <code>__init__.py</code> الخاص بالحزمة خفيف الاستيرادات، واستورد الـ adapter من داخل <code>register()</code> حتى يبقى الاستيراد المبكر (eager) منخفض التكلفة. ومن دون هذا الحقل لا يتغيّر شيء: تبقى الإضافة بأكملها مؤجّلة.</p>
+<p>يفعّل المستخدمون الـ toolset لكل منصة كأي toolset آخر، مثلًا
+<code>hermes tools enable my_platform --platform cli</code>، أو بإدراج مفتاح الـ toolset ضمن <code>platform_toolsets</code> في <code>config.yaml</code>. كما أن أسماء منصات الإضافات أهداف صالحة للخيار <code>--platform</code>، لذا يمكن منح الجلسة الواردة على منصتك أدواتها الصادرة الخاصة بها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adapterpy">adapter.py</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h3>
+<p>يضبط المستخدمون المنصة في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أو عبر متغيرات البيئة (التي يقرؤها الـ adapter في <code>__init__</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-plugin-system-handles-automatically">ما يعالجه نظام الإضافات تلقائيًا</h3>
+<p>عند استدعاء <code>ctx.register_platform()</code>، تُعالَج نقاط التكامل التالية نيابةً عنك — دون الحاجة إلى أي تغيير في الشيفرة الأساسية:</p>
+<table><thead><tr><th>نقطة التكامل</th><th>آلية العمل</th></tr></thead><tbody><tr><td>إنشاء adapter الـ gateway</td><td>يُفحص السجل قبل جدول <code>_BUILTIN_ADAPTERS</code> المدمج</td></tr><tr><td>تحليل الإعدادات</td><td>تقبل <code>Platform._missing_()</code> أي اسم منصة</td></tr><tr><td>التحقق من المنصات المتصلة</td><td>تُستدعى <code>validate_config()</code> الخاصة بالسجل</td></tr><tr><td>تفويض المستخدمين</td><td>يُفحص <code>allowed_users_env</code> / <code>allow_all_env</code></td></tr><tr><td>التفعيل التلقائي عبر متغيرات البيئة فقط</td><td>تملأ <code>env_enablement_fn</code> القيم الأولية لـ <code>PlatformConfig.extra</code> + <code>home_channel</code></td></tr><tr><td>جسر إعدادات YAML</td><td>تحوّل <code>apply_yaml_config_fn</code> مفاتيح <code>config.yaml</code> إلى متغيرات بيئة / extras</td></tr><tr><td>تسليم Cron</td><td>يجعل <code>cron_deliver_env_var</code> الصيغة <code>deliver=&lt;name&gt;</code> تعمل</td></tr><tr><td>عناصر واجهة <code>hermes config</code></td><td>تُملأ تلقائيًا من <code>requires_env</code> / <code>optional_env</code> في <code>plugin.yaml</code></td></tr><tr><td>محرك الإرسال (<code>tools/send_message_tool.py</code>)</td><td>التوجيه عبر adapter الـ gateway الحي</td></tr><tr><td>تسليم Webhook عبر المنصات</td><td>يُفحص السجل بحثًا عن المنصات المعروفة</td></tr><tr><td>الوصول إلى الأمر <code>/update</code></td><td>الخيار <code>allow_update_command</code></td></tr><tr><td>دليل القنوات</td><td>تُضمَّن منصات الإضافات في التعداد</td></tr><tr><td>تلميحات system prompt</td><td>يُحقن <code>platform_hint</code> في سياق LLM</td></tr><tr><td>تقسيم الرسائل</td><td><code>max_message_length</code> للتقسيم الذكي</td></tr><tr><td>حجب البيانات الشخصية (PII)</td><td>الخيار <code>pii_safe</code></td></tr><tr><td><code>hermes status</code></td><td>يعرض منصات الإضافات مع الوسم <code>(plugin)</code></td></tr><tr><td><code>hermes gateway setup</code></td><td>تظهر منصات الإضافات في قائمة الإعداد</td></tr><tr><td><code>hermes tools</code> / <code>hermes skills</code></td><td>منصات الإضافات ضمن الإعدادات الخاصة بكل منصة</td></tr><tr><td>قفل الـ token (عدة profiles)</td><td>استخدم <code>acquire_scoped_lock()</code> داخل <code>connect()</code> الخاصة بك</td></tr><tr><td>تحذير الإعدادات اليتيمة</td><td>رسالة سجل وصفية عند غياب الإضافة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="standalone-send-path-extensions">امتدادات مسار الإرسال المستقل</h2>
+<p>يمكن للمنصة المستقلة (standalone) المشاركة في التسليم الصادر الذي يقوده المضيف عبر الأمر المباشر <code>hermes send --to ...</code> وعبر <code>deliver=platform:...</code> في cron، وذلك بالتصريح بسلوك الإرسال على كائن <code>PlatformEntry</code> نفسه الذي يُنشئه <code>ctx.register_platform()</code>.
+الأداة <code>send_message</code> ليست عمدًا أداة نموذج يستطيع الوكيل استدعاءها؛ ويجب ألا تسجّل الإضافات واجهة مكافئة للنموذج تتيح للوكيل بدء رسائل صادرة من تلقاء نفسه.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تحديد الهدف مشترك بين واجهات الإرسال الصادر الثلاث. تُوحَّد مخرجات المحلّل (parser) أولًا، ويُوثق بمعرّفات دليل القنوات. يجب أن يقبل محلّل الإضافة صراحةً صيغة الهدف الأصلية للمنصة؛ ولا تُمرَّر السلاسل النصية غير المحدّدة أبدًا كما هي دون فهمها. تُرجع المنصات غير المعروفة وحالات فشل أداة التحقق رسالة تشخيصية بدلًا من محاولة التسليم بصمت. كما تُلغي عمليات إعادة التحميل القسري للإضافات والانتقال بين الـ profiles تسجيلَ العناصر المملوكة، فلا يمكن للمحلّلات والمعالجات أن تتسرّب إلى الـ profile التالي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="env-driven-auto-configuration">الإعداد التلقائي عبر متغيرات البيئة</h2>
+<p>يُعدّ معظم المستخدمين المنصة بإضافة متغيرات البيئة إلى <code>~/.hermes/.env</code> بدلًا من تحرير <code>config.yaml</code>. تتيح الـ hook المسماة <code>env_enablement_fn</code> لإضافتك التقاط متغيرات البيئة هذه <strong>قبل</strong> إنشاء الـ adapter، حتى يرى كلٌّ من <code>hermes gateway status</code> و <code>get_connected_platforms()</code> وتسليم cron الحالة الصحيحة دون إنشاء نسخة من SDK المنصة.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="yamlenv-config-bridge">جسر الإعدادات YAML→env</h2>
+<p>يفضّل بعض المستخدمين ضبط مفاتيح <code>config.yaml</code> (<code>my_platform.require_mention</code> و <code>my_platform.allowed_channels</code> وغيرها) على متغيرات البيئة. تتيح الـ hook المسماة <code>apply_yaml_config_fn</code> لإضافتك تولّي هذا التحويل بنفسها بدلًا من إلزام <code>gateway/config.py</code> الأساسي بمعرفة مخطط YAML الخاص بمنصتك.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تُستدعى الـ hook أثناء <code>load_gateway_config()</code> بعد الحلقة العامة للمفاتيح المشتركة (التي تعالج المفاتيح الشائعة مثل <code>unauthorized_dm_behavior</code> و <code>notice_delivery</code> و <code>reply_prefix</code> و <code>require_mention</code> وغيرها) وقبل <code>_apply_env_overrides()</code>، لذا لا تحتاج إضافتك إلا إلى ربط المفاتيح <strong>الخاصة بالمنصة</strong>.</p>
+<p>تُكتم الاستثناءات التي ترفعها الـ hook وتُسجَّل بمستوى debug — فالإضافة التي تسيء التصرف لا تُجهض أبدًا تحميل إعدادات الـ gateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-delivery">تسليم Cron</h2>
+<p>لكي تُوجَّه مهام cron ذات <code>deliver=my_platform</code> إلى القناة الرئيسية (home channel) المُعدّة، اضبط <code>cron_deliver_env_var</code> على اسم متغير البيئة الذي يحمل معرّف المحادثة/الغرفة/القناة الافتراضي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يقرأ المجدوِل (scheduler) متغير البيئة هذا عند تحديد الهدف الرئيسي لمهام <code>deliver=my_platform</code>، ويعامل المنصة أيضًا كهدف cron صالح في عمليات الفحص من نمط <code>_KNOWN_DELIVERY_PLATFORMS</code>. إذا كانت <code>env_enablement_fn</code> الخاصة بك تملأ قاموس <code>home_channel</code> (انظر أعلاه)، فإن له الأولوية — ويكون <code>cron_deliver_env_var</code> هو البديل الاحتياطي لمهام cron التي تعمل قبل ملء القيم من متغيرات البيئة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="out-of-process-cron-delivery">تسليم Cron من خارج العملية</h3>
+<p>يجعل <code>cron_deliver_env_var</code> منصتك هدفًا معروفًا لـ <code>deliver=</code>. ولكي ينجح الإرسال الفعلي عندما تعمل مهمة cron في عملية منفصلة عن الـ gateway (أي تشغيل <code>hermes cron run</code> بمعزل عن <code>hermes gateway</code>)، سجّل دالة <code>standalone_sender_fn</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>لماذا هذه الـ hook ضرورية: تأتي المنصات المدمجة (Telegram، Discord، Slack، إلخ) مع دوال REST مساعدة مباشرة في <code>tools/send_message_tool.py</code> حتى يتمكّن cron من التسليم دون الحاجة إلى تشغيل الـ gateway في العملية نفسها. أما منصات الإضافات فكانت تاريخيًا تعتمد على <code>_gateway_runner_ref()</code>، التي تُرجع <code>None</code> خارج عملية الـ gateway، لذا من دون <code>standalone_sender_fn</code> يفشل الإرسال من جهة cron مع الرسالة <code>No live adapter for platform &#x27;&lt;name&gt;&#x27;</code>.</p>
+<p>تتلقى الدالة قيمتي <code>pconfig</code> و <code>chat_id</code> نفسيهما اللتين يتلقاهما الـ adapter الحي، إضافةً إلى وسائط الكلمات المفتاحية الاختيارية <code>thread_id</code> و <code>media_files</code> و <code>force_document</code>. يُعدّ إرجاع <code>{&quot;success&quot;: True, &quot;message_id&quot;: ...}</code> تسليمًا ناجحًا؛ أما إرجاع <code>{&quot;error&quot;: &quot;...&quot;}</code> فيُظهر الرسالة في <code>delivery_errors</code> الخاصة بـ cron. يلتقط الموزّع (dispatcher) الاستثناءات المرفوعة داخل الدالة ويبلّغ عنها بالصيغة <code>Plugin standalone send failed: &lt;reason&gt;</code>. توجد التطبيقات المرجعية في <code>plugins/platforms/{irc,teams,google_chat}/adapter.py</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="surfacing-env-vars-in-hermes-config">إظهار متغيرات البيئة في <code>hermes config</code></h2>
+<p>يفحص <code>hermes_cli/config.py</code> الملفات <code>plugins/platforms/*/plugin.yaml</code> وقت الاستيراد، ويملأ <code>OPTIONAL_ENV_VARS</code> تلقائيًا من كتلتي <code>requires_env</code> و <code>optional_env</code> (الاختيارية). استخدم صيغة القاموس الغنية لتوفير أوصاف ونصوص مطالبة (prompts) وخيارات كلمات المرور وروابط URL مناسبة — إذ تلتقطها واجهة الإعداد في CLI دون أي جهد إضافي.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>مفاتيح القاموس المدعومة:</strong> <code>name</code> (مطلوب)، <code>description</code>، <code>prompt</code>، <code>url</code>، <code>password</code> (قيمة منطقية؛ تُكتشف تلقائيًا من اللاحقة <code>*_TOKEN</code> / <code>*_SECRET</code> / <code>*_KEY</code> / <code>*_PASSWORD</code> / <code>*_JSON</code> عند حذفها)، <code>category</code> (القيمة الافتراضية <code>&quot;messaging&quot;</code>).</p>
+<p>لا تزال العناصر النصية المجردة (<code>- MY_PLATFORM_TOKEN</code>) تعمل — إذ تحصل على وصف عام مشتق تلقائيًا من <code>label</code> الخاص بالإضافة. وإذا كان هناك عنصر مكتوب مسبقًا في الشيفرة للمتغير نفسه داخل <code>OPTIONAL_ENV_VARS</code>، فتكون له الأولوية (للتوافق مع الإصدارات السابقة)؛ وتعمل صيغة plugin.yaml كبديل احتياطي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-specific-slow-llm-ux">تجربة الاستخدام الخاصة بالمنصة مع بطء LLM</h2>
+<p>لبعض المنصات قيود تغيّر طريقة عرض استجابة LLM البطيئة:</p>
+<ul>
+<li>يُصدر <strong>LINE</strong> رمز <em>reply token</em> صالحًا للاستخدام مرة واحدة تنتهي صلاحيته بعد نحو 60 ثانية من الحدث الوارد. الرد بهذا الرمز مجاني، أما اللجوء إلى Push API المحسوبة بالاستهلاك فليس كذلك. إذا لم ينتهِ LLM قبل الموعد النهائي، يكون الخيار بين &quot;استهلاك حصة Push المدفوعة&quot; أو &quot;فعل شيء أذكى بالـ reply token قبل انتهاء صلاحيته&quot;.</li>
+<li>يَعُدّ <strong>WhatsApp</strong> الجلسة غير نشطة بعد 24 ساعة، ولا يقبل بعدها إلا رسائل القوالب (template messages).</li>
+<li>لا يعرف <strong>SMS</strong> مفهوم مؤشرات الكتابة أو التحديثات التدريجية — فتبدو الاستجابات الطويلة وكأن البوت غير متصل.</li>
+</ul>
+<p>هذه قيود حقيقية لا تستطيع الفئة الأساسية <code>BasePlatformAdapter</code> توقّعها. وتترك واجهة الإضافات عمدًا المجال للـ adapter كي يضيف طبقة تجربة استخدام خاصة بالمنصة فوق حلقة الكتابة الأساسية دون توسيع قائمة الوسائط (kwargs).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-subclass-_keep_typing-to-layer-mid-flight-ux">نمط: أنشئ فئة فرعية تتجاوز <code>_keep_typing</code> لإضافة تجربة استخدام أثناء المعالجة</h3>
+<p><code>BasePlatformAdapter._keep_typing</code> هي نبضة مؤشر الكتابة — تعمل كمهمة في الخلفية بينما يولّد LLM الاستجابة، وتُلغى عند تسليم الاستجابة. لإضافة سلوك خاص بالمنصة عند عتبة زمنية معيّنة (مثل إرسال فقاعة &quot;still thinking&quot; عند 45 ثانية)، تجاوز <code>_keep_typing</code> في الـ adapter الخاص بك، وجدوِل مهمتك الخاصة إلى جانب <code>super()._keep_typing()</code>، وأنهِها داخل <code>finally</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>نقاط أساسية:</p>
+<ul>
+<li><strong>نفّذ دائمًا <code>await super()._keep_typing(...)</code>.</strong> نبضة الكتابة مفيدة بحد ذاتها — لا تستبدلها، بل أضف طبقتك فوقها.</li>
+<li><strong>أنهِ المهمة الجانبية داخل <code>finally</code>.</strong> عندما ينتهي LLM (أو يُلغي <code>/stop</code> التشغيل)، يُلغي الـ gateway مهمة الكتابة. ويجب أن تلاحظ مهمتك الجانبية هذا الإلغاء أيضًا، وإلا فستبقى عالقة وقد تنطلق بعد تسليم الاستجابة بالفعل.</li>
+<li><strong>اقرنها بـ <code>interrupt_session_activity</code></strong> لمعالجة أي حالة يتيمة في تجربة الاستخدام عندما يُصدر المستخدم <code>/stop</code>. بالنسبة إلى LINE، يعني ذلك نقل عنصر cache الخاص بالـ postback من <code>PENDING</code> إلى <code>ERROR</code> حتى يُرسل الزر الدائم &quot;Get answer&quot; رسالة &quot;Run was interrupted&quot; بدلًا من الدوران في حلقة.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-subclass-send-to-route-through-a-cache-instead-of-sending-immediately">نمط: أنشئ فئة فرعية تتجاوز <code>send</code> للتوجيه عبر cache بدلًا من الإرسال الفوري</h3>
+<p>إذا كانت تجربة الاستخدام الخاصة بالاستجابة البطيئة تخزّن الاستجابة مؤقتًا لاسترجاعها لاحقًا (مسار postback في LINE)، فيجب أن يميّز تجاوز <code>send</code> الخاص بك بين ثلاثة أوضاع:</p>
+<ol>
+<li><strong>يوجد postback معلّق نشط لهذه المحادثة</strong> → خزّن الاستجابة في الـ cache تحت request_id، ولا ترسل أي شيء مرئي.</li>
+<li><strong>إشعار انشغال من النظام</strong> (<code>⚡ Interrupting</code>، <code>⏳ Queued</code>، <code>⏩ Steered</code>) → تجاوز الـ cache وأرسل بشكل مرئي حتى يرى المستخدم ردّ الـ gateway على مدخلاته.</li>
+<li><strong>استجابة عادية</strong> → أرسل عبر reply-token أو push كالمعتاد.</li>
+</ol>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><code>_SYSTEM_BYPASS_PREFIXES</code> هي البادئات الخاصة بإشعارات الانشغال التي يرسلها الـ gateway نفسه (<code>⚡</code>، <code>⏳</code>، <code>⏩</code>، <code>💾</code>). اسمح دائمًا بمرورها بشكل مرئي، بغض النظر عن حالة تجربة الاستخدام المخزّنة مؤقتًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-this-pattern-is-appropriate">متى يكون هذا النمط مناسبًا</h3>
+<p>استخدم أسلوب تجاوز حلقة الكتابة عندما:</p>
+<ul>
+<li>تفرض واجهة API الصادرة للمنصة قيدًا صارمًا على النافذة الزمنية (reply token للاستخدام مرة واحدة، جلسة ثابتة تنتهي صلاحيتها، إلخ) و</li>
+<li>تكون <em>الفقاعة المرئية أثناء المعالجة</em> تجربة استخدام مقبولة على تلك المنصة.</li>
+</ul>
+<p>استخدم المسار الأبسط <code>slow_response_threshold = 0</code> (Push دائمًا) عندما:</p>
+<ul>
+<li>لا يكون لدى المنصة تمييز حقيقي بين المجاني والمدفوع، أو</li>
+<li>يفضّل مجتمع المستخدمين نمط &quot;loading… loading… DONE&quot; (صمت ثم استجابة) على فقاعة وسيطة تفاعلية.</li>
+</ul>
+<p>يدعم LINE الأسلوبين: القيمة الافتراضية للعتبة 45 ثانية لجلب الـ postback مجانًا، ويُعيد <code>LINE_SLOW_RESPONSE_THRESHOLD=0</code> السلوك إلى &quot;اللجوء إلى Push دائمًا&quot;.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementation">التطبيق المرجعي</h3>
+<p>راجع <code>plugins/platforms/line/adapter.py</code> للاطلاع على تطبيق postback الكامل في LINE — آلة حالات <code>RequestCache</code> (<code>PENDING → READY → DELIVERED</code>، إضافةً إلى <code>ERROR</code> للأمر <code>/stop</code>)، وتجاوز <code>_keep_typing</code> الذي يُطلق فقاعة Template Buttons عند بلوغ العتبة، وتجاوز <code>send</code> الذي يوجّه عبر الـ cache، وتجاوز <code>interrupt_session_activity</code> الذي يعالج عناصر PENDING اليتيمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations-plugin-path">التطبيقات المرجعية (مسار الإضافة)</h3>
+<p>راجع <code>plugins/platforms/irc/</code> في المستودع للاطلاع على مثال عملي كامل — adapter IRC غير متزامن (async) كامل دون أي اعتماديات خارجية. يغطي <code>plugins/platforms/teams/</code> كلًّا من Bot Framework / Adaptive Cards، ويغطي <code>plugins/platforms/google_chat/</code> واجهات REST API القائمة على OAuth، ويغطي <code>plugins/platforms/line/</code> واجهات Messaging API المعتمدة على webhook مع تجربة استخدام خاصة بالمنصة عند بطء LLM.</p>
+<hr>

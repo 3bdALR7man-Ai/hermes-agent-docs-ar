@@ -1,0 +1,53 @@
+<header><h1>بناء إضافة لمزوّد توليد الصور</h1></header>
+<p>تسجّل إضافات مزوّدي توليد الصور backend يخدم كل استدعاء للأداة <code>image_generate</code> — سواء كان DALL·E أو gpt-image أو Grok أو Flux أو Imagen أو Stable Diffusion أو fal أو Replicate أو منصة ComfyUI محلية، أو أي شيء آخر. وتأتي المزوّدات المدمجة (OpenAI و OpenAI-Codex و xAI و FAL و Krea و DeepInfra و OpenRouter و Meta Model API) كلها على هيئة إضافات. ويمكنك إضافة مزوّد جديد، أو تجاوز مزوّد مضمّن، بوضع مجلد في <code>plugins/image_gen/&lt;name&gt;/</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>توليد الصور واحد من عدة أنواع من <strong>إضافات الـ backend</strong> التي يدعمها Hermes. أما الأنواع الأخرى (ذات الفئات المجردة الأكثر تخصصًا) فهي <a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a> و<a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a> و<a href="/docs/developer-guide/model-provider-plugin">إضافات مزوّدي النماذج</a>. وتجد إضافات الأدوات والـ hooks و CLI العامة في <a href="/docs/developer-guide/plugins">بناء إضافة لـ Hermes</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-discovery-works">كيف يعمل الاكتشاف</h2>
+<p>يبحث Hermes عن backends توليد الصور في ثلاثة مواضع:</p>
+<ol>
+<li><strong>المضمّنة</strong> — <code>&lt;repo&gt;/plugins/image_gen/&lt;name&gt;/</code> (تُحمَّل تلقائيًا مع <code>kind: backend</code>، ومتاحة دائمًا)</li>
+<li><strong>الخاصة بالمستخدم</strong> — <code>~/.hermes/plugins/image_gen/&lt;name&gt;/</code> (تُفعَّل صراحةً عبر <code>plugins.enabled</code>)</li>
+<li><strong>حزم pip</strong> — الحزم التي تصرّح بنقطة دخول <code>hermes_agent.plugins</code></li>
+</ol>
+<p>تستدعي الدالة <code>register(ctx)</code> في كل إضافة <code>ctx.register_image_gen_provider(...)</code> — وهذا ما يضعها في السجل (registry) الموجود في <code>agent/image_gen_registry.py</code>. ويُحدَّد المزوّد النشط عبر <code>image_gen.provider</code> في <code>config.yaml</code>؛ ويرشد <code>hermes tools</code> المستخدمين خلال عملية الاختيار.</p>
+<p>يطلب مغلّف الأداة <code>image_generate</code> من السجل المزوّد النشط ويوجّه الاستدعاء إليه. وإذا لم يكن أي مزوّد مسجّلًا، تعرض الأداة رسالة خطأ مفيدة تشير إلى <code>hermes tools</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية المجلدات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تكون الإضافة المضمّنة مكتملة عند هذه النقطة. أما إضافات المستخدم الموجودة في <code>~/.hermes/plugins/image_gen/&lt;name&gt;/</code> فيجب إضافتها إلى <code>plugins.enabled</code> في <code>config.yaml</code> (أو تنفيذ <code>hermes plugins enable &lt;name&gt;</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-imagegenprovider-abc">الفئة المجردة ImageGenProvider</h2>
+<p>أنشئ فئة فرعية من <code>agent.image_gen_provider.ImageGenProvider</code>. العنصران الإلزاميان الوحيدان هما الخاصية <code>name</code> والدالة <code>generate()</code> — ولكل ما عداهما قيم افتراضية معقولة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluginyaml">plugin.yaml</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>القيمة <code>kind: backend</code> هي ما يوجّه الإضافة إلى مسار تسجيل توليد الصور. ويُطلب من المستخدم إدخال <code>requires_env</code> أثناء <code>hermes plugins install</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="abc-reference">مرجع الفئة المجردة</h2>
+<p>العقد الكامل موجود في <code>agent/image_gen_provider.py</code>. والدوال التي ستعيد تعريفها عادةً:</p>
+<table><thead><tr><th>العنصر</th><th>إلزامي</th><th>القيمة الافتراضية</th><th>الغرض</th></tr></thead><tbody><tr><td><code>name</code></td><td>✅</td><td>—</td><td>معرّف ثابت يُستخدم في إعداد <code>image_gen.provider</code></td></tr><tr><td><code>display_name</code></td><td>—</td><td><code>name.title()</code></td><td>التسمية المعروضة في <code>hermes tools</code></td></tr><tr><td><code>is_available()</code></td><td>—</td><td><code>True</code></td><td>بوابة تحقق عند غياب بيانات الاعتماد أو الاعتماديات</td></tr><tr><td><code>list_models()</code></td><td>—</td><td><code>[]</code></td><td>الكتالوج الخاص بأداة اختيار النموذج في <code>hermes tools</code></td></tr><tr><td><code>default_model()</code></td><td>—</td><td>أول عنصر من <code>list_models()</code></td><td>الخيار الاحتياطي عند عدم ضبط أي نموذج</td></tr><tr><td><code>get_setup_schema()</code></td><td>—</td><td>حد أدنى</td><td>البيانات الوصفية لأداة الاختيار وطلبات إدخال متغيرات البيئة</td></tr><tr><td><code>generate(prompt, aspect_ratio, **kwargs)</code></td><td>✅</td><td>—</td><td>الاستدعاء نفسه</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-format">صيغة الاستجابة</h2>
+<p>يجب أن تُرجع <code>generate()</code> قاموسًا مبنيًا عبر <code>success_response()</code> أو <code>error_response()</code>، وكلتاهما موجودتان في <code>agent/image_gen_provider.py</code>.</p>
+<p><strong>النجاح:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطأ:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يحوّل مغلّف الأداة القاموس إلى JSON ويسلّمه إلى الـ LLM. وتُعرض الأخطاء بوصفها نتيجة الأداة، ويقرر الـ LLM كيف يشرحها للمستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="handling-base64-vs-url-output">التعامل مع مخرجات base64 مقابل عناوين URL</h2>
+<p>تُرجع بعض الـ backends عناوين URL للصور (fal و Replicate)، بينما تُرجع أخرى بيانات بترميز base64 ‏(OpenAI gpt-image-2). في حالة base64، استخدم <code>save_b64_image()</code> — فهي تكتب الصورة في <code>$HERMES_HOME/cache/images/&lt;prefix&gt;_&lt;timestamp&gt;_&lt;uuid&gt;.&lt;ext&gt;</code> وتُرجع <code>Path</code> المطلق. مرّر هذا المسار (بصيغة <code>str</code>) بوصفه <code>image=</code> في <code>success_response()</code>. ويتعرّف التسليم عبر الـ gateway (فقاعة الصورة في Telegram، والمرفق في Discord) على عناوين URL والمسارات المطلقة معًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-overrides">تجاوزات المستخدم</h2>
+<p>ضع إضافة مستخدم في <code>~/.hermes/plugins/image_gen/&lt;name&gt;/</code> تحمل قيمة الخاصية <code>name</code> نفسها التي تحملها إضافة مضمّنة، وفعّلها عبر <code>hermes plugins enable &lt;name&gt;</code> — فالسجل يعتمد قاعدة &quot;آخر من يكتب هو الفائز&quot;، وبذلك تحل نسختك محل المدمجة. وهذا مفيد لتوجيه الإضافة <code>openai</code> إلى وكيل (proxy) خاص، أو لاستبدال كتالوج النماذج بكتالوج مخصص.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أو تفاعليًا: <code>hermes tools</code> → &quot;Image Generation&quot; → اختر <code>my-backend</code> → أدخل مفتاح API إذا طُلب منك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations">تطبيقات مرجعية</h2>
+<ul>
+<li><strong><code>plugins/image_gen/openai/__init__.py</code></strong> — يقدّم gpt-image-2 بمستويات low/medium/high على هيئة ثلاثة معرّفات نماذج افتراضية تتشارك نموذج API واحدًا بقيم مختلفة للمعامل <code>quality</code>. مثال جيد على النماذج متعددة المستويات تحت backend واحد، وعلى سلسلة الأسبقية في config.yaml.</li>
+<li><strong><code>plugins/image_gen/xai/__init__.py</code></strong> — يقدّم Grok Imagine عبر xAI. بنية مختلفة (مخرجات على هيئة عناوين URL، وكتالوج أبسط).</li>
+<li><strong><code>plugins/image_gen/openai-codex/__init__.py</code></strong> — نسخة تعتمد Responses API على نمط Codex، وتعيد استخدام OpenAI SDK مع عنوان base URL مختلف للتوجيه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-via-pip">التوزيع عبر pip</h2>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يجب أن تتيح الحزمة <code>my_backend_imggen_package</code> دالة <code>register</code> على المستوى الأعلى. راجع قسم <a href="/docs/developer-guide/plugins#distribute-via-pip">التوزيع عبر pip</a> في دليل الإضافات العام للاطلاع على الإعداد الكامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-pages">صفحات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/features/image-generation">توليد الصور</a> — توثيق الميزة الموجّه للمستخدمين</li>
+<li><a href="/docs/user-guide/features/plugins">نظرة عامة على الإضافات</a> — جميع أنواع الإضافات في لمحة</li>
+<li><a href="/docs/developer-guide/plugins">بناء إضافة لـ Hermes</a> — دليل عام للأدوات والـ hooks والـ slash commands</li>
+</ul>

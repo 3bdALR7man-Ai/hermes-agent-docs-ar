@@ -1,0 +1,146 @@
+<header><h1>آلية عمل Gateway من الداخل</h1></header>
+<p>Messaging gateway هو العملية طويلة الأمد التي تصل Hermes بأكثر من 20 منصّة مراسلة خارجية عبر بنية معمارية موحّدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-files">الملفات الرئيسية</h2>
+<table><thead><tr><th>الملف</th><th>الغرض</th></tr></thead><tbody><tr><td><code>gateway/run.py</code></td><td>واجهة <code>GatewayRunner</code> — تجمع mixins الشقيقة في <code>gateway/run_*.py</code> (البدء، المهايئات، الوارد، الدور، الانشغال، الأهداف، الإشعارات، الإيقاف، …) ومعالِجات <code>gateway/slash_commands_*.py</code></td></tr><tr><td><code>gateway/session.py</code></td><td><code>SessionStore</code> — استمرارية المحادثة وبناء مفتاح الجلسة</td></tr><tr><td><code>gateway/delivery.py</code></td><td>تسليم الرسائل الصادرة إلى المنصات/القنوات المستهدفة</td></tr><tr><td><code>gateway/pairing.py</code></td><td>تدفّق اقتران الرسائل المباشرة (DM) لتفويض المستخدم</td></tr><tr><td><code>gateway/channel_directory.py</code></td><td>يربط معرّفات المحادثات بأسماء مقروءة للتسليم عبر cron</td></tr><tr><td><code>gateway/hooks.py</code></td><td>اكتشاف الـ hooks وتحميلها وتوزيع أحداث دورة الحياة</td></tr><tr><td><code>gateway/mirror.py</code></td><td>مرآة الرسائل عبر الجلسات لأجل <code>send_message</code></td></tr><tr><td><code>gateway/status.py</code></td><td>إدارة أقفال التوكن لنسخ gateway المحدَّدة بـ profile</td></tr><tr><td><code>gateway/builtin_hooks/</code></td><td>نقطة توسعة للـ hooks المسجَّلة دائمًا (لا شيء مُضمَّن حاليًا)</td></tr><tr><td><code>gateway/platform_registry.py</code></td><td>سجل المهايئات، والمصانع (factories)، ومحمِّلات مؤجَّلة (lazy) لإضافات المنصات المضمّنة</td></tr><tr><td><code>plugins/platforms/&lt;name&gt;/</code></td><td>مهايئات المراسلة المضمّنة (معظم المنصات: <code>adapter.py</code> + <code>plugin.yaml</code>)</td></tr><tr><td><code>gateway/platforms/</code></td><td><code>base.py</code> المشترك بالإضافة إلى مهايئات قديمة/مباشرة (Signal وخادم API والـ webhooks، …)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-flow">تدفّق الرسائل</h2>
+<p>عند وصول رسالة من أي منصّة:</p>
+<ol>
+<li><strong>مهايئ المنصّة</strong> يستقبل الحدث الخام، ويوحّد صيغته إلى <code>MessageEvent</code></li>
+<li><strong>المهايئ الأساسي</strong> يتحقّق من حارس الجلسة النشطة:
+<ul>
+<li>إذا كان الوكيل يعمل بالفعل لهذه الجلسة ← تُصفّ الرسالة في قائمة الانتظار، ويُضبط حدث مقاطعة</li>
+<li>إذا كانت <code>/approve</code> أو <code>/deny</code> أو <code>/stop</code> ← تتجاوز الحارس (تُوزَّع مباشرة (inline))</li>
+</ul>
+</li>
+<li><strong>GatewayRunner._handle_message()</strong> يستقبل الحدث:
+<ul>
+<li>يحدّد مفتاح الجلسة عبر <code>_session_key_for_source()</code> (الصيغة: <code>agent:main:{platform}:{chat_type}:{chat_id}</code>)</li>
+<li>يتحقّق من التفويض (انظر التفويض أدناه)</li>
+<li>يتحقّق مما إذا كانت slash command ← يوزّعها إلى معالِج الأوامر</li>
+<li>يتحقّق مما إذا كان الوكيل يعمل بالفعل ← يعترض أوامر مثل <code>/stop</code> و<code>/status</code></li>
+<li>وإلا ← ينشئ نسخة <code>AIAgent</code> ويشغّل المحادثة</li>
+</ul>
+</li>
+<li><strong>الاستجابة</strong> تُرسل عائدةً عبر مهايئ المنصّة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-key-format">صيغة مفتاح الجلسة</h3>
+<p>تُرمّز مفاتيح الجلسات سياق التوجيه الكامل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>على سبيل المثال: <code>agent:main:telegram:private:123456789</code></p>
+<p>قد تُضمِّن المنصات المدركة للخيوط (Telegram forum topics، Discord threads، Slack threads) معرّفات الخيط ضمن جزء chat_id. <strong>لا تبنِ مفاتيح الجلسات يدويًا أبدًا</strong> — استخدم دائمًا <code>build_session_key()</code> من <code>gateway/session.py</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-level-message-guard">حارس رسائل ثنائي المستوى</h3>
+<p>عندما يكون الوكيل قيد التشغيل فعليًا، تمرّ الرسائل الواردة عبر حارسَين متتاليين:</p>
+<ol>
+<li>
+<p><strong>المستوى 1 — المهايئ الأساسي</strong> (<code>gateway/platforms/base.py</code>): يتحقّق من <code>_active_sessions</code>. إذا كانت الجلسة نشطة، يضع الرسالة في قائمة انتظار <code>_pending_messages</code> ويضبط حدث مقاطعة. يلتقط هذا الرسائل <em>قبل</em> وصولها إلى مشغّل gateway.</p>
+</li>
+<li>
+<p><strong>المستوى 2 — مشغّل gateway</strong> (<code>gateway/run_inbound.py</code>): يتحقّق من <code>_running_agents</code>. يعترض أوامر محدَّدة (<code>/stop</code>، <code>/new</code>، <code>/queue</code>، <code>/status</code>، <code>/approve</code>، <code>/deny</code>) ويوجّهها بحسب الحاجة. أي شيء آخر يُطلق <code>running_agent.interrupt()</code>.</p>
+</li>
+</ol>
+<p>الأوامر التي يجب أن تصل إلى المشغّل أثناء انسداد الوكيل (مثل <code>/approve</code>) تُوزَّع <strong>مباشرة (inline)</strong> عبر <code>await self._message_handler(event)</code> — فهي تتجاوز نظام المهام الخلفية لتجنّب حالات التسابق (race conditions).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization">التفويض</h2>
+<p>يستخدم gateway تحقّق تفويض متعدّد الطبقات، يُقيَّم بالترتيب التالي:</p>
+<ol>
+<li><strong>علامة السماح للجميع الخاصة بكل منصّة</strong> (مثل <code>TELEGRAM_ALLOW_ALL_USERS</code>) — إذا ضُبطت، يُفوَّض جميع المستخدمين على تلك المنصّة</li>
+<li><strong>قائمة السماح الخاصة بالمنصّة</strong> (مثل <code>TELEGRAM_ALLOWED_USERS</code>) — معرّفات مستخدمين مفصولة بفواصل</li>
+<li><strong>اقتران DM</strong> — يمكن للمستخدمين المصادَق عليهم اقتران مستخدمين جدد عبر رمز اقتران</li>
+<li><strong>السماح للجميع عالميًا</strong> (<code>GATEWAY_ALLOW_ALL_USERS</code>) — إذا ضُبطت، يُفوَّض جميع المستخدمين عبر كل المنصات</li>
+<li><strong>الافتراضي: الرفض</strong> — يُرفض المستخدمون غير المفوَّضين</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-pairing-flow">تدفّق اقتران DM</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تُحفظ حالة الاقتران في <code>gateway/pairing.py</code> وتنجو من إعادة التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-command-dispatch">توزيع Slash Commands</h2>
+<p>تمرّ كل الـ slash commands في gateway عبر خط أنابيب الحسم نفسه:</p>
+<ol>
+<li>تربط <code>resolve_command()</code> من <code>hermes_cli/commands.py</code> المُدخل بالاسم الأساسي (تعالج الأسماء البديلة، ومطابقة البادئات)</li>
+<li>يُتحقّق من الاسم الأساسي مقابل <code>GATEWAY_KNOWN_COMMANDS</code></li>
+<li>تبحث <code>_handle_message()</code> (في <code>gateway/run_inbound.py</code>) عن المعالِج بالاسم — <code>_handle_&lt;name&gt;_command</code> في mixins الخاصة بـ <code>gateway/slash_commands_*.py</code> — عبر <code>_command_handler_table</code> فوق <code>_IDLE_COMMANDS</code> / <code>_PLAIN_COMMANDS</code> في <code>gateway/run_busy.py</code>؛ ولا توجد سلسلة <code>if canonical == ...</code></li>
+<li>بعض الأوامر مقيَّدة بحسب الإعدادات (<code>gateway_config_gate</code> على <code>CommandDef</code>)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-agent-guard">حارس الوكيل قيد التشغيل</h3>
+<p>تُرفض الأوامر التي يجب ألا تُنفَّذ أثناء معالجة الوكيل مبكرًا:</p>
+<p>أثناء وجود <code>_quick_key in self._running_agents</code>، توجّه <code>_dispatch_busy_slash_command()</code> في <code>gateway/run_busy.py</code> كل أمر معروف حسب <code>CommandDef.busy_policy</code> / <code>busy_handler</code> الخاصة به: نسخة أثناء التشغيل (<code>_busy_&lt;key&gt;_command</code>) إن وُجدت، وإلا المعالِج العادي عندما تسمح <code>busy_policy</code> بذلك، وإلا رسالة رفض (&quot;⏳ Agent is running — <code>/model</code> can&#x27;t run mid-turn…&quot;).</p>
+<p>أوامر التجاوز (<code>/stop</code>، <code>/new</code>، <code>/approve</code>، <code>/deny</code>، <code>/queue</code>، <code>/status</code>) لها معالِجات أثناء التشغيل وتُوزَّع مباشرة (inline).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-sources">مصادر الإعدادات</h2>
+<p>يقرأ gateway الإعدادات من مصادر متعدّدة:</p>
+<table><thead><tr><th>المصدر</th><th>ما يوفّره</th></tr></thead><tbody><tr><td><code>~/.hermes/.env</code></td><td>مفاتيح API، وتوكنات البوت، وبيانات اعتماد المنصات</td></tr><tr><td><code>~/.hermes/config.yaml</code></td><td>إعدادات النموذج، وإعداد الأدوات، وخيارات العرض</td></tr><tr><td>متغيرات البيئة</td><td>تتجاوز أيًا مما سبق</td></tr></tbody></table>
+<p>خلافًا لـ CLI (الذي يستخدم <code>load_cli_config()</code> بقيم افتراضية مثبَّتة في الكود)، يقرأ gateway ملف <code>config.yaml</code> مباشرةً عبر محمِّل YAML. هذا يعني أن مفاتيح الإعدادات الموجودة في قاموس افتراضيات CLI ولكن غير الموجودة في ملف إعدادات المستخدم قد تتصرّف بشكل مختلف بين CLI وgateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-adapters">مهايئات المنصات</h2>
+<p>تُشحَن معظم منصات المراسلة كمهايئات إضافات تحت <code>plugins/platforms/&lt;name&gt;/adapter.py</code>؛ ولا تزال بضعة مهايئات قديمة تعيش مباشرةً في <code>gateway/platforms/</code>. تمتد جميعها من <code>BasePlatformAdapter</code> في <code>gateway/platforms/base.py</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>التحميل المؤجَّل:</strong> تسجّل إضافات <code>kind: platform</code> المضمّنة محمِّلات <code>register_deferred</code> منخفضة التكلفة في <code>gateway/platform_registry.py</code> (عبر <code>hermes_cli/plugins.py</code>) بحيث لا تُستورد SDKs المنصات إلا عندما يبدأ gateway أو يُسلّم أو يشغّل الإعداد/الحالة — وليس عند تنفيذ <code>hermes chat</code> العادي. يحمّل الحسم مهايئًا واحدًا عند البحث؛ ويشغّل التعداد الكامل المحمِّلات المعلّقة فقط في المسارات التي تحتاج كل منصّة.</p>
+<p>تستخدم منصات موصولات الاختبار التجريبية (connector-backed) المهايئ العام للترحيل (relay) في <code>gateway/relay/</code> بدلًا من وحدة منصّة مباشرة. عند ضبط <code>GATEWAY_RELAY_URL</code> أو <code>gateway.relay_url</code>، يسجّل gateway منصّة <code>relay</code>، ويطلب الموصول عبر WebSocket صادر، ويستقبل إطارات <code>descriptor</code> و<code>inbound</code> و<code>interrupt_inbound</code> على نفس المقبس (socket). يعلن الموصول عن <code>CapabilityDescriptor</code>؛ ويمكن لـ Hermes إرسال ردود صادرة عادية، وعمليات <code>follow_up</code> بدون توكن، وإطارات مقاطعة عائدة عبر relay. يعيش عقد السلك (wire contract) المستند إلى المصدر في <a href="https://github.com/NousResearch/hermes-agent/blob/main/docs/relay-connector-contract.md" data-ext><code>docs/relay-connector-contract.md</code></a>.</p>
+<p>تنفّذ المهايئات واجهة مشتركة:</p>
+<ul>
+<li><code>connect()</code> / <code>disconnect()</code> — إدارة دورة الحياة</li>
+<li><code>send()</code> — تسليم الرسائل الصادرة</li>
+<li>تُوحَّد الأحداث الواردة إلى <code>MessageEvent</code> وتُمرَّر عبر <code>handle_message()</code></li>
+</ul>
+<p>يستخدم التنشيط (wake) الداخلي عبر الدفع <code>gateway.wake.admit_internal_event</code>: لا تزال
+<code>handle_message()</code> العامة تعيد <code>None</code>، لكن إيصال <code>_gateway_accepted</code> المحلي للعملية الخاص بالحدث
+لا يُضبط إلا بعد الجدولة أو الإدراج في قائمة الانتظار.
+المعالِج المفقود، أو مفتاح الجلسة الصريح غير المطابق، أو إسقاط بسبب سقف قائمة الانتظار ليست
+قبولًا. يجب على المهايئات المخصّصة التي تتجاوز الاستقبال (ingress) تفويض الأحداث الداخلية إلى
+<code>BasePlatformAdapter.handle_message()</code> (أو تسجيل القبول الفعلي صراحةً)،
+لا معادلة رد نداء استُهلِك/أُسقِط بالقبول. هذا الإيصال منفصل
+عن محاسبة تنفيذ نبضات الجلسة (heartbeat)، ولا يتجاوز التفويض أو الإيقاف الطارئ
+أو حواجز تحضير الدور اللاحقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-locks">أقفال التوكن</h3>
+<p>تستدعي المهايئات التي تتصل ببيانات اعتماد فريدة <code>acquire_scoped_lock()</code> في <code>connect()</code> و<code>release_scoped_lock()</code> في <code>disconnect()</code>. يمنع هذا وجود profile اثنين يستخدمان نفس توكن البوت في آن واحد.</p>
+<p>يُصدَر تعارض القفل باسم <code>{scope}_lock</code> مع <code>retryable=True</code> بحيث يمكن لإعادة اتصال <strong>أثناء التشغيل</strong> أن تسترجع عملها بمجرد خروج الحائز الآخر. أما عند <strong>بدء التشغيل</strong>، فإن وجود حائز أجنبي حيّ يُعدّ تعارض إعداد: تتعرّف <code>gateway/restart.py::is_global_startup_conflict()</code> على عائلات رموز <code>*_lock</code> / <code>lock_conflict</code>، ويوقف موجّه بدء التشغيل المنصّة بشكل <code>fatal</code> بدلًا من وضعها في قائمة إعادة المحاولة. وإن لم يكن هناك شيء آخر متصل، يخرج gateway بالرمز <code>78</code> (<code>EX_CONFIG</code>، <code>gateway_state=startup_failed</code>) بحيث يتوقّف المُشرِف (supervisor) عن إعادة تشغيله؛ أما بجانب فشل نظير عابر بالفعل، فيبقى gateway حيًا ويعيد النظير وحده المحاولة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-path">مسار التسليم</h2>
+<p>تتعامل التسليمات الصادرة (<code>gateway/delivery.py</code>) مع:</p>
+<ul>
+<li><strong>الرد المباشر</strong> — إرسال الاستجابة عائدةً إلى المحادثة الأصلية</li>
+<li><strong>التسليم إلى قناة رئيسية (home channel)</strong> — توجيه مخرجات مهام cron والنتائج الخلفية إلى قناة رئيسية مضبوطة</li>
+<li><strong>التسليم إلى هدف صريح</strong> — يحدّد محرّك الإرسال هدفًا مثل <code>telegram:-1001234567890</code>، مكشوفًا عبر <a href="/docs/guides/pipe-script-output">أداة سطر الأوامر <code>hermes send</code></a> لسكربتات الـ shell وعبر أهداف <code>deliver:</code> في cron</li>
+<li><strong>التسليم عبر منصات مختلفة</strong> — التسليم إلى منصّة مختلفة عن منصّة الرسالة الأصلية</li>
+</ul>
+<p>تسليمات مهام cron لا تُرآى (mirror) في سجل جلسة gateway — بل تعيش في جلسة cron الخاصة بها فقط. هذا قرار تصميم متعمَّد لتجنّب انتهاكات تناوب الرسائل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hooks">Hooks</h2>
+<p>hooks الخاصة بـ gateway وحدات Python تستجيب لأحداث دورة الحياة:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-hook-events">أحداث hooks الخاصة بـ Gateway</h3>
+<table><thead><tr><th>الحدث</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>gateway:startup</code></td><td>بدء عملية gateway</td></tr><tr><td><code>session:start</code></td><td>بدء جلسة محادثة جديدة</td></tr><tr><td><code>session:end</code></td><td>اكتمال الجلسة أو انتهاء مهلتها</td></tr><tr><td><code>session:reset</code></td><td>يعيد المستخدم ضبط الجلسة بـ <code>/new</code></td></tr><tr><td><code>agent:start</code></td><td>يبدأ الوكيل معالجة رسالة</td></tr><tr><td><code>agent:step</code></td><td>يُكمل الوكيل تكرارًا واحدًا لاستدعاء أداة</td></tr><tr><td><code>agent:end</code></td><td>ينهي الوكيل عمله ويعيد الاستجابة</td></tr><tr><td><code>command:*</code></td><td>تنفيذ أي slash command</td></tr></tbody></table>
+<p>تُكتشَف hooks من <code>gateway/builtin_hooks/</code> (نقطة توسعة — فارغة حاليًا في التوزيعة المُشحَنة؛ <code>_register_builtin_hooks()</code> جذع (stub) بلا عملية) ومن <code>~/.hermes/hooks/</code> (مثبَّتة من قِبل المستخدم). كل hook هو دليل يحتوي بيان <code>HOOK.yaml</code> و<code>handler.py</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-provider-integration">تكامل مزوّد الذاكرة</h2>
+<p>عندما تكون إضافة مزوّد ذاكرة (مثل Honcho) مفعّلة:</p>
+<ol>
+<li>ينشئ gateway نسخة <code>AIAgent</code> لكل رسالة بمعرّف الجلسة</li>
+<li>تُهيّئ <code>MemoryManager</code> المزوّد بسياق الجلسة</li>
+<li>تُوجَّه أدوات المزوّد (مثل <code>honcho_profile</code> و<code>viking_search</code>) عبر:</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<ol start="4">
+<li>عند انتهاء الجلسة أو إعادة ضبطها، تُطلق <code>on_session_end()</code> للتنظيف وتفريغ البيانات النهائي</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-flush-lifecycle">دورة حياة تفريغ الذاكرة</h3>
+<p>حدود المحادثة الصريحة (مثل <code>/new</code> أو <code>/reset</code> أو <code>/resume</code>) تفرّغ الجلسة الصادرة وتُنهيها. أما وقت الخمول والحدود اليومية فلا تُنهيها أبدًا.</p>
+<p>إخلاء TTL الخاص بالموارد فقط، وLRU، وإخلاء ضغط الذاكرة، يودِعون النسخة المخزَّنة مؤقتًا من المحادثة لدى مزوّدي الذاكرة المضبوطين قبل تحرير عملاء الوكيل. وهذا لا يُغلق المحادثة الدائمة: يعيد الدور التالي تحميل نفس المحادثة والهوية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-maintenance">الصيانة الخلفية</h2>
+<p>يشغّل gateway صيانة دورية جنبًا إلى جنب مع معالجة الرسائل:</p>
+<ul>
+<li><strong>نبض cron</strong> — يتحقّق من جداول المهام ويطلق المهام المستحقة</li>
+<li><strong>تدبير الجلسات</strong> — يستعيد الموارد المخزَّنة مؤقتًا دون إنهاء المحادثات</li>
+<li><strong>تفريغ الذاكرة</strong> — يودِع الذاكرة قبل الإخلاء المؤقت اللين</li>
+<li><strong>تحديث الذاكرة المؤقتة (cache)</strong> — يحدّث قوائم النماذج وحالة المزوّدين</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="process-management">إدارة العمليات</h2>
+<p>يعمل gateway كعملية طويلة الأمد، تُدار عبر:</p>
+<ul>
+<li><code>hermes gateway start</code> / <code>hermes gateway stop</code> — تحكّم يدوي</li>
+<li><code>systemctl</code> (على لينكس) أو <code>launchctl</code> (على macOS) — إدارة الخدمات</li>
+<li>ملف PID في <code>~/.hermes/gateway.pid</code> — تتبّع عمليات محدَّد بـ profile</li>
+</ul>
+<p><strong>محدَّد بـ profile مقابل عالمي</strong>: تستخدم <code>start_gateway()</code> ملفات PID محدَّدة بـ profile. يوقف <code>hermes gateway stop</code> gateway الخاص بالـ profile الحالي فقط. يستخدم <code>hermes gateway stop --all</code> فحص <code>ps aux</code> عالميًا لإنهاء كل عمليات gateway (يُستخدم أثناء التحديثات).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></li>
+<li><a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a></li>
+<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+<li><a href="/docs/user-guide/messaging">Messaging Gateway (دليل المستخدم)</a></li>
+</ul>

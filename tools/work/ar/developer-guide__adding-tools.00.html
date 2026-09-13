@@ -1,0 +1,55 @@
+<header><h1>إضافة أدوات</h1></header>
+<p>قبل كتابة أداة، اسأل نفسك: <strong>ألا ينبغي أن تكون هذه <a href="/docs/developer-guide/creating-skills">مهارة (skill)</a> بدلًا من ذلك؟</strong></p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>الأدوات الأساسية المدمجة فقط</div><div class="admonitionContent_BuS1"><p>هذه الصفحة مخصّصة لإضافة <strong>أداة مدمجة في Hermes</strong> إلى المستودع نفسه.
+إذا كنت تريد أداة شخصية أو محلّية للمشروع أو مخصّصة بأي شكل آخر دون
+تعديل نواة Hermes، استخدم مسار الإضافات (plugin) بدلًا من ذلك:</p><ul>
+<li><a href="/docs/user-guide/features/plugins">الإضافات (Plugins)</a></li>
+<li><a href="/docs/developer-guide/plugins">بناء إضافة Hermes</a></li>
+</ul><p>اعتمد على الإضافات افتراضيًا لمعظم إنشاء الأدوات المخصّصة. اتّبع هذه الصفحة فقط عندما
+تريد صراحةً شحن أداة مدمجة جديدة في <code>tools/</code> و<code>toolsets.py</code>.</p></div></div>
+<p>اجعلها <strong>مهارة (Skill)</strong> عندما يمكن التعبير عن القدرة كتعليمات + أوامر shell + أدوات موجودة (البحث في arXiv، وسير عمل git، وإدارة Docker، ومعالجة PDF).</p>
+<p>اجعلها <strong>أداة (Tool)</strong> عندما تتطلّب تكاملًا من طرف إلى طرف مع مفاتيح API، أو منطق معالجة مخصّص، أو التعامل مع بيانات ثنائية، أو البث (streaming) (أتمتة المتصفح، وTTS، وتحليل الرؤية).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>إضافة أداة تمسّ <strong>ملفَّين</strong>:</p>
+<ol>
+<li><strong><code>tools/your_tool.py</code></strong> — المعالِج، والمخطط، ودالة التحقّق، واستدعاء <code>registry.register()</code></li>
+<li><strong><code>toolsets.py</code></strong> — أضف اسم الأداة إلى <code>_HERMES_CORE_TOOLS</code> (أو toolset محدَّد)</li>
+</ol>
+<p>يُكتشَف تلقائيًا عند بدء التشغيل أي ملف <code>tools/*.py</code> يحتوي استدعاء <code>registry.register()</code> على المستوى الأعلى — لا حاجة إلى قائمة استيراد يدوية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-the-built-in-tool-file">الخطوة 1: أنشئ ملف الأداة المدمجة</h2>
+<p>يتبع كل ملف أداة نفس البنية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-rules">قواعد أساسية</h3>
+<div class="theme-admonition theme-admonition-danger admonition_xJq3 alert alert--danger"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>مهم</div><div class="admonitionContent_BuS1"><ul>
+<li><strong>يجب</strong> أن يعيد المعالِج سلسلة JSON نصية (عبر <code>json.dumps()</code>)، لا قواميس خامة أبدًا</li>
+<li><strong>يجب</strong> إعادة الأخطاء بصيغة <code>{&quot;error&quot;: &quot;message&quot;}</code>، لا رفعها كاستثناءات أبدًا</li>
+<li>تُستدعى <code>check_fn</code> عند بناء تعريفات الأدوات — إذا أعادت <code>False</code>، تُستبعد الأداة بصمت</li>
+<li>يستقبل <code>handler</code> الوسيطين <code>(args: dict, **kwargs)</code> حيث <code>args</code> هي وسائط استدعاء الأداة الخاصة بـ LLM</li>
+</ul></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-add-the-built-in-tool-to-a-toolset">الخطوة 2: أضف الأداة المدمجة إلى toolset</h2>
+<p>في <code>toolsets.py</code>، أضف اسم الأداة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-add-discovery-import-no-longer-needed"><del>الخطوة 3: أضف استيراد الاكتشاف</del> (لم تعد ضرورية)</h2>
+<p>وحدات الأدوات التي تحتوي استدعاء <code>registry.register()</code> على المستوى الأعلى تُكتشَف تلقائيًا بواسطة <code>discover_builtin_tools()</code> في <code>tools/registry.py</code>. لا قائمة استيراد يدوية للحفاظ عليها — فقط أنشئ ملفك في <code>tools/</code> وسيُلتقَط عند بدء التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="async-handlers">المعالِجات غير المتزامنة (Async)</h2>
+<p>إذا احتاج معالِجك إلى كود غير متزامن، ضعه بالعلامة <code>is_async=True</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يتولّى السجل (registry) الجسر غير المتزامن بشفافية — لا تستدعي <code>asyncio.run()</code> بنفسك أبدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="handlers-that-need-task_id">المعالِجات التي تحتاج task_id</h2>
+<p>الأدوات التي تدير حالة خاصة بكل جلسة تستقبل <code>task_id</code> عبر <code>**kwargs</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-loop-intercepted-tools">الأدوات المُعتَرَضة في Agent Loop</h2>
+<p>بعض الأدوات (<code>todo</code>، <code>memory</code>، <code>session_search</code>، <code>delegate_task</code>) تحتاج إلى الوصول إلى حالة وكيل خاصة بكل جلسة. تُعترَض هذه في agent loop (<code>agent/tool_executor.py</code>، المُستدعى من <code>agent/conversation_loop.py</code>) قبل الوصول إلى السجل. لا يزال السجل يحمل مخططاتها، لكن <code>dispatch()</code> تعيد خطأ احتياطيًا إذا جرى تجاوز الاعتراض.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-setup-wizard-integration">اختياري: التكامل مع معالج الإعداد</h2>
+<p>إذا كانت أداتك تتطلّب مفتاح API، أضفه إلى <code>hermes_cli/config.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="checklist">قائمة تحقّق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="7"></x-keep> أُنشئ ملف الأداة بالمعالِج والمخطط ودالة التحقّق والتسجيل</li>
+<li class="task-list-item"><x-keep id="8"></x-keep> أُضيفت إلى toolset المناسب في <code>toolsets.py</code></li>
+<li class="task-list-item"><x-keep id="9"></x-keep> تأكّدتَ أن هذه فعلًا ينبغي أن تكون أداة مدمجة/أساسية لا إضافة</li>
+<li class="task-list-item"><x-keep id="10"></x-keep> يعيد المعالِج سلاسل JSON نصية، وتُعاد الأخطاء بصيغة <code>{&quot;error&quot;: &quot;...&quot;}</code></li>
+<li class="task-list-item"><x-keep id="11"></x-keep> اختياري: أُضيف مفتاح API إلى <code>OPTIONAL_ENV_VARS</code> في <code>hermes_cli/config.py</code></li>
+<li class="task-list-item"><x-keep id="12"></x-keep> اختياري: أُضيفت إلى <code>toolset_distributions.py</code> لأجل المعالجة الدفعية</li>
+<li class="task-list-item"><x-keep id="13"></x-keep> اختُبرت بـ <code>hermes chat -q &quot;Use the weather tool for London&quot;</code></li>
+</ul>

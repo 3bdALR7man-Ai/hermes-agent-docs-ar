@@ -1,0 +1,29 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">مآزق شائعة</h2>
+<p><strong>ظهور <code>hermes: command not found</code> مباشرةً بعد التثبيت.</strong>
+افتح نافذة PowerShell جديدة. أضاف المُثبّت <code>%LOCALAPPDATA%\hermes\bin</code> إلى User PATH، لكن جلسات الـ shell المفتوحة مسبقًا تحتاج إلى إعادة تشغيل كي تلتقط التغيير. وفي هذه الأثناء يمكنك تنفيذ <code>&amp; &quot;$env:LOCALAPPDATA\hermes\bin\hermes.exe&quot;</code>.</p>
+<p><strong>ظهور <code>WinError 193: %1 is not a valid Win32 application</code> عند تشغيل أداة.</strong>
+لقد صادفت استدعاءً لسكربت shebang تجاوز الملف الوسيط <code>.cmd</code>. يحدد Hermes مسارات الأوامر عبر <code>shutil.which(cmd, path=local_bin)</code> بحيث يلتقط PATHEXT الامتداد <code>.CMD</code> — فإذا كنت تستدعي الأداة عبر مسار مكتوب مباشرةً في الكود، فانتقل إلى نسخة <code>.cmd</code> (مثلًا <code>npx.cmd</code>، وليس <code>npx</code>).</p>
+<p><strong>فشل <code>[scriptblock]::Create(...)</code> مع الخطأ <code>The assignment expression is not valid</code>.</strong>
+التقط ملف <code>install.ps1</code> الذي نزّلته علامة BOM بترميز UTF-8. تزيل صيغة <code>irm | iex</code> علامات BOM تلقائيًا؛ أما <code>[scriptblock]::Create((irm ...))</code> فلا تفعل. أعد التنفيذ باستخدام الصيغة البسيطة <code>irm | iex</code>، أو نزّل السكربت يدويًا واحفظه دون BOM عبر <code>[IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding $false))</code>.</p>
+<p><strong>الـ gateway لا يبقى قيد التشغيل بعد إعادة التشغيل.</strong>
+تحقق من <code>hermes gateway status</code> — فهو يجمع بين مُدخل schtasks، واختصار مجلد Startup (إن كان مستخدمًا)، والـ PID الحي. إذا كانت مهمة schtasks مسجّلة لكنها لا تعمل، فقد يكون نهج المجموعة (group policy) يحظر مشغّلات <code>ONLOGON</code>. نفّذ <code>schtasks /Query /TN Hermes_Gateway /V /FO LIST</code> (أو <code>Hermes_Gateway_&lt;profile&gt;</code> لـ profile مسمّى) لمعرفة سبب فشل المهمة. لا يُفعَّل البديل الاحتياطي عبر مجلد Startup تلقائيًا إلا عندما يفشل <code>schtasks</code> نفسه في تسجيل المهمة؛ ولا يوجد متغير بيئة أو خيار لفرضه.</p>
+<p><strong>لا يزال <code>/edit</code> لا يفعل شيئًا بعد ضبط <code>$env:EDITOR</code>.</strong>
+لقد ضبطته للعملية الحالية فقط؛ أغلق الـ shell وأعد فتحه، أو اضبطه على نطاق المستخدم (User) من System Properties → Environment Variables. تحقق بتنفيذ <code>echo $env:EDITOR</code> في نافذة PowerShell جديدة.</p>
+<p><strong>أداة المتصفح تبدأ العمل لكن الأدوات تنتهي مهلتها.</strong>
+يُثبَّت Chromium تلقائيًا عند التشغيل الأول. إذا فشل التثبيت (بسبب حدّ المعدل في GitHub، أو عطل عابر في CDN الخاص بـ Playwright)، فنفّذ <code>hermes doctor</code> — إذ سيكشف غياب Chromium ويطبع الأمر الدقيق <code>npx playwright install chromium</code> لإصلاح المشكلة.</p>
+<p><strong>فشل <code>agent-browser</code> مع خطأ غريب متعلق بإصدار Node.</strong>
+يجهّز المُثبّت Node 26 في <code>%LOCALAPPDATA%\hermes\node</code>، لكن قد يأتي في PATH لديك إصدار Node 18 أقدم مثبّت على النظام قبله. إما أن تنقل مجلد node الخاص بـ Hermes إلى موضع أسبق في PATH، أو أن تحذف تثبيت النظام إذا كنت لا تستخدم Node في مكان آخر.</p>
+<p><strong>تظهر المحارف الصينية / اليابانية / العربية على شكل <code>?</code> في CLI.</strong>
+لم تُفعَّل طبقة stdio بترميز UTF-8. تحقق من أن <code>HERMES_DISABLE_WINDOWS_UTF8</code> غير مضبوط (<code>Get-ChildItem env:HERMES_DISABLE_WINDOWS_UTF8</code>). إذا كان فارغًا وما زلت ترى <code>?</code>، فقد لا يدعم مضيف وحدة التحكم (<code>cmd.exe</code> القديم جدًا) ترميز UTF-8 إطلاقًا — انتقل إلى Windows Terminal.</p>
+<p><strong>لا يستطيع الـ gateway إرسال صور Telegram — &quot;<code>BadRequest: payload contains invalid characters</code>&quot;.</strong>
+لا علاقة لهذه المشكلة بـ Windows، لكنها تظهر أحيانًا هناك أولًا. وتعني عادةً أن مسار ملفك يحتوي على شرطات مائلة عكسية غير مُهرَّبة داخل جسم JSON. يُفترض أن يتلقى Telegram مسارات يوحّدها Hermes، لا مسارات Windows خامًا — فإذا ظهر لك هذا داخل إضافة (plugin) مخصصة، فتأكد من أنك تمرّر المسار الذي يوفّره Hermes، وليس <code>str(Path(...))</code> من مُدخلات المستخدم.</p>
+<p><strong>غرائب ترميز من نوع &quot;يعمل على جهازي الآخر&quot; بعد <code>git pull</code>.</strong>
+إذا عدّلت إعدادات Hermes أو إحدى المهارات على Windows باستخدام محرر لا يعتمد UTF-8 (مثل Notepad في إصدارات Windows الأقدم، أو بعض محررات الإدخال الصينية IMEs)، فربما حُفظ الملف مع BOM. يتسامح Hermes مع <code>utf-8-sig</code> في معظم عمليات قراءة الإعدادات، لكن وجود BOM داخل قيمة YAML مطوية (<code>description: &gt;</code>) يُعطّل تحليل YAML بصمت. أعد حفظ الملف بترميز UTF-8 عادي دون BOM.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-go-next">إلى أين بعد ذلك</h2>
+<ul>
+<li><strong><a href="/docs/getting-started/installation">التثبيت</a></strong> — صفحة التثبيت الكاملة، بما في ذلك Linux/macOS/WSL2/Termux.</li>
+<li><strong><a href="/docs/user-guide/windows-wsl-quickstart">دليل Windows (WSL2)</a></strong> — إذا كنت تريد دلالات POSIX أو لوحة الطرفية في لوحة التحكم.</li>
+<li><strong><a href="/docs/reference/cli-commands">مرجع CLI</a></strong> — كل أمر فرعي من أوامر <code>hermes</code>.</li>
+<li><strong><a href="/docs/reference/faq">الأسئلة الشائعة</a></strong> — الأسئلة الشائعة غير المقتصرة على Windows.</li>
+<li><strong><a href="/docs/user-guide/messaging/">Messaging Gateway</a></strong> — تشغيل Telegram/Discord/Slack على Windows.</li>
+</ul>

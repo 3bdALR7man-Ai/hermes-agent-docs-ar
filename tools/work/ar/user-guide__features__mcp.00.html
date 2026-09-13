@@ -1,0 +1,225 @@
+<header><h1>MCP (Model Context Protocol)</h1></header>
+<p>يتيح MCP لـ Hermes Agent الاتصال بخوادم أدوات خارجية، بحيث يستطيع الوكيل استخدام أدوات موجودة خارج Hermes نفسه — مثل GitHub، وقواعد البيانات، وأنظمة الملفات، وحِزم المتصفحات، وواجهات API الداخلية، وغير ذلك.</p>
+<p>إذا سبق أن أردت أن يستخدم Hermes أداة موجودة بالفعل في مكان آخر، فإن MCP هو عادةً أنظف طريقة لتحقيق ذلك.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="48"></x-keep></span>قادم من Claude Code؟</div><div class="admonitionContent_BuS1"><p>تقابل كتلة <code>mcpServers</code> في ملف <code>~/.claude.json</code> لديك المفتاح <code>mcp_servers</code> في ملف <code>config.yaml</code> الخاص بـ Hermes — ويتولى الأمر <code>hermes import-agent claude-code</code> ترحيلها تلقائيًا (إلى جانب المهارات والتعليمات). راجع <a href="/docs/user-guide/import-from-other-agents">الاستيراد من وكلاء آخرين</a>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-mcp-gives-you">ما الذي يمنحك إياه MCP</h2>
+<ul>
+<li>الوصول إلى منظومات أدوات خارجية دون الحاجة إلى كتابة أداة Hermes أصلية أولًا</li>
+<li>خوادم stdio محلية وخوادم HTTP MCP بعيدة في ملف الإعدادات نفسه</li>
+<li>اكتشاف الأدوات وتسجيلها تلقائيًا عند بدء التشغيل</li>
+<li>أغلفة (wrappers) مساعدة لموارد MCP والـ prompts عندما يدعمها الخادم</li>
+<li>تصفية على مستوى كل خادم، بحيث لا تكشف إلا أدوات MCP التي تريد فعلًا أن يراها Hermes</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<ol>
+<li>
+<p>يأتي دعم MCP مع التثبيت القياسي — ولا حاجة إلى أي خطوة إضافية.</p>
+</li>
+<li>
+<p>أضف خادم MCP إلى <code>~/.hermes/config.yaml</code>:</p>
+</li>
+</ol>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<ol start="3">
+<li>شغّل Hermes:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ol start="4">
+<li>اطلب من Hermes استخدام القدرة التي يوفّرها MCP.</li>
+</ol>
+<p>على سبيل المثال:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>سيكتشف Hermes أدوات خادم MCP ويستخدمها مثل أي أداة أخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="catalog-one-click-install-for-nous-approved-mcps">الكتالوج: تثبيت بنقرة واحدة لخوادم MCP المعتمدة من Nous</h2>
+<p>يأتي Hermes مع كتالوج منتقى من خوادم MCP راجعها فريق Nous
+ودمجها. وهي معطّلة افتراضيًا — فلا تثبّت إلا ما تحتاجه
+فعلًا.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>تعرض أداة الاختيار كل إدخال مع حالته الحالية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اضغط <code>Enter</code> على أي صف للتثبيت (مع المرور بخطوات إدخال أي بيانات اعتماد مطلوبة)،
+أو التفعيل، أو التعطيل، أو إلغاء التثبيت. تُخزَّن إدخالات الكتالوج ضمن
+<code>optional-mcps/</code> في مستودع hermes-agent — ووجود الإدخال في ذلك المجلد يعني
+أنه معتمد من Nous. لا يوجد مستوى لإسهامات المجتمع؛ إذ تُضاف الإدخالات عبر
+دمج PR.</p>
+<p>قد تتطلب إدخالات الكتالوج:</p>
+<ul>
+<li><strong>مفتاح API</strong> — يطلبه Hermes عند التثبيت ويكتب القيمة في
+<code>~/.hermes/.env</code>. وتُكتب القيم غير السرية (مثل عناوين URL الأساسية) في الملف نفسه.</li>
+<li><strong>OAuth</strong> (لخوادم MCP البعيدة) — يُكتب كـ <code>auth: oauth</code> في ملف الإعدادات؛ ويفتح عميل MCP
+المتصفح عند أول اتصال.</li>
+<li><strong>OAuth</strong> (لمزوّد خارجي مثل Google/GitHub) — يوجّهك Hermes إلى
+<code>hermes auth &lt;provider&gt;</code> إذا لم تكن قد أجريت المصادقة بعد.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-selection-at-install-time">اختيار الأدوات عند التثبيت</h3>
+<p>بعد إعداد بيانات الاعتماد، يفحص Hermes خادم MCP ليسرد كل
+أداة يوفّرها، ثم يعرض قائمة تحقق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تأتي الصفوف المحددة مسبقًا من:</p>
+<ol>
+<li><strong>اختيارك السابق</strong> إذا كنت قد ثبّتّ هذا الإدخال من قبل (إعادة التثبيت
+تحافظ على ما كان لديك — ولا تتجاوزه القيم الافتراضية في الـ manifest)</li>
+<li><strong>قيمة <code>tools.default_enabled</code> في الـ manifest</strong> إذا صرّح بها الإدخال (بعض
+إدخالات الكتالوج تستبعد مسبقًا الأدوات التي تُجري تغييرات أو نادرًا ما تكون مفيدة)</li>
+<li><strong>كل الأدوات</strong> إذا لم ينطبق أيٌّ مما سبق</li>
+</ol>
+<p>بعض الإدخالات ذات الواجهات الضخمة المولَّدة تلقائيًا (مثل <code>cloudflare</code>،
+بنحو 3,300 أداة تمثّل endpoints من OpenAPI) تُصرّح بدلًا من ذلك بـ <code>tools.default_excluded</code> — وهي
+قائمة حظر منتقاة من الأسماء وأنماط glob. يؤدي تثبيت أحد هذه الإدخالات إلى تخطي
+قائمة التحقق كليًا وكتابة <code>tools.exclude</code>؛ ويبقى كل ما لا يطابقها
+مفعّلًا، بما في ذلك الأدوات التي يضيفها الخادم لاحقًا. عدّل
+<code>mcp_servers.&lt;name&gt;.tools.exclude</code> في config.yaml لإعادة تفعيل عائلة من الأدوات.</p>
+<p>أرسل قائمة التحقق بالضغط على ENTER. لا ينتهي في
+<code>mcp_servers.&lt;name&gt;.tools.include</code> إلا الأدوات المحددة. وإذا اخترت كل الأدوات، فلن يُكتب أي مرشّح
+(أنظف شكل للإعدادات، مع سلوك مطابق).</p>
+<p><strong>إذا فشل الفحص</strong> (الخادم غير قابل للوصول، أو لم تكتمل OAuth بعد،
+أو الخدمة الخلفية لا تعمل)، يظل التثبيت ناجحًا: إذ تُطبَّق قيمة
+<code>tools.default_enabled</code> من الـ manifest مباشرةً (إن كانت مُصرَّحًا بها)، وإلا فلا يُكتب أي
+مرشّح. أعد تشغيل <code>hermes mcp configure &lt;name&gt;</code> بمجرد أن يصبح الخادم
+قابلًا للوصول لتحسين الاختيار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="trust-model">نموذج الثقة</h3>
+<p>يؤدي تثبيت إدخال من الكتالوج إلى تنفيذ كل ما يحدده الـ manifest — أي <code>git clone</code>،
+وأوامر <code>bootstrap</code> الخاصة بالإدخال (<code>pip install</code>، و<code>npm install</code>، وغيرها)، وفي
+النهاية كود خادم MCP نفسه. تخضع ملفات الـ manifest لمراجعة PR قبل دمجها في
+مستودع hermes-agent، لذا راجع فريق Nous كل إدخال قبل إصداره —
+<strong>لكن ينبغي لك مع ذلك قراءة الـ manifest قبل التثبيت</strong>، ولا سيما
+المستودع المذكور في الحقل <code>source:</code>، وأوامر <code>install.bootstrap:</code>، وأي
+استدعاء في <code>transport.command:</code>.</p>
+<p>توجد ملفات الـ manifest في
+<a href="https://github.com/NousResearch/hermes-agent/tree/main/optional-mcps" data-ext><code>optional-mcps/&lt;name&gt;/manifest.yaml</code></a>
+على GitHub. كما تطبع أداة الاختيار عنوان <code>source:</code> URL الخاص بالـ manifest عند
+التثبيت، لتتمكن من التحقق سريعًا من المستودع الأصلي. وتعرض صفحة MCP في
+لوحة التحكم على الويب التفاصيل نفسها لكل إدخال في الكتالوج — طبقة النقل، ونوع المصادقة،
+وعنوان URL للـ endpoint ‏(HTTP) أو الأمر + الوسائط (stdio)، ومصدر التثبيت/المرجع في git
+وأوامر bootstrap، وملاحظات الإعداد — مع عرض <code>source:</code> كرابط
+قابل للنقر، حتى تتمكن من فحص ما يتصل به الإدخال أو ينفّذه بالضبط
+قبل النقر على Install.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manifest-version-compatibility">توافق إصدارات الـ manifest</h3>
+<p>تُثبّت ملفات الـ manifest قيمة <code>manifest_version</code>. والكتالوج متوافق مع الإصدارات المستقبلية: فإذا
+أضاف PR إدخالًا بقيمة <code>manifest_version</code> أحدث مما يفهمه إصدار Hermes
+المثبّت لديك، فستعرض أداة الاختيار تحذيرًا (<code>⚠ &#x27;&lt;name&gt;&#x27; requires a newer Hermes</code>) لذلك الإدخال بدلًا من إخفائه بصمت. شغّل <code>hermes update</code>
+لتثبيت أحدث إصدار من Hermes عندما ترى ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="runtime-env_var-substitution">استبدال <code>${ENV_VAR}</code> وقت التشغيل</h3>
+<p>داخل <code>transport.command</code>، و<code>transport.args</code>، و<code>transport.url</code>،
+و<code>headers</code> الخاصة بأي إدخال، تُحلّ العناصر النائبة <code>${VAR}</code> عند الاتصال بالخادم
+من متغيرات البيئة (التي تشمل كل ما في <code>~/.hermes/.env</code>).
+يفيد هذا عندما يريد إدخال في الكتالوج الإشارة إلى قيمة ضبطها المستخدم
+في مكان آخر — مثل <code>${HOME}/foo</code> أو <code>${MY_PROVIDER_TOKEN}</code>.</p>
+<p>تُستبدل أيضًا متغيرات السياق على نمط Cursor (مع مراعاة حالة الأحرف):
+<code>${userHome}</code> (المجلد الرئيسي)، و<code>${workspaceFolder}</code> (جذر مساحة عمل
+الجلسة)، و<code>${workspaceFolderBasename}</code>، و<code>${pathSeparator}</code> / <code>${/}</code>
+(فاصل المسارات في نظام التشغيل). راجع
+<a href="/docs/reference/mcp-config-reference">مرجع إعدادات MCP</a> للتفاصيل.</p>
+<p>لاحظ أن هذا يختلف عن <code>${INSTALL_DIR}</code> في ملفات manifest الخاصة بالكتالوج، والذي
+يُستبدل وقت التثبيت بالمسار الذي نسخ إليه الكتالوجُ مستودعَ
+الإدخال.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-tool-selection-later">تحديث اختيار الأدوات لاحقًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يعيد فتح قائمة التحقق نفسها مع تحديد اختيارك الحالي مسبقًا. استخدمه
+عندما تريد تفعيل مزيد من الأدوات، أو عندما يضيف الخادم أدوات جديدة
+تريد الاشتراك فيها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-the-catalog-manifest">تحديث manifest الكتالوج</h3>
+<p>لا تُحدَّث خوادم MCP تلقائيًا أبدًا. أعد تشغيل <code>hermes mcp install &lt;name&gt;</code> للتحديث
+بعد تحديث Hermes إذا تغيّر إصدار الـ manifest.</p>
+<p>لإضافة خادم MCP إلى الكتالوج، افتح PR على
+<a href="https://github.com/NousResearch/hermes-agent/tree/main/optional-mcps" data-ext><code>optional-mcps/</code></a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="suggestion-metadata-suggest">بيانات الاقتراح الوصفية (<code>suggest:</code>)</h3>
+<p>يمكن للـ manifest أن يُصرّح بكتلة <code>suggest:</code> اختيارية تحتوي على قائمتَي <code>keywords:</code> و/أو
+<code>hosts:</code>. تستخدمها واجهات المستخدم (حاليًا محرّر الرسائل في تطبيق Desktop)
+لعرض زر &quot;Add &lt;server&gt;&quot; بنقرة واحدة عندما تذكر مسودتك إحدى
+الكلمات المفتاحية ككلمة مكتملة، أو تحتوي على رابط ملصوق ينتهي اسم مضيفه
+بإحدى لواحق المضيفين. وهي استشارية بحتة — إذ تمر عمليات التثبيت دائمًا
+عبر مسارات الكتالوج/الإعدادات نفسها التي خضعت للتحقق — وتُصرّح بها معظم
+الإدخالات البعيدة المستضافة (Atlassian و Sentry و Notion و Stripe و Vercel و Supabase وغيرها).</p>
+<p>GitHub <strong>غير</strong> موجود في الكتالوج عن قصد: فخادم MCP المستضاف الخاص به يتطلب أن يستخدم كل
+عميل تطبيق OAuth خاصًا به (إذ يُرفض التسجيل الديناميكي العام للعملاء)، كما أن مهارات
+<code>github/*</code> المضمّنة في Hermes التي تعتمد على CLI ‏<code>gh</code> تمثّل
+تكاملًا أكثر قدرة. وفي Desktop، يؤدي ذكر GitHub بدلًا من ذلك إلى اقتراح المهارة
+<code>github-auth</code> عندما لا يكون <code>gh</code> مسجَّل الدخول بعد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-kinds-of-mcp-servers">نوعان من خوادم MCP</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stdio-servers">خوادم Stdio</h3>
+<p>تعمل خوادم Stdio كعمليات فرعية محلية وتتواصل عبر stdin/stdout.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>استخدم خوادم stdio عندما:</p>
+<ul>
+<li>يكون الخادم مثبّتًا محليًا</li>
+<li>تريد وصولًا منخفض زمن الاستجابة إلى الموارد المحلية</li>
+<li>تتبع توثيق خادم MCP يعرض <code>command</code> و<code>args</code> و<code>env</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="http-servers">خوادم HTTP</h3>
+<p>خوادم HTTP MCP هي endpoints بعيدة يتصل بها Hermes مباشرةً.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>استخدم خوادم HTTP عندما:</p>
+<ul>
+<li>يكون خادم MCP مستضافًا في مكان آخر</li>
+<li>توفّر مؤسستك endpoints داخلية لـ MCP</li>
+<li>لا تريد أن يُطلق Hermes عملية فرعية محلية لذلك التكامل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="oauth-authenticated-http-servers">خوادم HTTP بمصادقة OAuth</h3>
+<p>تتطلب معظم خوادم MCP المستضافة (Cloudflare و Linear و Sentry و Atlassian و Asana و Figma و Stripe و…) مصادقة OAuth 2.1 بدلًا من bearer token ثابت. اضبط <code>auth: oauth</code> وسيتولى Hermes الاكتشاف، وتعريف العميل، و PKCE، وتبادل الـ token، وتجديده، والمصادقة التصاعدية (step-up auth) عبر MCP Python SDK.</p>
+<p>يعرّف Hermes نفسه باستخدام <a href="/docs/reference/mcp-config-reference#client-identification-cimd-and-dcr">Client ID Metadata Document</a> على الخوادم التي تدعمه، ويلجأ إلى Dynamic Client Registration على الخوادم التي لا تدعمه. كلا الأمرين يحدث تلقائيًا؛ ولا يوجد ما تحتاج إلى إعداده.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="49"></x-keep></span>خادم Figma MCP البعيد</div><div class="admonitionContent_BuS1"><p>يسمح endpoint المستضاف الخاص بـ Figma ‏(<code>https://mcp.figma.com/mcp</code>) بـ Dynamic Client Registration وفق قائمة سماح تعتمد على <strong>قيمة <code>client_name</code> المطابقة تمامًا</strong> — فالقيمة المجردة <code>&quot;Hermes Agent&quot;</code> تُرجع 403، بينما تنجح <code>&quot;Claude Code&quot;</code> و<code>&quot;Codex&quot;</code>. يضبط Hermes تلقائيًا <code>oauth.client_name: &quot;Claude Code&quot;</code> لـ <code>mcp.figma.com</code> حتى يعمل التثبيت/تسجيل الدخول دون أي حيلة خاصة:</p><div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div><p>أو: <code>hermes mcp install figma</code>، ثم <code>hermes mcp login figma</code>.</p></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>عند أول اتصال، يطبع Hermes عنوان URL للتفويض، ويفتح متصفحك متى أمكن، وينتظر استدعاء OAuth الراجع (callback) على منفذ loopback محلي. تُخزَّن الـ tokens مؤقتًا في <code>~/.hermes/mcp-tokens/&lt;server&gt;.json</code> بصلاحيات 0o600؛ وتعيد التشغيلات اللاحقة استخدامها بصمت إلى أن يفشل التجديد.</p>
+<p><strong>الأجهزة البعيدة / غير التفاعلية (headless).</strong> عندما يعمل Hermes على جهاز غير الجهاز الذي يعمل عليه متصفحك، لا يستطيع الـ callback عبر loopback الوصول إلى حاسوبك المحمول. هذه طرق إكمال التدفق:</p>
+<ul>
+<li><strong>Hermes Desktop (تلقائيًا):</strong> عندما تُجري تسجيل الدخول عبر OAuth من واجهة إعداد MCP في تطبيق Desktop مع backend بعيد، يستضيف Desktop مستمع الـ callback على جهازك <em>أنت</em> ويُرحِّل التفويض إلى الـ gateway تلقائيًا — دون الحاجة إلى نفق أو لصق أو proxy. يتطلب ذلك أن يكون كلٌّ من تطبيق Desktop والـ backend محدَّثَين.</li>
+<li><strong>اللصق العكسي (دون إعداد):</strong> في الطرفية التفاعلية يطبع Hermes الرسالة &quot;Or paste the redirect URL here…&quot; إلى جانب عنوان URL للتفويض. افتح العنوان في متصفحك، ووافق، ثم انسخ عنوان URL الكامل الذي ينتهي إليه المتصفح (ستُظهر إعادة التوجيه خطأ في الاتصال — وهذا متوقع)، والصقه عند المطالبة. تعمل أيضًا سلاسل الاستعلام المجردة <code>?code=…&amp;state=…</code>.</li>
+<li><strong>تسجيل الدخول برمز الجهاز (دون أي callback):</strong> إذا كان خادم التفويض الخاص بالخادم يُعلن عن endpoint لتفويض الأجهزة، فشغّل <code>hermes mcp login &lt;server&gt; --flow device</code> على الجهاز الذي يعمل عليه Hermes. سيطبع عنوان URL للتحقق ورمزًا قصيرًا؛ افتح العنوان على أي جهاز، وأدخل الرمز، وسيستطلع Hermes حالة الموافقة. لا يُفتح أي متصفح على المضيف ولا حاجة إلى مستمع callback. اضبط <code>oauth.flow: device</code> على الخادم لجعل <code>login</code> و<code>reauth</code> يستخدمانه افتراضيًا. التفاصيل: <a href="/docs/reference/mcp-config-reference#device-code-login-rfc-8628">تسجيل الدخول برمز الجهاز</a>.</li>
+<li><strong>توجيه منفذ SSH:</strong> شغّل <code>ssh -N -L &lt;port&gt;:127.0.0.1:&lt;port&gt; user@host</code> في طرفية منفصلة، ثم دع إعادة التوجيه تسير بشكل طبيعي.</li>
+<li><strong>Callback عبر proxy ‏(<code>redirect_uri</code>):</strong> عندما يكون هناك endpoint عام بـ HTTPS يُعيد التوجيه إلى المضيف (مثل Tailscale Funnel أو reverse proxy موجَّه إلى منفذ الـ callback)، اضبط <code>oauth.redirect_uri</code> وستصل إعادة توجيه المتصفح إلى Hermes من تلقاء نفسها — دون الحاجة إلى نفق أو لصق:</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>بالنسبة للـ gateways غير التفاعلية بالكامل (بوت مراسلة، دون أي طرفية تفاعلية)، ترشد <a href="/docs/user-guide/skills/optional/mcp/mcp-mcp-oauth-remote-gateway">المهارة الاختيارية <code>mcp-oauth-remote-gateway</code></a> الوكيلَ خلال إكمال التدفق يدويًا وكتابة الـ tokens في المكان الذي يتوقعه Hermes.</p>
+<p><strong>مشكلة شائعة — جدار WAF يرفض عناوين إعادة التوجيه <code>127.0.0.1</code>.</strong> يضع عدد قليل من المزوّدين أمام خادم التفويض لديهم جدار WAF يُرجع 403 لأي طلب تفويض تحتوي سلسلة استعلامه على <code>127.0.0.1</code> حرفيًا (ومن الأمثلة المعروفة AWS API Gateway الخاص بـ Reclaim.ai — إذ تُرجع كل محاولة <code>{&quot;message&quot;:&quot;Forbidden&quot;}</code> قبل الوصول إلى تطبيق OAuth). اضبط <code>oauth.redirect_host: localhost</code> لاستخدام <code>http://localhost:&lt;port&gt;/callback</code> بدلًا منه؛ وسيظل مستمع الـ callback مرتبطًا بـ <code>127.0.0.1</code> في الحالتين.</p>
+<p>راجع <a href="/docs/guides/oauth-over-ssh#mcp-servers">OAuth عبر SSH / الأجهزة البعيدة</a> للاطلاع على الشرح الكامل، بما في ذلك الخوادم التي لا تدعم DCR (مثل Slack)، وقيم <code>client_id</code>/<code>client_secret</code> المسجّلة مسبقًا، وتخصيص النطاقات (scopes)، وإعادة المصادقة عبر <code>hermes mcp login &lt;server&gt;</code>.</p>
+<p><strong>مشكلة شائعة — مزوّدون لا يدعمون التسجيل التلقائي (Google Drive و Atlassian).</strong> ترفض بعض الخوادم خطوة التسجيل الديناميكي للعميل (RFC 7591) التي يعتمد عليها <code>auth: oauth</code> المجرد — فخادم Drive الرسمي من Google ‏(<code>https://drivemcp.googleapis.com/mcp/v1</code>) يُرجع <code>400 Bad Request</code>، فلا يُنشأ أي عميل OAuth ولا يُحصل على أي token. العَرَض خفي: فهذه الخوادم تقدّم أيضًا <code>tools/list</code> <em>دون</em> مصادقة، لذا يستطيع <code>hermes mcp login</code> سرد الأدوات ويبدو وكأنه نجح، لكن كل استدعاء فعلي لأداة ينتهي لاحقًا بانتهاء المهلة. أصبح <code>hermes mcp login</code> الآن يكتشف هذه الحالة (إذ يتحقق من أن الـ token حُفظ فعلًا على القرص) ويطلب منك توفير عميل OAuth خاص بك. أنشئ واحدًا في وحدة التحكم الخاصة بالمزوّد وأضفه إلى الإعدادات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>ثم شغّل <code>hermes mcp login googledrive</code> — ومع العميل المسجّل مسبقًا، يتخطى Hermes خطوة التسجيل وينفّذ تدفق التفويض المعتاد عبر المتصفح.</p>
+<p><strong>مشكلة شائعة — تعارض توقيت إعادة التحميل التلقائي للإعدادات.</strong> عندما تعدّل <code>~/.hermes/config.yaml</code> من داخل جلسة Hermes قيد التشغيل، يعيد CLI تحميل اتصالات MCP تلقائيًا بمهلة 30 ثانية. وهذا لا يكفي لتدفق OAuth تفاعلي. أضف الإدخال، ثم شغّل <code>hermes mcp login &lt;server&gt;</code> من طرفية جديدة — إذ ينتظر 5 دقائق كاملة حتى تُكمل المصادقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mtls--client-certificates">mTLS / شهادات العميل</h2>
+<p>خوادم HTTP MCP البعيدة التي تتطلب TLS المتبادل (المصادقة بشهادة العميل) مدعومة عبر <code>client_cert</code> / <code>client_key</code>. يمرّر Hermes الشهادة بعد تحديدها إلى عميل HTTP الأساسي لإجراء مصافحة TLS.</p>
+<p>يقبل <code>client_cert</code> ثلاثة أشكال:</p>
+<ul>
+<li><strong>مسار PEM واحد مدمج</strong> — ملف واحد يحتوي على الشهادة والمفتاح الخاص معًا:</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<ul>
+<li><strong>ثنائية <code>[cert, key]</code></strong> — الشهادة والمفتاح في ملفين منفصلين (يعادل ضبط <code>client_cert</code> + <code>client_key</code>):</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<ul>
+<li><strong>ثلاثية <code>[cert, key, password]</code></strong> — عندما يكون المفتاح الخاص مشفّرًا، يكون العنصر الثالث هو عبارة مرور المفتاح:</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يمكنك أيضًا إبقاء الشهادة والمفتاح منفصلين تمامًا عبر <code>client_cert</code> (PEM مدمج) مع <code>client_key</code> صريح. تدعم المسارات توسيع <code>~</code>؛ ويؤدي غياب ملف إلى خطأ واضح مرتبط بالخادم المعني، بدلًا من فشل غامض في مصافحة TLS.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-user-identity-header">ترويسة الهوية لكل مستخدم</h2>
+<p>يمكن إرسال ترويسة هوية مع كل طلب عبر <code>identity_header</code> إلى خوادم HTTP/SSE MCP البعيدة التي تبني سلوكها على هوية المستدعي (حدود المعدل لكل مستخدم، وسجلات التدقيق، والتوجيه متعدد المستأجرين):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<ul>
+<li>يرسل <code>value_from: static</code> القيمة الحرفية <code>value</code> من config.yaml.</li>
+<li>يرسل <code>value_from: profile</code> اسم profile النشط في Hermes، ويُحدَّد مرة واحدة عند الاتصال — وهذا مفيد عندما تتصل عدة profiles على جهاز واحد بالخادم نفسه ويحتاج هو إلى التمييز بينها.</li>
+</ul>
+<p>الإدخال الصريح في خريطة <code>headers</code> الخاصة بالخادم الذي يحمل الاسم نفسه (بأي حالة أحرف) هو الغالب دائمًا؛ فترويسة الهوية لا تتجاوز أبدًا إعدادات الترويسات الخاصة بك. تُصدر كتل <code>identity_header</code> غير الصالحة تحذيرًا ويتم تجاهلها — ولا تمنع الخادم من الاتصال أبدًا. أما في خوادم stdio فيُتجاهل المفتاح مع تحذير (إذ لا ترويسات في طبقات نقل stdio).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-configuration-reference">مرجع الإعدادات الأساسية</h2>
+<p>يقرأ Hermes إعدادات MCP من <code>~/.hermes/config.yaml</code> تحت المفتاح <code>mcp_servers</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-keys">المفاتيح الشائعة</h3>
+<table><thead><tr><th>المفتاح</th><th>النوع</th><th>المعنى</th></tr></thead><tbody><tr><td><code>command</code></td><td>string</td><td>الملف التنفيذي لخادم MCP من نوع stdio</td></tr><tr><td><code>args</code></td><td>list</td><td>وسائط خادم stdio</td></tr><tr><td><code>env</code></td><td>mapping</td><td>متغيرات البيئة المُمرَّرة إلى خادم stdio</td></tr><tr><td><code>url</code></td><td>string</td><td>endpoint لـ HTTP MCP</td></tr><tr><td><code>headers</code></td><td>mapping</td><td>ترويسات HTTP للخوادم البعيدة</td></tr><tr><td><code>client_cert</code></td><td>string | list</td><td>شهادة العميل لـ mTLS — مسار PEM مدمج، أو <code>[cert, key]</code> / <code>[cert, key, password]</code></td></tr><tr><td><code>client_key</code></td><td>string</td><td>مسار ملف PEM للمفتاح الخاص بالعميل (عندما يكون منفصلًا عن <code>client_cert</code>)</td></tr><tr><td><code>identity_header</code></td><td>mapping</td><td>ترويسة هوية اختيارية لكل مستخدم لخوادم HTTP/SSE — <code>{name, value_from: static|profile, value}</code></td></tr><tr><td><code>timeout</code></td><td>number</td><td>مهلة استدعاء الأداة</td></tr><tr><td><code>connect_timeout</code></td><td>number</td><td>مهلة الاتصال الأولي (وتحدّ أيضًا مصافحة <code>initialize</code> في MCP)</td></tr><tr><td><code>idle_timeout_seconds</code></td><td>number</td><td>إعادة تدوير خادم stdio بعد هذا العدد من الثواني دون أي استدعاء لأداة (<code>0</code> = أبدًا، وهي القيمة الافتراضية). يُعاد تشغيل الخادم بشفافية عند استدعاء الأداة التالي.</td></tr><tr><td><code>max_lifetime_seconds</code></td><td>number</td><td>إعادة تدوير خادم stdio بعد بلوغ هذا العمر الإجمالي (<code>0</code> = أبدًا، وهي القيمة الافتراضية). يُعاد تشغيله بشفافية عند الاستخدام التالي.</td></tr><tr><td><code>enabled</code></td><td>bool</td><td>إذا كانت القيمة <code>false</code>، يتخطى Hermes الخادم كليًا</td></tr><tr><td><code>supports_parallel_tool_calls</code></td><td>bool</td><td>إذا كانت القيمة <code>true</code>، يمكن تشغيل أدوات هذا الخادم بالتزامن</td></tr><tr><td><code>tools</code></td><td>mapping</td><td>تصفية الأدوات وسياسة الأدوات المساعدة لكل خادم</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-stdio-example">مثال stdio بسيط</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recycling-memory-heavy-stdio-servers">إعادة تدوير خوادم stdio كثيفة استهلاك الذاكرة</h3>
+<p>تُبقي خوادم MCP المعتمدة على المتصفح (مثل <code>@playwright/mcp</code>) نسخة Chromium كاملة
+في الذاكرة بعد أول استدعاء لأداة — أي مئات الميغابايتات التي لا
+تُحرَّر أبدًا. فعّل إعادة التدوير التلقائية، وسيُوقَف الخادم بعد
+بلوغ حد الخمول/العمر، ثم يُعاد تشغيله بشفافية في المرة التالية التي تُستدعى فيها إحدى
+أدواته (وتبقى أدواته مسجّلة طوال الوقت):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-http-example">مثال HTTP بسيط</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="built-in-presets">الإعدادات المسبقة المدمجة (Presets)</h2>
+<p>بالنسبة لخوادم MCP المعروفة، يقبل <code>hermes mcp add</code> الخيار <code>--preset</code> الذي يملأ تفاصيل طبقة النقل حتى لا تضطر إلى البحث عن الأمر والوسائط. يوفّر الإعداد المسبق القيم الافتراضية فقط — وأي شيء آخر تمرّره في سطر الأوامر نفسه (متغيرات البيئة، والترويسات، والتصفية) يبقى هو الغالب.</p>
+<table><thead><tr><th>الإعداد المسبق</th><th>ما يربطه</th></tr></thead><tbody><tr><td><code>codex</code></td><td>خادم MCP الخاص بـ Codex CLI ‏(<code>codex mcp-server</code> عبر stdio). يتطلب وجود CLI ‏<code>codex</code> ضمن PATH.</td></tr></tbody></table>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يكتب ذلك ما يعادل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>يمكنك اختيار أي اسم محلي (<code>hermes mcp add my-codex --preset codex</code> لا بأس به)؛ فالإعداد المسبق يوفّر فقط القيم الافتراضية لـ <code>command</code>/<code>args</code>.</p>

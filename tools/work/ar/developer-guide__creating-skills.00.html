@@ -1,0 +1,173 @@
+<header><h1>إنشاء المهارات (Skills)</h1></header>
+<p>المهارات (Skills) هي الطريقة المفضّلة لإضافة قدرات جديدة إلى Hermes Agent. إنشاؤها أسهل من إنشاء الأدوات، ولا تتطلب أي تعديل في كود الوكيل، ويمكن مشاركتها مع المجتمع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="should-it-be-a-skill-or-a-tool">هل تكون مهارة (Skill) أم أداة (Tool)؟</h2>
+<p>اجعلها <strong>مهارة (Skill)</strong> عندما:</p>
+<ul>
+<li>يمكن التعبير عن القدرة عبر تعليمات + أوامر shell + أدوات موجودة مسبقًا</li>
+<li>تُغلّف CLI أو API خارجيًا يستطيع الوكيل استدعاءه عبر <code>terminal</code> أو <code>web_extract</code></li>
+<li>لا تحتاج إلى تكامل Python مخصّص أو إدارة مفاتيح API مدمجة داخل الوكيل</li>
+<li>أمثلة: البحث في arXiv، سير عمل git، إدارة Docker، معالجة PDF، البريد الإلكتروني عبر أدوات CLI</li>
+</ul>
+<p>اجعلها <strong>أداة (Tool)</strong> عندما:</p>
+<ul>
+<li>تتطلب تكاملًا شاملًا مع مفاتيح API أو مسارات مصادقة (auth) أو إعدادات متعددة المكوّنات</li>
+<li>تحتاج إلى منطق معالجة مخصّص يجب أن يُنفَّذ بدقة في كل مرة</li>
+<li>تتعامل مع بيانات ثنائية أو بث (streaming) أو أحداث فورية (real-time)</li>
+<li>أمثلة: أتمتة المتصفح، TTS، تحليل الرؤية (vision)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-directory-structure">بنية دليل المهارة</h2>
+<p>المهارات المضمّنة (Bundled) توجد في <code>skills/</code> مصنّفة حسب الفئة. المهارات الاختيارية (Optional) الرسمية تستخدم البنية نفسها في <code>optional-skills/</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skillmd-format">صيغة SKILL.md</h2>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-specific-skills">المهارات الخاصة بمنصة معينة</h3>
+<p>يمكن للمهارات أن تقتصر على أنظمة تشغيل محدّدة باستخدام الحقل <code>platforms</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>عند ضبط هذا الحقل، تُخفى المهارة تلقائيًا من الـ system prompt ومن <code>skills_list()</code> ومن slash commands على المنصات غير المتوافقة. وإذا تُرك فارغًا أو لم يُذكر، تُحمَّل المهارة على كل المنصات (توافقًا مع الإصدارات السابقة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conditional-skill-activation">التفعيل الشرطي للمهارة</h3>
+<p>يمكن للمهارات أن تعلن اعتماديات (dependencies) على أدوات أو toolsets محدّدة، وهذا يحدّد ما إذا كانت المهارة تظهر في الـ system prompt لجلسة معيّنة أم لا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<table><thead><tr><th>الحقل</th><th>السلوك</th></tr></thead><tbody><tr><td><code>requires_toolsets</code></td><td>تكون المهارة <strong>مخفيّة</strong> عندما يكون أي toolset من القائمة <strong>غير</strong> متاح</td></tr><tr><td><code>requires_tools</code></td><td>تكون المهارة <strong>مخفيّة</strong> عندما تكون أي أداة من القائمة <strong>غير</strong> متاحة</td></tr><tr><td><code>fallback_for_toolsets</code></td><td>تكون المهارة <strong>مخفيّة</strong> عندما يكون أي toolset من القائمة <strong>متاحًا</strong></td></tr><tr><td><code>fallback_for_tools</code></td><td>تكون المهارة <strong>مخفيّة</strong> عندما تكون أي أداة من القائمة <strong>متاحة</strong></td></tr></tbody></table>
+<p><strong>حالة استخدام <code>fallback_for_*</code>:</strong> أنشئ مهارة تعمل كحل بديل عندما لا تكون أداة أساسية متاحة. على سبيل المثال، مهارة <code>duckduckgo-search</code> مع <code>fallback_for_tools: [web_search]</code> لا تظهر إلا عندما لا تكون أداة البحث في الويب (التي تتطلب مفتاح API) مضبوطة.</p>
+<p><strong>حالة استخدام <code>requires_*</code>:</strong> أنشئ مهارة لا معنى لها إلا مع وجود أدوات معيّنة. على سبيل المثال، مهارة سير عمل لاستخراج بيانات الويب (web scraping) مع <code>requires_toolsets: [web]</code> لن تُثقل الـ prompt عندما تكون أدوات الويب معطّلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-requirements">متطلبات متغيرات البيئة</h3>
+<p>يمكن للمهارات أن تعلن متغيرات البيئة التي تحتاجها. عند تحميل مهارة عبر <code>skill_view</code>، تُسجَّل متغيراتها المطلوبة تلقائيًا لتمريرها (passthrough) إلى بيئات التنفيذ المعزولة (terminal، execute_code).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يدعم كل عنصر:</p>
+<ul>
+<li><code>name</code> (مطلوب) — اسم متغير البيئة</li>
+<li><code>prompt</code> (اختياري) — نص السؤال عند طلب القيمة من المستخدم</li>
+<li><code>help</code> (اختياري) — نص مساعدة أو رابط للحصول على القيمة</li>
+<li><code>required_for</code> (اختياري) — يصف الميزة التي تحتاج هذا المتغير</li>
+</ul>
+<p>يمكن للمستخدمين أيضًا ضبط متغيرات التمرير يدويًا في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>راجع <code>skills/apple/</code> للاطلاع على أمثلة عن مهارات خاصة بـ macOS فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="secure-setup-on-load">الإعداد الآمن عند التحميل</h2>
+<p>استخدم <code>required_environment_variables</code> عندما تحتاج المهارة إلى مفتاح API أو رمز مصادقة (token). القيم المفقودة <strong>لا</strong> تُخفي المهارة عن الاكتشاف؛ بل يطلبها Hermes بأمان عند تحميل المهارة في CLI المحلي.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يمكن للمستخدم تخطّي الإعداد ومواصلة تحميل المهارة. لا يكشف Hermes أبدًا قيمة السرّ الفعلية للنموذج. تعرض جلسات الـ gateway والمراسلة إرشادات إعداد محلية بدلًا من جمع الأسرار ضمن المحادثة نفسها.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>تمرير Sandbox</div><div class="admonitionContent_BuS1"><p>عند تحميل مهارتك، فإن أي متغيرات بيئة معلَنة ضمن <code>required_environment_variables</code> ومضبوطة فعليًا <strong>تُمرَّر تلقائيًا</strong> إلى بيئات <code>execute_code</code> و<code>terminal</code> المعزولة — بما فيها terminal backends البعيدة مثل Docker وModal. يمكن لسكربتات مهارتك الوصول إلى <code>$TENOR_API_KEY</code> (أو <code>os.environ[&quot;TENOR_API_KEY&quot;]</code> في Python) دون أن يحتاج المستخدم إلى ضبط أي شيء إضافي. راجع <a href="/docs/user-guide/security#environment-variable-passthrough">تمرير متغيرات البيئة</a> للتفاصيل.</p></div></div>
+<p>يبقى <code>prerequisites.env_vars</code> القديم مدعومًا كاسم بديل متوافق مع الإصدارات السابقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-settings-configyaml">إعدادات التهيئة (config.yaml)</h3>
+<p>يمكن للمهارات أن تعلن إعدادات غير سرّية تُخزَّن في <code>config.yaml</code> ضمن مساحة الاسم <code>skills.config</code>. وخلافًا لمتغيرات البيئة (وهي أسرار تُخزَّن في <code>.env</code>)، تُستخدم إعدادات التهيئة للمسارات والتفضيلات وقيم أخرى غير حسّاسة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يدعم كل عنصر:</p>
+<ul>
+<li><code>key</code> (مطلوب) — المسار النقطي (dotpath) للإعداد (مثلًا <code>myplugin.path</code>)</li>
+<li><code>description</code> (مطلوب) — يشرح ما يتحكم فيه الإعداد</li>
+<li><code>default</code> (اختياري) — القيمة الافتراضية إذا لم يضبطها المستخدم</li>
+<li><code>prompt</code> (اختياري) — نص يُعرض أثناء <code>hermes config migrate</code>؛ ويرجع افتراضيًا إلى <code>description</code></li>
+</ul>
+<p><strong>كيف تعمل الآلية:</strong></p>
+<ol>
+<li>
+<p><strong>التخزين:</strong> تُكتب القيم في <code>config.yaml</code> ضمن <code>skills.config.&lt;key&gt;</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+</li>
+<li>
+<p><strong>الاكتشاف:</strong> يقوم <code>hermes config migrate</code> بمسح كل المهارات المفعّلة، ويجد الإعدادات غير المضبوطة، ويطلبها من المستخدم. تظهر الإعدادات أيضًا في <code>hermes config show</code> تحت &quot;Skill Settings&quot;.</p>
+</li>
+<li>
+<p><strong>الحقن وقت التشغيل:</strong> عند تحميل مهارة، تُحلَّل قيم إعداداتها وتُضاف إلى رسالة المهارة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يرى الوكيل القيم المضبوطة دون الحاجة لقراءة <code>config.yaml</code> بنفسه.</p>
+</li>
+<li>
+<p><strong>الإعداد اليدوي:</strong> يمكن للمستخدمين أيضًا ضبط القيم مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>متى تستخدم كلًا منهما</div><div class="admonitionContent_BuS1"><p>استخدم <code>required_environment_variables</code> لمفاتيح API والرموز (tokens) وغيرها من <strong>الأسرار</strong> (تُخزَّن في <code>~/.hermes/.env</code>، ولا تُعرض أبدًا للنموذج). واستخدم <code>config</code> <strong>للمسارات والتفضيلات والإعدادات غير الحسّاسة</strong> (تُخزَّن في <code>config.yaml</code>، وتظهر في config show).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-file-requirements-oauth-tokens-etc">متطلبات ملفات بيانات الاعتماد (رموز OAuth وغيرها)</h3>
+<p>يمكن للمهارات التي تستخدم OAuth أو بيانات اعتماد قائمة على الملفات أن تعلن ملفات يجب تحميلها (mount) داخل بيئات sandbox البعيدة. وهذا مخصّص لبيانات الاعتماد المخزّنة كـ<strong>ملفات</strong> (وليس متغيرات بيئة) — وعادةً ما تكون ملفات رموز OAuth الناتجة عن سكربت إعداد.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يدعم كل عنصر:</p>
+<ul>
+<li><code>path</code> (مطلوب) — مسار الملف نسبةً إلى <code>~/.hermes/</code></li>
+<li><code>description</code> (اختياري) — يشرح ماهية الملف وكيفية إنشائه</li>
+</ul>
+<p>عند التحميل، يتحقق Hermes من وجود هذه الملفات. الملفات المفقودة تُطلق <code>setup_needed</code>. أما الملفات الموجودة فتُعامَل تلقائيًا كالتالي:</p>
+<ul>
+<li><strong>تُحمَّل (mount) في حاويات Docker</strong> كـ bind mounts للقراءة فقط</li>
+<li><strong>تُزامَن في بيئات Modal</strong> (عند الإنشاء + قبل كل أمر، بحيث تعمل عملية OAuth حتى في منتصف الجلسة)</li>
+<li>متاحة على terminal backend <strong>المحلي</strong> دون أي معالجة خاصة</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>متى تستخدم كلًا منهما</div><div class="admonitionContent_BuS1"><p>استخدم <code>required_environment_variables</code> لمفاتيح API والرموز (tokens) البسيطة (سلاسل نصية تُخزَّن في <code>~/.hermes/.env</code>). واستخدم <code>required_credential_files</code> لملفات رموز OAuth، وأسرار العميل (client secrets)، وملفات JSON لحسابات الخدمة، والشهادات، أو أي بيانات اعتماد تكون على شكل ملف على القرص.</p></div></div>
+<p>راجع <code>skills/productivity/google-workspace/SKILL.md</code> للاطلاع على مثال كامل يستخدم كلا الأسلوبين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-guidelines">إرشادات المهارات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-external-dependencies">دون اعتماديات خارجية</h3>
+<p>فضّل استخدام مكتبة Python القياسية (stdlib) وcurl وأدوات Hermes الموجودة (<code>web_extract</code>، <code>terminal</code>، <code>read_file</code>). إذا احتجت اعتمادية، وثّق خطوات تثبيتها في المهارة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="progressive-disclosure">الإفصاح التدريجي (Progressive Disclosure)</h3>
+<p>ضع سير العمل الأكثر شيوعًا أولًا. الحالات الاستثنائية والاستخدام المتقدّم يوضعان في الأسفل. هذا يبقي استهلاك الـ tokens منخفضًا في المهام الشائعة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="include-helper-scripts">أدرِج سكربتات مساعدة</h3>
+<p>لتحليل XML/JSON أو المنطق المعقّد، أدرِج سكربتات مساعدة في <code>scripts/</code> — لا تتوقّع من النموذج اللغوي كتابة محلّلات (parsers) بشكل مباشر (inline) في كل مرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="deliver-media-as-documents-as_document">تسليم الوسائط كمستندات (<code>[[as_document]]</code>)</h3>
+<p>إذا كانت مهارتك تُنتج لقطة شاشة عالية الدقة، أو رسمًا بيانيًا، أو أي صورة يضرّها ضغط المعاينة الفاقد للجودة — أدرِج التوجيه الحرفي <code>[[as_document]]</code> في مكان ما من الرد (عادةً في السطر الأخير). يزيل الـ gateway هذا التوجيه ويسلّم كل مسار وسائط مستخرَج في ذلك الرد كمرفق ملف قابل للتنزيل بدلًا من فقاعة صورة مضمّنة. راجع <a href="/docs/user-guide/features/skills#skill-output-and-media-delivery">مخرجات المهارة وتسليم الوسائط</a> للاطلاع على التفاصيل الكاملة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="referencing-bundled-scripts-from-skillmd">الإشارة إلى السكربتات المضمّنة من SKILL.md</h4>
+<p>عند تحميل مهارة، تعرض رسالة التفعيل دليل المهارة بمساره المطلق كـ <code>[Skill directory: /abs/path]</code>، كما تستبدل رمزين من القوالب في أي مكان من نص SKILL.md:</p>
+<table><thead><tr><th>الرمز</th><th>يُستبدَل بـ</th></tr></thead><tbody><tr><td><code>${HERMES_SKILL_DIR}</code></td><td>المسار المطلق لدليل المهارة</td></tr><tr><td><code>${HERMES_SESSION_ID}</code></td><td>معرّف الجلسة النشطة (يبقى كما هو إن لم توجد جلسة)</td></tr></tbody></table>
+<p>وهكذا يمكن لملف SKILL.md أن يطلب من الوكيل تشغيل سكربت مضمّن مباشرة بـ:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يرى الوكيل المسار المطلق بعد الاستبدال ويستدعي أداة <code>terminal</code> بأمر جاهز للتنفيذ — دون أي حسابات مسارات، ودون استدعاء إضافي لـ <code>skill_view</code>. عطّل الاستبدال عالميًا عبر <code>skills.template_vars: false</code> في <code>config.yaml</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="inline-shell-snippets-opt-in">مقتطفات shell مضمّنة (اختيارية بالتفعيل)</h4>
+<p>يمكن للمهارات أيضًا تضمين مقتطفات shell مضمّنة تُكتب كـ <code>!`cmd`</code> في نص SKILL.md. عند التفعيل، يُدرَج مخرج stdout لكل مقتطف داخل الرسالة قبل أن يقرأها الوكيل، بحيث يمكن للمهارات حقن سياق ديناميكي:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>هذه الميزة <strong>معطّلة افتراضيًا</strong> — لأن أي مقتطف في SKILL.md يُنفَّذ على الجهاز المضيف دون موافقة، فلا تفعّلها إلا لمصادر مهارات تثق بها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>تُنفَّذ المقتطفات مع دليل المهارة كدليل عمل لها، ويُحدّ المخرج بـ 4000 حرف. تظهر الإخفاقات (انتهاء المهلة، الخروج بقيمة غير صفرية) كعلامة قصيرة <code>[inline-shell error: ...]</code> بدلًا من كسر المهارة بأكملها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-it">اختبرها</h3>
+<p>شغّل المهارة وتحقّق من أن الوكيل يتّبع التعليمات بشكل صحيح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-should-the-skill-live">أين يجب أن تقيم المهارة؟</h2>
+<p>المهارات المضمّنة (في <code>skills/</code>) تُشحَن مع كل تثبيت لـ Hermes. يجب أن تكون <strong>مفيدة على نطاق واسع لمعظم المستخدمين</strong>:</p>
+<ul>
+<li>التعامل مع المستندات، بحث الويب، سير عمل التطوير الشائعة، إدارة النظام</li>
+<li>تُستخدَم بانتظام من قِبل شريحة واسعة من الأشخاص</li>
+</ul>
+<p>إذا كانت مهارتك رسمية ومفيدة لكن غير ضرورية للجميع (مثل تكامل مع خدمة مدفوعة، أو اعتمادية ثقيلة)، ضعها في <strong><code>optional-skills/</code></strong> — إذ تُشحَن مع المستودع، ويمكن اكتشافها عبر <code>hermes skills browse</code> (موسومة بـ &quot;official&quot;)، وتُثبَّت بثقة مدمجة.</p>
+<p>وإذا كانت مهارتك متخصّصة أو مقدَّمة من المجتمع أو محدودة الاستخدام، فإن <strong>Skills Hub</strong> يناسبها أكثر — ارفعها إلى سجل (registry) وشاركها عبر <code>hermes skills install</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="blueprints-skills-that-are-also-automations">Blueprints: مهارات تُعدّ أيضًا أتمتة</h2>
+<p><strong>Blueprint</strong> هو مهارة عادية تعلن إضافةً إلى ذلك جدولة زمنية في الـ frontmatter الخاص بها. أضف كتلة <code>metadata.hermes.blueprint</code> فتتحوّل المهارة إلى أتمتة قابلة للمشاركة والتشغيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>بما أن الـ blueprint <strong>هو</strong> مهارة، فإنه يمرّ عبر سلسلة معالجة المهارات (pipeline) كاملةً دون تغيير — البحث، والفحص، والتثبيت، وفحص الأمان، وتتبّع المصدر (provenance)، وtaps، والفهرس المركزي، وكذلك <code>hermes skills publish</code> للمشاركة. لا شيء جديد لتعلّمه.</p>
+<p><strong>تثبيت blueprint.</strong> عند تثبيت مهارة تحمل كتلة <code>blueprint:</code>، يسجّلها Hermes كـ<strong>مهمة cron مقترحة</strong> بدلًا من جدولتها مباشرة. الجدولة <strong>اختيارية بالانضمام (opt-in)</strong> — التثبيت لا يُنشئ أبدًا مهمة متكررة دون علمك. يمكنك مراجعتها وقبولها عبر <code>/suggestions</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>الـ blueprints هي أحد <strong>مصادر</strong> واجهة المهام المجدولة المقترحة (Suggested Cron Jobs) الموحّدة — المكان نفسه الذي تظهر فيه الأتمتة الأولية المُنسَّقة، وكذلك (لاحقًا) اقتراحات أنماط الاستخدام والتكاملات. راجع <a href="#suggested-cron-jobs">المهام المجدولة المقترحة</a> أدناه.</p>
+<p><strong>مشاركة أتمتة أنشأتها.</strong> يمكن تصدير blueprint حُمِّل عبر مهمة cron (<code>hermes cron create --skill &lt;name&gt; ...</code>) إلى ملف SKILL.md ونشره كأي مهارة أخرى، بحيث تتحوّل أتمتة ضبطتها لنفسك إلى تثبيت بأمر واحد لشخص آخر.</p>
+<p>لا تضيف طبقة الـ blueprint أي نوع كائن جديد، أو مخزن، أو وسيلة نقل — فالـ blueprint هو مهارة، والجدولة هي مهمة cron، والمشاركة هي مسار النشر/الـ tap/الفهرس الموجود أصلًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="suggested-cron-jobs">المهام المجدولة المقترحة</h2>
+<p>يستطيع Hermes <em>اقتراح</em> أتمتة والسماح لك بقبولها بنقرة واحدة، بدلًا من إجبارك على تجميع مهام cron يدويًا. يمرّ كل اقتراح عبر واجهة واحدة — الأمر <code>/suggestions</code> — بصرف النظر عن مصدره:</p>
+<table><thead><tr><th>المصدر</th><th>المُحفِّز</th></tr></thead><tbody><tr><td><code>catalog</code></td><td>أتمتة أولية مُنسَّقة (<code>/suggestions catalog</code>) — الملخّص اليومي، مراقبة البريد المهم، المراجعة الأسبوعية، تذكير بداية يوم العمل</td></tr><tr><td><code>blueprint</code></td><td>ثبّتّ مهارة تحمل كتلة <code>blueprint:</code></td></tr><tr><td><code>usage</code></td><td>لاحظت المراجعة الخلفية طلبًا متكررًا يمكن أن تخدمه جدولة</td></tr><tr><td><code>integration</code></td><td>ربطت حسابًا (Gmail، GitHub، ...) وتُعرَض الأتمتة الواضحة تلقائيًا</td></tr></tbody></table>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>قبول اقتراح يستدعي الدالة <code>cron.jobs.create_job</code> نفسها التي تستخدمها أداة <code>cronjob</code> — لا يوجد محرّك مهام ثانٍ. الاقتراحات <strong>لا</strong> تُنشئ مهامًا تلقائيًا أبدًا؛ القبول دائمًا صريح. تُقفل الاقتراحات المرفوضة عبر مفتاح ثابت بحيث لا يُعاد عرض الاقتراح نفسه مجددًا. قائمة الانتظار محدودة بحد أقصى بحيث لا تتحوّل أبدًا إلى جدار من التنبيهات المزعجة.</p>
+<p>مدخل الكتالوج <strong>مراقبة البريد المهم</strong> هو نمط الاستطلاع → التصنيف → العرض: يُقيّم عناصر البريد الوارد بنموذج تصنيف رخيص (<code>auxiliary.monitor</code> في <code>config.yaml</code>) ويسلّم فقط ما يتجاوز عتبة إلحاح معيّنة، ويبقى صامتًا فيما عدا ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="publishing-skills">نشر المهارات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="to-the-skills-hub">إلى Skills Hub</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="to-a-custom-repository">إلى مستودع مخصّص</h3>
+<p>أضف مستودعك كـ tap:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يمكن للمستخدمين حينها البحث والتثبيت من مستودعك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-scanning">فحص الأمان</h2>
+<p>تمرّ جميع المهارات المثبَّتة من الـ hub بفاحص أمان يتحقق من:</p>
+<ul>
+<li>أنماط تسريب البيانات (data exfiltration)</li>
+<li>محاولات حقن الـ prompt (prompt injection)</li>
+<li>الأوامر المدمِّرة</li>
+<li>حقن shell</li>
+</ul>
+<p>مستويات الثقة:</p>
+<ul>
+<li><code>builtin</code> — تُشحَن مع Hermes (موثوقة دائمًا)</li>
+<li><code>official</code> — من <code>optional-skills/</code> في المستودع (ثقة مدمجة، دون تحذير من طرف ثالث)</li>
+<li><code>trusted</code> — من openai/skills، anthropics/skills، huggingface/skills</li>
+<li><code>community</code> — يمكن تجاوز النتائج غير الخطيرة بـ <code>--force</code>؛ أما أحكام <code>dangerous</code> فتبقى محظورة</li>
+</ul>
+<p>أصبح بإمكان Hermes الآن استيعاب مهارات من أطراف ثالثة من عدة نماذج اكتشاف خارجية:</p>
+<ul>
+<li>معرّفات GitHub المباشرة (مثلًا <code>openai/skills/k8s</code>)</li>
+<li>معرّفات <code>skills.sh</code> (مثلًا <code>skills-sh/vercel-labs/json-render/json-render-react</code>)</li>
+<li>نقاط النهاية المعروفة (well-known endpoints) المُقدَّمة من <code>/.well-known/skills/index.json</code></li>
+</ul>
+<p>إذا أردت أن تكون مهاراتك قابلة للاكتشاف دون مُثبِّت مخصّص لـ GitHub، ففكّر في تقديمها من نقطة نهاية معروفة (well-known endpoint) إضافةً إلى نشرها في مستودع أو سوق (marketplace).</p>

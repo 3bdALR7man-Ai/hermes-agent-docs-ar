@@ -1,0 +1,83 @@
+<header><h1>Hermes Relay (الموصِّل)</h1></header>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="2"></x-keep></span>تجريبي</div><div class="admonitionContent_BuS1"><p>Relay ميزة <strong>تجريبية</strong>. قد يتغير عقد الاتصال (wire contract) ومخطط المصادقة والإعدادات دون دورة إهمال (deprecation) مسبقة، ما دام النظام قيد التحقق.</p></div></div>
+<p>Hermes Relay ليس منصة محادثة بحد ذاته — بل هو <strong>نظام موصِّلات (connector system)</strong> يتيح للـ gateway الخاص بك أن يكون واجهة أمامية لمنصة مراسلة حقيقية واحدة أو أكثر (Discord،
+Telegram، Slack، WhatsApp، …) <strong>دون الاحتفاظ بأي بيانات اعتماد للمنصات</strong>. إذ تتولى خدمة منفصلة، هي <em>الموصِّل (connector)</em>، امتلاك tokens البوتات والمقابس (sockets) الخاصة بالمنصات.
+يتصل الـ gateway <strong>خارجيًا</strong> بالموصِّل عبر اتصال WebSocket واحد مُصادَق عليه، ويستلم واصفًا للإمكانات (capability descriptor) أثناء المصافحة (handshake)، ثم يتبادل عبر ذلك المقبس أحداث رسائل موحَّدة (واردة) وإجراءات (صادرة).</p>
+<p>الخصائص الرئيسية:</p>
+<ul>
+<li><strong>اتصالات شبكية صادرة فقط.</strong> لا يفتح الـ gateway أي منفذ وارد أبدًا.
+تعود الرسائل الواردة عبر اتصال WebSocket نفسه الذي أنشأه الـ gateway، لذا يعمل relay خلف NAT وعلى المضيفين الذين لا يملكون عنوان IP عامًا.</li>
+<li><strong>لا أسرار للمنصات على الـ gateway.</strong> تبقى tokens البوتات على الموصِّل.
+وتُعاد استضافة عناوين URL للوسائط المحمية بالمصادقة على جانب الموصِّل، فلا تعبر بيانات اعتماد المنصات الاتصال أبدًا.</li>
+<li><strong>مستقل عن المنصة.</strong> يعرف الـ gateway ما تستطيع المنصة الأمامية فعله
+(حدود طول الرسائل، ولهجة markdown، ودعم التحرير وسلاسل الرسائل والبث المتدفق، والمجموعة الدقيقة من العمليات المدعومة) من واصف المصافحة، لا من منطق مُضمَّن مسبقًا لكل منصة.</li>
+</ul>
+<p>توجد الواجهة الرسمية بين الـ gateway ⇄ الموصِّل في المستودع ضمن
+<code>docs/relay-connector-contract.md</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-relay">متى تستخدم Relay</h2>
+<p>صُمّم Relay لعمليات النشر التي تدير فيها خدمة موصِّل مستضافة أو مشتركة جانب المنصة — مثل الاستضافة متعددة المستأجرين (multi-tenant) حيث يكون بوت مشترك واحد واجهة أمامية لوكلاء كثير من المستخدمين، أو الإعدادات التي لا تريد فيها وجود tokens البوتات على جهاز الـ gateway. أما إذا كنت تشغّل بوتاتك الخاصة مباشرة، فاستخدم محوِّلات المنصات الأصلية (<a href="/docs/user-guide/messaging/telegram">Telegram</a>،
+<a href="/docs/user-guide/messaging/discord">Discord</a>، وغيرها) بدلًا من ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enrollment">التسجيل (Enrollment)</h2>
+<p>يُصادِق الـ gateway المستضاف ذاتيًا لدى الموصِّل بسرّ خاص بكل gateway. يستبدل الأمر <code>hermes gateway enroll</code> <strong>enrollment token صالحًا لمرة واحدة</strong>
+(يُصدره الموصِّل عند تجهيز مسار المستأجر الخاص بك ويُسلَّم مع إعدادات الـ gateway) بذلك السرّ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ما يفعله:</p>
+<ol>
+<li>يستخرج access token جديدًا لـ Nous Portal من تسجيل دخولك الحالي
+(<code>~/.hermes/auth.json</code>) — وهذا يثبت أي مؤسسة (مستأجر) في Nous تملكها. إذا كان
+<code>gateway.idp.token_url</code> مضبوطًا، فيُستخدم مزوّد الهوية (IdP) الخاص بك بدلًا من ذلك (مسار البيئات المعزولة عن الشبكة / IdP المستضاف ذاتيًا، دون أي دور لـ Nous Portal): فإذا ضُبط
+<code>client_id</code>/<code>client_secret</code> ينفّذ منحة OAuth2 عامة من نوع client-credentials؛ وإذا لم يُضبط أيٌّ منهما يُعامَل الـ URL كـ token endpoint محيطي (طلب GET عادي يكون متن استجابته هو الـ token — وهو نمط خادم البيانات الوصفية، مثل <code>$DOMINO_API_PROXY/access-token</code> في Domino).
+ضبط واحدة فقط من قيمتي بيانات الاعتماد يُعدّ خطأً.</li>
+<li>يرسل عبر POST الـ enrollment token ومعرّف الـ gateway إلى endpoint ‏<code>/relay/enroll</code> في الموصِّل عبر TLS.</li>
+<li>يتحقق الموصِّل من الـ token (التوقيع، والاستخدام لمرة واحدة، ومطابقة المستأجر)، ثم يُصدر سرًّا خاصًا بالـ gateway ومفتاح تسليم خاصًا بالمستأجر، ويعيدهما مرة واحدة فقط.</li>
+<li>يحفظ بيانات الاعتماد في <code>~/.hermes/.env</code>:
+<code>GATEWAY_RELAY_ID</code>، <code>GATEWAY_RELAY_SECRET</code>، <code>GATEWAY_RELAY_DELIVERY_KEY</code>
+(إضافة إلى <code>GATEWAY_RELAY_URL</code> / <code>GATEWAY_RELAY_WAKE_URL</code> عند توفيرهما).</li>
+</ol>
+<p>أعد تشغيل الـ gateway بعد ذلك كي يلتقط البيئة الجديدة.</p>
+<p>الخيارات (flags):</p>
+<table><thead><tr><th>الخيار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>--token</code></td><td>الـ enrollment token الصالح لمرة واحدة. يمكن ضبطه أيضًا عبر <code>GATEWAY_RELAY_ENROLL_TOKEN</code>.</td></tr><tr><td><code>--connector-url</code></td><td>URL الأساسي للموصِّل أو URL الخاص بـ relay ‏(<code>wss://…/relay</code> أو <code>https://…</code>). يمكن ضبطه أيضًا عبر <code>GATEWAY_RELAY_URL</code> أو <code>gateway.relay_url</code> في <code>config.yaml</code>.</td></tr><tr><td><code>--gateway-id</code></td><td>معرّف ثابت لنسخة الـ gateway هذه (يُستخدم لدقة التحكم في مفتاح الإيقاف الطارئ kill-switch). القيمة الافتراضية <code>gw-&lt;hostname&gt;</code>.</td></tr><tr><td><code>--wake-url</code></td><td>URL اختياري يمكن الوصول إليه، ينبّهه الموصِّل (بطلب GET بلا حمولة) لإيقاظ هذا الـ gateway عند وصول عمل مخزَّن مؤقتًا أثناء خموله. يُحفَظ بوصفه <code>GATEWAY_RELAY_WAKE_URL</code>. وبدونه يظل الـ gateway يستنزف الرسائل المخزَّنة كلما أعاد الاتصال لاحقًا.</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="3"></x-keep></span>التثبيتات المُدارة</div><div class="admonitionContent_BuS1"><p>يرفض <code>hermes gateway enroll</code> العمل في التثبيتات المُدارة/المستضافة — إذ تتولى منصة الاستضافة هناك تجهيز سرّ relay مباشرة في بيئة الحاوية.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>يُفعَّل Relay عند ضبط URL خاص بـ relay الموصِّل. لإبقاء profile ما خارج relay حتى عندما يحقن النشر URL، عطّل المنصة في
+<code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ul>
+<li><strong>التعطيل الصريح له الأولوية.</strong> مع <code>enabled: false</code> لا يستخرج الـ gateway أي identity token، ولا يجهّز بيانات اعتماد <code>GATEWAY_RELAY_*</code> أو يعيد كتابتها، ولا يسجّل محوِّل relay ولا يرسل سياسة الصلة (relevance policy) — حتى مع ضبط <code>gateway.relay_url</code>
+أو <code>GATEWAY_RELAY_URL</code>. تتصل محوِّلات المراسلة الأصلية كما لو لم يكن هناك URL لـ relay، ولا يعامل تسليم cron أي منصة على أنها تمر عبر relay.</li>
+<li><strong>حذف <code>enabled</code> يُبقي التفعيل المعتمد على الـ URL.</strong> يظل <code>enabled: true</code> بحاجة إلى URL للموصِّل. أما ضبط <code>gateway.json</code> على <code>enabled: false</code> فهو استرشادي فقط، كما هو الحال مع كل منصة أخرى؛ ضع إلغاء الاشتراك في <code>config.yaml</code> (الخاص بالمستخدم أو المُدار).</li>
+</ul>
+<p>يُستمَد القرار من الملفات نفسها وعملية الدمج نفسها التي يستخدمها مُحمِّل الـ gateway (المستوى الأعلى أو كتلة <code>gateway.platforms</code>، والطبقة المُدارة)، ويُطبَّق وقت التفعيل.
+أعد تشغيل الـ gateway بعد تغييره؛ فمقبس relay المفتوح لا يُغلَق تلقائيًا.
+يبقى <code>hermes gateway enroll</code> متاحًا أثناء تعطيل relay وقت التشغيل.</p>
+<table><thead><tr><th>الإعداد</th><th>الموضع</th><th>المعنى</th></tr></thead><tbody><tr><td><code>GATEWAY_RELAY_URL</code></td><td>env (<code>~/.hermes/.env</code>)</td><td>عنوان WebSocket URL الخاص بـ relay الموصِّل. يفعّل relay ما لم يُعطَّل صراحةً في إعدادات المنصة.</td></tr><tr><td><code>gateway.relay_url</code></td><td><code>config.yaml</code></td><td>مثل السابق، بصيغة ملف الإعدادات (متغير البيئة له الأولوية).</td></tr><tr><td><code>GATEWAY_RELAY_ID</code></td><td>env</td><td>معرّف نسخة الـ gateway هذه (يكتبه <code>enroll</code>).</td></tr><tr><td><code>GATEWAY_RELAY_SECRET</code></td><td>env</td><td>السرّ الخاص بالـ gateway الذي يُصادِق ترقية اتصال WebSocket (يكتبه <code>enroll</code>).</td></tr><tr><td><code>GATEWAY_RELAY_DELIVERY_KEY</code></td><td>env</td><td>مفتاح التسليم الخاص بالمستأجر (يكتبه <code>enroll</code>؛ ويُحتفَظ به للتوافق المستقبلي).</td></tr><tr><td><code>GATEWAY_RELAY_WAKE_URL</code> / <code>gateway.relay_wake_url</code></td><td>env / <code>config.yaml</code></td><td>وجهة اختيارية لتنبيه الإيقاظ للـ gateways الخاملة أو المعلّقة.</td></tr><tr><td><code>GATEWAY_RELAY_PLATFORMS</code></td><td>env</td><td>قائمة مفصولة بفواصل بالمنصات التي يكون هذا الـ gateway واجهة أمامية لها عبر اتصال واحد (مثل <code>discord,telegram</code>). تُضبط عادةً من قِبل النشر أو أداة التنسيق (orchestrator).</td></tr><tr><td><code>GATEWAY_RELAY_BOT_IDS</code></td><td>env</td><td>خريطة JSON لهويات البوتات لكل منصة، مثل <code>{&quot;discord&quot;: {&quot;botId&quot;: &quot;…&quot;}}</code>. تُستخدم مع <code>GATEWAY_RELAY_PLATFORMS</code>.</td></tr><tr><td><code>gateway.idp.token_url</code></td><td><code>config.yaml</code></td><td>عند ضبطه، يُصادِق التسجيل والتجهيز لدى IdP الخاص بك بدلًا من Nous Portal: عبر OAuth2 client-credentials عندما يُضبط <code>gateway.idp.client_id</code>/<code>client_secret</code> أيضًا؛ وإلا فعبر token endpoint محيطي (طلب GET عادي يعيد الـ token، إما خامًا أو بصيغة <code>{&quot;access_token&quot;: …}</code>).</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-capabilities">الإمكانات المدعومة</h2>
+<p>يُتفاوَض أثناء المصافحة على ما يعمل فعليًا عبر اتصال relay: إذ يُعلن الموصِّل قائمة <code>supported_ops</code>، ولا يستخدم الـ gateway إلا العمليات التي يُعلنها الموصِّل صراحةً (ترجع الموصِّلات الأقدم احتياطيًا إلى مجموعة قديمة هي <code>send</code>/<code>edit</code>/<code>typing</code>/<code>follow_up</code>). كذلك تأتي علامات الإمكانات الخاصة بكل منصة
+(البث المتدفق القائم على التحرير، وسلاسل الرسائل، وبث المسودات، ولهجة markdown، وحد طول الرسالة) من واصف المصافحة. ورهنًا بذلك التفاوض، يدعم relay ما يلي:</p>
+<ul>
+<li><strong>الرسائل النصية والبث المتدفق</strong> — الإرسال والردود، والبث المتدفق التدريجي القائم على التحرير عندما تدعم المنصة الأمامية تحرير الرسائل؛ وإلا تتراجع المخرجات إلى رسالة واحدة لكل مقطع.</li>
+<li><strong>الوسائط في الاتجاهين</strong> — تُرفع الصور والملاحظات الصوتية والصوت والفيديو والمستندات الصادرة إلى الموصِّل (أو يُشار إليها عبر URL عام)، وتُسلَّم عبر مسار الرفع الأصلي لكل منصة، مع التعليقات النصية.
+تُحوَّل المرفقات الواردة إلى ملفات محلية للوكيل؛ وتُعاد استضافة عناوين URL للمنصات المحمية بالمصادقة على جانب الموصِّل، فلا تصل بيانات اعتماد المنصات إلى الـ gateway أبدًا. الحد الأقصى لإعادة استضافة الوسائط 25 MB، وتنتهي صلاحيتها (بعد نحو ساعة).</li>
+<li><strong>مطالبات تفاعلية أصلية</strong> — تُعرض موافقات التنفيذ والتأكيدات وأسئلة التوضيح باستخدام <strong>عناصر تحكم أصلية للمنصة</strong> (أزرار Discord،
+ولوحات المفاتيح المضمّنة في Telegram، وإجراءات Slack Block Kit، ورسائل الأزرار/القوائم في WhatsApp) بدلًا من البدائل النصية المرقّمة. تعود نقرات الأزرار كاستجابات مُصادَق عليها من المستخدم الذي نقر فعلًا، لذا تُطبَّق بوابات التفويض في الـ gateway تمامًا كما تُطبَّق على الرد المكتوب. ويُفرَض انتهاء صلاحية المطالبات على جانب الـ gateway.</li>
+<li><strong>دورة حياة تفاعلات الإقرار</strong> — تعمل تفاعلات حالة المعالجة الخاصة بالبوت
+(👀 أثناء العمل، و ✅/❌ عند الاكتمال) عبر relay. التفاعلات بأفضل جهد: فشل تفاعل ما لا يُفشل الدور أبدًا.</li>
+<li><strong>دورة حياة سلاسل الرسائل</strong> — إنشاء سلاسل التسليم وإعادة تسمية السلاسل
+(بما في ذلك إعادة التسمية الدلالية التي يقترح LLM عناوينها) عبر عمليتَي
+<code>thread_create</code> / <code>thread_rename</code> المجرّدتين عن المنصة، مع حماية من الكتابة فوق التسمية بحيث تكون الأولوية لإعادة التسمية اليدوية التي يجريها شخص. يعتمد التوفر على المنصة (مثلًا لا يمكن إعادة تسمية سلاسل Slack؛ وWhatsApp لا يملك سلاسل رسائل).</li>
+<li><strong>مؤشرات الكتابة</strong> — يُرسل الـ gateway مؤشر الكتابة (وإيقافه) عبر الموصِّل أثناء المعالجة.</li>
+<li><strong>البيانات الوصفية للمحادثة</strong> — تُمرَّر استعلامات <code>get_chat_info</code> إلى الموصِّل عندما يُعلن دعمها.</li>
+<li><strong>التسليم المخزَّن والإيقاظ</strong> — عندما يصبح الـ gateway خاملًا أو ينقطع اتصاله، يخزّن الموصِّل الرسائل الواردة بشكل دائم ويعيد تشغيلها بالترتيب عند إعادة الاتصال (مع اشتراط الإقرار، دون فقدان أو تكرار). وإذا سُجّل URL للإيقاظ، ينبّهه الموصِّل عند وصول عمل مخزَّن لـ gateway نائم.</li>
+</ul>
+<p>الواجهة الأمامية لعدة منصات مدعومة: يمكن لـ gateway واحد أن يكون واجهة أمامية لعدة منصات
+(مثل Discord <em>و</em> Telegram) عبر اتصال relay واحد، مع وسم كل رسالة صادرة بالمنصة التي تستهدفها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>فشل التسجيل مع 401</strong> — لم يتمكن الموصِّل من التحقق من identity token الخاص بك. أعد تسجيل الدخول باستخدام <code>hermes auth add nous</code> (أو <code>hermes setup</code>) ثم أعد المحاولة.</p>
+<p><strong>فشل التسجيل مع 403</strong> — الـ enrollment token غير صالح، أو منتهي الصلاحية، أو سبق استخدامه، أو يخص مستأجرًا مختلفًا. الـ enrollment tokens صالحة لمرة واحدة؛ اطلب token جديدًا ممن جهّز مسار المستأجر الخاص بك.</p>
+<p><strong>&quot;Could not reach the connector&quot;</strong> — تحقّق من URL الموصِّل. يمكنك لصق عنوان الاتصال <code>wss://…/relay</code> أو العنوان الأساسي <code>https://…</code>؛ إذ تحوّل CLI بينهما تلقائيًا.</p>
+<p><strong><code>enroll</code> يرفض العمل</strong> — أنت في تثبيت مُدار/مستضاف، حيث تتولى منصة الاستضافة تجهيز سرّ relay. التسجيل الذاتي مخصص للـ gateways المستضافة ذاتيًا فقط.</p>
+<p><strong>تظهر منصة relay معطّلة بعد أن كانت تعمل سابقًا</strong> — إغلاق اتصال WebSocket بالرمز 4401 <em>بعد</em> مصافحة ناجحة يعني أن سرّ الـ gateway قد أُلغي (مثلًا لأن النسخة أُلغي تجهيزها). يتوقف الـ gateway عمدًا عن إعادة الاتصال ويُبلغ بأن relay معطّل بدلًا من إعادة المحاولة. أما الرمز 4401
+<em>قبل</em> أي مصافحة ناجحة فيُعامَل كحالة سباق عابرة ناتجة عن عدم اكتمال التجهيز بعد، وتُعاد المحاولة بشكل طبيعي.</p>
+<p><strong>لم يتغير شيء بعد التسجيل</strong> — يقرأ الـ gateway متغيرات <code>GATEWAY_RELAY_*</code> عند بدء التشغيل. أعد تشغيله (<code>hermes gateway restart</code>).</p>
+<p><strong>تتراجع ميزة ما (الأزرار، الوسائط، سلاسل الرسائل…) بصمت إلى نص عادي</strong> — لم يُعلن الموصِّل الخاص بمنصتك تلك العملية في
+<code>supported_ops</code> أثناء المصافحة. يرجع الـ gateway عمدًا إلى السلوك النصي بدلًا من إرسال عملية لا يستطيع الموصِّل التعامل معها.</p>

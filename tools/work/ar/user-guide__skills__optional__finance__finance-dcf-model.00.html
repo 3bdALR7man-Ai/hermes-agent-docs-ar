@@ -1,0 +1,74 @@
+
+<header><h1>Dcf Model</h1></header>
+<p>ابنِ نماذج تقييم التدفقات النقدية المخصومة (Discounted Cash Flow) في Excel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/finance/dcf-model</code></td></tr><tr><td>المسار</td><td><code>optional-skills/finance/dcf-model</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Anthropic (بتكييف من Nous Research)</td></tr><tr><td>الترخيص</td><td>Apache-2.0</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>finance</code>, <code>valuation</code>, <code>dcf</code>, <code>excel</code>, <code>openpyxl</code>, <code>modeling</code>, <code>investment-banking</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/finance/finance-excel-author"><code>excel-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-pptx-author"><code>pptx-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-comps-analysis"><code>comps-analysis</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-lbo-model"><code>lbo-model</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-3-statement-model"><code>3-statement-model</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment">البيئة</h2>
+<p>تفترض هذه المهارة استخدام <strong>openpyxl بلا واجهة رسومية (headless)</strong> — أنت تُنتج ملف .xlsx على القرص.
+اتّبع اصطلاحات مهارة <code>excel-author</code> فيما يخص تلوين الخلايا والصيغ والنطاقات المسمّاة وجداول الحساسية.
+أعِد الحساب قبل التسليم: <code>python /path/to/excel-author/scripts/recalc.py ./out/model.xlsx</code>.</p>
+<h1>باني نموذج DCF</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>تُنشئ هذه المهارة نماذج DCF بجودة مؤسسية لتقييم الأسهم وفق معايير الخدمات المصرفية الاستثمارية. ينتج كل تحليل نموذج Excel مفصّل (مع تحليل حساسية مُضمَّن أسفل ورقة DCF).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools">الأدوات</h2>
+<ul>
+<li>استخدم افتراضيًا كل المعلومات المقدَّمة من المستخدم وخوادم MCP المتاحة لجلب البيانات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="critical-constraints---read-these-first">قيود حرجة - اقرأها أولًا</h2>
+<p>تنطبق هذه القيود طوال عملية بناء نموذج DCF بأكملها. راجعها قبل البدء:</p>
+<p><strong>الصيغ لا القيم الثابتة (غير قابل للتفاوض):</strong></p>
+<ul>
+<li>يجب أن يكون كل إسقاط وهامش وعامل خصم وقيمة حالية وخلية حساسية صيغة Excel حيّة — وليس قيمة محسوبة في Python ومكتوبة كرقم</li>
+<li>عند استخدام openpyxl: الصيغة <code>ws[&quot;D20&quot;] = &quot;=D19*(1+$B$8)&quot;</code> صحيحة؛ أما <code>ws[&quot;D20&quot;] = calculated_revenue</code> فهي خاطئة</li>
+<li>الأرقام الثابتة المسموح بها فقط هي: (1) المدخلات التاريخية الخام، (2) عوامل الافتراض المحرِّكة (معدلات النمو، مدخلات WACC، النمو النهائي g)، (3) بيانات السوق الحالية (سعر السهم، رصيد الدين)</li>
+<li>إذا لاحظت أنك تحسب شيئًا في Python وتكتب النتيجة — توقّف. يجب أن يستجيب النموذج ديناميكيًا عندما يغيّر المستخدم أحد الافتراضات.</li>
+</ul>
+<p><strong>تحقّق خطوة بخطوة مع المستخدم (لا تبنِ من البداية إلى النهاية دفعة واحدة):</strong></p>
+<ul>
+<li>بعد استرجاع البيانات ← اعرض على المستخدم كتلة المدخلات الخام (الإيراد، الهوامش، الأسهم، صافي الدين) وتأكّد قبل الإسقاط</li>
+<li>بعد إسقاطات الإيراد ← اعرض الخط العلوي المُسقَط ومعدلات النمو، وتأكّد قبل بناء هيكل الهامش</li>
+<li>بعد بناء التدفق النقدي الحر (FCF) ← اعرض جدول FCF الكامل، وتأكّد من المنطق قبل حساب WACC</li>
+<li>بعد WACC ← اعرض الحساب والمدخلات، وتأكّد قبل الخصم</li>
+<li>بعد القيمة النهائية والقيمة الحالية ← اعرض جسر حقوق الملكية (من قيمة المنشأة إلى قيمة حقوق الملكية إلى السهم الواحد)، وتأكّد قبل جداول الحساسية</li>
+<li>اكتشف الأخطاء في كل مرحلة — فاكتشاف افتراض هامش خاطئ بعد بناء جداول الحساسية يعني إعادة بناء كل ما ينبني عليه</li>
+</ul>
+<p><strong>جداول الحساسية:</strong></p>
+<ul>
+<li><strong>استخدم عددًا فرديًا من الصفوف والأعمدة</strong> (المعيار: 5×5، وأحيانًا 7×7) — هذا يضمن وجود خلية مركزية حقيقية</li>
+<li><strong>الخلية المركزية = الحالة الأساسية.</strong> ابنِ قيم المحاور بحيث تساوي ترويسة الصف الأوسط وترويسة العمود الأوسط تمامًا الافتراضات الفعلية للنموذج (مثلًا، إذا كان WACC الأساسي = 9.0%، فالصف الأوسط هو 9.0%؛ وإذا كان النمو النهائي g = 3.0%، فالعمود الأوسط هو 3.0%). لذا يجب أن يساوي ناتج الخلية المركزية سعر السهم الضمني الفعلي للنموذج — وهذا هو فحص المنطقية الذي يثبت صحة بناء الجدول.</li>
+<li><strong>ميّز الخلية المركزية</strong> بتعبئة زرقاء متوسطة (<code>#BDD7EE</code>) وخط عريض حتى تكون الحالة الأساسية واضحة فورًا.</li>
+<li>املأ جميع الخلايا (عادةً 3 جداول × 25 خلية = 75) بصيغ إعادة حساب DCF كاملة</li>
+<li>استخدم حلقات openpyxl لكتابة الصيغ برمجيًا</li>
+<li>بلا نص بديل مؤقت، بلا تقريبات خطية، بلا خطوات يدوية مطلوبة</li>
+<li>يجب أن تُعيد كل خلية حساب DCF الكامل لتلك التركيبة من الافتراضات</li>
+</ul>
+<p><strong>تعليقات الخلايا:</strong></p>
+<ul>
+<li>أضف تعليقات الخلايا فور إنشاء كل قيمة ثابتة</li>
+<li>الصيغة: "Source: [System/Document], [Date], [Reference], [URL if applicable]"</li>
+<li>يجب أن يحمل كل إدخال أزرق تعليقًا قبل الانتقال إلى القسم التالي</li>
+<li>لا تؤجّل إلى النهاية ولا تكتب "TODO: add source"</li>
+</ul>
+<p><strong>تخطيط بنية النموذج:</strong></p>
+<ul>
+<li>حدّد مواقع صفوف جميع الأقسام قبل كتابة أي صيغ</li>
+<li>اكتب جميع الترويسات والتسميات أولًا</li>
+<li>اكتب جميع الفواصل بين الأقسام والصفوف الفارغة ثانيًا</li>
+<li>ثم اكتب الصيغ باستخدام مواقع الصفوف المثبَّتة</li>
+<li>اختبر الصيغ فور إنشائها</li>
+</ul>
+<p><strong>إعادة حساب الصيغ:</strong></p>
+<ul>
+<li>شغّل <code>python recalc.py model.xlsx 30</code> قبل التسليم</li>
+<li>أصلح جميع الأخطاء إلى أن تصبح الحالة "success"</li>
+<li>يُشترط صفر أخطاء صيغ (#REF!، #DIV/0!، #VALUE!، إلخ)</li>
+</ul>
+<p><strong>كتل السيناريوهات:</strong></p>
+<ul>
+<li>أنشئ كتلًا منفصلة لحالات Bear/Base/Bull</li>
+<li>اعرض الافتراضات أفقيًا عبر سنوات الإسقاط ضمن كل كتلة</li>
+<li>استخدم صيغ IF: <code>=IF($B$6=1,[Bear cell],IF($B$6=2,[Base cell],[Bull cell]))</code></li>
+<li>تحقّق من أن الصيغ تشير إلى خلايا كتلة السيناريو الصحيحة</li>
+</ul>

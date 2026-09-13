@@ -1,0 +1,183 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-options">خيارات التسليم</h2>
+<p>عند جدولة المهام، تحدّد إلى أين تذهب المخرجات:</p>
+<table><thead><tr><th>الخيار</th><th>الوصف</th><th>مثال</th></tr></thead><tbody><tr><td><code>&quot;origin&quot;</code></td><td>تعود إلى حيث أُنشئت المهمة</td><td>الافتراضي في منصات المراسلة</td></tr><tr><td><code>&quot;local&quot;</code></td><td>تُحفظ في ملفات محلية فقط (<code>~/.hermes/cron/output/</code>)</td><td>الافتراضي في CLI</td></tr><tr><td><code>&quot;telegram&quot;</code></td><td>قناة Telegram الرئيسية</td><td>يستخدم <code>TELEGRAM_HOME_CHANNEL</code></td></tr><tr><td><code>&quot;telegram:123456&quot;</code></td><td>محادثة Telegram محددة عبر المعرّف</td><td>تسليم مباشر</td></tr><tr><td><code>&quot;telegram:-100123:17585&quot;</code></td><td>موضوع Telegram محدد</td><td>صيغة <code>chat_id:thread_id</code></td></tr><tr><td><code>&quot;discord&quot;</code></td><td>قناة Discord الرئيسية</td><td>يستخدم <code>DISCORD_HOME_CHANNEL</code></td></tr><tr><td><code>&quot;discord:#engineering&quot;</code></td><td>قناة Discord محددة</td><td>حسب اسم القناة</td></tr><tr><td><code>&quot;slack&quot;</code></td><td>قناة Slack الرئيسية</td><td></td></tr><tr><td><code>&quot;whatsapp&quot;</code></td><td>WhatsApp الرئيسي</td><td></td></tr><tr><td><code>&quot;signal&quot;</code></td><td>Signal</td><td></td></tr><tr><td><code>&quot;matrix&quot;</code></td><td>غرفة Matrix الرئيسية</td><td></td></tr><tr><td><code>&quot;mattermost&quot;</code></td><td>قناة Mattermost الرئيسية</td><td></td></tr><tr><td><code>&quot;email&quot;</code></td><td>البريد الإلكتروني</td><td></td></tr><tr><td><code>&quot;sms&quot;</code></td><td>رسائل SMS عبر Twilio</td><td></td></tr><tr><td><code>&quot;homeassistant&quot;</code></td><td>Home Assistant</td><td></td></tr><tr><td><code>&quot;dingtalk&quot;</code></td><td>DingTalk</td><td></td></tr><tr><td><code>&quot;feishu&quot;</code></td><td>Feishu/Lark</td><td></td></tr><tr><td><code>&quot;wecom&quot;</code></td><td>WeCom</td><td></td></tr><tr><td><code>&quot;weixin&quot;</code></td><td>Weixin (WeChat)</td><td></td></tr><tr><td><code>&quot;bluebubbles&quot;</code></td><td>BlueBubbles (iMessage)</td><td></td></tr><tr><td><code>&quot;qqbot&quot;</code></td><td>QQ Bot (Tencent QQ)</td><td></td></tr><tr><td><code>&quot;bot-chat&quot;</code></td><td>Bot Chat القانونية لهذا الـ profile — يقرأ البوت المخرجات ويستجيب لها</td><td>محلي على الجهاز</td></tr><tr><td><code>&quot;bot-chat:research&quot;</code></td><td>Bot Chat الخاصة بـ profile محلي آخر</td><td>يُتحقق منها عند الإنشاء</td></tr><tr><td><code>&quot;all&quot;</code></td><td>البث إلى كل قناة رئيسية متصلة</td><td>تُحل عند وقت الإطلاق</td></tr><tr><td><code>&quot;telegram,discord&quot;</code></td><td>البث إلى مجموعة محددة من القنوات</td><td>قائمة مفصولة بفواصل</td></tr><tr><td><code>&quot;origin,all&quot;</code></td><td>التسليم إلى المصدر <strong>بالإضافة إلى</strong> كل قناة أخرى متصلة</td><td>يمكن دمج أي رموز</td></tr></tbody></table>
+<p>يُسلَّم ردّ الوكيل النهائي تلقائيًا إلى الهدف المُعرَّف في <code>deliver:</code> — لا يرسل الوكيل الرسائل بنفسه، فليس هناك ما يُستدعى في الـ prompt الخاص بـ cron.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-failures-are-a-distinct-status">إخفاقات التسليم حالة مستقلة</h3>
+<p>يُتتبَّع التنفيذ والتسليم بشكل منفصل. عندما ينجح تشغيل الوكيل لكن المخرجات
+لا تصل إلى الهدف (خطأ 5xx من المنصة، حدّ المعدل، جلسة قديمة،
+لم يُقدّم adapter أي دليل إيجابي على الإرسال)، تسجّل المهمة
+<code>last_status: delivery_failed</code> — وليس <code>ok</code> بسيطة أبدًا — مع السبب في
+<code>last_delivery_error</code>. يعرضها <code>hermes cron list</code> باللون الأصفر بصيغة
+<code>delivery_failed: &lt;reason&gt;</code>، ويُبلغ عنها <code>hermes cron doctor</code> كمشكلة تسليم،
+ويُبلغ تشغيل <code>cronjob run</code> اليدوي عن <code>success: false</code> مع خطأ التسليم.
+لا يُحتسب إخفاق التسليم ضمن <code>failure_streak</code> الخاص بالمهمة
+(فالوكيل أدّى مهمته)؛ ويُعيد التشغيل الناجح التالي بالكامل الحالة إلى
+<code>ok</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-chat-delivery-bot-chat">تسليم Bot Chat (<code>bot-chat</code>)</h3>
+<p>يسلّم <code>bot-chat</code> المخرجات <strong>إلى جلسة &quot;Bot Chat&quot; القانونية الخاصة بـ profile كرسالة حقيقية</strong>. وخلافًا لكل هدف آخر — حيث يكون المستلم إنسانًا يقرأ قناة — فالمستلم هنا هو البوت نفسه: يتلقّى المخرجات كرسالة واردة، ويتصرف بناءً على أي شيء يستلزم فعلاً، ويردّ في محادثته. استخدمه عندما يجب <em>معالجة</em> المخرجات المجدولة لا مجرد نشرها.</p>
+<ul>
+<li><code>bot-chat</code> (مجردة) تستهدف الـ profile الخاص بالمهمة نفسها.</li>
+<li><code>bot-chat:&lt;profile&gt;</code> تستهدف profile آخر <strong>على نفس الجهاز</strong>. تُتحقق الأسماء مقابل <code>hermes profile list</code> عند إنشاء المهمة؛ لا يمكن أبدًا استهداف profiles على gateways أو أجهزة أخرى، لذا تكون الـ profiles المتماثلة الاسم عبر الأجهزة غير ملتبسة.</li>
+<li>يكلّف كل تسليم البوتَ الهدف دورة وكيل كاملة — انتبه لتكرار الجدولة.</li>
+<li>يمكن دمجه مع أهداف أخرى (<code>bot-chat,telegram</code>) لكنه لا يُدرَج أبدًا ضمن <code>all</code>.</li>
+<li>إذا كانت المحادثة القانونية مفتوحة في terminal backend يدعم mailbox في Desktop/TUI، يُصفّ التسليم <strong>بشكل دائم فورًا</strong>، سواء كان البوت خاملًا أو مشغولًا. فقط ذلك المالك الحي يُشغّل الدور الوارد؛ لا يبدأ cron كاتب CLI منافس. بدون مالك mailbox حي، يبقى مسار <code>hermes chat -c &quot;Bot Chat&quot; --create-if-missing</code> الحالي متاحًا (تظل فحوصات ملكية الجلسة العادية سارية).</li>
+<li><strong>الاصطفاف ليس اكتمالًا.</strong> يسجّل cron معرّفات الاستلام وحالات <code>queued</code>/<code>claimed</code> في <code>last_delivery_queued</code>، مع نتيجة تسليم <code>queued</code> (لا مُسلَّمة ولا فاشلة). تُظهر المهمة الناجحة <code>delivery_queued</code>؛ لا تزال الأخطاء الحقيقية في الأهداف الأخرى لها الأولوية كإخفاقات تسليم. قد يكمل البوت لاحقًا. الإيصال الدائم في <code>runtime/bot_live_delivery/&lt;receipt-id&gt;.json</code> الخاص بـ profile الهدف هو المرجع الموثوق؛ لا تُحدَّث حالة cron التاريخية تلقائيًا.</li>
+<li>إعادة فحص نفس التنفيذ يفحص إيصاله الموجود، حتى لو اختفى المالك. لا يعود أبدًا إلى كاتب آخر بعد القبول. لا تُعاد محاولة إيصالات <code>failed</code> أو <code>cancelled</code> أو <code>ambiguous</code> تلقائيًا؛ افحص المحادثة والإيصال قبل بدء عمل جديد عن قصد. لكل تنفيذ cron جديد معرّف تسليم مستقل.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="routing-intent-all">نيّة التوجيه (<code>all</code>)</h3>
+<p>تتيح لك <code>all</code> إرسال مهمة cron واحدة إلى كل قناة مراسلة أعددتها، دون الحاجة إلى سردها بالاسم. تُحلّ <strong>عند وقت الإطلاق</strong>، لذا فإن مهمة أُنشئت قبل ربط Telegram ستلتقط Telegram في الدورة التالية بعد ضبط <code>TELEGRAM_HOME_CHANNEL</code>.</p>
+<p>الدلالة: تتوسّع <code>all</code> إلى كل منصة لها قناة رئيسية مُعدّة. الصفر مقبول؛ تُنتج المهمة ببساطة صفر أهداف تسليم وتُسجَّل كإخفاق تسليم في مرحلة سابقة.</p>
+<p>تُدمَج <code>all</code> مع الأهداف الصريحة. تُسلِّم <code>origin,all</code> إلى محادثة المصدر <em>بالإضافة إلى</em> كل قناة رئيسية أخرى متصلة، مع إزالة التكرار حسب <code>(platform, chat_id, thread_id)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="telegram-cron-topic-telegram_cron_thread_id">موضوع cron في Telegram (<code>TELEGRAM_CRON_THREAD_ID</code>)</h3>
+<p>عندما يكون وضع المواضيع في Telegram مفعّلًا، تُحجَز محادثة الـ DM الجذرية كردهة نظام — تُرفَض الردود المرسلة إليها بتذكير بالردهة، ويُسقَط <code>reply_to_message_id</code>، لذا لا يمكنك الرد على رسالة cron التي وصلت إلى المحادثة الرئيسية.</p>
+<p>وجّه cron بدلًا من ذلك إلى موضوع منتدى مخصّص:</p>
+<ol>
+<li>في Telegram، افتح الـ DM الخاص بالبوت وأنشئ موضوعًا باسم مثل <code>Cron</code>. اضغط مطوّلًا على رأس الموضوع ← <strong>Copy link</strong>؛ العدد الصحيح الأخير هو <code>message_thread_id</code> الخاص بالموضوع.</li>
+<li>اضبط <code>TELEGRAM_CRON_THREAD_ID=&lt;that id&gt;</code> في ملف <code>.env</code> الخاص بك.</li>
+</ol>
+<p>ينطبق هذا فقط على تسليمات cron. متغير <code>TELEGRAM_HOME_CHANNEL_THREAD_ID</code> (المستخدم في مواضع أخرى، مثل إشعارات إعادة التشغيل) يبقى دون تغيير. أهداف <code>deliver=&quot;telegram:chat_id:thread_id&quot;</code> الصريحة تستمر في التغلّب على متغير البيئة. تصل الآن الردود على رسائل cron في جلسة الموضوع الموجودة، فيمكنك التعامل معها مباشرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-wrapping">تغليف الردّ</h3>
+<p>افتراضيًا، تُغلَّف مخرجات cron المُسلَّمة برأس وتذييل ليعرف المستلم أنها وصلت من مهمة مجدولة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>لتسليم مخرجات الوكيل الخام بدون الغلاف، اضبط <code>cron.wrap_response</code> على <code>false</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="push-notifications-crondeliverynotify">الإشعارات الفورية (<code>cron.delivery.notify</code>)</h3>
+<p>مخرجات cron هي تسليم <em>نهائي</em>، لا رسالة تقدّم، لذا فهي تُرسَل افتراضيًا
+مع تفعيل علامة الإشعار الخاصة بالمنصة — على Telegram يعني هذا أن
+الملخّص المختصر يُطلق إشعارًا فوريًا حتى عندما يكون وضع إشعارات الـ adapter <code>important</code>
+(الذي يرسل بخلاف ذلك مع <code>disable_notification=true</code>، ويُبلغ المستخدمون أن الملخّص الصامت
+&quot;لم يصل أبدًا&quot;). لاستعادة التسليمات الصامتة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>تنطبق هذه العلامة على كل من إرسال النص وأي مرفقات وسائط، لذا لا يُطلق التشغيل إشعارًا لأحدهما ويبقى صامتًا للآخر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-confirmation-and-the-unverified-state">تأكيد التسليم وحالة <code>UNVERIFIED</code></h3>
+<p>يُسجَّل تسليم عبر adapter حي كمُسلَّم فقط استنادًا إلى دليل إيجابي من
+الـ adapter: نجاح <code>success</code> صريح ليس إسقاطًا مُصفّى
+(<code>delivered: false</code>)، بالإضافة إلى <code>message_id</code> أو <code>raw_response</code>. تُقبَل نتيجة تحمل
+<code>success</code> بدون أي من هذين الدليلين — وهو الشكل الذي تُعيده adapters Slack وMatrix
+وMattermost — (فذلك ليس دليلًا على الفشل)،
+لكن يُسجَّل التشغيل على المهمة كـ <code>last_delivery_unverified</code> ويظهر
+في <code>hermes cron list</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>وفي <code>hermes cron doctor</code> كـ <code>last delivery unverified (...)</code>. يُزال هذا المؤشر
+عند التشغيل التالي الذي يُسلِّم بدليل. لا يُسلَّم أبدًا حِمل فارغ (بلا نص
+ولا وسائط) إلى أي adapter؛ بل يفشل بأمان ويُبلَّغ عنه في
+<code>last_delivery_error</code> بدلًا من تسجيله كمُسلَّم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="continuable-jobs-reply-to-a-cron-delivery">المهام القابلة للمتابعة (الردّ على تسليم cron)</h3>
+<p>افتراضيًا، تسليم cron هو إرسال دون متابعة: تُرسَل الرسالة، لكنها لا
+تعيش في سجلّ محادثة المحادثة، فإن رددت عليها لا يكون لدى الوكيل
+سجلّ لما قاله. اضبط مهمة على أنها <strong>قابلة للمتابعة</strong> ويصبح الملخّص المُسلَّم
+محادثة يمكنك الرد عليها — يكون الملخّص في سياق الوكيل
+بدلًا من أن يسأل &quot;ما هي المهمة رقم 2؟&quot;.</p>
+<p>اختياري، و<strong>معطّل افتراضيًا</strong>. فعّله عالميًا في الإعدادات، أو لكل مهمة عبر أداة <code>cronjob</code> وحقلها <code>attach_to_session</code>
+(الذي يتجاوز الإعداد العام لتلك المهمة وحدها):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>السلوك <strong>يفضّل المواضيع (thread-preferred)</strong>، ومحصور في محادثة المهمة نفسها:</p>
+<ul>
+<li><strong>المنصات القادرة على المواضيع</strong> (مواضيع Telegram، مواضيع Discord/Slack): يفتح كل
+تسليم موضوعه الخاص المخصّص ويُبذَر الملخّص في جلسة ذلك
+الموضوع، فيتابع الرد ضمن الموضوع بالسياق الكامل. تفتح مهمة
+متكررة (مثل ملخّص يومي) موضوعًا جديدًا لكل تشغيل، ما يحافظ على عزل
+نقاش المتابعة لكل تسليم.</li>
+<li><strong>المنصات القاصرة على DM</strong> (WhatsApp، Signal، SMS): لا وجود لمواضيع، لذا
+يُنسَخ الملخّص إلى جلسة الـ DM الهدف بدلًا من ذلك (الـ DM الأصلي، أو الـ DM الرئيسي
+للأهداف الاحتياطية والمهام ذات المنصة المجردة) — يكون الـ DM نفسه سطح المتابعة.</li>
+</ul>
+<p>لا تُلمَس سوى <strong>محادثة المهمة الخاصة</strong> بها أبدًا:</p>
+<ul>
+<li><strong>محادثة المصدر</strong> التي أُنشئت المهمة فيها؛</li>
+<li><strong>القناة الرئيسية الاحتياطية</strong> عندما لا يلتقط <code>deliver: origin</code> أي مصدر (مهام
+أُنشئت بواسطة سكربتات أو الـ API لا من محادثة gateway حيّة) — إذ تقوم
+محادثة المستخدم الرئيسية مقام المصدر؛</li>
+<li><strong>هدف <code>platform:chat</code> صريح ووحيد</strong> للمهمة، لكن فقط عندما تختار المهمة
+نفسها ذلك بـ <code>attach_to_session: true</code> — يُصرّح مؤلف المهمة بأن ذلك
+الهدف محادثة. لا تجعل علامة <code>mirror_delivery</code> العامة وحدها محادثة
+مُخاطَبة صراحة قابلة للمتابعة أبدًا.</li>
+</ul>
+<p>لا تُجعَل توسّعات البث (<code>all</code>) قابلة للمتابعة أبدًا. اسم منصة مجرد كتبه
+المستخدم (<code>deliver: slack</code>) يخاطب القناة الرئيسية لتلك المنصة
+عن قصد ويتبع نفس قواعد القناة الرئيسية الاحتياطية أعلاه.
+بعد الترقية، يمكن لمهام <code>deliver: &lt;platform&gt;</code> الموجودة والتي تحمل <code>cron.mirror_delivery: true</code>
+فتح موضوع جديد لكل تشغيل على المنصات القادرة على المواضيع. اضبط <code>attach_to_session: false</code>
+على مهمة للانسحاب من سلوك الموضوع-لكل-تشغيل هذا.</p>
+<p>تُكتَب المرآة كدور مستخدم موسوم (<code>[Cron delivery: &lt;task name&gt;]</code>)، ما يحافظ على
+تناوب سجلّ المحادثة آمنًا عبر كل مزوّدي النماذج.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="flat-in-channel-continuation-slack">المتابعة المسطّحة داخل القناة (Slack)</h4>
+<p>يسكّ السلوك المفضّل للمواضيع أعلاه موضوعًا مخصّصًا في كل
+تسليم. إن أردت أن تصل مهمة قابلة للمتابعة <strong>مسطّحة في الجدول الزمني
+للقناة</strong> — بلا موضوع — اضبط <strong>سطح المتابعة</strong> الخاص بـ Slack على <code>in_channel</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>في وضع <code>in_channel</code> يُسلَّم الملخّص كرسالة عادية على المستوى الأعلى في القناة
+(لا يُفتَح أي موضوع)، ويتابع ردّك المهمة عبر الجلسة
+المشتركة للقناة. تعمل ثلاثة إعدادات معًا:</p>
+<ul>
+<li><strong><code>cron_continuable_surface: in_channel</code></strong> — يتخطّى إنشاء الموضوع عند التسليم.</li>
+<li><strong><code>reply_in_thread: false</code></strong> (مطلوب) — يجعل البوت يجيب على ردّك
+<em>مسطّحًا</em> في القناة ويربطه بنفس جلسة القناة الكاملة التي بُذر
+فيها الملخّص. بدونه تظل المتابعة تعمل لكنها تصل في
+موضوع (يعود بأمان إلى متابعة على نمط الموضوع، دون أن يفقد أي
+رد أبدًا — يسجّل الـ gateway تحذيرًا عند بدء التشغيل حتى تكتشف عدم التطابق).</li>
+<li><strong><code>require_mention: false</code></strong> (أو أضف القناة إلى <code>free_response_channels</code>)
+— حتى تتمكن من الرد برسالة عادية؛ وإلا لا يستيقظ البوت إلا عندما
+تذكره بـ <code>@</code> في كل رد.</li>
+</ul>
+<p>بما أن المتابعة هي جلسة <strong>القناة كاملة</strong>، فهي مشتركة: أحاديث أخرى
+في القناة — ومهمة قابلة للمتابعة ثانية داخل القناة — تنضم إلى نفس
+المحادثة المتدحرجة. هذا متأصل في &quot;التسطيح داخل قناة&quot; وهو نفس
+المقايضة التي يتقبّلها مستخدمو <code>reply_in_thread: false</code> فعلًا؛ استخدم سطح
+<code>thread</code> الافتراضي عندما تريد عزل متابعة كل تسليم.</p>
+<p>هذه قدرة خاصة بـ Slack حاليًا. تقبل المنصات الأخرى المفتاح لكنها تعود
+إلى سطح <code>thread</code> (تختلف بدائيات المتابعة لديها)؛ يُضبط الاختيار
+لكل منصة على حدة، ضمن إعدادات كل منصة. إنها علامة إعداد من جانب الـ gateway
+— يلتقطها <code>/restart</code>؛ لا حاجة لإعادة تثبيت تطبيق Slack.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="64"></x-keep></span>محادثات 1:1 المباشرة</div><div class="admonitionContent_BuS1"><p><code>cron_continuable_surface</code> إعداد على مستوى <strong>القناة</strong> — لا يوجد في محادثة DM
+فردية انقسام موضوع-مقابل-جدول زمني يُختار بينهما (فالـ DM مسطّح أصلًا)، لذا
+لا أثر للمفتاح هناك. ما يحكم كون تسليم cron في DM قابلًا للمتابعة هو
+الإعداد المنفصل والموجود مسبقًا <strong><code>slack.dm_top_level_threads_as_sessions</code></strong>:</p><ul>
+<li><strong><code>false</code></strong> — تشترك كل رسائل DM على المستوى الأعلى في جلسة DM متدحرجة واحدة، فيصل ملخّص
+cron قابل للمتابعة وردّك إلى <strong>نفس</strong> الجلسة وتستمر المهمة في
+السياق. هذا ما تريده لـ cron قابل للمتابعة في DM.</li>
+<li><strong><code>true</code></strong> (الافتراضي) — كل رسالة DM على المستوى الأعلى هي جلستها الخاصة، فيبدأ الرد
+على ملخّص مُسلَّم جلسة <em>جديدة</em> لا سجلّ فيها للملخّص.
+لا تعمل المتابعة في هذا الوضع (لا لـ cron ولا لأي تسليم مسطّح آخر).</li>
+</ul><p>لذا من أجل مهمة cron قابلة للمتابعة مُسلَّمة إلى DM فردي، اضبط
+<code>slack.dm_top_level_threads_as_sessions: false</code>. لا حاجة إلى <code>cron_continuable_surface</code>
+(ويُتجاهَل) في حالات الـ DM.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="silent-suppression">الكتم الصامت</h3>
+<p>إذا احتوى ردّ الوكيل النهائي على <code>[SILENT]</code>، يُكبَت التسليم كليًا. تُحفَظ المخرجات مع ذلك محليًا للمراجعة (في <code>~/.hermes/cron/output/</code>)، لكن لا تُرسَل أي رسالة إلى هدف التسليم.</p>
+<p>هذا مفيد لمهام المراقبة التي يجب أن تُبلِغ فقط عند وجود خطأ ما:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>تُسلَّم المهام الفاشلة دائمًا بصرف النظر عن علامة <code>[SILENT]</code> — فقط التشغيلات الناجحة يمكن كتمها. لمهام المراقبة الهادئة، وجّه الوكيل ليرد بـ <code>[SILENT]</code> فقط عندما لا يوجد ما يُبلَّغ عنه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="script-timeout">مهلة السكربت</h2>
+<p>للسكربتات التي تُشغَّل قبل التنفيذ (المرفقة عبر معامل <code>script</code>) مهلة افتراضية مدتها 3600 ثانية (ساعة واحدة). يحدّ هذا <strong>السكربت وحده</strong> — تعمل المهام القائمة على المهارات/التي يقودها الـ LLM على موازنة خمول منفصلة ولا تُحدّها هذه القيمة. إذا احتاجت سكربتاتك حدًا مختلفًا، يمكنك تغييره:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>أو اضبط متغير البيئة <code>HERMES_CRON_SCRIPT_TIMEOUT</code>. ترتيب الأولوية هو: متغير البيئة ← config.yaml ← القيمة الافتراضية 3600 ثانية.</p>
+<p>يحدّ cron أيضًا تنظيف الجلسة وموارد الوكيل بعد التشغيل. يحدث هذا بعد عودة دور الـ LLM، لذا فهو منفصل عن مهلة الخمول. القيمة الافتراضية 10 ثوانٍ لكل عملية تنظيف. إذا توقف مُنهي (finalizer) للتخزين أو العميل عن الاستجابة، يسجّل المُجدوِل خطأً، ويحرّر حارس المهمة الجاري تنفيذها، ويسمح للتشغيلات اللاحقة بالانطلاق بدلًا من تخطّي تلك المهمة إلى الأبد.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>اضبط <code>cleanup_timeout_seconds: 0</code> فقط لاستعادة سلوك التنظيف غير المحدود القديم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-send-timeout">مهلة إرسال الوسائط</h2>
+<p>عندما يتضمّن تسليم cron مرفقات وسائط (ملف PDF مُولَّد، صوت TTS، تقرير مُصدَّر) مُرسَلة عبر adapter لـ gateway حيّ، يُحدّ كل رفع مرفق بمهلة — 300 ثانية افتراضيًا. قد تحتاج الملفات الكبيرة على اتصالات صاعدة بطيئة إلى مدة أطول:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>أو اضبط متغير البيئة <code>HERMES_CRON_MEDIA_SEND_TIMEOUT</code>. ترتيب الأولوية هو: متغير البيئة ← config.yaml ← القيمة الافتراضية 300 ثانية. يُسجَّل المرفق الذي تجاوز المهلة في حالة تشغيل المهمة كإخفاق تسليم جزئي (يظل النص مُسلَّمًا).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-chat-delivery-timeout">مهلة تسليم Bot Chat</h2>
+<p>يُشغّل تسليم <code>bot-chat</code> دور وكيل كاملًا في محادثة البوت الهدف، لذا يُقاس حدّه بالدقائق لا الثواني — 600 ثانية افتراضيًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>يُسجَّل التسليم الذي تجاوز المهلة في <code>last_delivery_error</code>؛ قد يكتمل دور البوت لاحقًا من تلقاء نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="no-agent-mode-script-only-jobs">وضع بلا وكيل (مهام السكربت فقط)</h2>
+<p>للمهام المتكررة التي لا تحتاج إلى استدلال LLM — مراقِبات حراسة كلاسيكية، تنبيهات القرص/الذاكرة، نبضات الحياة، اختبارات CI — مرّر <code>no_agent=True</code> عند الإنشاء. يُشغّل المُجدوِل سكربتك حسب الجدول ويُسلِّم مخرجاته القياسية مباشرة، متخطّيًا الوكيل كليًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>الدلالات:</p>
+<ul>
+<li>مخرجات السكربت القياسية (بعد التشذيب) ← تُسلَّم حرفيًا كالرسالة.</li>
+<li><strong>مخرجات قياسية فارغة ← دورة صامتة</strong>، بلا تسليم. هذا نمط مراقب الحراسة: &quot;قل شيئًا فقط عند وجود خطأ&quot;.</li>
+<li>خروج بكود غير صفري أو تجاوز المهلة ← يُسلَّم تنبيه خطأ، حتى لا يفشل مراقب حراسة معطّل بصمت.</li>
+<li><code>{&quot;wakeAgent&quot;: false}</code> في السطر الأخير ← دورة صامتة (نفس البوابة التي تستخدمها مهام LLM).</li>
+<li>بلا tokens، بلا نموذج، بلا احتياطي مزوّد — لا تلامس المهمة طبقة الـ inference إطلاقًا.</li>
+</ul>
+<p>تُشغَّل ملفات <code>.sh</code> / <code>.bash</code> عبر <code>bash</code> من <code>PATH</code> عند توفّره، وإلا فعبر <code>/bin/bash</code> (مهم على Windows Git Bash). يُشغَّل أي شيء آخر عبر مفسّر Python الحالي (<code>sys.executable</code>). يجب أن تُحلّ السكربتات داخل <code>$HERMES_HOME/scripts/</code> — تُقبَل الأسماء النسبية، والمسارات المطلقة، والمسارات ذات البادئة <code>~</code> عندما يبقى الهدف المُحلَّل داخل ذلك المجلد؛ تُرفَض المسارات التي تفلت منه. تُطهَّر بيئة العملية الفرعية (<code>_sanitize_subprocess_env</code>): بيانات اعتماد API الخاصة بالمزوّدين وأسرار Hermes الأخرى <strong>لا تُورَّث</strong> إلى سكربتات cron.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-agent-sets-these-up-for-you">يُعِدّ الوكيل هذه من أجلك</h3>
+<p>يُظهر مخطط أداة <code>cronjob</code> الحقل <code>no_agent</code> لـ Hermes مباشرة، فيمكنك وصف مراقب حراسة في المحادثة وترك الوكيل يُعِدّه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>سيكتب Hermes سكربت الفحص إلى <code>~/.hermes/scripts/</code> عبر <code>write_file</code>، ثم يستدعي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p>يختار <code>no_agent=True</code> تلقائيًا عندما يكون محتوى الرسالة محدَّدًا بالكامل من السكربت (مراقبات الحراسة، تنبيهات العتبة، نبضات الحياة). تتيح الأداة نفسها أيضًا للوكيل إيقاف المهام مؤقتًا واستئنافها وتعديلها وحذفها — فتكون دورة الحياة كاملة مدفوعة بالمحادثة دون أن يلمس أحد CLI.</p>
+<p>راجع <a href="/docs/guides/cron-script-only">دليل مهام Cron بالسكربتات فقط</a> للاطلاع على أمثلة عملية.</p>

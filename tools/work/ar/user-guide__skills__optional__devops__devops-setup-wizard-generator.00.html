@@ -1,0 +1,97 @@
+
+<header><h1>Setup Wizard Generator</h1></header>
+<p>ولّد wizard بلغة bash يُرشد إنسانًا خلال إعداد يدوي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/devops/setup-wizard-generator</code></td></tr><tr><td>المسار</td><td><code>optional-skills/devops/setup-wizard-generator</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Matt Pocock (mattpocock/skills, wizard) + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>wizard</code>, <code>setup</code>, <code>onboarding</code>, <code>credentials</code>, <code>secrets</code>, <code>migration</code>, <code>bash</code>, <code>human-in-the-loop</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Setup Wizard Generator</h1>
+<p>يولّد <strong>wizard</strong> تفاعليًا بلغة bash: سكربت يرشد إنسانًا، خطوة
+خطوة، خلال إجراء يدوي مملّ في التنفيذ اليدوي ومملّ في إعادة شرحه
+في كل مرة. يفتح كل رابط، ويقول بالضبط ماذا يُنقر وماذا
+يُنسخ، ويلتقط القيم، ويكتبها حيث ينبغي (<code>.env</code>، أسرار
+GitHub)، ويؤكّد في كل مرحلة، ويعرض عدد المراحل المتبقية.</p>
+<p>مُنقول عن مهارة <code>wizard</code> المرخّصة بموجب MIT من mattpocock/skills.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>تجهيز بنية تحتية أو خدمات جهات خارجية (Stripe، Supabase،
+DNS، تطبيقات OAuth) حيث لا يستطيع سوى الإنسان النقر عبر لوحة التحكم</li>
+<li>إعداد بيانات الاعتماد، أو أسرار CI، أو متغيرات المستودع</li>
+<li>عمليات ترحيل أو تحوّل لمرة واحدة تتضمّن خطوات لا رجعة فيها يتحكم بها إنسان</li>
+<li>أي إجراء سيسلّمه المستخدم لزميل ليقوم بتشغيله</li>
+</ul>
+<p>لا تستخدمها للخطوات التي يستطيع الوكيل تنفيذها بنفسه — نفّذ تلك مباشرة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><code>bash</code>؛ CLI الخاص بـ <code>gh</code> فقط إذا كانت المراحل تكتب أسرار أو متغيرات GitHub</li>
+<li>قالب المكتبة: <code>templates/template.sh</code> في مجلد هذه المهارة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-scope-the-procedure">1. حدّد نطاق الإجراء</h3>
+<p>حدّد كل خطوة يدوية يجب أن يقوم بها الإنسان وكل قيمة تُلتقط
+على طول الطريق. اقرأ المستودع أولًا، لا تسأل دون تحضير:</p>
+<ul>
+<li>الإعداد: <code>.env</code>، <code>.env.example</code>، <code>README</code>، <code>docker-compose*</code>، إعدادات
+الإطار، و<code>.github/workflows/*</code> (كل مرجع <code>secrets.*</code> / <code>vars.*</code>
+هو قيمة يجب على الـ wizard إنتاجها).</li>
+<li>الترحيل/التحوّل: الحالة الحالية، والحالة المستهدفة، والإجراءات
+التي لا رجعة فيها بينهما.</li>
+</ul>
+<p>اعرض على المستخدم قائمة المراحل مرتّبة والقيم التي تنتجها كل واحدة؛ قد
+يضيف أو يحذف أو يعيد الترتيب. تنتهي هذه الخطوة عندما تُسمّى كل مرحلة بترتيبها، وتعرف
+لكل قيمة مُلتقطة (أ) من أين يحصل عليها الإنسان، (ب) أين تُكتب
+(<code>.env</code>، سر في GitHub، كلاهما، أو لا مكان)، و(ج) هل هي سرّية
+(إدخال مخفي) أم عامة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-map-each-stages-journey">2. ارسم مسار كل مرحلة</h3>
+<p>لكل مرحلة، اكتب المسار الدقيق الذي يتبعه الإنسان: أي رابط يُفتح،
+وماذا يفعل هناك، وأين تظهر القيمة — مثل &quot;Dashboard → Developers →
+API keys → Reveal test key → copy&quot;. حيثما لا تعرف الواجهة الحالية أو
+الأمر الدقيق، قل ذلك وتحقّق من المستندات أو اسأل — لا تخترع أبدًا خطوات
+قد لا تكون موجودة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-author-the-wizard">3. أنشئ الـ wizard</h3>
+<p>انسخ <code>templates/template.sh</code> (من مجلد هذه المهارة) إلى المسار
+المستهدف. استبدل المرحلة النموذجية بـ <code>stage</code> واحدة لكل خطوة، بترتيب
+الاعتماديات. اضبط <code>TOTAL_STAGES</code> على عدد المراحل التي كتبتها.</p>
+<p>مساعدات المكتبة: <code>stage</code>، <code>say</code>/<code>step</code>/<code>note</code>/<code>warn</code>، <code>open_url</code>،
+<code>ask</code>/<code>ask_secret</code>، <code>write_env</code>، <code>set_secret</code>/<code>set_var</code>، <code>pause</code>/<code>confirm</code>،
+<code>banner</code>، <code>finish</code>. المكتبة الموجودة فوق علامة <code>STAGES</code> مطابقة في
+كل wizard — لا تعدّلها يدويًا أبدًا؛ فهذا الاتساق هو بيت القصيد.</p>
+<p>التزم بالمعيار الذي يضعه القالب: افتح الرابط قبل طلب قيمته،
+واستخدم <code>ask_secret</code> لأي شيء سرّي، و<code>write_env</code> لكل قيمة تُحفظ،
+و<code>set_secret</code> لما يحتاجه CI فعليًا فقط، و<code>confirm</code> قبل أي شيء
+لا رجعة فيه. تمسح كل <code>stage</code> الشاشة — أبقِ مهمة واحدة مركّزة لكل
+مرحلة حتى لا يختفي بالتمرير ما يحتاجه الإنسان.</p>
+<p>الـ wizard مؤقت افتراضيًا: احفظه في مسار مؤقت أو مسار <code>scripts/</code>،
+واحذفه عند انتهاء المهمة. لا تُدرجه في commit إلا عندما يريد المستخدم
+مسار إعداد متكرّرًا يعيش داخل المستودع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-verify-and-hand-off">4. تحقّق وسلّم العمل</h3>
+<ul>
+<li><code>bash -n &lt;script&gt;</code>؛ شغّل <code>shellcheck</code> إن كان متاحًا؛ <code>chmod +x &lt;script&gt;</code>.</li>
+<li>لا تُشغّله من البداية إلى النهاية بنفسك: فهو يفتح متصفحات ويتوقف بانتظار
+مُدخلات الإنسان. تتبّعه بصورة ساكنة (statically): تحقّق أن كل قيمة من الخطوة 1 مُلتقطة وتصل
+إلى حيث حدّدته الخطوة 1، وأن كل اسم <code>set_secret</code> يطابق تمامًا مرجع
+<code>secrets.*</code> في CI.</li>
+<li>أخبر المستخدم كيف يشغّله. إذا كان متكرّرًا، أدرجه في commit واربطه
+من README.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق الشائعة</h2>
+<ol>
+<li><strong>تعديل قسم المكتبة.</strong> كل ما فوق علامة <code>STAGES</code> هو
+مكتبة الـ wizard؛ اكتب فقط تحتها.</li>
+<li><strong>اختلاق مسارات لوحات التحكم.</strong> واجهات الجهات الخارجية تتغيّر. إذا لم تكن
+متأكدًا من مسار النقر، تحقّق من المستندات الحالية أو أشِر إلى أنه تقريبي.</li>
+<li><strong>استخدام <code>set_secret</code> لقيم لا يستخدمها CI.</strong> لا تدفع إلى أسرار GitHub
+إلا ما يشير إليه سير عمل فعليًا.</li>
+<li><strong>تشغيل الـ wizard بنفسك.</strong> فهو يتوقف بانتظار مُدخلات الإنسان؛ التتبّع الساكن
+مع <code>bash -n</code> هو أسلوب التحقق.</li>
+<li><strong>مرحلة ضخمة واحدة.</strong> مسح الشاشة لكل مرحلة يعني أن مرحلة طويلة تُخفي
+تعليمات مهمة بالتمرير؛ قسّمها.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="1"></x-keep> تم تأكيد قائمة المراحل مع المستخدم قبل الكتابة</li>
+<li class="task-list-item"><x-keep id="2"></x-keep> <code>bash -n</code> ينجح؛ السكربت قابل للتنفيذ</li>
+<li class="task-list-item"><x-keep id="3"></x-keep> كل قيمة مُلتقطة متتبَّعة إلى وجهتها المُعلَنة</li>
+<li class="task-list-item"><x-keep id="4"></x-keep> كل اسم <code>set_secret</code> يطابق مرجع <code>secrets.*</code> في CI</li>
+<li class="task-list-item"><x-keep id="5"></x-keep> قسم المكتبة لم يُمسّ منذ القالب</li>
+</ul>

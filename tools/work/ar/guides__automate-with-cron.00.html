@@ -1,0 +1,78 @@
+<header><h1>أتمتة أي شيء باستخدام Cron</h1></header>
+<p>يغطي <a href="/docs/guides/daily-briefing-bot">الدرس التطبيقي لبوت الملخّص اليومي</a> الأساسيات. أما هذا الدليل فيذهب أبعد من ذلك، إذ يقدّم خمسة أنماط أتمتة واقعية يمكنك تكييفها مع سير العمل الخاص بك.</p>
+<p>للاطلاع على المرجع الكامل للميزة، راجع <a href="/docs/user-guide/features/cron">المهام المجدولة (Cron)</a>.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>مفهوم أساسي</div><div class="admonitionContent_BuS1"><p>تعمل مهام cron في جلسات وكيل جديدة لا تحمل أي ذاكرة عن محادثتك الحالية. لذا يجب أن تكون الـ prompts <strong>مكتفية بذاتها تمامًا</strong>، أي أن تتضمّن كل ما يحتاج الوكيل إلى معرفته.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>لا تحتاج إلى LLM؟ لديك خياران لا يستهلكان أي token.</div><div class="admonitionContent_BuS1"><ul>
+<li><strong>مراقب دوري (watchdog) متكرر</strong> يُنتج فيه السكربت الرسالة المطلوبة بالضبط (تنبيهات الذاكرة، تنبيهات القرص، نبضات التحقق من العمل): استخدم <a href="/docs/guides/cron-script-only">مهام cron بالسكربتات فقط</a>. المُجدوِل نفسه، لكن دون LLM. ويمكنك أن تطلب من Hermes إعداد مهمة كهذه لك في المحادثة، فالأداة <code>cronjob</code> تعرف متى تختار <code>no_agent=True</code> وتكتب السكربت نيابةً عنك.</li>
+<li><strong>تنفيذ لمرة واحدة من سكربت يعمل بالفعل</strong> (خطوة في CI، أو post-commit hook، أو سكربت نشر، أو أداة مراقبة مجدولة خارجيًا): استخدم <a href="/docs/guides/pipe-script-output"><code>hermes send</code></a> لتمرير stdout أو ملف مباشرةً إلى Telegram / Discord / Slack / وغيرها، دون الحاجة إلى إعداد مُدخل cron.</li>
+</ul></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-1-website-change-monitor">النمط 1: مراقبة تغييرات موقع ويب</h2>
+<p>راقب عنوان URL بحثًا عن تغييرات، واحصل على إشعار فقط عندما يتغيّر شيء ما.</p>
+<p>المعامل <code>script</code> هو السلاح السري هنا. إذ يعمل سكربت Python قبل كل تنفيذ، ويصبح stdout الخاص به سياقًا للوكيل. يتولّى السكربت العمل الآلي (الجلب والمقارنة)، بينما يتولّى الوكيل الاستدلال (هل هذا التغيير مثير للاهتمام؟).</p>
+<p>أنشئ سكربت المراقبة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/scripts/watch-site.py</div><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أعدّ مهمة cron:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>حيلة [SILENT]</div><div class="admonitionContent_BuS1"><p>في مهام المراقبة عبر cron، اطلب من الوكيل أن يردّ بـ <code>[SILENT]</code> فقط عندما لا يتغيّر شيء. إذ يتعامل تسليم cron مع <code>[SILENT]</code> على أنه علامة الصمت، فلا تتلقّى إشعارًا إلا عندما يحدث شيء فعلًا، ودون رسائل مزعجة في الساعات الهادئة.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>إبعاد إشعارات الإخفاق عن القنوات المشتركة</div><div class="admonitionContent_BuS1"><p>لا ينطبق <code>[SILENT]</code> إلا على عمليات التشغيل الناجحة؛ فعندما تفشل مهمة فشلًا تامًا، ينشر المحرّك إشعار <code>⚠️ Cron &#x27;X&#x27; failed…</code> إلى هدف التسليم الخاص بالمهمة. بالنسبة إلى المهام التي تُسلِّم إلى قنوات مشتركة مزدحمة، اضبط <code>--failure-deliver local</code> لإخفاء تلك الإشعارات تمامًا (تبقى حالة التشغيل ظاهرة في <code>hermes cron list</code> وفي سجل عمليات التشغيل)، أو وجّه إشعارات الإخفاق إلى قناة للعمليات باستخدام <code>--failure-deliver slack:C_OPS</code>. الصياغة نفسها المستخدمة في <code>--deliver</code>؛ وإذا أغفلته، تتبع إشعارات الإخفاق <code>--deliver</code> كما في السابق.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-2-weekly-report">النمط 2: تقرير أسبوعي</h2>
+<p>اجمع المعلومات من مصادر متعددة في ملخّص منسّق. تعمل هذه المهمة مرة كل أسبوع وتُسلِّم النتيجة إلى قناتك الرئيسية (home channel).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>من CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>التعبير <code>0 9 * * 1</code> هو تعبير cron قياسي يعني: الساعة 9:00 صباحًا من كل يوم اثنين.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-3-github-repository-watcher">النمط 3: مراقبة مستودع GitHub</h2>
+<p>راقب مستودعًا بحثًا عن issues أو PRs أو إصدارات جديدة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>Prompts مكتفية بذاتها</div><div class="admonitionContent_BuS1"><p>لاحظ كيف يتضمّن الـ prompt أوامر <code>gh</code> بدقة. فوكيل cron لا يملك أي سجل محادثة من عمليات التشغيل السابقة، لذا اذكر كل شيء صراحةً. (تُحمَّل الذاكرة الدائمة بالفعل، لذا تنتقل التفضيلات الثابتة المحفوظة في MEMORY.md، لكن لا تعتمد عليها في التفاصيل الحاسمة للمهمة.)</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-4-data-collection-pipeline">النمط 4: Pipeline لجمع البيانات</h2>
+<p>اجمع البيانات من الويب على فترات منتظمة، واحفظها في ملفات، واكتشف الاتجاهات بمرور الوقت. يجمع هذا النمط بين سكربت (للجمع) والوكيل (للتحليل).</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/scripts/collect-prices.py</div><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يتولّى السكربت الجمع الآلي، ويضيف الوكيل طبقة الاستدلال.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-5-multi-skill-workflow">النمط 5: سير عمل متعدد المهارات</h2>
+<p>اربط المهارات (skills) معًا في سلسلة لتنفيذ مهام مجدولة معقّدة. تُحمَّل المهارات بالترتيب قبل تنفيذ الـ prompt.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>من الأداة مباشرةً:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تُحمَّل المهارات بالترتيب: <code>arxiv</code> أولًا (تعلّم الوكيل كيفية البحث في الأوراق العلمية)، ثم <code>obsidian</code> (تعلّمه كيفية كتابة الملاحظات). ويربط الـ prompt بينهما.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-your-jobs">إدارة مهامك</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-targets">أهداف التسليم</h2>
+<p>يتحكّم الخيار <code>--deliver</code> في وجهة النتائج:</p>
+<table><thead><tr><th>الهدف</th><th>مثال</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><code>origin</code></td><td><code>--deliver origin</code></td><td>المحادثة نفسها التي أنشأت المهمة (الافتراضي)</td></tr><tr><td><code>local</code></td><td><code>--deliver local</code></td><td>الحفظ في ملف محلي فقط</td></tr><tr><td><code>telegram</code></td><td><code>--deliver telegram</code></td><td>قناتك الرئيسية في Telegram</td></tr><tr><td><code>discord</code></td><td><code>--deliver discord</code></td><td>قناتك الرئيسية في Discord</td></tr><tr><td><code>slack</code></td><td><code>--deliver slack</code></td><td>قناتك الرئيسية في Slack</td></tr><tr><td>محادثة محددة</td><td><code>--deliver telegram:-1001234567890</code></td><td>مجموعة Telegram محددة</td></tr><tr><td>ضمن سلسلة (thread)</td><td><code>--deliver telegram:-1001234567890:17585</code></td><td>سلسلة موضوع (topic thread) محددة في Telegram</td></tr><tr><td>Bot Chat</td><td><code>--deliver bot-chat</code></td><td>حقن المخرجات في محادثة Bot Chat الأساسية لهذا الـ profile، فيقرؤها البوت ويردّ عليها</td></tr><tr><td>Bot Chat (بالاسم)</td><td><code>--deliver bot-chat:research</code></td><td>محادثة Bot Chat الخاصة بـ profile محلي آخر</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-chat-delivery">التسليم إلى Bot Chat</h3>
+<p>تُسلِّم أهداف <code>bot-chat</code> مخرجات المهمة <strong>إلى جلسة &quot;Bot
+Chat&quot; الأساسية لـ profile ما، على هيئة رسالة حقيقية</strong>، فيستقبلها البوت كأي رسالة أخرى،
+وينفّذ ما يتطلّب تنفيذًا، ويردّ في تلك المحادثة. هذا هو
+الهدف الذي تستخدمه عندما تريد من البوت أن <em>يرى المخرجات المجدولة ويتفاعل معها</em>
+بدلًا من مجرد أرشفتها في سجل عمليات التشغيل (Run history).</p>
+<p>أمور ينبغي معرفتها:</p>
+<ul>
+<li><strong>محلي على الجهاز.</strong> يجب أن يكون الـ profile موجودًا على الجهاز الذي يشغّل
+المُجدوِل (<code>hermes profile list</code>). يُتحقَّق من الأسماء عند الإنشاء؛
+ولا يمكن استهداف profiles موجودة على gateways أو أجهزة أخرى.</li>
+<li><strong>يستهلك دورًا من البوت.</strong> كل عملية تسليم تُشغّل دورًا كاملًا للوكيل في محادثة Bot Chat الخاصة
+بالبوت المستهدف، لذا ضع ميزانيتك وفقًا لذلك في المهام عالية التكرار.</li>
+<li><strong>قابل للجمع.</strong> ينشر <code>--deliver bot-chat,telegram</code> إلى البوت وإلى
+قناتك الرئيسية في Telegram معًا. ولا يتوسّع الرمز <code>all</code> أبدًا ليشمل أهداف bot-chat.</li>
+<li>تُسبق الرسالة المُسلَّمة ببادئة كي يعرف البوت أنها جاءت من مهمة
+مجدولة، لا منك.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tips">نصائح</h2>
+<p><strong>اجعل الـ prompts مكتفية بذاتها.</strong> لا يملك الوكيل في مهمة cron أي ذاكرة عن محادثاتك. ضمّن عناوين URL وأسماء المستودعات وتفضيلات التنسيق وتعليمات التسليم مباشرةً في الـ prompt.</p>
+<p><strong>استخدم <code>[SILENT]</code> عن قصد.</strong> في مهام المراقبة، أضف تعليمات مثل &quot;إذا لم يتغيّر شيء، فردّ بـ <code>[SILENT]</code> فقط.&quot; ولا تطلب من الوكيل شرح هذا الـ token في الحالات الهادئة، لأن cron يتعامل مع <code>[SILENT]</code> على أنه علامة إلغاء التسليم.</p>
+<p><strong>استخدم السكربتات لجمع البيانات.</strong> يتيح المعامل <code>script</code> لسكربت Python أن يتولّى الأجزاء المملّة (طلبات HTTP، وقراءة الملفات وكتابتها، وتتبّع الحالة). ولا يرى الوكيل سوى stdout الخاص بالسكربت فيطبّق عليه الاستدلال. وهذا أقل تكلفة وأكثر موثوقية من جعل الوكيل يتولّى الجلب بنفسه.</p>
+<p><strong>اختبر باستخدام <code>/cron run</code>.</strong> بدلًا من انتظار انطلاق الجدول الزمني، استخدم <code>/cron run &lt;job_id&gt;</code> للتنفيذ فورًا والتحقق من أن المخرجات تبدو صحيحة.</p>
+<p><strong>تعبيرات الجدولة.</strong> الصيغ المدعومة: التأخيرات النسبية (<code>30m</code>)، والفواصل الزمنية (<code>every 2h</code>)، وتعبيرات cron القياسية (<code>0 9 * * *</code>)، والطوابع الزمنية بصيغة ISO (<code>2025-06-15T09:00:00</code>). اللغة الطبيعية مثل <code>daily at 9am</code> غير مدعومة، فاستخدم <code>0 9 * * *</code> بدلًا منها.</p>
+<hr>
+<p><em>للاطلاع على مرجع cron الكامل، بما في ذلك جميع المعاملات والحالات الحدّية والآليات الداخلية، راجع <a href="/docs/user-guide/features/cron">المهام المجدولة (Cron)</a>.</em></p>

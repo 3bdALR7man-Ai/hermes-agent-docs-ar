@@ -1,0 +1,92 @@
+
+<header><h1>Gitnexus Explorer</h1></header>
+<p>شغّل واجهة ويب تفاعلية لعرض رسم بياني معرفي (knowledge graph) لقاعدة الكود (codebase).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/research/gitnexus-explorer</code></td></tr><tr><td>المسار</td><td><code>optional-skills/research/gitnexus-explorer</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent + Teknium</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>gitnexus</code>, <code>code-intelligence</code>, <code>knowledge-graph</code>, <code>visualization</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a>, <a href="/docs/user-guide/skills/bundled/software-development/software-development-codebase-inspection"><code>codebase-inspection</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>GitNexus Explorer</h1>
+<p>فهرِس أي قاعدة كود في رسم بياني معرفي، وشغّل واجهة ويب تفاعلية لاستكشاف
+الرموز (symbols) وسلاسل الاستدعاء والتجمّعات (clusters) ومسارات التنفيذ. تُربط عبر نفق Cloudflare للوصول عن بُعد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يريد المستخدم استكشاف بنية قاعدة كود بصريًا</li>
+<li>يطلب المستخدم رسمًا بيانيًا معرفيًا / رسمًا بيانيًا للاعتماديات لمستودع</li>
+<li>يريد المستخدم مشاركة مستكشف تفاعلي لقاعدة الكود مع شخص آخر</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>Node.js</strong> (الإصدار 18 فما فوق) — مطلوب لـ GitNexus وللـ proxy</li>
+<li><strong>git</strong> — يجب أن يحتوي المستودع مجلد <code>.git</code></li>
+<li><strong>cloudflared</strong> — لإنشاء النفق (يُثبَّت تلقائيًا في ~/.local/bin إن لم يكن موجودًا)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="size-warning">تحذير بشأن الحجم</h2>
+<p>تعرض واجهة الويب جميع العُقد داخل المتصفح. المستودعات التي تحتوي أقل من 5000 ملف تعمل جيدًا. المستودعات
+الكبيرة (30 ألف عقدة فأكثر) ستكون بطيئة أو قد تُعطِّل تبويب المتصفح. تعمل أدوات CLI/MCP
+عند أي حجم — القيد يخص واجهة العرض على الويب فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="steps">الخطوات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-clone-and-build-gitnexus-one-time-setup">1. استنساخ وبناء GitNexus (إعداد لمرة واحدة)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-patch-the-web-ui-for-remote-access">2. تعديل واجهة الويب للوصول عن بُعد</h3>
+<p>تستخدم واجهة الويب افتراضيًا <code>localhost:4747</code> لاستدعاءات API. عدِّلها لتستخدم نفس المصدر (same-origin)
+بحيث تعمل عبر نفق/proxy:</p>
+<p><strong>الملف: <code>$GITNEXUS_DIR/gitnexus-web/src/config/ui-constants.ts</code></strong>
+غيّر:</p>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إلى:</p>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>الملف: <code>$GITNEXUS_DIR/gitnexus-web/vite.config.ts</code></strong>
+أضف <code>allowedHosts: true</code> داخل قسم <code>server: { }</code> (مطلوب فقط عند تشغيل وضع
+التطوير (dev) بدلًا من البناء الإنتاجي (production build)):</p>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثم ابنِ الحزمة الإنتاجية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-index-the-target-repo">3. فهرسة المستودع الهدف</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أضف <code>--embeddings</code> للبحث الدلالي (semantic search) (أبطأ — دقائق بدلًا من ثوانٍ).</p>
+<p>يقيم الفهرس في <code>.gitnexus/</code> داخل المستودع (يُستثنى تلقائيًا في gitignore).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-create-the-proxy-script">4. إنشاء سكربت الـ proxy</h3>
+<p>اكتب هذا في ملف (مثلًا <code>$GITNEXUS_DIR/proxy.mjs</code>). يخدّم واجهة الويب
+الإنتاجية ويمرِّر <code>/api/*</code> إلى خلفية (backend) GitNexus — بنفس المصدر، دون مشكلات CORS،
+ودون sudo أو nginx.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-start-the-services">5. تشغيل الخدمات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>للتحقّق: يجب أن يعيد <code>curl -s http://localhost:8888/api/repos</code> المستودع(ات) المفهرسة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-tunnel-with-cloudflare-optional--for-remote-access">6. إنشاء نفق عبر Cloudflare (اختياري — للوصول عن بُعد)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يُطبع رابط النفق (مثل <code>https://random-words.trycloudflare.com</code>) على stderr.
+شاركه — يمكن لأي شخص لديه الرابط استكشاف الرسم البياني.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-cleanup">7. التنظيف</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>
+<p><strong><code>--config /dev/null</code> مطلوب لـ cloudflared</strong> إذا كان لدى المستخدم إعداد نفق مُسمّى
+موجود مسبقًا في <code>~/.cloudflared/config.yml</code>. بدونه، تُعيد قاعدة التوجيه الشاملة (catch-all
+ingress rule) في الإعداد الخطأ 404 لجميع طلبات النفق السريع.</p>
+</li>
+<li>
+<p><strong>البناء الإنتاجي إلزامي لإنشاء النفق.</strong> يحجب خادم التطوير Vite افتراضيًا
+المضيفين غير المحليين (<code>allowedHosts</code>). يتجنّب البناء الإنتاجي مع proxy الخاص بـ Node هذا تمامًا.</p>
+</li>
+<li>
+<p><strong>واجهة الويب لا تُنشئ <code>.claude/</code> أو <code>CLAUDE.md</code>.</strong> تلك يُنشئها
+<code>npx gitnexus analyze</code>. استخدم <code>--skip-agents-md</code> لتجاهل ملفات markdown،
+ثم <code>rm -rf .claude/</code> للباقي. هذه تكاملات خاصة بـ Claude Code لا يحتاجها
+مستخدمو hermes-agent.</p>
+</li>
+<li>
+<p><strong>حدّ ذاكرة المتصفح.</strong> تحمّل واجهة الويب الرسم البياني كاملًا في ذاكرة المتصفح.
+قد تكون المستودعات التي تحتوي 5 آلاف ملف فأكثر بطيئة. أما 30 ألف ملف فأكثر فستُعطِّل التبويب على الأرجح.</p>
+</li>
+<li>
+<p><strong>Embeddings اختيارية.</strong> يفعّل <code>--embeddings</code> البحث الدلالي لكنه يستغرق
+دقائق على المستودعات الكبيرة. تجاوزه للاستكشاف السريع؛ أضِفه إذا أردت
+استعلامات بلغة طبيعية عبر لوحة محادثة الذكاء الاصطناعي.</p>
+</li>
+<li>
+<p><strong>مستودعات متعددة.</strong> يخدّم <code>gitnexus serve</code> جميع المستودعات المفهرسة. فهرِس عدة
+مستودعات، شغّل serve مرة واحدة، وتتيح لك واجهة الويب التبديل بينها.</p>
+</li>
+</ul>

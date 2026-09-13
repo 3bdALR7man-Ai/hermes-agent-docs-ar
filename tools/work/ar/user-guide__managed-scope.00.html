@@ -1,0 +1,79 @@
+<header><h1>النطاق المُدار (Managed Scope)</h1></header>
+<p>يتيح <strong>النطاق المُدار (managed scope)</strong> للمسؤول فرض خط أساس من الإعدادات
+والأسرار يكون المستخدم العادي (غير root) <strong>عاجزًا عن تجاوزه</strong>. وهو مخصّص
+لعمليات النشر على مستوى الأجهزة المتعددة/المؤسسة، حيث يحتاج قسم تقنية المعلومات إلى تثبيت قيم مثل مزوّد النماذج، أو
+عنوان URL أساسي مشترك لـ API، أو <code>security.redact_secrets: true</code> لكل مستخدم على
+الجهاز.</p>
+<p>عند وجود نطاق مُدار، تتقدّم القيم التي يحددها على ملف المستخدم
+<code>~/.hermes/config.yaml</code> وملف <code>~/.hermes/.env</code>، بل وحتى على بيئة الـ shell — وذلك
+للمفاتيح التي يثبّتها تحديدًا. أما كل ما عداها فيبقى تحت سيطرة المستخدم بالكامل.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>يختلف عن التثبيت المُقفل بواسطة مدير الحزم</div><div class="admonitionContent_BuS1"><p>يمنع التثبيت المُدار بواسطة مدير الحزم (توزيعة تصريحية / formula) <em>جميع</em>
+تعديلات الإعدادات ويطلب منك استخدام مدير الحزم. أما النطاق المُدار فهو
+آلية منفصلة: إذ يحقن <em>قيمًا محددة غير قابلة للتغيير</em> على مستوى كل مفتاح
+بدلًا من قفل ملف الإعدادات بالكامل. والآليتان مستقلتان ويمكن أن تتعايشا معًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-it-lives">موقعه</h2>
+<p>يُقرأ النطاق المُدار من مجلد على مستوى النظام، وهو افتراضيًا <code>/etc/hermes</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يملك المستخدم <code>root</code> المجلد والملفات (بصلاحيات <code>0755</code> للمجلد، و
+<code>0644</code> للملفات): أي أنها قابلة للقراءة من الجميع، وقابلة للكتابة من المسؤول فقط. <strong>وصلاحيات
+نظام الملفات هذه هي آلية الفرض</strong> — إذ يستطيع المستخدم العادي قراءة
+الملفات المُدارة لكنه لا يستطيع تعديلها.</p>
+<p>كلا الملفين اختياري. فغياب المجلد المُدار أو غياب أحد الملفين يعني ببساطة
+&quot;لا يوجد نطاق مُدار&quot;، وتُحدَّد الإعدادات تمامًا كما تُحدَّد في غياب
+هذه الميزة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="relocating-the-directory">تغيير موقع المجلد</h3>
+<p>يمكن تغيير الموقع باستخدام متغير البيئة <code>HERMES_MANAGED_DIR</code>
+(للحاويات أو لعمليات النشر خارج <code>/etc</code>). وهو خيار لمسار النشر/التهيئة الأولية
+— مثل <code>HERMES_HOME</code> — يضبطه المسؤول نفسه الذي يملك الملفات
+المُدارة. و<strong>لا يحفظه</strong> Hermes أبدًا في أي ملف <code>.env</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>المستخدم القادر على ضبط <code>HERMES_MANAGED_DIR</code> يستطيع إعادة توجيه النطاق المُدار إلى مجلد
+يتحكم فيه، مما يُبطل مفعوله. في عمليات النشر الفعلية، ينبغي أن يثبّت المسؤول
+هذا المتغير (مثلًا بتضمينه في وحدة الخدمة / صورة الحاوية)، لا أن
+يُترك قابلًا للضبط من المستخدم. يُبلغ <code>hermes doctor</code> عن المجلد المُدار <em>الفعلي بعد التحديد</em> كي
+تكون أي إعادة توجيه ظاهرة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="precedence">الأسبقية</h2>
+<p>بالنسبة إلى المفاتيح التي تحددها الطبقة المُدارة، يكون الترتيب كما يلي (الأعلى هو المعتمد):</p>
+<table><thead><tr><th>المستوى</th><th>config.yaml</th><th>.env</th></tr></thead><tbody><tr><td>1</td><td><code>/etc/hermes/config.yaml</code> (مُدار)</td><td><code>/etc/hermes/.env</code> (مُدار)</td></tr><tr><td>2</td><td><code>~/.hermes/config.yaml</code> (المستخدم)</td><td><code>~/.hermes/.env</code> (المستخدم)</td></tr><tr><td>3</td><td>القيم الافتراضية المدمجة</td><td>بيئة الـ shell الموجودة مسبقًا</td></tr></tbody></table>
+<p>يجري الدمج <strong>على مستوى المفاتيح الطرفية (leaf)</strong>: فتثبيت <code>model.default</code> لا يجمّد بقية
+<code>model.*</code>. فملف <code>config.yaml</code> مُدار بالمحتوى التالي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يفرض <code>model.default</code> على كل مستخدم مع ترك <code>model.fallback</code> (وكل
+مفتاح آخر) تحت سيطرة المستخدم.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>ملاحظة حول الأسبقية</div><div class="admonitionContent_BuS1"><p>بالنسبة إلى المفاتيح التي يثبّتها، يتقدّم النطاق المُدار عمدًا على بيئة الـ shell
+أيضًا — وإلا لما كان &quot;مُدارًا&quot;. وهذا هو الموضع الوحيد الذي تنعكس فيه
+القاعدة المعتادة &quot;متغير البيئة يتجاوز config.yaml&quot;، ولا ينطبق ذلك إلا
+على المفاتيح المحددة التي تنص عليها الطبقة المُدارة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="seeing-whats-managed">معرفة ما هو مُدار</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>إذا حاولت تغيير قيمة مُدارة، يرفض Hermes ذلك ويذكر مصدرها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>وينطبق الأمر نفسه على الأسرار المُدارة — فلن يكتب <code>hermes config set</code> / الإعداد
+قيمةً للمستخدم لمفتاح بيئة مثبّت بواسطة ملف <code>.env</code> المُدار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setting-up-a-managed-scope-administrators">إعداد نطاق مُدار (للمسؤولين)</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تسري التغييرات عند التشغيل التالي لـ Hermes (يُسجَّل الملف المُدار المشوّه
+بشكل بارز ويُتجاهل — فهو لا يمنع بدء التشغيل أبدًا، لكن ينبغي للمسؤول مراجعة
+<code>hermes doctor</code> للتأكد من تطبيق السياسة).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model-and-limitations-v1">نموذج الأمان والقيود (v1)</h2>
+<ul>
+<li><strong>يعتمد الفرض على صلاحيات نظام الملفات فقط.</strong> إذا كان لدى المستخدم صلاحية الكتابة في
+المجلد المُدار (أو كان يشغّل Hermes بصفته <code>root</code>)، يصبح النطاق المُدار استرشاديًا فقط.</li>
+<li><strong>ملف <code>.env</code> المُدار قابل للقراءة من الجميع</strong> (<code>0644</code>)، لذا يستطيع أي مستخدم محلي قراءة
+الأسرار المفروضة عبره. استخدمه للقيم المشتركة غير الحساسة (مثل عنوان URL أساسي لـ API
+الخاص بالمؤسسة، أو القيم الافتراضية للميزات) بدلًا من الأسرار شديدة الحساسية.</li>
+<li><strong>لا تُمنع أدوات الوكيل نفسه منعًا صارمًا من تجاوز قيمة <em>بيئة</em> مُدارة.</strong> إذ
+يُطبَّق متغير البيئة المُدار عند بدء التشغيل، لكن لا شيء يمنع
+الوكيل من ضبط قيمة مختلفة داخل الـ shell الخاص بعمليته الفرعية. فالإصدار v1
+حدٌّ لتسهيل الإدارة في مواجهة مستخدم عادي، وليس sandbox
+لا يمكن الإفلات منه.</li>
+</ul>
+<p>العناصر التالية <strong>خارج نطاق v1</strong> عن قصد، وقد تُضاف لاحقًا:</p>
+<ul>
+<li>حدّ صارم لا يستطيع الوكيل نفسه الإفلات منه.</li>
+<li>مواقع مُدارة أصلية على macOS و Windows (يركّز الإصدار v1 على Linux/POSIX أولًا).</li>
+<li>مجلدات أجزاء قابلة للإضافة (<code>managed.d/</code>) لسياسات متعددة الطبقات.</li>
+<li>ملفات مُدارة موقّعة / خاضعة للتحقق من السلامة.</li>
+<li>التوزيع عن بُعد / عبر أنظمة إدارة الأجهزة (MDM).</li>
+<li>صلاحيات أكثر تشددًا (على مستوى المجموعة) للأسرار المُدارة.</li>
+</ul>

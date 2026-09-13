@@ -1,0 +1,176 @@
+<header><h1>البحث عن الأدوات (Tool Search)</h1></header>
+<p>عندما تكون لديك خوادم MCP كثيرة أو أدوات إضافات (plugins) غير أساسية مرتبطة بجلسة ما،
+فقد تستهلك مخططات JSON الخاصة بها (schemas) جزءًا كبيرًا من
+الـ context window في كل دور — حتى عندما يكون عدد قليل منها فقط ذا صلة
+بما طلبه المستخدم فعلًا.</p>
+<p><strong>Tool Search</strong> هي طبقة الإفصاح التدريجي (progressive disclosure) الاختيارية في Hermes لمعالجة هذه
+المشكلة. عند تفعيلها، تُستبدل أدوات MCP وأدوات الإضافات في
+مصفوفة الأدوات المرئية للنموذج بثلاث أدوات جسر (bridge tools)، ويحمّل النموذج مخطط كل
+أداة محددة عند الحاجة.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>أدوات Hermes المدمجة لا تُؤجَّل أبدًا</div><div class="admonitionContent_BuS1"><p>الأدوات التي تشكّل مجموعة القدرات الأساسية في Hermes (<code>terminal</code>،
+<code>read_file</code>، <code>write_file</code>، <code>patch</code>، <code>search_files</code>، <code>todo</code>، <code>memory</code>،
+<code>browser_*</code>، <code>web_search</code>، <code>web_extract</code>، <code>clarify</code>، <code>execute_code</code>،
+<code>delegate_task</code>، <code>session_search</code>، وبقية
+<code>_HERMES_CORE_TOOLS</code>) تُحمَّل مباشرةً <em>دائمًا</em>. ولا يكون قابلًا للتأجيل سوى أدوات MCP
+وأدوات الإضافات غير الأساسية.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>عندما تُفعَّل Tool Search في دور ما، يرى النموذج ثلاث أدوات جديدة
+بدلًا من الأدوات المؤجَّلة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يأخذ <code>calls</code> إدخالًا واحدًا لكل استدعاء؛ فالاستدعاء المحلي الواحد مصفوفة من
+عنصر واحد. ولا يجوز تجميع سوى الأسماء التي تبدأ بـ <code>connectors__</code> معًا في دفعة واحدة؛ وتُرفض الدفعات المختلطة
+والدفعات التي تضم عدة أدوات محلية.</p>
+<p>يبدو التفاعل النموذجي على النحو التالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُبحث عن كل استعلام في استدعاء <code>tool_search</code> بشكل مستقل ضمن
+الكتالوج نفسه (ويُطبَّق <code>limit</code> على كل استعلام)؛ وتحمل المجموعات الخاصة بكل استعلام أسماء
+الأدوات فقط، بينما تحتفظ الخريطة المشتركة <code>tools</code> بوصف كل أداة مطابقة
+وأسماء معاملاتها المطلوبة مرة واحدة. تُطبَّق على الاستعلامات عملية التجذيع (stemming)، لذا
+فإن &quot;issues&quot; تعثر على <code>create_issue</code>. وكل مجموعة استعلام لا تُرجع أي تطابقات
+تتضمن ملخص <code>available_sources</code> للخوادم المتصلة، كي لا يُفهم إخفاق المطابقة اللفظية
+على أنه غياب للقدرة نفسها.
+يحلّ <code>tool_describe</code> جميع الأسماء المطلوبة في استدعاء واحد؛ وتُذكر الأسماء غير المعروفة
+في <code>not_found</code> دون أن يفشل باقي الدفعة.</p>
+<p>عندما يستدعي النموذج <code>tool_call</code>، فإن Hermes <strong>يفكّ غلاف الجسر</strong>
+ويُرسل الأداة الفعلية تمامًا كما لو كان النموذج قد استدعاها
+مباشرةً. إذ تعمل hooks ما قبل استدعاء الأداة، وقيود الحماية (guardrails)، وطلبات الموافقة، و
+hooks ما بعد استدعاء الأداة جميعها على اسم الأداة الحقيقي — لا على
+<code>tool_call</code>. كما يفكّ سجل النشاط في CLI و gateway الغلاف أيضًا، بحيث
+ترى الأداة الفعلية لا أداة الجسر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-does-it-activate">متى تُفعَّل؟</h2>
+<p>تستخدم Tool Search <strong>الإفصاح المتدرّج حسب المستويات</strong>: فوجود <em>أي</em> أداة قابلة للتأجيل
+(MCP/plugin) يفعّل الجسر؛ وما يتغير بحسب حجم الكتالوج هو
+مقدار ما يبقى مرئيًا منه، لا ما إذا كانت المخططات تُؤجَّل أم لا.</p>
+<table><thead><tr><th>المستوى (Tier)</th><th>الشرط</th><th>ما يراه النموذج</th></tr></thead><tbody><tr><td><strong>0</strong></td><td>لا توجد أدوات MCP/plugin</td><td>كل الأدوات تُحمَّل فورًا، ولا يوجد جسر. تمرير مباشر.</td></tr><tr><td><strong>1</strong></td><td>قائمة الكتالوج المؤجَّل تتسع ضمن الميزانية</td><td>الجسر + بيان (manifest) على غرار المهارات لكل أداة مؤجَّلة (الاسم + وصف قصير، مع التراجع إلى الأسماء فقط عند تجاوز الميزانية). ويكون التراجع <strong>لكل خادم على حدة</strong>: فعند ربط خادم ضخم جدًا (Cloudflare) إلى جانب خوادم صغيرة (Linear)، تحتفظ الخوادم الصغيرة بقوائم أدواتها التفصيلية، ولا يُختزل إلى سطر ملخص سوى الخادم الضخم.</td></tr><tr><td><strong>2</strong></td><td>قائمة الأدوات تتجاوز الميزانية حتى بالأسماء فقط لكل الخوادم (مثل واجهة API المسطّحة الخاصة بـ Cloudflare وحدها: نحو 3,300 أداة تبلغ أسماؤها نحو 32K token)</td><td>الجسر وحده + ملخص بسطر واحد لكل خادم (اسم الخادم + عدد الأدوات)، كي يعرف النموذج النطاقات التي يمكن الوصول إليها؛ ولا يمكن اكتشاف الأدوات الفردية إلا عبر <code>tool_search</code>.</td></tr></tbody></table>
+<p>ميزانية القائمة هي <code>min(threshold_pct% of context, listing_max_tokens)</code>.
+ويُعاد تقييم القرار في كل مرة تُبنى فيها مصفوفة الأدوات، لذا فإن
+إضافة خوادم MCP أو إزالتها في منتصف الجلسة تنقل الجلسة بين
+المستويات عند التجميع التالي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>enabled</code></td><td><code>auto</code></td><td>القيمتان <code>auto</code>/<code>on</code> تفعّلان الميزة متى وُجدت أداة واحدة على الأقل قابلة للتأجيل؛ و <code>off</code> تعطّلها كليًا (فتبقى كل الأدوات محمّلة فورًا). القيمة <code>auto</code> حاليًا اسم بديل لـ <code>on</code> — وهي محجوزة لوضع مستقبلي يُدرج المخططات مباشرةً عندما تتسع في السياق ولا يؤجّلها إلا عندما لا تتسع. ثبّت القيمة على <code>on</code> أو <code>off</code> إذا أردت ضمان السلوك الحالي عبر الترقيات.</td></tr><tr><td><code>threshold_pct</code></td><td><code>5</code></td><td>ميزانية القائمة كنسبة مئوية من طول سياق النموذج النشط. النطاق 0–100.</td></tr><tr><td><code>search_default_limit</code></td><td><code>5</code></td><td>عدد النتائج المُرجعة لكل استعلام عندما يستدعي النموذج <code>tool_search</code> دون تحديد <code>limit</code>.</td></tr><tr><td><code>max_search_limit</code></td><td><code>25</code></td><td>الحد الأعلى الصارم الذي يمكن للنموذج طلبه عبر <code>limit</code> (لكل استعلام). النطاق 1–50.</td></tr><tr><td><code>listing</code></td><td><code>auto</code></td><td>تضمين بيان على غرار المهارات لكل أداة مؤجَّلة (الاسم + الجملة الأولى من وصفها، بحد أقصى 60 حرفًا، مجمّعة حسب خادم MCP) في وصف أداة الجسر <code>tool_search</code>. تُضمّنه القيمة <code>auto</code> عندما يتسع ضمن الميزانية (مع التراجع إلى الأسماء فقط، ثم إلى ملخص الخوادم في المستوى 2)؛ أما <code>on</code>/<code>off</code> فتفرضان أحد الخيارين.</td></tr><tr><td><code>listing_max_tokens</code></td><td><code>4000</code></td><td>حد أقصى مطلق للقائمة المضمّنة، بغض النظر عن حجم السياق. النطاق 200–60000. تتراجع الكتالوجات الكبيرة إلى الأسماء فقط أو إلى ملخصات لكل خادم، مع إبقاء المخططات الكاملة متاحة عبر البحث.</td></tr></tbody></table>
+<p>الحدود القصوى لحجم المصفوفات في كل استدعاء هي حدود أمان داخلية، وليست إعدادات قابلة للضبط. الاستدعاءات التي تتجاوز الحد
+تُرجع خطأً كي يتمكن النموذج من إعادة المحاولة بدفعة أصغر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-the-listing-exists">لماذا توجد القائمة</h3>
+<p>بدونها تكون القدرات المؤجَّلة <em>غير مرئية</em> — فقد أظهرت القياسات الحية أن
+النماذج تستبدل بها أدوات أساسية مرئية (كتشغيل <code>gh</code> في الطرفية بدلًا
+من البحث عن أداة GitHub المؤجَّلة) أو تعلن أن قدرة ما
+غير موجودة بدلًا من استدعاء <code>tool_search</code>. تطبّق القائمة نمط المهارات
+على الأدوات: فتبقى كل قدرة قابلة للاكتشاف بالاسم في جميع الأوقات،
+بينما تظل مخططات المعاملات الكاملة مؤجَّلة. وإذا رأى النموذج اسم الأداة
+الدقيق في القائمة، يمكنه تخطي <code>tool_search</code> والانتقال مباشرةً إلى
+<code>tool_describe</code>، موفّرًا بذلك جولة ذهاب وإياب (round trip).</p>
+<p>يمكنك أيضًا استخدام الصيغة المنطقية (boolean) القديمة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="connectors-remote-tools">الموصِّلات (Connectors) — الأدوات البعيدة</h2>
+<p>عندما تكون مسجّلًا الدخول إلى Nous Portal، يصل الجسر أيضًا إلى
+<strong>connectors</strong> — وهي أدوات بعيدة يقدّمها tool gateway المُدار. ولا
+تُسجَّل محليًا أبدًا: إذ يرسل <code>tool_search</code> كل استعلام إلى الـ gateway، ويضيف
+نتائج الـ gateway إلى الكتالوج المحلي كمستندات (موسومة بـ
+<code>source: &quot;connectors&quot;</code>، وتحمل أسماء بصيغة <code>connectors__&lt;connector&gt;__&lt;tool&gt;</code>)، ويرتّب
+الاثنين معًا بتمريرة BM25 نفسها وقاعدة الـ token الأندر نفسها، بحيث يحدّ <code>limit</code>
+المجموعة ككل، ولا تُزاح أبدًا أداة connector تجيب عن الاستعلام بسبب أدوات محلية تشاركها كلمة واحدة. ويُحدَّد
+استدعاء الـ gateway بمدة 30 ثانية؛ فإذا كان الـ gateway بطيئًا أو متوقفًا، يُكتفى بالنتائج
+المحلية فقط. يجلب <code>tool_describe</code> مخططات الـ connectors من الـ gateway،
+ويرسل <code>tool_call</code> كل إدخال connector في الدفعة كطلب مستقل إلى الـ gateway،
+بترتيب الإدخال (واسم الأداة الذي لا يعرفه الـ gateway تحت الـ slug
+المعتاد تُعاد محاولته مرة واحدة تحت الـ slug الحرفي، لذا قد يكلّف الإدخال الواحد
+طلبين). وإذا حدث أن قدّم connector الأداتين <code>GMAIL_X</code> و
+<code>X</code> الحرفية معًا، فستتحول كلتاهما إلى <code>connectors__gmail__X</code>، الذي يشغّل <code>GMAIL_X</code>؛
+فيحتفظ البحث بتلك النسخة، ويُسقط الأخرى، ويسجّل تحذيرًا. وتُعاد النتائج إلى ترتيب الدفعة الأصلي
+مع إعادة حساب الأعداد.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عند تسجيل الخروج (أو عندما لا يقدّم الـ gateway أي connectors لحسابك)،
+يصبح كل ما سبق غير مرئي: ويتصرف البحث المحلي تمامًا كما هو
+موضح في بقية هذه الصفحة، دون إظهار أي أخطاء للنموذج.</p>
+<p>استدعاء الـ connector الذي يحتاج إلى حساب لم تربطه يُرجع خطأ
+<code>CONNECTION_REQUIRED</code> يحمل رابطًا للربط. أما الأداة <code>manage_connections</code>
+(المتاحة وفق الشرط نفسه الذي يُتاح به جسر الـ connectors) فتسرد
+الـ connectors وحالة اتصالها، وتبدأ عملية التفويض، ويمكنها الانتظار
+حتى يُكملها المستخدم؛ أما فصل الحساب فيقوم به المستخدم بنفسه من
+الـ Portal.</p>
+<p>يقبل <code>tool_call</code> دفعة: فالحقل <code>calls</code> مصفوفة من إدخالات <code>{name, arguments}</code>
+(والاستدعاء الواحد مصفوفة من عنصر واحد). وكل إدخال connector في الدفعة
+يُرسَل كطلب مستقل إلى الـ gateway، واحدًا تلو الآخر؛ أما الأدوات المحلية المؤجَّلة
+فتبقى بإدخال واحد لكل <code>tool_call</code>. تُحسم الموافقات لكل إدخال قبل
+الإرسال، وأمر <code>/stop</code> بين الإدخالات يترك الإدخالات التي لم تبدأ دون إرسال
+(وتُبلغ خاناتها عن <code>INTERRUPTED</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-not-to-use-it">متى لا تستخدمها</h2>
+<p>تقايض Tool Search تكلفةً ثابتة من الـ tokens في كل دور (مخططات أدوات الجسر
+الثلاث بالإضافة إلى قائمة الكتالوج) وجولةَ ذهاب وإياب إضافية واحدة على الأقل مع
+الأدوات غير المحمّلة بعد (describe → call) مقابل التوفير في المخططات المؤجَّلة.
+في المستوى 1 تُبقي القائمة كل قدرة مرئية، لذا تختفي عادةً جولة
+الاكتشاف — إذ ينتقل النموذج مباشرةً إلى
+<code>tool_describe</code>. وقد أظهرت القياسات الحية أن وضع القائمة يضاهي
+التحميل الفوري في نسبة نجاح المهام، بتكلفة أقل من الجسر وحده.</p>
+<p>إذا أردت السلوك القديم القائم على التحميل الفوري دائمًا مع toolset صغير، فاضبط
+<code>enabled: off</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trade-offs-that-dont-go-away">مقايضات لا مفرّ منها</h2>
+<p>تنبع هذه المقايضات من ثابت سلامة التخزين المؤقت للـ prompt (prompt cache) — وهي متأصلة
+في أي تصميم يعتمد على الإفصاح التدريجي، وليست خاصة بهذا التنفيذ:</p>
+<ul>
+<li><strong>جولة ذهاب وإياب إضافية مع الأدوات غير المحمّلة بعد.</strong> في المرة الأولى التي يحتاج فيها النموذج
+إلى أداة مؤجَّلة، يُنفق استدعاءً أو استدعاءين إضافيين للنموذج للعثور على المخطط
+وتحميله. التوفير في الـ tokens على الجانب الثابت حقيقي، لكن
+جزءًا منه يُدفع مجددًا وقت التشغيل.</li>
+<li><strong>لا فائدة من التخزين المؤقت للمخططات المؤجَّلة.</strong> نتيجة <code>tool_describe</code> المحمّلة
+تدخل سجل المحادثة (لذا تُخزَّن مؤقتًا بالفعل في
+الأدوار اللاحقة) لكنها لا تستفيد أبدًا من بادئة التخزين المؤقت الخاصة بالـ system prompt.</li>
+<li><strong>لا يوجد تحقق أصلي من جهة المزوّد للمخططات المؤجَّلة.</strong> تتيح <code>tool_describe</code>
+للنموذج قراءة مخطط الأداة المؤجَّلة، لكن المزوّد يظل لا يرى
+سوى الكائن العام <code>tool_call.arguments</code>. لذلك يحوّل Hermes الوسائط الفعلية إلى الأنواع الصحيحة
+ويتحقق منها محليًا قبل الإرسال؛ وتظل الأداة الفعلية أو خادم MCP مسؤولَين عن المخططات التي لا يستطيع Hermes
+التحقق منها بأمان، مثل المخططات المشوّهة أو المراجع الخارجية.</li>
+<li><strong>الاعتماد على جودة النموذج.</strong> تفترض Tool Search أن النموذج قادر على كتابة
+استعلام بحث معقول عن الأداة التي يريدها. والنماذج الأصغر تؤدي ذلك
+بكفاءة أقل؛ وتُظهر الأرقام المنشورة من Anthropic (49% → 74% على Opus 4 مع
+البحث عن الأدوات مقابل بدونه) الفائدة، لكنها تُظهر أيضًا أن نحو 26 نقطة من
+الدقة لا تزال تمثل إخفاقًا في الاسترجاع.</li>
+<li><strong>تعديلات الـ toolset تُبطل التخزين المؤقت.</strong> إضافة أداة أو إزالتها في منتصف
+الجلسة تغيّر أوصاف أدوات الجسر (التي تتضمن
+عدد الأدوات المؤجَّلة) والكتالوج، فيُبطَل التخزين المؤقت للـ prompt.
+وهذه المقايضة نفسها التي تنطبق على أي تعديل في الـ toolset.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="implementation-details">تفاصيل التنفيذ</h2>
+<ul>
+<li><strong>الاسترجاع:</strong> خوارزمية BM25 على اسم الأداة بعد تقسيمه إلى tokens، واسم المصدر (خادم MCP
+أو toolset الإضافة الذي تنتمي إليه الأداة، بحيث يعثر البحث عن <code>&quot;linear&quot;</code>
+على أدوات ذلك الخادم حتى عندما لا يتضمن اسم الأداة نفسه
+اسم الخدمة)، والوصف، وأسماء المعاملات، مع تطبيق التجذيع بخوارزمية Snowball
+(للإنجليزية) على كلٍّ من الفهرس والاستعلام بحيث
+تتطابق الصيغ الصرفية المختلفة (&quot;issues&quot; تعثر على <code>create_issue</code>). ولا تُعدّ الأداة
+نتيجةً إلا إذا احتوت على الـ token الأندر في الاستعلام (أي الموجود في
+أقل عدد من مستندات الأدوات، وهو بالتالي الكلمة التي تعبّر عن القصد: <code>gmail</code>،
+<code>github</code>، <code>incident</code>، لا <code>send</code> أو <code>create</code>). والاستعلام الذي لا يظهر الـ token
+الأندر فيه في أي أداة يُرجع مجموعة فارغة مع المصادر
+المتصلة وتلميح لإعادة المحاولة، بدلًا من إرجاع <code>limit</code> أداة تشترك في كلمة
+شائعة واحدة.</li>
+<li><strong>التنفيذ المتوازي يفكّ غلاف الجسر.</strong> يحدد مخطط الدفعات
+التزامن بناءً على الأداة <em>الفعلية</em> في <code>tool_call</code>، لا على
+اسم الجسر الحرفي — لذا فإن خادم MCP الذي فعّل التوازي عبر
+<code>supports_parallel_tool_calls: true</code> يحتفظ بتزامنه عندما تُستدعى
+أدواته عبر الجسر، وتُنفَّذ عمليات البحث <code>tool_search</code> /
+<code>tool_describe</code> بالتزامن في دفعات مثل أي أداة للقراءة فقط.</li>
+<li><strong>الكتالوج عديم الحالة (stateless) عبر الأدوار.</strong> إذ يُعاد بناؤه من قائمة
+تعريفات الأدوات الحالية عند كل تجميع — دون <code>Map</code> مرتبط بالجلسة. وهذا يتجنب
+فئة الأخطاء التي يخرج فيها الكتالوج المخزَّن عن التزامن مع
+سجل الأدوات الحي.</li>
+<li><strong>الكتالوج محصور في toolsets الجلسة.</strong> فالأدوات <code>tool_search</code>،
+<code>tool_describe</code>، و <code>tool_call</code> لا ترى ولا تستدعي إلا الأدوات التي
+مُنحت للجلسة فعلًا. ولا يمكن لـ subagent أو kanban worker أو جلسة
+gateway مقيّدة بمجموعة فرعية من الـ toolsets استخدام الجسر
+لاكتشاف أداة خارج تلك المجموعة الفرعية أو استدعائها — فالكتالوج المؤجَّل هو
+الشريحة القابلة للتأجيل من toolsets الجلسة المفعّلة/المعطّلة الخاصة بها،
+لا سجل العملية بالكامل.</li>
+<li><strong>لا يوجد JS sandbox.</strong> يستخدم Hermes وضع &quot;structured tools&quot; الأبسط
+(search / describe / call كدوال عادية). أما وضع &quot;code
+mode&quot; القائم على JS sandbox الذي تقدّمه بعض التطبيقات الأخرى فيمثل مساحة سطح كبيرة؛ لذا
+نتخطاه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><code>tools/tool_search.py</code> — التنفيذ</li>
+<li><code>tests/tools/test_tool_search.py</code> — مجموعة اختبارات الانحدار</li>
+<li>ملف PDF <code>openclaw-tool-search-report</code> في الـ PR الأصلي الخاص
+بالتنفيذ، للاطلاع على البحث الذي شكّل التصميم</li>
+</ul>

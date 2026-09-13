@@ -1,0 +1,376 @@
+
+<header><h1>Comps Analysis</h1></header>
+<p>ابنِ ملفات تقييم بالشركات المماثلة (comparable-company) في Excel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/finance/comps-analysis</code></td></tr><tr><td>المسار</td><td><code>optional-skills/finance/comps-analysis</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Anthropic (بتكييف من Nous Research)</td></tr><tr><td>الترخيص</td><td>Apache-2.0</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>finance</code>, <code>valuation</code>, <code>comps</code>, <code>excel</code>, <code>openpyxl</code>, <code>modeling</code>, <code>investment-banking</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/finance/finance-excel-author"><code>excel-author</code></a>، <a href="/docs/user-guide/skills/optional/finance/finance-pptx-author"><code>pptx-author</code></a>، <a href="/docs/user-guide/skills/optional/finance/finance-dcf-model"><code>dcf-model</code></a>، <a href="/docs/user-guide/skills/optional/finance/finance-lbo-model"><code>lbo-model</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment">البيئة</h2>
+<p>تفترض هذه المهارة استخدام <strong>openpyxl بلا واجهة (headless)</strong> — أي أنك تُنتج ملف .xlsx على القرص.
+اتّبع اصطلاحات مهارة <code>excel-author</code> الخاصة بتلوين الخلايا، والصيغ، والنطاقات المسمّاة، وجداول الحساسية.
+أعد الحساب قبل التسليم: <code>python /path/to/excel-author/scripts/recalc.py ./out/model.xlsx</code>.</p>
+<h1>تحليل الشركات المماثلة</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="️-critical-data-source-priority-read-first">⚠️ جوهري: أولوية مصادر البيانات (اقرأ أولًا)</h2>
+<p><strong>اتّبع دائمًا تراتبية مصادر البيانات هذه:</strong></p>
+<ol>
+<li><strong>أولًا: تحقق من مصادر بيانات MCP</strong> - إن كانت S&amp;P Kensho MCP، أو FactSet MCP، أو Daloopa MCP متاحة، استخدمها حصريًا للمعلومات المالية ومعلومات التداول</li>
+<li><strong>لا تستخدم البحث في الويب</strong> إذا كانت مصادر بيانات MCP أعلاه متاحة</li>
+<li><strong>فقط إذا كانت MCP غير متاحة:</strong> استخدم عندها Bloomberg Terminal، أو ملفات SEC EDGAR، أو مصادر مؤسسية أخرى</li>
+<li><strong>لا تستخدم البحث في الويب أبدًا كمصدر بيانات أساسي</strong> - فهو يفتقر إلى الدقة، ومسارات التدقيق، والموثوقية اللازمة لتحليل بمستوى مؤسسي</li>
+</ol>
+<p><strong>لماذا يهم هذا:</strong> توفّر مصادر MCP بيانات موثوقة بمستوى مؤسسي مع استشهادات صحيحة. أما نتائج البحث في الويب فقد تكون قديمة، أو غير دقيقة، أو غير موثوقة للتحليل المالي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>تعلّم هذه المهارة الوكيل بناء تحليلات شركات مماثلة بمستوى مؤسسي تجمع بين المقاييس التشغيلية، ومضاعفات التقييم، والمقارنة الإحصائية المرجعية (benchmarking). المخرج هو جدول بيانات/ملف Excel مُهيكل يتيح اتخاذ قرارات استثمارية مدروسة عبر مقارنة الأقران.</p>
+<p><strong>المواد المرجعية والسياق:</strong></p>
+<p>يوجد مثال لتحليل شركات مماثلة في <code>examples/comps_example.xlsx</code>. عند استخدام هذا الملف أو غيره من ملفات الأمثلة في مجلد هذه المهارة، استخدمها بذكاء:</p>
+<p><strong>استخدم الأمثلة من أجل:</strong></p>
+<ul>
+<li>فهم التسلسل الهرمي البنيوي (كيف تتدفق الأقسام)</li>
+<li>استيعاب مستوى الدقة المتوقع (العمق الإحصائي، معايير التوثيق)</li>
+<li>تعلّم المبادئ (عناوين واضحة، صيغ شفافة، مسارات تدقيق)</li>
+</ul>
+<p><strong>لا تستخدم الأمثلة من أجل:</strong></p>
+<ul>
+<li>إعادة إنتاج التنسيق أو المقاييس بالضبط</li>
+<li>نسخ التخطيط دون مراعاة السياق</li>
+<li>تطبيق نفس الأسلوب البصري بغض النظر عن الجمهور</li>
+</ul>
+<p><strong>اسأل نفسك دائمًا أولًا:</strong></p>
+<ol>
+<li><strong>&quot;هل لديك تنسيق مفضّل أم يجب أن أكيّف أسلوب القالب؟&quot;</strong></li>
+<li><strong>&quot;من هو الجمهور؟&quot;</strong> (لجنة استثمار، عرض لمجلس الإدارة، مرجع سريع، مذكرة تفصيلية)</li>
+<li><strong>&quot;ما هو السؤال الرئيسي؟&quot;</strong> (التقييم، تحليل النمو، التموضع التنافسي، الكفاءة)</li>
+<li><strong>&quot;ما هو السياق؟&quot;</strong> (تقييم اندماج واستحواذ، قرار استثماري، مقارنة مرجعية للقطاع، مراجعة أداء)</li>
+</ol>
+<p><strong>كيّف حسب التفاصيل:</strong></p>
+<ul>
+<li><strong>سياق الصناعة</strong>: تحتاج عمالقة التقنية الكبرى مقاييس مختلفة عن شركات SaaS الناشئة</li>
+<li><strong>الاحتياجات الخاصة بالقطاع</strong>: أضف المقاييس ذات الصلة مبكرًا (مثل إيرادات SaaS المتكررة السحابية، وعدد العملاء المؤسسيين، ونظام المطورين البيئي للتقنية)</li>
+<li><strong>مدى الإلمام بالشركة</strong>: قد تحتاج الشركات المعروفة خلفية أقل وتركيزًا أكبر على تحليل الفروقات (delta analysis)</li>
+<li><strong>نوع القرار</strong>: يتطلب الاندماج والاستحواذ تركيزًا مختلفًا عن المراقبة المستمرة للمحفظة</li>
+</ul>
+<p><strong>المبدأ الأساسي:</strong> استخدم مبادئ القالب (بنية واضحة، صرامة إحصائية، صيغ شفافة) لكن نوّع في التنفيذ حسب السياق. الهدف هو تحليل بجودة مؤسسية، لا قوالب تبدو مؤسسية.</p>
+<p>تسبق الأمثلة المقدَّمة من المستخدم وتفضيلاته الصريحة دائمًا الإعدادات الافتراضية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-philosophy">الفلسفة الأساسية</h2>
+<p><strong>&quot;ابنِ البنية الصحيحة أولًا، ثم دع البيانات تروي القصة.&quot;</strong></p>
+<p>ابدأ بعناوين تفرض التفكير الاستراتيجي فيما يهم، وأدخل بيانات نظيفة، وابنِ صيغًا شفافة، ودع الإحصاءات تظهر تلقائيًا. يجب أن يكون تحليل الشركات المماثلة الجيد قابلًا للقراءة فورًا من قِبل شخص لم يبنه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="️-critical-formulas-over-hardcodes--step-by-step-verification">⚠️ جوهري: الصيغ لا القيم الثابتة + التحقق خطوة بخطوة</h2>
+<p><strong>الصيغ، لا القيم الثابتة:</strong></p>
+<ul>
+<li>يجب أن تكون كل قيمة مشتقة (هامش، مضاعف، إحصائية) صيغة Excel تشير إلى خلايا الإدخال — لا رقمًا محسوبًا مسبقًا وملصوقًا</li>
+<li>عند استخدام Python/openpyxl لبناء الورقة: اكتب <code>cell.value = &quot;=E7/C7&quot;</code> (سلسلة صيغة)، لا <code>cell.value = 0.687</code> (نتيجة محسوبة)</li>
+<li>يجب أن تكون القيم الثابتة الوحيدة هي بيانات الإدخال الخام (الإيرادات، EBITDA، سعر السهم، إلخ) — ولكل واحدة منها تعليق خلية يوضح مصدرها</li>
+<li>السبب: يجب أن يتحدّث النموذج تلقائيًا عند تغيّر أي مدخل. الهامش الثابت خطأ صامت ينتظر أن يحدث.</li>
+</ul>
+<p><strong>تحقق خطوة بخطوة مع المستخدم:</strong></p>
+<ul>
+<li>بعد إعداد البنية ← أظهر للمستخدم تخطيط العناوين قبل ملء البيانات</li>
+<li>بعد إدخال المدخلات الخام ← أظهر للمستخدم كتلة المدخلات وتأكد من المصادر/الفترات قبل بناء الصيغ</li>
+<li>بعد بناء صيغ المقاييس التشغيلية ← أظهر الهوامش المحسوبة وتحقق من معقوليتها مع المستخدم قبل الانتقال إلى التقييم</li>
+<li>بعد بناء مضاعفات التقييم ← أظهر المضاعفات وتأكد أنها تبدو معقولة قبل إضافة الإحصاءات</li>
+<li>لا تبنِ الورقة بأكملها من البداية للنهاية ثم تقدّمها — اكتشف الأخطاء مبكرًا بالتأكد من كل قسم</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-1-document-structure--setup">القسم 1: بنية المستند والإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="header-block-rows-1-3">كتلة العنوان (الصفوف 1-3)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>لماذا يهم هذا:</strong> يُنشئ السياق فورًا. أي شخص يفتح هذا الملف يعرف ما ينظر إليه، ومتى أُنشئ، وكيف يفسّر الأرقام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="visual-convention-standards-optional---user-preferences-and-uploaded-templates-always-override">معايير الاتفاقيات البصرية (اختيارية - تفضيلات المستخدم والقوالب المرفوعة تتفوّق دائمًا)</h3>
+<p><strong>مهم: هذه إعدادات افتراضية مقترحة فقط. أعطِ الأولوية دائمًا لـ:</strong></p>
+<ol>
+<li>تفضيلات التنسيق الصريحة للمستخدم</li>
+<li>التنسيق من أي ملفات قوالب مرفوعة</li>
+<li>أدلة أسلوب الشركة/الفريق</li>
+<li>هذه الإعدادات الافتراضية (فقط في حال عدم توفر توجيه آخر)</li>
+</ol>
+<p><strong>الخط والطباعة المقترحة:</strong></p>
+<ul>
+<li><strong>عائلة الخط</strong>: Times New Roman (احترافي، سهل القراءة، معيار في الصناعة)</li>
+<li><strong>حجم الخط</strong>: 11 نقطة لخلايا البيانات، و12 نقطة للعناوين</li>
+<li><strong>النص العريض</strong>: عناوين الأقسام، أسماء الشركات، تسميات الإحصاءات</li>
+</ul>
+<p><strong>الألوان والتظليل الافتراضي — لوحة ألوان أزرق/رمادي احترافية (الأقل أفضل):</strong></p>
+<ul>
+<li><strong>حافظ على الاعتدال</strong> — الأزرق والرمادي فقط. لا تُدخل الأخضر أو البرتقالي أو الأحمر أو ألوانًا مميزة متعددة. تستخدم ورقة comps النظيفة 3-4 ألوان إجمالًا.</li>
+<li><strong>عناوين الأقسام</strong> (مثل &quot;OPERATING STATISTICS &amp; FINANCIAL METRICS&quot;):
+<ul>
+<li>خلفية زرقاء داكنة (<code>#1F4E79</code> أو كحلي <code>#17365D</code>)</li>
+<li>نص أبيض عريض</li>
+<li>تظليل كامل للصف عبر كل الأعمدة</li>
+</ul>
+</li>
+<li><strong>عناوين الأعمدة</strong> (مثل &quot;Company&quot;، و&quot;Revenue&quot;، و&quot;Margin&quot;):
+<ul>
+<li>خلفية زرقاء فاتحة (<code>#D9E1F2</code> أو أزرق باهت مشابه)</li>
+<li>نص أسود عريض</li>
+<li>محاذاة وسطية</li>
+</ul>
+</li>
+<li><strong>صفوف البيانات</strong>:
+<ul>
+<li>خلفية بيضاء لبيانات الشركة</li>
+<li>نص أسود للصيغ؛ نص أزرق للمدخلات الثابتة</li>
+</ul>
+</li>
+<li><strong>صفوف الإحصاءات</strong> (الأعلى، الربيع الثالث (75th Percentile)، إلخ):
+<ul>
+<li>خلفية رمادية فاتحة (<code>#F2F2F2</code>)</li>
+<li>نص أسود، تسميات محاذاة يسارية</li>
+</ul>
+</li>
+<li><strong>هذه هي اللوحة كاملة</strong>: أزرق داكن + أزرق فاتح + رمادي فاتح + أبيض. لا شيء آخر ما لم ينص قالب المستخدم على غير ذلك.</li>
+</ul>
+<p><strong>اصطلاحات التنسيق المقترحة:</strong></p>
+<ul>
+<li><strong>دقة الأرقام العشرية</strong>:
+<ul>
+<li>النسب المئوية: منزلة عشرية واحدة (12.3%)</li>
+<li>المضاعفات: منزلة عشرية واحدة (13.5x)</li>
+<li>المبالغ بالدولار: بلا كسور عشرية، بفاصل آلاف (69,632)</li>
+<li>الهوامش معروضة كنسب مئوية: منزلة عشرية واحدة (68.7%)</li>
+</ul>
+</li>
+<li><strong>الحدود</strong>: بلا حدود (مظهر نظيف وبسيط)</li>
+<li><strong>المحاذاة</strong>: كل المقاييس محاذاة وسطية لمظهر نظيف وموحّد</li>
+<li><strong>أبعاد الخلايا</strong>: يجب أن تكون كل عروض الأعمدة موحّدة/متساوية، وارتفاعات الصفوف متسقة (يخلق شبكة نظيفة واحترافية)</li>
+</ul>
+<p><strong>ملاحظة:</strong> إذا قدّم المستخدم ملف قالب أو حدد تنسيقًا مختلفًا، استخدم ذلك بدلًا منه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-2-operating-statistics--financial-metrics">القسم 2: الإحصاءات التشغيلية والمقاييس المالية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-columns-start-with-these">الأعمدة الأساسية (ابدأ بها)</h3>
+<ol>
+<li><strong>Company</strong> - أسماء بتنسيق متسق</li>
+<li><strong>Revenue</strong> - مقياس الحجم (يمكن أن يكون لآخر اثني عشر شهرًا، أو ربع سنوي، أو سنوي حسب السياق)</li>
+<li><strong>Revenue Growth</strong> - نسبة التغير السنوي</li>
+<li><strong>Gross Profit</strong> - الإيرادات ناقص تكلفة البضاعة المباعة</li>
+<li><strong>Gross Margin</strong> - الربح الإجمالي/الإيرادات (الربحية الأساسية)</li>
+<li><strong>EBITDA</strong> - الأرباح قبل الفوائد والضرائب والإهلاك والاستهلاك</li>
+<li><strong>EBITDA Margin</strong> - EBITDA/الإيرادات (الكفاءة التشغيلية)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-additions-choose-based-on-industrypurpose">إضافات اختيارية (اختر حسب الصناعة/الغرض)</h3>
+<ul>
+<li><strong>Quarterly vs LTM</strong> - أدرج كليهما إن كانت الموسمية مهمة</li>
+<li><strong>Free Cash Flow</strong> - للأعمال كثيفة رأس المال أو شركات SaaS</li>
+<li><strong>FCF Margin</strong> - التدفق النقدي الحر/الإيرادات (كفاءة توليد النقد)</li>
+<li><strong>Net Income</strong> - للشركات الناضجة والمربحة</li>
+<li><strong>Operating Income</strong> - للأعمال ذات الإهلاك والاستهلاك المتفاوت</li>
+<li><strong>CapEx metrics</strong> - للصناعات كثيفة الأصول</li>
+<li><strong>Rule of 40</strong> - خاص بـ SaaS (نسبة النمو % + الهامش %)</li>
+<li><strong>FCF Conversion</strong> - لتحليل جودة الأرباح (متقدم)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="formula-examples-using-row-7-as-example">أمثلة صيغ (باستخدام الصف 7 كمثال)</h3>
+<div class="language-excel codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>القاعدة الذهبية:</strong> يجب أن تكون كل نسبة [شيء] / [الإيرادات] أو [شيء] / [شيء آخر من هذه الورقة]. أبقِ الأمر بسيطًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="statistics-block-after-company-data">كتلة الإحصاءات (بعد بيانات الشركات)</h3>
+<p><strong>جوهري: أضف صيغ إحصائية لكل المقاييس القابلة للمقارنة (النسب، الهوامش، معدلات النمو، المضاعفات).</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>الأعمدة التي تحتاج إحصاءات (المقاييس القابلة للمقارنة):</strong></p>
+<ul>
+<li>نمو الإيرادات %، الهامش الإجمالي %، هامش EBITDA %، ربحية السهم (EPS)</li>
+<li>EV/Revenue، EV/EBITDA، P/E، عائد التوزيعات %، بيتا</li>
+</ul>
+<p><strong>الأعمدة التي لا تحتاج إحصاءات (مقاييس الحجم):</strong></p>
+<ul>
+<li>Revenue، وEBITDA، وNet Income (الحجم المطلق يتفاوت حسب مقياس الشركة)</li>
+<li>Market Cap، وEnterprise Value (غير قابلة للمقارنة عبر شركات بأحجام مختلفة)</li>
+</ul>
+<p><strong>ملاحظة:</strong> أضف صفًا فارغًا واحدًا بين بيانات الشركات وصفوف الإحصاءات للفصل البصري. لا تُضف صف عنوان &quot;SECTOR STATISTICS&quot; أو &quot;VALUATION STATISTICS&quot;.</p>
+<p><strong>لماذا تهم الأرباع (quartiles):</strong> فهي تُظهر التوزيع، لا المتوسط فقط. يخبرك مضاعف الربيع الثالث (75th percentile) بما تتداول عنده الشركات &quot;المتميزة&quot; (premium).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-3-valuation-multiples--investment-metrics">القسم 3: مضاعفات التقييم ومقاييس الاستثمار</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-valuation-columns-start-with-these">أعمدة التقييم الأساسية (ابدأ بها)</h3>
+<ol>
+<li><strong>Company</strong> - بنفس ترتيب القسم التشغيلي</li>
+<li><strong>Market Cap</strong> - القيمة السوقية الحالية</li>
+<li><strong>Enterprise Value</strong> - القيمة السوقية ± صافي الدين/النقد</li>
+<li><strong>EV/Revenue</strong> - كم يدفع السوق مقابل كل دولار من المبيعات</li>
+<li><strong>EV/EBITDA</strong> - كم يدفع السوق مقابل كل دولار من الأرباح</li>
+<li><strong>P/E Ratio</strong> - السعر بالنسبة لصافي الأرباح</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-valuation-metrics-choose-based-on-context">مقاييس تقييم اختيارية (اختر حسب السياق)</h3>
+<ul>
+<li><strong>FCF Yield</strong> - التدفق النقدي الحر/القيمة السوقية (للتحليل المركّز على النقد)</li>
+<li><strong>PEG Ratio</strong> - P/E/معدل النمو (لشركات النمو)</li>
+<li><strong>Price/Book</strong> - القيمة السوقية مقابل القيمة الدفترية (للأعمال كثيفة الأصول)</li>
+<li><strong>ROE/ROA</strong> - مقاييس العائد (لمقارنة الربحية)</li>
+<li><strong>Revenue/EBITDA CAGR</strong> - معدلات النمو التاريخية (لتحليل الاتجاه)</li>
+<li><strong>Asset Turnover</strong> - الإيرادات/الأصول (للكفاءة التشغيلية)</li>
+<li><strong>Debt/Equity</strong> - الرافعة المالية (لتحليل هيكل رأس المال)</li>
+</ul>
+<p><strong>المبدأ الرئيسي:</strong> أدرج 3-5 مضاعفات أساسية تهم صناعتك. لا تُدرج كل مقياس ممكن لمجرد أنه بإمكانك ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="formula-examples">أمثلة صيغ</h3>
+<div class="language-excel codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-reference-rule">قاعدة المرجع المتبادل</h3>
+<p><strong>جوهري:</strong> يجب أن تشير مضاعفات التقييم إلى قسم المقاييس التشغيلية. لا تُدخل نفس البيانات الخام مرتين. إذا كانت الإيرادات في C7، فيجب أن تشير صيغة EV/Revenue إلى C7.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="statistics-block">كتلة الإحصاءات</h3>
+<p>نفس بنية القسم التشغيلي: الأعلى، والربيع الثالث، والوسيط، والربيع الأول، والأدنى لكل مقياس. أضف صفًا فارغًا واحدًا للفصل البصري بين بيانات الشركات وصفوف الإحصاءات. لا تُضف صف عنوان &quot;VALUATION STATISTICS&quot;.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-4-notes--methodology-documentation">القسم 4: الملاحظات وتوثيق المنهجية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-components">المكوّنات المطلوبة</h3>
+<p><strong>مصادر البيانات وجودتها:</strong></p>
+<ul>
+<li>من أين جاءت البيانات؟ (S&amp;P Kensho MCP، وFactSet MCP، وDaloopa MCP، وBloomberg، وملفات SEC)</li>
+<li>ما الفترة التي تغطيها؟ (الربع الرابع 2024، أرقام مدققة)</li>
+<li>كيف تم التحقق منها؟ (مقارنة مع 10-K/10-Q)</li>
+<li>ملاحظة: أعطِ الأولوية لمصادر بيانات MCP (S&amp;P Kensho، وFactSet، وDaloopa) إن توفرت لدقة وتتبع أفضل</li>
+</ul>
+<p><strong>تعريفات رئيسية:</strong></p>
+<ul>
+<li>طريقة حساب EBITDA (الربح الإجمالي + D&amp;A، أو الدخل التشغيلي + D&amp;A)</li>
+<li>صيغة التدفق النقدي الحر (التدفق النقدي التشغيلي - النفقات الرأسمالية)</li>
+<li>شرح المقاييس الخاصة (Rule of 40، FCF Conversion)</li>
+<li>تعريفات الفترات الزمنية (LTM، فترات حساب CAGR)</li>
+</ul>
+<p><strong>منهجية التقييم:</strong></p>
+<ul>
+<li>كيف حُسبت القيمة المؤسسية (Enterprise Value)؟ (القيمة السوقية + صافي الدين)</li>
+<li>ما معدلات النمو المستخدمة؟ (CAGR التاريخي، التقديرات المستقبلية)</li>
+<li>هل أُجريت أي تعديلات؟ (استبعاد بنود لمرة واحدة، هوامش مُطبَّعة)</li>
+</ul>
+<p><strong>إطار التحليل:</strong></p>
+<ul>
+<li>ما هي الأطروحة الاستثمارية؟ (كفاءة السحابة/SaaS)</li>
+<li>ما المقاييس الأكثر أهمية؟ (توليد النقد، كفاءة رأس المال)</li>
+<li>كيف يجب أن يفسّر القارئ الإحصاءات؟ (توفّر الأرباع السياق)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-5-choosing-the-right-metrics-decision-framework">القسم 5: اختيار المقاييس الصحيحة (إطار القرار)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-with-what-question-am-i-answering">ابدأ بسؤال &quot;ما السؤال الذي أجيب عنه؟&quot;</h3>
+<p><strong>&quot;أي شركة مقوَّمة بأقل من قيمتها؟&quot;</strong>
+← ركّز على: EV/Revenue، وEV/EBITDA، وP/E، والقيمة السوقية
+← تخطَّ: التفاصيل التشغيلية، ومقاييس النمو</p>
+<p><strong>&quot;أي شركة الأكثر كفاءة؟&quot;</strong>
+← ركّز على: الهامش الإجمالي، وهامش EBITDA، وهامش التدفق النقدي الحر، ودوران الأصول
+← تخطَّ: مقاييس الحجم، والمبالغ المطلقة بالدولار</p>
+<p><strong>&quot;أي شركة تنمو بأسرع وتيرة؟&quot;</strong>
+← ركّز على: نمو الإيرادات %، وCAGR لـ EBITDA، ونمو المستخدمين/العملاء
+← تخطَّ: مقاييس الهامش، ونسب الرافعة المالية</p>
+<p><strong>&quot;أيها الأفضل في توليد النقد؟&quot;</strong>
+← ركّز على: التدفق النقدي الحر، وهامشه، وFCF Conversion، وكثافة النفقات الرأسمالية
+← تخطَّ: EBITDA، ونسب P/E</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="industry-specific-metric-selection">اختيار المقاييس حسب الصناعة</h3>
+<p><strong>البرمجيات/SaaS:</strong>
+يجب توفرها: نمو الإيرادات، الهامش الإجمالي، Rule of 40
+اختيارية: ARR، صافي معدل الاحتفاظ بالدولار (Net Dollar Retention)، فترة استرداد تكلفة اكتساب العميل (CAC Payback)
+تخطَّ: دوران الأصول، مقاييس المخزون</p>
+<p><strong>التصنيع/الصناعات:</strong>
+يجب توفرها: هامش EBITDA، دوران الأصول، النفقات الرأسمالية/الإيرادات
+اختيارية: ROA، دورات المخزون، سجل الطلبات المتراكمة (Backlog)
+تخطَّ: Rule of 40، مقاييس SaaS</p>
+<p><strong>الخدمات المالية:</strong>
+يجب توفرها: ROE، وROA، ونسبة الكفاءة، وP/E
+اختيارية: صافي هامش الفائدة، مخصصات خسائر القروض
+تخطَّ: الهامش الإجمالي، وEBITDA (غير ذات معنى للبنوك)</p>
+<p><strong>التجزئة/التجارة الإلكترونية:</strong>
+يجب توفرها: نمو الإيرادات، والهامش الإجمالي، ودوران المخزون
+اختيارية: مبيعات المتاجر القائمة (Same-Store Sales)، تكلفة اكتساب العميل
+تخطَّ: مقاييس البحث والتطوير أو النفقات الرأسمالية الثقيلة</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-5-10-rule">&quot;قاعدة 5-10&quot;</h3>
+<p><strong>5 مقاييس تشغيلية</strong> - الإيرادات، النمو، 2-3 مقاييس هامش/كفاءة
+<strong>5 مقاييس تقييم</strong> - القيمة السوقية، وEV، و3 مضاعفات
+<strong>= 10 أعمدة إجمالًا</strong> - يكفي لسرد القصة، دون أن تفقد الخيط بكثرتها</p>
+<p>إن كان لديك أكثر من 15 مقياسًا، فأنت على الأرجح تُدرج ضوضاء. حرّر بلا رحمة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-6-best-practices--quality-checks">القسم 6: أفضل الممارسات وفحوصات الجودة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-you-start">قبل أن تبدأ</h3>
+<ol>
+<li><strong>حدد مجموعة الأقران</strong> - يجب أن تكون الشركات قابلة للمقارنة فعليًا (نموذج عمل مشابه، وحجم مماثل، وجغرافيا مشابهة)</li>
+<li><strong>اختر الفترة الصحيحة</strong> - تُسوّي LTM الموسمية؛ ويُظهر الربع السنوي الاتجاهات</li>
+<li><strong>وحّد الوحدات مسبقًا</strong> - قرار الملايين مقابل المليارات يؤثر في كل شيء</li>
+<li><strong>ارسم خريطة مصادر البيانات</strong> - اعرف من أين يأتي كل رقم</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="as-you-build">أثناء البناء</h3>
+<ol>
+<li>
+<p><strong>أدخل كل البيانات الخام أولًا</strong> - أكمل النص الأزرق قبل كتابة الصيغ</p>
+</li>
+<li>
+<p><strong>أضف تعليقات خلية لكل المدخلات الثابتة</strong> - انقر بالزر الأيمن على الخلية ← Insert Comment ← وثّق المصدر أو الافتراض</p>
+<p><strong>للبيانات المُوثَّقة المصدر، اذكر المصدر بدقة:</strong></p>
+<ul>
+<li>مثال: &quot;Bloomberg Terminal - MSFT Equity DES، تاريخ الوصول 2024-10-02&quot;</li>
+<li>مثال: &quot;ملف 10-K للربع الرابع 2024، الصفحة 42، بند &#x27;Total Revenue&#x27;&quot;</li>
+<li>مثال: &quot;تقدير إجماع FactSet اعتبارًا من 2024-10-02&quot;</li>
+<li><strong>أدرج روابط تشعبية عند الإمكان</strong>: انقر بالزر الأيمن على الخلية ← Link ← الصق رابط ملف SEC، أو مصدر البيانات، أو التقرير</li>
+</ul>
+<p><strong>للافتراضات، اشرح المنطق:</strong></p>
+<ul>
+<li>مثال: &quot;افتُرض هامش EBITDA بنسبة 15% استنادًا إلى وسيط الأقران، لا تفصح الشركة عن الرقم&quot;</li>
+<li>مثال: &quot;قُدّرت القيمة المؤسسية بالقيمة السوقية + 50 مليون دولار صافي دين (من الميزانية العمومية للربع الثالث، الربع الرابع غير متاح بعد)&quot;</li>
+<li>مثال: &quot;P/E الآجل مبني على إجماع السوق لربحية السهم البالغ 3.45 دولار (متوسط 12 تقدير محلل)&quot;</li>
+</ul>
+<p><strong>لماذا يهم هذا</strong>: يتيح مسارات التدقيق، والتحقق من البيانات، وشفافية الافتراضات، والتحديثات المستقبلية</p>
+</li>
+<li>
+<p><strong>ابنِ الصيغ صفًا بصف</strong> - اختبر كل حساب قبل الانتقال للتالي</p>
+</li>
+<li>
+<p><strong>استخدم المراجع المطلقة للعناوين</strong> - يقفل $C$6 صف العناوين</p>
+</li>
+<li>
+<p><strong>نسّق باتساق</strong> - النسب المئوية كنسب مئوية، لا كسور عشرية</p>
+</li>
+<li>
+<p><strong>أضف تنسيقًا شرطيًا</strong> - أبرز القيم الشاذة تلقائيًا</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sanity-checks">فحوصات المعقولية</h3>
+<ul>
+<li><strong>اختبار الهامش</strong>: الهامش الإجمالي &gt; هامش EBITDA &gt; الهامش الصافي (صحيح دائمًا بحكم التعريف)</li>
+<li><strong>معقولية المضاعف</strong>:
+<ul>
+<li>EV/Revenue: عادة 0.5-20x (يتفاوت كثيرًا حسب الصناعة)</li>
+<li>EV/EBITDA: عادة 8-25x (متسق نسبيًا عبر الصناعات)</li>
+<li>P/E: عادة 10-50x (يعتمد على معدل النمو)</li>
+</ul>
+</li>
+<li><strong>العلاقة بين النمو والمضاعف</strong>: النمو الأعلى يعني عادة مضاعفات أعلى</li>
+<li><strong>مقايضة الحجم والكفاءة</strong>: غالبًا ما تتمتع الشركات الأكبر بهوامش أفضل (منافع الحجم)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-mistakes-to-avoid">أخطاء شائعة يجب تجنبها</h3>
+<p>❌ خلط القيمة السوقية والقيمة المؤسسية في الصيغ
+❌ استخدام فترات زمنية مختلفة للبسط والمقام (LTM مقابل ربع سنوي)
+❌ كتابة أرقام ثابتة في الصيغ بدلًا من مراجع الخلايا
+❌ <strong>مدخلات ثابتة بلا تعليقات خلية توثّق المصدر أو تشرح الافتراض</strong>
+❌ إغفال الروابط التشعبية لملفات SEC أو مصادر البيانات عند توفرها
+❌ إدراج مقاييس كثيرة جدًا بلا غرض واضح
+❌ إدراج شركات غير قابلة للمقارنة (نماذج أعمال مختلفة)
+❌ استخدام بيانات قديمة دون الإفصاح عن ذلك
+❌ حساب متوسطات النسب المئوية بشكل غير صحيح (يجب أن يكون الوسيط)</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="section-6-advanced-features">القسم 6: ميزات متقدمة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dynamic-headers">عناوين ديناميكية</h3>
+<p>للأعمدة التي تعرض حسابات، استخدم تسميات وحدات واضحة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quartile-analysis-benefits">فوائد تحليل الأرباع (Quartiles)</h3>
+<p>بدلًا من المتوسط/الوسيط فقط، تُظهر الأرباع:</p>
+<ul>
+<li><strong>الربيع الثالث (75th percentile)</strong> = حيث تتداول الشركات &quot;المتميزة&quot;</li>
+<li><strong>الوسيط</strong> = التقييم السوقي النموذجي</li>
+<li><strong>الربيع الأول (25th percentile)</strong> = منطقة &quot;الخصم&quot;</li>
+</ul>
+<p>يساعد هذا على الإجابة عن: &quot;هل تتداول شركتنا المستهدفة بسعر مرتفع أم منخفض مقارنة بالأقران؟&quot;</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="industry-specific-modifications">تعديلات خاصة بالصناعة</h3>
+<p><strong>البرمجيات/SaaS:</strong></p>
+<ul>
+<li>أضف: ARR، وصافي معدل الاحتفاظ بالدولار، وفترة استرداد تكلفة اكتساب العميل</li>
+<li>أبرز: Rule of 40، وهوامش التدفق النقدي الحر، والهوامش الإجمالية &gt;70%</li>
+</ul>
+<p><strong>الرعاية الصحية:</strong></p>
+<ul>
+<li>أضف: البحث والتطوير/الإيرادات، وقيمة خط الإنتاج المستقبلي (Pipeline)، والوضع التنظيمي</li>
+<li>أبرز: هوامش EBITDA، ومعدلات النمو، ومخاطر السداد (reimbursement)</li>
+</ul>
+<p><strong>الصناعات:</strong></p>
+<ul>
+<li>أضف: سجل الطلبات المتراكمة، واتجاهات دفتر الطلبات، والمزيج الجغرافي</li>
+<li>أبرز: ROIC، ودوران الأصول، والتعديلات الدورية</li>
+</ul>
+<p><strong>الاستهلاك:</strong></p>
+<ul>
+<li>أضف: مبيعات المتاجر القائمة، وتكلفة اكتساب العميل، وقيمة العلامة التجارية</li>
+<li>أبرز: نمو الإيرادات، والهوامش الإجمالية، ودورات المخزون</li>
+</ul>
+<hr>

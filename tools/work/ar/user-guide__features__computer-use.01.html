@@ -1,0 +1,85 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing-against-a-local-cua-driver-build">الاختبار باستخدام بناء محلي لـ cua-driver</h2>
+<p>عندما تطوّر cua-driver نفسه — أو تريد اختبار إصلاح لم يُصدر بعد — وجّه Hermes إلى ملف تنفيذي بنيته من المصدر بدلًا من الإصدار المنشور. يحدد Hermes موقع المشغّل عبر
+<code>shutil.which(&quot;cua-driver&quot;)</code> و<strong>لا يفرض
+<code>HERMES_CUA_DRIVER_VERSION</code></strong>، لذا يُقبل البناء المحلي (الذي يظهر إصداره على شكل
+<code>0.0.0-local-*</code>) كما هو. هناك طريقتان:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a--install-local-build--put-it-on-path">الخيار A — <code>install-local</code> (البناء ثم إضافته إلى PATH)</h3>
+<p>من النسخة المسحوبة (checkout) لديك من <code>trycua/cua</code>، شغّل المُثبّت المحلي الأصلي. فهو يبني الـ backend المكتوب بـ Rust في وضع الإصدار (release) ويضع <code>cua-driver</code> في بنية التثبيت نفسها التي يستخدمها مُثبّت الإنتاج، مع إضافة مجلد bin الخاص به إلى PATH لديك:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<ul>
+<li>على Windows يُجهَّز البناء ضمن <code>%USERPROFILE%\.cua-driver\packages\…</code>
+ويُربط إليه
+<code>%LOCALAPPDATA%\Programs\Cua\cua-driver\bin</code> (المُضاف إلى PATH الخاص بالمستخدم) عبر junction. أما على macOS/Linux فيُنشأ symlink لـ <code>cua-driver</code> داخل <code>~/.local/bin</code>
+(يمكنك تغييره عبر <code>--bin-dir &lt;path&gt;</code>).</li>
+<li>يتخطى <code>-NoAutoStart</code> تسجيل خدمة daemon <code>cua-driver-serve</code> التي تعمل عند تسجيل الدخول
+— فلا تحتاج إليها لاختبار Hermes (راجع الملاحظات).</li>
+</ul>
+<p>ثم افتح shell جديدًا (كي يظهر تغيير PATH) وتحقق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b--point-hermes-straight-at-the-built-binary-fastest-loop">الخيار B — توجيه Hermes مباشرةً إلى الملف التنفيذي المبني (أسرع دورة عمل)</h3>
+<p>تخطَّ إجراءات التثبيت كليًا: نفّذ <code>cargo build</code> واضبط
+<code>HERMES_CUA_DRIVER_CMD</code> على الملف التنفيذي الناتج. هذا الخيار هو الأنسب لدورة التعديل/البناء/الاختبار السريعة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="confirm-hermes-is-using-your-build">التأكد من أن Hermes يستخدم بناءك</h3>
+<ul>
+<li>يطبع <code>hermes computer-use status</code> مسار الملف التنفيذي الذي حُدِّد وإصداره.</li>
+<li>يتأكد <code>hermes computer-use doctor</code> من إمكانية الوصول إلى الملف التنفيذي ويختبر مسار MCP الكامل من البداية إلى النهاية.</li>
+<li>داخل الجلسة، يختبر <code>computer_use(action=&quot;capture&quot;)</code> العملية الفرعية
+<code>cua-driver mcp</code> التي أُطلقت.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes--gotchas">ملاحظات ومزالق</h3>
+<ul>
+<li><strong>يُطلق Hermes وسيط stdio من نوع <code>cua-driver mcp</code>.</strong> في الجلسة العادية يتصل هذا الوسيط بخدمة daemon القياسية على الجهاز (وقد يشغّلها). أما في وضع YOLO الصريح في Hermes، فيمتلك Hermes بدلًا من ذلك عملية فرعية خاصة <code>cua-driver serve --embedded</code>
+ويوجّه الوسيط إلى الـ socket أو الـ named pipe الخاص بها. ولا يزال نمط autostart/UIAccess على Windows مهمًا للإدخال التفاعلي في Session 1+ عبر SSH — راجع قسم القيود.</li>
+<li><strong>الملف التنفيذي المقفل على Windows.</strong> قد تحتفظ خدمة daemon <code>cua-driver-serve</code> العاملة بالملف
+<code>cua-driver.exe</code> وتمنع استبداله عند إعادة البناء.
+يعيد <code>install-local.ps1</code> تسمية الملف التنفيذي المقفل تلقائيًا لإبعاده عن الطريق؛ أما إذا نفّذت <code>cargo build</code> يدويًا (الخيار B)، فأوقفها أولًا عبر <code>cua-driver autostart disable</code> (أو <code>schtasks /End /TN cua-driver-serve</code>).</li>
+<li><strong>دورة إعادة البناء.</strong> بعد تعديل مصدر cua-driver، أعد تشغيل
+<code>install-local</code> (يعيد البناء والتجهيز ويبدّل junction <code>current</code>)
+في الخيار A، أو أعد تنفيذ <code>cargo build</code> فقط في الخيار B — ولا حاجة إلى أي تغيير في Hermes في الحالتين.</li>
+<li><strong>البنايات المحلية تتخطى فحص الإصدار.</strong> يحذّر Hermes عندما يكون cua-driver المثبّت أقدم من خط الأساس المختبَر لكل نظام تشغيل، لكنه يستثني بنايات التطوير <code>0.0.0-local-*</code> — لذا لن يؤدي بناؤك المحلي إلى ظهور ذلك التحذير أبدًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>أول ما تفعله عند حدوث أي خلل: شغّل <code>hermes computer-use doctor</code>.</strong>
+تخبرك مصفوفة الفحوص المنظّمة (وتخبر أي وكيل يساعدك في التصحيح) بالضبط بما هو خاطئ.</p>
+<p>حالات فشل محددة لا يكتشفها doctor:</p>
+<p><strong><code>computer_use backend unavailable: cua-driver is not installed</code></strong> —
+شغّل <code>hermes computer-use install</code> لجلب الملف التنفيذي لـ cua-driver، أو
+شغّل <code>hermes tools</code> وفعّل toolset الخاص بـ Computer Use.</p>
+<p><strong>النقرات تبدو بلا أثر</strong> — التقط الشاشة وتحقق. قد تكون هناك نافذة منبثقة (modal) لم ترها تحجب الإدخال. أغلقها باستخدام <code>escape</code> أو زر الإغلاق.</p>
+<p><strong>فهارس العناصر قديمة</strong> — فهارس SOM صالحة فقط حتى عملية
+<code>capture</code> التالية. أعد الالتقاط بعد أي إجراء يغيّر الحالة. يحمل الـ wrapper قيم <code>element_token</code> مبهمة لاكتشاف الفهارس القديمة — لذا سترى خطأً صريحًا بدلًا من نقرة خاطئة.</p>
+<p><strong>&quot;blocked pattern in type text&quot;</strong> — النص الذي حاولت كتابته عبر <code>type</code>
+يطابق قائمة أنماط الـ shell الخطرة. قسّم الأمر أو أعد النظر فيه.</p>
+<p><strong>التقاطات فارغة على Linux</strong> — <code>DISPLAY</code> غير مضبوط، أو أنك تعمل على Wayland خالص دون جسر XWayland. سيشير <code>hermes computer-use doctor</code>
+إلى ذلك بـ <code>ax_capability: fail</code> مع التلميح <code>Set DISPLAY (X11)…</code>.</p>
+<p><strong>التقاطات فارغة على Windows عبر SSH</strong> — أنت في Session 0 (جلسة الخدمات). تحكّم مباشرةً من RDP / console، أو اضبط نمط التشغيل التلقائي — راجع
+<a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>cua.ai/docs/how-to-guides/driver/windows-ssh</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><strong>المهارة من جانب Hermes</strong> — <code>skills/autonomous-ai-agents/computer-use/SKILL.md</code> — تعلّم مفردات إجراءات
+<code>computer_use</code> في Hermes؛ وهي ما يحمّله الوكيل.</li>
+<li><strong>حزمة مهارات cua-driver</strong> — للشروحات المتعمقة الخاصة بكل منصة
+(عقد عدم الإحضار إلى المقدمة في macOS، و UIA + Session 0 في Windows، و AT-SPI في Linux
+<ul>
+<li>و X11/Wayland، والتسجيل، وصفحات المتصفح)، شغّل
+<code>cua-driver skills install</code> واقرأ <code>MACOS.md</code> / <code>WINDOWS.md</code> /
+<code>LINUX.md</code> / <code>RECORDING.md</code> / <code>WEB_APPS.md</code>. الاكتشاف التلقائي في Hermes ميزة مخطط لها لاحقًا؛ لذا وجّه Hermes حاليًا إلى مجلد الحزمة المثبّتة أو أنشئ له symlink داخل مساحة مهاراتك.</li>
+</ul>
+</li>
+<li><strong>cua.ai/docs</strong> — توثيق مشروع cua-driver:
+<ul>
+<li><a href="https://cua.ai/docs/explanation/what-is-computer-use" data-ext>ما هو computer use؟</a> — مقدمة للمفهوم</li>
+<li><a href="https://cua.ai/docs/explanation/the-no-foreground-contract" data-ext>عقد عدم الإحضار إلى المقدمة (The no-foreground contract)</a> — <em>لماذا</em> يهم وضع الخلفية</li>
+<li><a href="https://cua.ai/docs/how-to-guides/driver/install" data-ext>مرجع التثبيت</a> — تفاصيل التثبيت على مختلف المنصات</li>
+<li><a href="https://cua.ai/docs/how-to-guides/driver/personalize-cursor" data-ext>تخصيص مؤشر الوكيل</a> — الأشكال المدمجة، والأصول المخصصة، والتجاوزات أثناء التشغيل</li>
+<li><a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>التحكم في Windows عبر SSH</a> — نمط التشغيل التلقائي من Session 0 → Session 1+</li>
+<li><a href="https://cua.ai/docs/how-to-guides/driver/keep-running" data-ext>إبقاء cua-driver قيد التشغيل</a> — التشغيل التلقائي / دورة حياة الـ daemon</li>
+<li><a href="https://cua.ai/docs/how-to-guides/driver/connect-your-agent" data-ext>ربط وكيلك</a> — تسجيل cua-driver مع أدوات تشغيل الوكلاء (harnesses) المختلفة (ومنها Hermes)</li>
+</ul>
+</li>
+<li><a href="https://github.com/trycua/cua" data-ext>مصدر cua-driver (trycua/cua)</a></li>
+<li><a href="/docs/user-guide/features/browser">أتمتة المتصفح</a> لمهام الويب متعددة المنصات التي لا تحتاج فيها إلى التحكم في التطبيقات الأصلية.</li>
+</ul>

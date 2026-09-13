@@ -1,0 +1,69 @@
+<header><h1>توجيه المزوّدين (Provider Routing)</h1></header>
+<p>عند استخدام <a href="https://openrouter.ai" data-ext>OpenRouter</a> كمزوّد LLM، يدعم Hermes Agent <strong>توجيه المزوّدين (provider routing)</strong> — أي التحكم الدقيق في مزوّدي الذكاء الاصطناعي الفعليين الذين يعالجون طلباتك وكيفية ترتيب أولوياتهم.</p>
+<p>يوجّه OpenRouter الطلبات إلى مزوّدين كثيرين (مثل Anthropic و Google و AWS Bedrock و Together AI). ويتيح لك توجيه المزوّدين التحسين من حيث التكلفة أو السرعة أو الجودة، أو فرض متطلبات محددة على المزوّدين.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يحدّد <a href="/docs/integrations/nous-portal">Nous Portal</a> التوجيه مركزيًا لكل نموذج ولا يقبل تفضيلات المزوّدين التي يحددها المستدعي؛ ولا يرسل Hermes أبدًا الكائن <code>provider</code> إلى Portal، لذا يُتجاهل <code>provider_routing</code> هناك ببساطة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>أضف قسم <code>provider_routing</code> إلى ملف <code>~/.hermes/config.yaml</code> لديك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لا ينطبق توجيه المزوّدين إلا عند استخدام OpenRouter. وليس له أي تأثير على Nous Portal أو على الاتصالات المباشرة بالمزوّدين (مثل الاتصال مباشرةً بـ Anthropic API).</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="options">الخيارات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sort"><code>sort</code></h3>
+<p>يتحكم في كيفية ترتيب OpenRouter للمزوّدين المتاحين لطلبك.</p>
+<table><thead><tr><th>القيمة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>&quot;price&quot;</code></td><td>الأرخص أولًا</td></tr><tr><td><code>&quot;throughput&quot;</code></td><td>الأسرع من حيث عدد الـ tokens في الثانية أولًا</td></tr><tr><td><code>&quot;latency&quot;</code></td><td>الأقل زمنًا حتى أول token أولًا</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="only"><code>only</code></h3>
+<p>قائمة سماح بمعرّفات المزوّدين (slugs). عند ضبطها، <strong>لن</strong> يُستخدم سوى هؤلاء المزوّدين، ويُستبعد جميع الآخرين. استخدم المعرّف بالأحرف الصغيرة الذي يعرضه OpenRouter لكل مزوّد.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ignore"><code>ignore</code></h3>
+<p>قائمة حظر بأسماء المزوّدين. هؤلاء المزوّدون <strong>لن</strong> يُستخدموا أبدًا، حتى لو قدّموا الخيار الأرخص أو الأسرع.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="order"><code>order</code></h3>
+<p>ترتيب صريح للأولوية. يُفضَّل المزوّدون المذكورون أولًا، ويُستخدم المزوّدون غير المذكورين كخيارات احتياطية (fallback).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="require_parameters"><code>require_parameters</code></h3>
+<p>عند ضبطه على <code>true</code>، لن يوجّه OpenRouter الطلبات إلا إلى المزوّدين الذين يدعمون <strong>جميع</strong> المعاملات في طلبك (مثل <code>temperature</code> و <code>top_p</code> و <code>tools</code> وغيرها). وهذا يمنع إسقاط المعاملات بصمت.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="data_collection"><code>data_collection</code></h3>
+<p>يتحكم في ما إذا كان يحق للمزوّدين استخدام الـ prompts الخاصة بك في التدريب. والخيارات هي <code>&quot;allow&quot;</code> أو <code>&quot;deny&quot;</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-model-overrides-models">تجاوزات خاصة بكل نموذج (<code>models</code>)</h3>
+<p>ثبّت مجموعة مزوّدين مختلفة لكل نموذج. المفاتيح تحت <code>models</code> هي معرّفات النماذج؛ ويقبل كل إدخال المفاتيح نفسها
+<code>sort</code> / <code>only</code> / <code>ignore</code> / <code>order</code> / <code>require_parameters</code> / <code>data_collection</code> ويتجاوز
+القيمة العامة لذلك النموذج فقط. وأي شيء لا تضبطه لكل نموذج على حدة يعود إلى القيم الافتراضية العامة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>المطابقة متسامحة مع اختلاف التهجئة كما في <code>agent.reasoning_overrides</code> (<code>claude-fable-5.1</code> / <code>claude-fable-5-1</code>،
+مع البادئة <code>openrouter/</code> أو بدونها). ويتبع التجاوز النموذج الذي يعمل عليه الوكيل <em>حاليًا</em>، لذا
+فإن التبديل عبر <code>/model</code> وتفعيل النموذج الاحتياطي ومهام cron والـ subagents المفوَّضة على نموذج آخر يحصل كلٌّ منها على
+تثبيتاته الخاصة. حرّر <code>config.yaml</code> مباشرةً لهذه المفاتيح: فمعرّفات النماذج تحتوي على نقاط، يقرؤها <code>hermes config set</code>
+على أنها فواصل مسارات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="practical-examples">أمثلة عملية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optimize-for-cost">التحسين من حيث التكلفة</h3>
+<p>وجّه الطلبات إلى أرخص مزوّد متاح. مناسب للاستخدام الكثيف وللتطوير:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optimize-for-speed">التحسين من حيث السرعة</h3>
+<p>أعطِ الأولوية للمزوّدين ذوي زمن الاستجابة المنخفض للاستخدام التفاعلي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optimize-for-throughput">التحسين من حيث الإنتاجية (Throughput)</h3>
+<p>الأفضل لتوليد النصوص الطويلة حيث يهمّ عدد الـ tokens في الثانية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lock-to-specific-providers">التقيّد بمزوّدين محددين</h3>
+<p>اضمن مرور جميع الطلبات عبر مزوّد محدد لتحقيق الاتساق:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="avoid-specific-providers">تجنّب مزوّدين محددين</h3>
+<p>استبعد المزوّدين الذين لا تريد استخدامهم (مثلًا لأسباب تتعلق بخصوصية البيانات):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="preferred-order-with-fallbacks">ترتيب مفضّل مع بدائل احتياطية</h3>
+<p>جرّب مزوّديك المفضلين أولًا، ثم انتقل إلى غيرهم إن لم يكونوا متاحين:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>تُمرَّر تفضيلات توجيه المزوّدين إلى OpenRouter في طلبات محادثة الوكيل وفي ملخصات بلوغ حدّ التكرارات عبر الحقل <code>extra_body.provider</code>. (<code>extra_body</code> هو وسيط في OpenAI Python SDK؛ ويتحوّل إلى الكائن <code>provider</code> في المستوى الأعلى من طلب JSON.) أما المهام المساعدة مثل الضغط وتوليد العناوين فتُضبط بشكل مستقل تحت <code>auxiliary.&lt;task&gt;.extra_body</code>.</p>
+<ul>
+<li><strong>وضع CLI</strong> — يُضبط في <code>~/.hermes/config.yaml</code>، ويُحمَّل عند بدء التشغيل</li>
+<li><strong>وضع Gateway</strong> — ملف الإعدادات نفسه، ويُحمَّل عند بدء تشغيل الـ gateway</li>
+</ul>
+<p>تُقرأ إعدادات التوجيه من <code>config.yaml</code> وتُمرَّر كمعاملات عند إنشاء <code>AIAgent</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك الجمع بين عدة خيارات. على سبيل المثال، رتّب حسب السعر مع استبعاد مزوّدين معيّنين واشتراط دعم المعاملات:</p><div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="default-behavior">السلوك الافتراضي</h2>
+<p>عندما لا يكون قسم <code>provider_routing</code> مضبوطًا (وهو الوضع الافتراضي)، يستخدم المُجمِّع (aggregator) منطق التوجيه الافتراضي الخاص به، والذي يوازن عمومًا بين التكلفة والتوافر تلقائيًا.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>توجيه المزوّدين مقابل النماذج الاحتياطية</div><div class="admonitionContent_BuS1"><p>يتحكم توجيه المزوّدين في <strong>المزوّدين الفرعيين خلف OpenRouter</strong> الذين يعالجون طلباتك. أما للتحويل التلقائي إلى مزوّد مختلف تمامًا عند فشل نموذجك الأساسي، فراجع <a href="/docs/user-guide/features/fallback-providers">المزوّدون الاحتياطيون (Fallback Providers)</a>.</p></div></div>

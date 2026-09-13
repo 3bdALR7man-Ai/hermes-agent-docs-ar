@@ -1,0 +1,76 @@
+<header><h1>إدارة Hermes Cloud عبر MCP</h1></header>
+<p>يشغّل <a href="https://portal.nousresearch.com/cloud" data-ext>Hermes Cloud</a> نُسخًا مستضافة من Hermes Agent نيابةً عنك. عادةً ما تديرها من صفحة <code>/agents</code> في <a href="/docs/integrations/nous-portal">Nous Portal</a>. يربط هذا الدليل Hermes Agent <strong>المحلي</strong> لديك بخادم MCP الخاص بالـ Portal، لتتمكن من إدارة تلك النُّسخ السحابية بمجرد طلب ذلك — &quot;اعرض وكلائي السحابيين&quot;، &quot;أعد تشغيل النسخة المتوقفة&quot;، &quot;كم تكلّفني&quot; — دون مغادرة الطرفية.</p>
+<p>إنه خادم <a href="/docs/user-guide/features/mcp">MCP</a> قياسي تستضيفه Nous Research، ومحمي بتسجيل دخول OAuth نفسه الذي تستخدمه بالفعل للـ Portal. بعد الاتصال، يحصل Hermes على أداتين يمكنه استدعاؤهما نيابةً عنك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-you-can-do-with-it">ما الذي يمكنك فعله به</h2>
+<p>بعد الاتصال، يستطيع النموذج استدعاء هذه الأدوات على مؤسستك (org) في Hermes Cloud:</p>
+<table><thead><tr><th>اطلب…</th><th>ما يحدث خلف الكواليس</th></tr></thead><tbody><tr><td>&quot;اعرض وكلائي السحابيين&quot;</td><td><code>agents</code> (list)</td></tr><tr><td>&quot;ما حالة <code>&lt;name&gt;</code>؟&quot;</td><td><code>agents</code> (get / status)</td></tr><tr><td>&quot;كم تكلّف هذه النسخة تقريبًا؟&quot;</td><td><code>agents</code> (cost_estimate)</td></tr><tr><td>&quot;شغّل / أوقف / أعد تشغيل <code>&lt;name&gt;</code>&quot;</td><td><code>agent</code> (start / stop / restart)</td></tr><tr><td>&quot;أنشئ نسخة جديدة باسم <code>&lt;name&gt;</code>&quot;</td><td><code>agent</code> (create)</td></tr><tr><td>&quot;احذف <code>&lt;name&gt;</code> نهائيًا&quot;</td><td><code>agent</code> (destroy)</td></tr><tr><td>&quot;حدّث متغيرات البيئة / الصورة (image) في <code>&lt;name&gt;</code>&quot;</td><td><code>agent</code> (update_env / update_image)</td></tr></tbody></table>
+<p>يُنفَّذ كل استدعاء على مؤسستك <strong>أنت</strong> بهويتك في الـ Portal، ويُعاد التحقق من العضوية في كل استدعاء — فلا يمكن للاتصال أن يمسّ إلا النُّسخ التي تتحكم فيها بالفعل من واجهة الويب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>
+<p>حساب في <a href="/docs/integrations/nous-portal">Nous Portal</a> مع صلاحية الوصول إلى <a href="https://portal.nousresearch.com/cloud" data-ext>Hermes Cloud</a> (نسخة واحدة على الأقل، أو القدرة على إنشاء نسخة).</p>
+</li>
+<li>
+<p>تثبيت دعم MCP. إذا استخدمت سكربت التثبيت القياسي فهو مثبّت بالفعل؛ وإلا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+</ul>
+<p><strong>لا</strong> تحتاج إلى مفتاح API منفصل أو client secret — إذ يستخدم الخادم OAuth مع PKCE، ويتم تسجيل الدخول عبر رحلة ذهاب وإياب في المتصفح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-add-the-server">الخطوة 1: إضافة الخادم</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُخبر <code>--auth oauth</code> ‏Hermes بأن هذا خادم HTTP محمي بـ OAuth. عند الاتصال لأول مرة، يقوم Hermes بما يلي:</p>
+<ol>
+<li>يكتشف الـ endpoints الخاصة بـ OAuth في الخادم تلقائيًا (عبر البيانات الوصفية وفق RFC 9728 / 8414).</li>
+<li>يسجّل نفسه كعميل (RFC 7591 Dynamic Client Registration) — دون أي secret تحتاج إلى نسخه.</li>
+<li>يفتح متصفحك على الـ Portal لتسجيل الدخول ومنح التفويض.</li>
+<li>يخزّن الـ token الناتج ضمن <code>~/.hermes/mcp-tokens/</code> ويعيد استخدامه (ويتم تجديده تلقائيًا).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-an-organization">اختيار المؤسسة</h3>
+<p>إذا كان حسابك في الـ Portal ينتمي إلى <strong>أكثر من مؤسسة</strong>، فسيعرض المتصفح <strong>أداة اختيار المؤسسة (org picker)</strong> أثناء التفويض — اختر المؤسسة التي ينبغي أن يديرها هذا الاتصال. يتم الاختيار مرة واحدة في المتصفح، ولا يوجد ما تمرّره عبر سطر الأوامر. أما الحسابات ذات المؤسسة الواحدة فتتخطى هذه الخطوة وتُربط تلقائيًا.</p>
+<p>إذا احتجت يومًا إلى توجيه الاتصال إلى مؤسسة مختلفة، فأزل الخادم ثم أعد إضافته (<code>hermes mcp remove hermes-cloud</code>، ثم أمر <code>add</code> مرة أخرى) واختر المؤسسة الأخرى في المتصفح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-verify-it-connected">الخطوة 2: التحقق من الاتصال</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ثم ابدأ جلسة (أو أعد تحميلها):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اطرح سؤالًا للقراءة فقط للتأكد من أن الأدوات تعمل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>من المفترض أن تحصل على النُّسخ نفسها التي تراها في صفحة <code>/agents</code> في الـ Portal.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-use-it">الخطوة 3: الاستخدام</h2>
+<p>الأسئلة التي تقتصر على القراءة آمنة دائمًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تتحول إجراءات دورة الحياة إلى طلبات بلغة بسيطة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يُبلغك Hermes بما أعادته كل أداة — قائمة النُّسخ، أو الحالة الجديدة، أو تفاصيل النسخة التي أُنشئت — لتتأكد من أن الإجراء قد نُفّذ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>بعد تنفيذ <code>hermes mcp add</code>، يُحفظ الخادم في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>لا تُوضع أي بيانات اعتماد في <code>config.yaml</code> — إذ يُحفظ OAuth token بشكل منفصل ضمن <code>~/.hermes/mcp-tokens/</code>، تمامًا كما يبقى refresh token الخاص بالـ Portal خارج ملف الإعدادات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="limiting-the-tool-surface">تقييد نطاق الأدوات</h3>
+<p>يُتيح الخادم أدوات للقراءة (<code>agents</code>) وأدوات للتعديل (<code>agent</code>). إذا أردت أن يكون الاتصال <strong>للقراءة فقط</strong> — العرض والفحص، دون أي تشغيل/إيقاف/إنشاء/حذف — فقيّده بالأداة <code>agents</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>نفّذ <code>/reload-mcp</code> بعد تغيير الإعدادات. راجع <a href="/docs/guides/use-mcp-with-hermes">استخدام MCP مع Hermes</a> للاطلاع على نموذج التصفية الكامل (<code>include</code>/<code>exclude</code>، <code>prompts</code>، <code>resources</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-browser-shows-an-org-picker-and-im-not-sure-which-to-choose">يعرض المتصفح أداة اختيار المؤسسة ولست متأكدًا أيها أختار</h3>
+<p>أنت تنتمي إلى عدة مؤسسات في الـ Portal. اختر المؤسسة التي تريد إدارة نُسخها في Hermes Cloud من خلال هذا الاتصال. إذا لم تكن متأكدًا، فهي المؤسسة التي تملك النُّسخ التي تراها في صفحة <code>/agents</code> في الـ Portal. يمكنك إعادة الاختيار لاحقًا بإزالة الخادم وإعادة إضافته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="invalid_client-or-unknown-client-on-connect">ظهور &quot;invalid_client&quot; أو &quot;unknown client&quot; عند الاتصال</h3>
+<p>لم يعد تسجيل العميل المخزّن مطابقًا للخادم (مثلًا، إذا كنت قد اتصلت ببيئة مختلفة سابقًا). امسح حالة OAuth المخزّنة مؤقتًا لهذا الخادم ثم أعد إضافته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-tools-arent-showing-up-after-adding-the-server">الأدوات لا تظهر بعد إضافة الخادم</h3>
+<p>أعد تحميل MCP داخل الجلسة ثم تحقّق مجددًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>إذا ظلت غير موجودة، فنفّذ <code>hermes mcp test hermes-cloud</code> لرؤية خطأ الاتصال مباشرةً.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="it-asks-me-to-log-in-again">يطلب مني تسجيل الدخول مرة أخرى</h3>
+<p>تتجدد OAuth tokens تلقائيًا، لكن إذا ألغى الـ Portal جلستك (بسبب تغيير كلمة المرور، أو الإلغاء، أو انتهاء الصلاحية)، فسيطلب منك الاستدعاء التالي إعادة التفويض. أعد تنفيذ الأمر <code>hermes mcp add</code> — وسيُصدر مسار المتصفح token جديدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="headless--ssh--remote-host">بيئة دون واجهة (Headless) / SSH / جهاز بعيد</h3>
+<p>يعمل OAuth browser callback على الجهاز الذي يعمل عليه Hermes. على الجهاز البعيد، مرّر منفذ loopback عبر SSH (port forwarding) — وهو النمط نفسه المتّبع مع أي تسجيل دخول آخر عبر OAuth. راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><strong><a href="/docs/integrations/nous-portal">Nous Portal</a></strong> — الاشتراك، والنماذج، و Tool Gateway التي تقف خلف تسجيل الدخول نفسه</li>
+<li><strong><a href="/docs/guides/use-mcp-with-hermes">استخدام MCP مع Hermes</a></strong> — ربط خوادم MCP وتصفيتها بشكل عام</li>
+<li><strong><a href="/docs/user-guide/features/mcp">نظرة عامة على ميزة MCP</a></strong> — ما هو MCP وكيف يستخدمه Hermes</li>
+<li><strong><a href="/docs/reference/mcp-config-reference">مرجع إعدادات MCP</a></strong> — كل حقول <code>mcp_servers</code>، بما في ذلك <code>auth: oauth</code></li>
+<li><strong><a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH</a></strong> — تسجيل الدخول من البيئات البعيدة أو البيئات التي لا يتوفر فيها سوى المتصفح (browser-only)</li>
+</ul>

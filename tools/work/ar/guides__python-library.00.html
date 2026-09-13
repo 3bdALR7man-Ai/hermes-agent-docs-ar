@@ -1,0 +1,76 @@
+<header><h1>استخدام Hermes كمكتبة Python</h1></header>
+<p>Hermes ليس مجرد أداة CLI، إذ يمكنك استيراد <code>AIAgent</code> مباشرةً واستخدامه برمجيًا في سكربتات Python الخاصة بك، أو تطبيقات الويب، أو pipelines الأتمتة. يوضّح لك هذا الدليل كيفية ذلك.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<p>انسخ مستودع Hermes (clone) وأنشئ بيئة التطوير القابلة للتعديل (editable) المدعومة الخاصة به:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>شغّل تطبيقك باستخدام <code>uv run python your_app.py</code> من داخل تلك النسخة المسحوبة (checkout). لا ينشر Hermes حزمة wheel أو توزيعة مصدرية (source distribution) مدعومة للتثبيت عبر <code>requirements.txt</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>متغيرات البيئة نفسها التي يستخدمها CLI مطلوبة أيضًا عند استخدام Hermes كمكتبة. اضبط على الأقل <code>OPENROUTER_API_KEY</code> (أو <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code> إذا كنت تستخدم الوصول المباشر إلى المزوّد).</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-usage">الاستخدام الأساسي</h2>
+<p>أبسط طريقة لاستخدام Hermes هي التابع <code>chat()</code> — مرّر رسالة، واحصل على سلسلة نصية في المقابل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يتولى <code>chat()</code> حلقة المحادثة كاملة داخليًا — استدعاءات الأدوات، وإعادة المحاولات، وكل شيء — ثم يُعيد الرد النصي النهائي فقط.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>quiet_mode=True</code> عند تضمين Hermes في الكود الخاص بك. فمن دونه، يطبع الوكيل مؤشرات الدوران (spinners) الخاصة بـ CLI، ومؤشرات التقدّم، وغيرها من مخرجات الطرفية التي ستُربك مخرجات تطبيقك.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-conversation-control">التحكم الكامل في المحادثة</h2>
+<p>لمزيد من التحكم في المحادثة، استخدم <code>run_conversation()</code> مباشرةً. يُعيد هذا التابع قاموسًا (dictionary) يحتوي على الرد الكامل، وسجل الرسائل، والبيانات الوصفية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يحتوي القاموس المُعاد على:</p>
+<ul>
+<li><strong><code>final_response</code></strong> — الرد النصي النهائي للوكيل</li>
+<li><strong><code>messages</code></strong> — سجل الرسائل الكامل (system، و user، و assistant، واستدعاءات الأدوات)</li>
+</ul>
+<p>(يُخزَّن <code>task_id</code> الذي تمرّره في نسخة الوكيل لأغراض عزل VM، لكنه لا يُعاد ضمن القاموس المُعاد.)</p>
+<p>يمكنك أيضًا تمرير رسالة system مخصصة تتجاوز الـ system prompt المؤقت (ephemeral) لذلك الاستدعاء:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-tools">إعداد الأدوات</h2>
+<p>تحكّم في الـ toolsets التي يمكن للوكيل الوصول إليها باستخدام <code>enabled_toolsets</code> أو <code>disabled_toolsets</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>enabled_toolsets</code> عندما تريد وكيلًا بأدنى قدر من القدرات ومقيّدًا بإحكام (مثل البحث في الويب فقط لبوت بحثي). واستخدم <code>disabled_toolsets</code> عندما تريد معظم القدرات لكنك تحتاج إلى تقييد قدرات بعينها (مثل منع الوصول إلى الطرفية في بيئة مشتركة).</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-turn-conversations">المحادثات متعددة الأدوار</h2>
+<p>حافظ على حالة المحادثة عبر أدوار متعددة بإعادة تمرير سجل الرسائل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يقبل المعامل <code>conversation_history</code> قائمة <code>messages</code> من نتيجة سابقة. ينسخ الوكيل هذه القائمة داخليًا، لذا لا تُعدَّل قائمتك الأصلية أبدًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="saving-trajectories">حفظ الـ Trajectories</h2>
+<p>فعّل حفظ الـ trajectories لالتقاط المحادثات بصيغة ShareGPT — وهو مفيد لتوليد بيانات التدريب أو لتصحيح الأخطاء:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تُضاف كل محادثة كسطر JSONL واحد، ما يسهّل جمع مجموعات البيانات من عمليات التشغيل المؤتمتة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-system-prompts">System Prompts مخصصة</h2>
+<p>استخدم <code>ephemeral_system_prompt</code> لضبط system prompt مخصص يوجّه سلوك الوكيل لكنه <strong>لا</strong> يُحفظ في ملفات الـ trajectory (ما يُبقي بيانات التدريب لديك نظيفة):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>هذا مثالي لبناء وكلاء متخصصين — مراجع كود، أو كاتب توثيق، أو مساعد SQL — يستخدمون جميعًا الأدوات الأساسية نفسها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-processing">المعالجة الدفعية</h2>
+<p>لتشغيل عدد كبير من الـ prompts بالتوازي، يتضمن Hermes الملف <code>batch_runner.py</code>، الذي يدير نسخًا متزامنة من <code>AIAgent</code> مع عزل سليم للموارد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يحصل كل prompt على <code>task_id</code> خاص به وبيئة معزولة. وإذا احتجت إلى منطق دفعي مخصص، فيمكنك بناء منطقك الخاص باستخدام <code>AIAgent</code> مباشرةً:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>أنشئ دائمًا <strong>نسخة جديدة من <code>AIAgent</code> لكل thread أو مهمة</strong>. يحتفظ الوكيل بحالة داخلية (سجل المحادثة، وجلسات الأدوات، وعدّادات التكرار) لا تُعد مشاركتها آمنة بين الـ threads.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-examples">أمثلة على التكامل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fastapi-endpoint">Endpoint باستخدام FastAPI</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord-bot">بوت Discord</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cicd-pipeline-step">خطوة ضمن CI/CD Pipeline</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-constructor-parameters">أهم معاملات الـ Constructor</h2>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>model</code></td><td><code>str</code></td><td><code>&quot;&quot;</code></td><td>النموذج بصيغة OpenRouter (فارغ افتراضيًا؛ ويُحدَّد من إعدادات hermes لديك وقت التشغيل)</td></tr><tr><td><code>quiet_mode</code></td><td><code>bool</code></td><td><code>False</code></td><td>كتم مخرجات CLI</td></tr><tr><td><code>enabled_toolsets</code></td><td><code>List[str]</code></td><td><code>None</code></td><td>السماح بـ toolsets محددة فقط (قائمة سماح)</td></tr><tr><td><code>disabled_toolsets</code></td><td><code>List[str]</code></td><td><code>None</code></td><td>حظر toolsets محددة (قائمة حظر)</td></tr><tr><td><code>save_trajectories</code></td><td><code>bool</code></td><td><code>False</code></td><td>حفظ المحادثات بصيغة JSONL</td></tr><tr><td><code>ephemeral_system_prompt</code></td><td><code>str</code></td><td><code>None</code></td><td>system prompt مخصص (لا يُحفظ في الـ trajectories)</td></tr><tr><td><code>max_iterations</code></td><td><code>int</code></td><td><code>500</code></td><td>الحد الأقصى لتكرارات استدعاء الأدوات في كل محادثة</td></tr><tr><td><code>skip_context_files</code></td><td><code>bool</code></td><td><code>False</code></td><td>تخطّي تحميل ملفات AGENTS.md</td></tr><tr><td><code>skip_memory</code></td><td><code>bool</code></td><td><code>False</code></td><td>تعطيل القراءة من الذاكرة الدائمة والكتابة إليها</td></tr><tr><td><code>api_key</code></td><td><code>str</code></td><td><code>None</code></td><td>مفتاح API (تُستخدم متغيرات البيئة بديلًا عند غيابه)</td></tr><tr><td><code>base_url</code></td><td><code>str</code></td><td><code>None</code></td><td>URL لـ API endpoint مخصص</td></tr><tr><td><code>platform</code></td><td><code>str</code></td><td><code>None</code></td><td>تلميح المنصة (<code>&quot;discord&quot;</code>، <code>&quot;telegram&quot;</code>، إلخ.)</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-notes">ملاحظات مهمة</h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><ul>
+<li>اضبط <strong><code>skip_context_files=True</code></strong> إذا كنت لا تريد تحميل ملفات <code>AGENTS.md</code> الموجودة في مجلد العمل ضمن system prompt.</li>
+<li>اضبط <strong><code>skip_memory=True</code></strong> لمنع الوكيل من القراءة من الذاكرة الدائمة أو الكتابة إليها — وهو موصى به لـ API endpoints عديمة الحالة (stateless).</li>
+<li>يحقن المعامل <code>platform</code> (مثل <code>&quot;discord&quot;</code>، <code>&quot;telegram&quot;</code>) تلميحات تنسيق خاصة بالمنصة، ليُكيّف الوكيل أسلوب مخرجاته وفقًا لها.</li>
+</ul></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><ul>
+<li><strong>الأمان مع تعدد الـ threads</strong>: أنشئ نسخة واحدة من <code>AIAgent</code> لكل thread أو مهمة، ولا تشارك أي نسخة أبدًا بين استدعاءات متزامنة.</li>
+<li><strong>تنظيف الموارد</strong>: ينظّف الوكيل الموارد تلقائيًا (جلسات الطرفية، ونُسخ المتصفح) عند انتهاء المحادثة. إذا كنت تعمل ضمن عملية طويلة الأمد، فتأكد من أن كل محادثة تكتمل بشكل طبيعي.</li>
+<li><strong>حدود التكرار</strong>: القيمة الافتراضية <code>max_iterations=500</code> سخية. في حالات الاستخدام البسيطة القائمة على السؤال والجواب، فكّر في خفضها (مثل <code>max_iterations=10</code>) لمنع حلقات استدعاء الأدوات الخارجة عن السيطرة وللتحكم في التكاليف.</li>
+</ul></div></div>

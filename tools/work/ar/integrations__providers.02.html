@@ -1,0 +1,143 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hugging-face-inference-providers">Hugging Face Inference Providers</h3>
+<p>يوجّه <a href="https://huggingface.co/docs/inference-providers" data-ext>Hugging Face Inference Providers</a> إلى أكثر من 20 نموذجًا مفتوحًا عبر endpoint موحّد متوافق مع OpenAI (<code>router.huggingface.co/v1</code>). تُوجَّه الطلبات تلقائيًا إلى أسرع خلفية متاحة (Groq وTogether وSambaNova وغيرها) مع تبديل تلقائي عند الفشل (automatic failover).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>أو اضبطه بشكل دائم في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>احصل على token من <a href="https://huggingface.co/settings/tokens" data-ext>huggingface.co/settings/tokens</a> — تأكد من تفعيل صلاحية &quot;Make calls to Inference Providers&quot;. تتوفر فئة مجانية (رصيد 0.10$ شهريًا، بلا هامش ربح إضافي على أسعار المزوّدين).</p>
+<p>يمكنك إلحاق لواحق توجيه (routing suffixes) بأسماء النماذج: <code>:fastest</code> (الافتراضي)، أو <code>:cheapest</code>، أو <code>:provider_name</code> لفرض خلفية محدَّدة.</p>
+<p>يمكن تجاوز الـ base URL عبر <code>HF_BASE_URL</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom--self-hosted-llm-providers">مزوّدو LLM المخصّصون والمستضافون ذاتيًا</h2>
+<p>يعمل Hermes Agent مع <strong>أي endpoint متوافق مع OpenAI API</strong>. إذا كان الخادم يطبّق <code>/v1/chat/completions</code>، يمكنك توجيه Hermes إليه. هذا يعني أنه يمكنك استخدام نماذج محلية أو خوادم استدلال GPU أو أدوات توجيه متعددة المزوّدين أو أي واجهة API خارجية أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="general-setup">الإعداد العام</h3>
+<p>توجد ثلاث طرق لضبط endpoint مخصّص:</p>
+<p><strong>الإعداد التفاعلي (مُوصى به):</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p><strong>الإعداد اليدوي (<code>config.yaml</code>):</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="107"></x-keep></span>متغيرات بيئة قديمة (Legacy)</div><div class="admonitionContent_BuS1"><p><code>LLM_MODEL</code> في <code>.env</code> <strong>أُزيل</strong> — أصبح <code>config.yaml</code> هو المصدر الوحيد للحقيقة (single source of truth) لإعدادات النموذج والـ endpoint. لا يزال <code>OPENAI_BASE_URL</code> معمولًا به، لكن <strong>فقط</strong> لمزوّد <code>openai-api</code> (فهو يتجاوز endpoint الخاص بـ OpenAI للوصول المباشر بمفتاح API). للمزوّدين الآخرين والـ endpoints المخصّصة، استخدم <code>hermes model</code> أو اضبط <code>model.base_url</code> في <code>config.yaml</code> مباشرةً. إذا كانت لديك إدخالات قديمة في <code>.env</code>، تُمسَح تلقائيًا في المرة التالية التي تشغّل فيها <code>hermes setup</code> أو ترحيل الإعدادات.</p></div></div>
+<p>يحفظ كلا الأسلوبين الإعدادات في <code>config.yaml</code>، الذي يمثّل مصدر الحقيقة للنموذج والمزوّد والـ base URL.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="switching-models-with-model">تبديل النماذج باستخدام <code>/model</code></h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="108"></x-keep></span>hermes model مقابل /model</div><div class="admonitionContent_BuS1"><p><strong><code>hermes model</code></strong> (يُشغَّل من الطرفية، خارج أي جلسة محادثة) هو <strong>معالج الإعداد الكامل للمزوّدين</strong>. استخدمه لإضافة مزوّدين جدد، وتشغيل تدفقات OAuth، وإدخال مفاتيح API، وضبط endpoints مخصّصة.</p><p><strong><code>/model</code></strong> (يُكتَب داخل جلسة محادثة Hermes نشطة) يمكنه فقط <strong>التبديل بين المزوّدين والنماذج التي أعددتها بالفعل</strong>. لا يمكنه إضافة مزوّدين جدد، أو تشغيل OAuth، أو طلب مفاتيح API. إذا كنت قد أعددت مزوّدًا واحدًا فقط (مثل OpenRouter)، فسيعرض <code>/model</code> نماذج ذلك المزوّد فقط.</p><p><strong>لإضافة مزوّد جديد:</strong> اخرج من جلستك (<code>Ctrl+C</code> أو <code>/quit</code>)، شغّل <code>hermes model</code>، أعدّ المزوّد الجديد، ثم ابدأ جلسة جديدة.</p></div></div>
+<p>بمجرد ضبط endpoint مخصّص واحد على الأقل، يمكنك تبديل النماذج أثناء الجلسة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>إذا كانت لديك <strong>مزوّدات مخصّصة مُسمّاة</strong> (انظر أدناه)، استخدم الصيغة الثلاثية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<p>عند تبديل المزوّدين، يحفظ Hermes الـ base URL والمزوّد في الإعدادات بحيث يبقى التغيير قائمًا بعد إعادة التشغيل. عند التبديل من endpoint مخصّص إلى مزوّد مدمج، يُمحى الـ base URL القديم تلقائيًا.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="109"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p><code>/model custom</code> (بدون اسم نموذج) يستعلم عن واجهة <code>/models</code> الخاصة بـ endpoint الخاص بك، ويختار النموذج تلقائيًا إذا كان هناك نموذج واحد محمَّل فقط. مفيد للخوادم المحلية التي تشغّل نموذجًا واحدًا.</p></div></div>
+<p>كل ما يلي أدناه يتبع نفس النمط — فقط غيّر الرابط والمفتاح واسم النموذج.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ollama--local-models-zero-config">Ollama — نماذج محلية بلا إعداد يُذكر</h3>
+<p>يشغّل <a href="https://ollama.com/" data-ext>Ollama</a> نماذج مفتوحة الأوزان محليًا بأمر واحد. الأفضل لـ: التجريب المحلي السريع، والأعمال الحسّاسة للخصوصية، والاستخدام دون اتصال. يدعم استدعاء الأدوات عبر واجهة OpenAI-compatible API.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>ثم اضبط Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>أو اضبط <code>config.yaml</code> مباشرةً:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="110"></x-keep></span>يستخدم Ollama افتراضيًا أطوال سياق منخفضة جدًا</div><div class="admonitionContent_BuS1"><p>لا يستخدم Ollama <strong>نافذة السياق الكاملة</strong> لنموذجك افتراضيًا. اعتمادًا على ذاكرة VRAM لديك، القيمة الافتراضية هي:</p><table><thead><tr><th>VRAM المتاحة</th><th>السياق الافتراضي</th></tr></thead><tbody><tr><td>أقل من 24 GB</td><td><strong>4,096 token</strong></td></tr><tr><td>24–48 GB</td><td>32,768 token</td></tr><tr><td>48+ GB</td><td>256,000 token</td></tr></tbody></table><p>يتطلّب Hermes Agent سياقًا لا يقل عن <strong>64,000 token</strong> لاستخدام الوكيل مع الأدوات. تُرفَض النوافذ الأصغر عند بدء التشغيل لأن الـ system prompt وأنظمة الأدوات وحالة المحادثة الجارية تحتاج مساحة كافية لسير عمل موثوق متعدد الخطوات.</p><p><strong>كيفية زيادتها</strong> (اختر إحدى الطرق):</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div><p><strong>لا يمكنك ضبط طول السياق عبر واجهة OpenAI-compatible API</strong> (<code>/v1/chat/completions</code>). يجب ضبطه من جهة الخادم أو عبر Modelfile. هذا هو مصدر اللبس الأول عند دمج Ollama مع أدوات مثل Hermes.</p></div></div>
+<p><strong>تحقّق من أن سياقك مضبوط بشكل صحيح:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="111"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>اعرض النماذج المتاحة عبر <code>ollama list</code>. اسحب أي نموذج من <a href="https://ollama.com/library" data-ext>مكتبة Ollama</a> عبر <code>ollama pull &lt;model&gt;</code>. يتولى Ollama تحميل GPU (offloading) تلقائيًا — دون الحاجة لأي إعداد في معظم الحالات.</p></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vllm--high-performance-gpu-inference">vLLM — استدلال GPU عالي الأداء</h3>
+<p><a href="https://docs.vllm.ai/" data-ext>vLLM</a> هو المعيار المتّبع لتقديم LLM في الإنتاج. الأفضل لـ: أقصى إنتاجية على عتاد GPU، وتقديم النماذج الكبيرة، والدُفعات المستمرة (continuous batching).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<p>ثم اضبط Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<p><strong>طول السياق:</strong> يقرأ vLLM قيمة <code>max_position_embeddings</code> الخاصة بالنموذج افتراضيًا. إذا تجاوزت ذاكرة GPU لديك، يظهر خطأ ويطلب منك ضبط <code>--max-model-len</code> إلى قيمة أقل. يمكنك أيضًا استخدام <code>--max-model-len auto</code> للعثور تلقائيًا على أقصى قيمة تناسب العتاد. اضبط <code>--gpu-memory-utilization 0.95</code> (الافتراضي 0.9) لحشر سياق أكبر في VRAM.</p>
+<p><strong>يتطلّب استدعاء الأدوات إعلامات صريحة:</strong></p>
+<table><thead><tr><th>العلامة (Flag)</th><th>الغرض</th></tr></thead><tbody><tr><td><code>--enable-auto-tool-choice</code></td><td>مطلوبة لـ <code>tool_choice: &quot;auto&quot;</code> (الافتراضي في Hermes)</td></tr><tr><td><code>--tool-call-parser &lt;name&gt;</code></td><td>مُحلِّل (parser) لصيغة استدعاء الأدوات الخاصة بالنموذج</td></tr></tbody></table>
+<p>المُحلِّلات المدعومة: <code>hermes</code> (لـ Qwen 2.5 وHermes 2/3)، و<code>llama3_json</code> (لـ Llama 3.x)، و<code>mistral</code>، و<code>deepseek_v3</code>، و<code>deepseek_v31</code>، و<code>xlam</code>، و<code>pythonic</code>. دون هذه الإعلامات، لن تعمل استدعاءات الأدوات — سيُخرج النموذج استدعاءات الأدوات كنص عادي.</p>
+<p><strong>مُحلِّلات استدلال Qwen:</strong> يحافظ Hermes على البيانات الوصفية للاستدلال المُهيكلة مثل <code>reasoning</code> و<code>reasoning_content</code> ودفعات الاستدلال المتدفقة (streamed reasoning deltas) عندما تعيدها الخوادم المتوافقة مع OpenAI. تُعامَل تلك البيانات الوصفية كمسار تفكير/استدلال، وليست بديلًا عن الإجابة المرئية للمساعد. بالنسبة لنماذج استدلال Qwen المُقدَّمة عبر vLLM، تأكد من أن الاستجابة النهائية المرئية للمستخدم لا تزال تظهر في <code>content</code>. إذا ترك <code>--reasoning-parser qwen3</code> حقل <code>content</code> فارغًا في نشرك، إما عطّل ذلك المُحلِّل أو مرّر خيار طلب مدعومًا من الخادم مثل <code>chat_template_kwargs.enable_thinking: false</code> عبر <code>extra_body</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="112"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يدعم vLLM الأحجام المقروءة للبشر: <code>--max-model-len 64k</code> (الحرف الصغير k يساوي 1000، والحرف الكبير K يساوي 1024).</p></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sglang--fast-serving-with-radixattention">SGLang — تقديم سريع باستخدام RadixAttention</h3>
+<p><a href="https://github.com/sgl-project/sglang" data-ext>SGLang</a> بديل لـ vLLM يعتمد RadixAttention لإعادة استخدام ذاكرة KV المؤقتة. الأفضل لـ: المحادثات متعددة الأدوار (التخزين المؤقت للبادئات/prefix caching)، وفك الترميز المقيَّد، والمخرجات المُهيكلة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<p>ثم اضبط Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>
+<p><strong>طول السياق:</strong> يقرأ SGLang القيمة من إعدادات النموذج افتراضيًا. استخدم <code>--context-length</code> لتجاوزها. إذا احتجت لتجاوز الحد الأقصى المُعلَن للنموذج، اضبط <code>SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1</code>.</p>
+<p><strong>استدعاء الأدوات:</strong> استخدم <code>--tool-call-parser</code> مع المُحلِّل المناسب لعائلة نموذجك: <code>qwen</code> (لـ Qwen 2.5)، و<code>llama3</code>، و<code>llama4</code>، و<code>deepseekv3</code>، و<code>mistral</code>، و<code>glm</code>. دون هذا الإعلام، تعود استدعاءات الأدوات كنص عادي.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="113"></x-keep></span>يقتصر SGLang افتراضيًا على 128 token كحد أقصى للمخرجات</div><div class="admonitionContent_BuS1"><p>إذا بدت الاستجابات مقتطعة، تحقّق من إعداد التوليد الافتراضي للخادم واضبطه من جهة الخادم (مثل <code>--default-max-tokens</code> في SGLang). لا يعرض Hermes إعداد سقف لعدد tokens المخرجات.</p></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="llamacpp--llama-server--cpu--metal-inference">llama.cpp / llama-server — استدلال CPU وMetal</h3>
+<p>يشغّل <a href="https://github.com/ggml-org/llama.cpp" data-ext>llama.cpp</a> نماذج مُكمَّمة (quantized) على CPU، وApple Silicon (Metal)، وبطاقات GPU الاستهلاكية. الأفضل لـ: تشغيل النماذج دون GPU مركز بيانات، مستخدمي Mac، والنشر الطرفي (edge).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
+<p><strong>طول السياق (<code>-c</code>):</strong> تفترض الإصدارات الحديثة القيمة <code>0</code> افتراضيًا، والتي تقرأ سياق التدريب الخاص بالنموذج من بيانات GGUF الوصفية. بالنسبة للنماذج ذات سياق تدريب 128 ألف token أو أكثر، قد يتسبب هذا في نفاد الذاكرة (OOM) عند محاولة تخصيص ذاكرة KV المؤقتة الكاملة. اضبط <code>-c</code> صراحةً إلى 64,000 token على الأقل من أجل Hermes. إذا كنت تستخدم فتحات متوازية (<code>-np</code>)، يُقسَّم السياق الإجمالي بين الفتحات — فمع <code>-c 64000 -np 4</code>، تحصل كل فتحة على 16 ألف فقط، وهو أقل من الحد الأدنى لدى Hermes لكل جلسة نشطة.</p>
+<p>ثم اضبط Hermes ليشير إليه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
+<p>هذا يحفظ الـ endpoint في <code>config.yaml</code> بحيث يبقى قائمًا عبر الجلسات.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="114"></x-keep></span><code>--jinja</code> مطلوب لاستدعاء الأدوات</div><div class="admonitionContent_BuS1"><p>دون <code>--jinja</code>، يتجاهل llama-server معامل <code>tools</code> تمامًا. سيحاول النموذج استدعاء الأدوات بكتابة JSON في نص استجابته، لكن Hermes لن يتعرّف عليه كاستدعاء أداة — سترى JSON خامًا مثل <code>{&quot;name&quot;: &quot;web_search&quot;, ...}</code> مطبوعًا كرسالة بدلًا من بحث فعلي.</p><p>دعم استدعاء الأدوات الأصلي (أفضل أداء): Llama 3.x، وQwen 2.5 (بما فيه Coder)، وHermes 2/3، وMistral، وDeepSeek، وFunctionary. تستخدم بقية النماذج معالجًا عامًا يعمل لكنه قد يكون أقل كفاءة. راجع <a href="https://github.com/ggml-org/llama.cpp/blob/master/docs/function-calling.md" data-ext>وثائق استدعاء الدوال في llama.cpp</a> للاطلاع على القائمة الكاملة.</p><p>يمكنك التحقق من تفعيل دعم الأدوات عبر مراجعة <code>http://localhost:8080/props</code> — يجب أن يكون حقل <code>chat_template</code> موجودًا.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="115"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>حمّل نماذج GGUF من <a href="https://huggingface.co/models?library=gguf" data-ext>Hugging Face</a>. توفّر التكميم Q4_K_M أفضل توازن بين الجودة واستهلاك الذاكرة.</p></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lm-studio--desktop-app-with-local-models">LM Studio — تطبيق سطح مكتب بنماذج محلية</h3>
+<p><a href="https://lmstudio.ai/" data-ext>LM Studio</a> هو تطبيق سطح مكتب لتشغيل النماذج المحلية بواجهة رسومية. الأفضل لـ: من يفضّلون واجهة بصرية، والاختبار السريع للنماذج، ومطوّري macOS/Windows/Linux.</p>
+<p>ابدأ الخادم من تطبيق LM Studio (تبويب Developer → Start Server)، أو استخدم CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
+<p>ثم اضبط Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="50"></x-keep></div></div>
+<p>يحافظ Hermes على سياق نسخة LM Studio المحمَّلة بالفعل. بالنسبة لنموذج غير محمَّل في الوضع الصريح الافتراضي، يهمل Hermes <code>context_length</code> ما لم تكن قد ضبطت واحدًا في Hermes، بحيث يستطيع LM Studio تطبيق إعداده الخاص بالنموذج. يستخدم Hermes بعدها فقط طول السياق الذي يبلّغ عنه LM Studio بعد التحميل.</p>
+<p>لتغيير طول السياق في LM Studio:</p>
+<ol>
+<li>انقر أيقونة الترس بجانب منتقي النموذج</li>
+<li>اضبط &quot;Context Length&quot; على 64000 على الأقل لتجربة سلسة</li>
+<li>أعد تحميل النموذج ليصبح التغيير ساري المفعول</li>
+<li>إذا لم يستوعب جهازك 64000، فكّر في استخدام نموذج أصغر بطول سياق أكبر.</li>
+</ol>
+<p>بديلًا عن ذلك، استخدم CLI: <code>lms load model-name --context-length 64000</code></p>
+<p>يمكنك استخدام CLI لتقدير ما إذا كان النموذج سيناسب: <code>lms load model-name --context-length 64000 --estimate-only</code></p>
+<p>لضبط قيم افتراضية دائمة لكل نموذج: تبويب My Models → أيقونة الترس على النموذج → اضبط حجم السياق.
+:::</p>
+<p>إذا كنت تستخدم ميزة التحميل عند الطلب (Just-In-Time) / الإخلاء التلقائي (Auto-Evict) في LM Studio وتريد أن يتولى LM Studio إدارة تحميل النموذج وإخلائه من طلبات المحادثة العادية، تخطَّ خطوة التحميل المسبق الصريحة في Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="51"></x-keep></div></div>
+<p>أعده إلى سلوك التحميل المسبق الصريح الافتراضي عبر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="52"></x-keep></div></div>
+<p><strong>استدعاء الأدوات:</strong> مدعوم منذ LM Studio 0.3.6. تُكتشَف النماذج ذات التدريب الأصلي على استدعاء الأدوات (Qwen 2.5، وLlama 3.x، وMistral، وHermes) تلقائيًا وتُعرَض بشارة أداة. تستخدم النماذج الأخرى بديلًا عامًا قد يكون أقل موثوقية.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="wsl2-networking-windows-users">شبكات WSL2 (لمستخدمي Windows)</h3>
+<p>بما أن Hermes Agent يتطلّب بيئة Unix، يشغّله مستخدمو Windows داخل WSL2. إذا كان خادم النموذج لديك (Ollama أو LM Studio أو غيرهما) يعمل على <strong>مضيف Windows</strong>، فأنت بحاجة لسد الفجوة الشبكية — يستخدم WSL2 محوّل شبكة افتراضيًا بشبكة فرعية خاصة به، لذا يشير <code>localhost</code> داخل WSL2 إلى جهاز Linux الافتراضي، <strong>وليس</strong> مضيف Windows.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="116"></x-keep></span>كلاهما داخل WSL2؟ لا مشكلة.</div><div class="admonitionContent_BuS1"><p>إذا كان خادم النموذج لديك يعمل أيضًا داخل WSL2 (شائع مع vLLM وSGLang وllama-server)، يعمل <code>localhost</code> كما هو متوقع — إذ يشتركان في نفس مساحة اسم الشبكة (network namespace). تخطَّ هذا القسم.</p></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-1-mirrored-networking-mode-recommended">الخيار 1: وضع الشبكات المرآتية (Mirrored) (مُوصى به)</h4>
+<p>متاح على <strong>Windows 11 22H2 فأحدث</strong>، يجعل الوضع المرآتي <code>localhost</code> يعمل في الاتجاهين بين Windows وWSL2 — أبسط حل.</p>
+<ol>
+<li>
+<p>أنشئ أو حرّر <code>%USERPROFILE%\.wslconfig</code> (مثلًا <code>C:\Users\YourName\.wslconfig</code>):</p>
+<div class="language-ini codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="53"></x-keep></div></div>
+</li>
+<li>
+<p>أعد تشغيل WSL من PowerShell:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="54"></x-keep></div></div>
+</li>
+<li>
+<p>أعد فتح طرفية WSL2 لديك. يصل <code>localhost</code> الآن إلى خدمات Windows:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="55"></x-keep></div></div>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="117"></x-keep></span>جدار حماية Hyper-V</div><div class="admonitionContent_BuS1"><p>في بعض إصدارات Windows 11، يحجب جدار حماية Hyper-V الاتصالات المرآتية افتراضيًا. إذا استمر <code>localhost</code> في عدم العمل بعد تفعيل الوضع المرآتي، شغّل هذا في <strong>PowerShell كمسؤول (Admin)</strong>:</p><div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="56"></x-keep></div></div></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-2-use-the-windows-host-ip-windows-10--older-builds">الخيار 2: استخدام عنوان IP لمضيف Windows (Windows 10 / الإصدارات الأقدم)</h4>
+<p>إذا تعذّر عليك استخدام الوضع المرآتي، اعثر على عنوان IP لمضيف Windows من داخل WSL2 واستخدمه بدلًا من <code>localhost</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="57"></x-keep></div></div>
+<p>استخدم هذا العنوان في إعدادات Hermes لديك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="58"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="118"></x-keep></span>مساعد ديناميكي</div><div class="admonitionContent_BuS1"><p>قد يتغيّر عنوان IP للمضيف عند إعادة تشغيل WSL2. يمكنك جلبه ديناميكيًا في shell لديك:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="59"></x-keep></div></div><p>أو استخدم اسم mDNS الخاص بجهازك (يتطلّب <code>libnss-mdns</code> في WSL2):</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="60"></x-keep></div></div></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="server-bind-address-required-for-nat-mode">عنوان ربط الخادم (مطلوب لوضع NAT)</h4>
+<p>إذا كنت تستخدم <strong>الخيار 2</strong> (وضع NAT بعنوان IP للمضيف)، يجب أن يقبل خادم النموذج على Windows الاتصالات من خارج <code>127.0.0.1</code>. تنصت معظم الخوادم افتراضيًا على localhost فقط — تأتي اتصالات WSL2 في وضع NAT من شبكة فرعية افتراضية مختلفة وسترفض. في الوضع المرآتي، يُطابِق <code>localhost</code> مباشرةً، لذا يعمل الربط الافتراضي <code>127.0.0.1</code> بلا مشكلة.</p>
+<table><thead><tr><th>الخادم</th><th>الربط الافتراضي</th><th>كيفية الإصلاح</th></tr></thead><tbody><tr><td><strong>Ollama</strong></td><td><code>127.0.0.1</code></td><td>اضبط متغير البيئة <code>OLLAMA_HOST=0.0.0.0</code> قبل بدء تشغيل Ollama (System Settings → Environment Variables على Windows، أو حرّر خدمة Ollama)</td></tr><tr><td><strong>LM Studio</strong></td><td><code>127.0.0.1</code></td><td>فعّل <strong>&quot;Serve on Network&quot;</strong> في تبويب Developer → إعدادات Server</td></tr><tr><td><strong>llama-server</strong></td><td><code>127.0.0.1</code></td><td>أضف <code>--host 0.0.0.0</code> إلى أمر التشغيل</td></tr><tr><td><strong>vLLM</strong></td><td><code>0.0.0.0</code></td><td>يرتبط بجميع الواجهات افتراضيًا بالفعل</td></tr><tr><td><strong>SGLang</strong></td><td><code>127.0.0.1</code></td><td>أضف <code>--host 0.0.0.0</code> إلى أمر التشغيل</td></tr></tbody></table>
+<p><strong>Ollama على Windows (بالتفصيل):</strong> يعمل Ollama كخدمة Windows. لضبط <code>OLLAMA_HOST</code>:</p>
+<ol>
+<li>افتح <strong>System Properties</strong> → <strong>Environment Variables</strong></li>
+<li>أضف <strong>متغير نظام</strong> جديدًا: <code>OLLAMA_HOST</code> = <code>0.0.0.0</code></li>
+<li>أعد تشغيل خدمة Ollama (أو أعد تشغيل الجهاز)</li>
+</ol>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="windows-firewall">جدار حماية Windows</h4>
+<p>يعامل جدار حماية Windows شبكة WSL2 كشبكة منفصلة (في كلا وضعَي NAT والمرآتي). إذا استمر فشل الاتصالات بعد الخطوات أعلاه، أضف قاعدة جدار حماية لمنفذ خادم النموذج لديك:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="61"></x-keep></div></div>
+<p>المنافذ الشائعة: Ollama <code>11434</code>، وvLLM <code>8000</code>، وSGLang <code>30000</code>، وllama-server <code>8080</code>، وLM Studio <code>1234</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-verification">تحقّق سريع</h4>
+<p>من داخل WSL2، اختبر أنه يمكنك الوصول إلى خادم النموذج لديك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="62"></x-keep></div></div>
+<p>إذا حصلت على استجابة JSON تسرد نماذجك، فأنت جاهز. استخدم نفس هذا العنوان كـ <code>base_url</code> في إعدادات Hermes لديك.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting-local-models">استكشاف أخطاء النماذج المحلية وإصلاحها</h3>
+<p>تؤثر هذه المشكلات على <strong>جميع</strong> خوادم الاستدلال المحلية عند استخدامها مع Hermes.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-refused-from-wsl2-to-a-windows-hosted-model-server">رفض الاتصال (&quot;Connection refused&quot;) من WSL2 إلى خادم نموذج مستضاف على Windows</h4>
+<p>إذا كنت تشغّل Hermes داخل WSL2 وخادم النموذج لديك على مضيف Windows، فلن يعمل <code>http://localhost:&lt;port&gt;</code> في وضع الشبكات NAT الافتراضي لـ WSL2. راجع <a href="#wsl2-networking-windows-users">شبكات WSL2</a> أعلاه للإصلاح.</p>

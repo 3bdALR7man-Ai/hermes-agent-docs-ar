@@ -1,0 +1,162 @@
+<header><h1>Weixin (WeChat)</h1></header>
+<p>اربط Hermes بمنصة <a href="https://weixin.qq.com/" data-ext>WeChat</a> (微信)، منصة المراسلة الشخصية من Tencent. يستخدم المحوّل (adapter) واجهة <strong>iLink Bot API</strong> من Tencent لحسابات WeChat الشخصية — وهي تختلف عن WeCom (WeChat للمؤسسات). تُسلَّم الرسائل عبر الاستطلاع الطويل (long-polling)، لذا لا حاجة إلى endpoint عام أو webhook.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>هذا المحوّل مخصّص لـ <strong>حسابات WeChat الشخصية</strong> (微信). إذا كنت تحتاج إلى WeChat للمؤسسات/الشركات، فراجع <a href="/docs/user-guide/messaging/wecom">محوّل WeCom</a> بدلًا من ذلك.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>هوية بوت iLink — قد لا تعمل مجموعات WeChat العادية</div><div class="admonitionContent_BuS1"><p>يربط تسجيل الدخول برمز QR بين Hermes و<strong>هوية بوت iLink</strong> (مثل <code>a5ace6fd482e@im.bot</code>)، <strong>وليس</strong> بحساب WeChat شخصي عادي قابل للبرمجة بالكامل. ويترتب على ذلك ما يلي:</p><ul>
+<li>لا يمكن عمومًا <strong>دعوة هوية بوت iLink إلى مجموعات WeChat العادية</strong> كما يُدعى أي جهة اتصال عادية.</li>
+<li>عادةً <strong>لا يسلّم iLink أحداث مجموعات WeChat العادية</strong> (بما في ذلك إشارات <code>@</code> إلى الحساب الشخصي المستخدم لتسجيل الدخول برمز QR) إلى الـ gateway في معظم الحسابات من نوع البوت.</li>
+<li>الإشارة بـ <code>@</code> إلى حساب WeChat الشخصي المستخدم لمسح رمز QR <strong>ليست</strong> مماثلة للإشارة بـ <code>@</code> إلى بوت iLink — فالبوت هوية منفصلة.</li>
+<li>لا يسري مفعول الإعدادين <code>WEIXIN_GROUP_POLICY</code> / <code>WEIXIN_GROUP_ALLOWED_USERS</code> الموضّحين أدناه إلا عندما يُرجع iLink فعلًا أحداث المجموعات لنوع حسابك. وإن لم يفعل، فلن تصل رسائل المجموعات إلى Hermes أبدًا بصرف النظر عن السياسة.</li>
+</ul><p>عمليًا، لا تنجح معظم عمليات النشر بشكل موثوق إلا في الرسائل المباشرة إلى بوت iLink. وإذا لم يعمل تسليم رسائل المجموعات بعد الإعداد، فالقيد من جانب iLink وليس في Hermes. يسجّل الـ gateway رسالة <code>WARNING</code> عند بدء التشغيل كلما ضُبط <code>WEIXIN_GROUP_POLICY</code> على أي قيمة غير <code>disabled</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>حساب WeChat شخصي</li>
+<li>حزم Python: <code>aiohttp</code> و <code>cryptography</code></li>
+<li>يُضمَّن عرض رمز QR في الطرفية عند تثبيت Hermes مع الإضافة (extra) <code>messaging</code></li>
+</ul>
+<p>ثبّت الاعتماديات المطلوبة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-run-the-setup-wizard">1. تشغيل معالج الإعداد</h3>
+<p>أسهل طريقة لربط حساب WeChat الخاص بك هي عبر الإعداد التفاعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اختر <strong>Weixin</strong> عند المطالبة. سيقوم المعالج بما يلي:</p>
+<ol>
+<li>طلب رمز QR من iLink Bot API</li>
+<li>عرض رمز QR في الطرفية (أو توفير URL)</li>
+<li>انتظار مسحك لرمز QR باستخدام تطبيق WeChat على الهاتف</li>
+<li>مطالبتك بتأكيد تسجيل الدخول على هاتفك</li>
+<li>حفظ بيانات اعتماد الحساب تلقائيًا في <code>~/.hermes/weixin/accounts/</code></li>
+</ol>
+<p>بعد التأكيد، سترى رسالة مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يخزّن المعالج قيم <code>account_id</code> و <code>token</code> و <code>base_url</code> حتى لا تحتاج إلى ضبطها يدويًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-configure-environment-variables">2. ضبط متغيرات البيئة</h3>
+<p>بعد تسجيل الدخول الأولي برمز QR، اضبط على الأقل معرّف الحساب في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-start-the-gateway">3. تشغيل الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>سيستعيد المحوّل بيانات الاعتماد المحفوظة، ويتصل بـ iLink API، ثم يبدأ الاستطلاع الطويل لاستقبال الرسائل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<ul>
+<li><strong>النقل عبر الاستطلاع الطويل</strong> — لا حاجة إلى endpoint عام أو webhook أو WebSocket</li>
+<li><strong>تسجيل الدخول برمز QR</strong> — إعداد بالمسح للاتصال عبر <code>hermes gateway setup</code></li>
+<li><strong>الرسائل المباشرة</strong> — سياسات وصول قابلة للضبط؛ أما رسائل المجموعات فتعتمد على تسليم iLink فعليًا لأحداث المجموعات للهوية المتصلة (وهو ما لا يحدث غالبًا مع حسابات بوت iLink — راجع التحذير أعلاه)</li>
+<li><strong>دعم الوسائط</strong> — الصور ومقاطع الفيديو والملفات والرسائل الصوتية</li>
+<li><strong>CDN مشفّر بـ AES-128-ECB</strong> — تشفير وفك تشفير تلقائيان لجميع عمليات نقل الوسائط</li>
+<li><strong>استمرارية context token</strong> — استمرارية الردود عبر عمليات إعادة التشغيل بفضل التخزين على القرص</li>
+<li><strong>تنسيق Markdown</strong> — يحافظ على Markdown، بما في ذلك العناوين والجداول وكتل الشيفرة، بحيث تستطيع عملاء WeChat الداعمة لـ Markdown عرضه بشكل أصلي</li>
+<li><strong>تجزئة ذكية للرسائل</strong> — تبقى الرسائل في فقاعة واحدة ما دامت دون الحد؛ ولا تُقسَّم إلا الحمولات الكبيرة جدًا عند حدود منطقية</li>
+<li><strong>مؤشرات الكتابة</strong> — تعرض حالة &quot;typing…&quot; في عميل WeChat أثناء معالجة الوكيل</li>
+<li><strong>الحماية من SSRF</strong> — يُتحقق من عناوين URL للوسائط الصادرة قبل التنزيل</li>
+<li><strong>إزالة تكرار الرسائل</strong> — نافذة منزلقة مدتها 5 دقائق تمنع المعالجة المزدوجة</li>
+<li><strong>إعادة المحاولة التلقائية مع التأخير (backoff)</strong> — للتعافي من أخطاء API العابرة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-options">خيارات الإعداد</h2>
+<p>اضبط هذه الخيارات في <code>config.yaml</code> تحت <code>platforms.weixin.extra</code>:</p>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>account_id</code></td><td>—</td><td>معرّف حساب iLink Bot (مطلوب)</td></tr><tr><td><code>token</code></td><td>—</td><td>token الخاص بـ iLink Bot (مطلوب، ويُحفظ تلقائيًا من تسجيل الدخول برمز QR)</td></tr><tr><td><code>base_url</code></td><td><code>https://ilinkai.weixin.qq.com</code></td><td>URL الأساسي لـ iLink API</td></tr><tr><td><code>cdn_base_url</code></td><td><code>https://novac2c.cdn.weixin.qq.com/c2c</code></td><td>URL الأساسي لشبكة CDN لنقل الوسائط</td></tr><tr><td><code>dm_policy</code></td><td><code>open</code></td><td>الوصول عبر الرسائل المباشرة: <code>open</code>، <code>allowlist</code>، <code>disabled</code>، <code>pairing</code></td></tr><tr><td><code>group_policy</code></td><td><code>disabled</code></td><td>الوصول في المجموعات: <code>open</code>، <code>allowlist</code>، <code>disabled</code></td></tr><tr><td><code>allow_from</code></td><td><code>[]</code></td><td>معرّفات المستخدمين المسموح لهم بالرسائل المباشرة (عند dm_policy=allowlist)</td></tr><tr><td><code>group_allow_from</code></td><td><code>[]</code></td><td>معرّفات المجموعات المسموح بها (عند group_policy=allowlist)</td></tr><tr><td><code>split_multiline_messages</code></td><td><code>false</code></td><td>عند ضبطه على <code>true</code>، تُقسَّم الردود متعددة الأسطر إلى عدة رسائل محادثة (السلوك القديم). وعند ضبطه على <code>false</code>، تبقى الردود متعددة الأسطر رسالة واحدة ما لم تتجاوز حد الطول.</td></tr><tr><td><code>text_batch_delay_seconds</code></td><td><code>3.0</code></td><td>فترة الهدوء (بالثواني) قبل تفريغ دفعة مخزّنة من الرسائل النصية المتتابعة بسرعة كطلب واحد مجمّع. يسلّم iLink الرسائل كلًّا على حدة، لذا يتجنب هذا التأخير (debounce) استدعاء الوكيل مرة لكل جزء. اضبطه على <code>0</code> لإرسال كل رسالة فورًا.</td></tr><tr><td><code>text_batch_split_delay_seconds</code></td><td><code>5.0</code></td><td>تأخير تفريغ ممتد يُستخدم عندما يكون أحدث جزء قريبًا من عتبة التقسيم (رسائل طويلة ربما جزّأها iLink).</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-policies">سياسات الوصول</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-policy">سياسة الرسائل المباشرة</h3>
+<p>تتحكم في من يمكنه إرسال رسائل مباشرة إلى البوت:</p>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>open</code></td><td>يمكن لأي شخص مراسلة البوت مباشرة (الافتراضي)</td></tr><tr><td><code>allowlist</code></td><td>يقتصر إرسال الرسائل المباشرة على معرّفات المستخدمين الواردة في <code>allow_from</code></td></tr><tr><td><code>disabled</code></td><td>تُتجاهل جميع الرسائل المباشرة</td></tr><tr><td><code>pairing</code></td><td>وضع الاقتران (للإعداد الأولي)</td></tr></tbody></table>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>WEIXIN_ALLOWED_USERS</code> هو <strong>مرشّح للرسائل الواردة</strong>، وليس نظام دعوات. يربط تسجيل
+الدخول برمز QR هوية بوت iLink واحدة بـ Hermes. لا يمسح الآخرون رمز QR الخاص
+بـ Hermes بحساباتهم؛ بل يجب عليهم مراسلة بوت/جهة اتصال iLink المتصلة
+عبر WeChat، ولن يعالج Hermes الرسالة المباشرة إلا إذا كان معرّف مستخدم Weixin
+الخاص بالمرسل موجودًا في <code>WEIXIN_ALLOWED_USERS</code>.</p>
+<p>إليك مسار إعداد عملي:</p>
+<ol>
+<li>أقرن Hermes مرة واحدة باستخدام <code>hermes gateway setup</code> ودوّن حساب بوت iLink
+المتصل.</li>
+<li>اطلب من كل مستخدم مسموح له إرسال رسالة مباشرة إلى ذلك البوت/جهة الاتصال.</li>
+<li>اقرأ معرّف المرسل/المستخدم من سجلات الـ gateway أو من حمولة الحدث الوارد.</li>
+<li>أضف تلك المعرّفات إلى <code>WEIXIN_ALLOWED_USERS</code>، ثم أعد تشغيل الـ gateway.</li>
+</ol>
+<p>إذا كان الحساب الذي مسح رمز QR هو الوحيد القادر على التحدث مع Hermes، فتحقق من أن
+المستخدمين الآخرين يراسلون هوية بوت iLink نفسها، وليس حساب WeChat الشخصي
+الذي أجرى تسجيل الدخول برمز QR. فبوت iLink هوية منفصلة، وقد يكون توجيه
+جهات الاتصال/المجموعات في WeChat العادي محدودًا بسبب سلوك iLink لدى Tencent.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-policy">سياسة المجموعات</h3>
+<p>تتحكم في المجموعات التي يرد فيها البوت <strong>عندما يسلّم iLink أحداث المجموعات للهوية المتصلة</strong>. بالنسبة لهويات بوت iLink المسجّلة عبر رمز QR (مثل <code>...@im.bot</code>)، لا تُسلَّم أحداث المجموعات عادةً على الإطلاق، لذا قد لا يكون لهذه السياسة أي أثر — راجع تحذير قيود بوت iLink أعلى الصفحة.</p>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>open</code></td><td>يرد البوت في جميع المجموعات (إذا سُلّمت الأحداث)</td></tr><tr><td><code>allowlist</code></td><td>يرد البوت فقط في المجموعات المدرجة معرّفاتها في <code>group_allow_from</code> (إذا سُلّمت الأحداث)</td></tr><tr><td><code>disabled</code></td><td>تُتجاهل جميع رسائل المجموعات (الافتراضي)</td></tr></tbody></table>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>سياسة المجموعات الافتراضية في Weixin هي <code>disabled</code> (بخلاف WeCom حيث تكون القيمة الافتراضية <code>open</code>). وهذا مقصود — فقد تكون حسابات WeChat الشخصية أعضاء في مجموعات كثيرة، كما أن هويات بوت iLink لا تستطيع عادةً استقبال رسائل مجموعات WeChat العادية على الإطلاق. يسجّل الـ gateway رسالة <code>WARNING</code> عند بدء التشغيل إذا ضبطت <code>WEIXIN_GROUP_POLICY</code> على أي قيمة غير <code>disabled</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-support">دعم الوسائط</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-receiving">الوارد (الاستقبال)</h3>
+<p>يستقبل المحوّل مرفقات الوسائط من المستخدمين، وينزّلها من CDN الخاص بـ WeChat، ويفك تشفيرها، ثم يخزّنها مؤقتًا محليًا لكي يعالجها الوكيل:</p>
+<table><thead><tr><th>النوع</th><th>طريقة المعالجة</th></tr></thead><tbody><tr><td><strong>الصور</strong></td><td>تُنزَّل ويُفك تشفيرها بـ AES وتُخزَّن مؤقتًا بصيغة JPEG.</td></tr><tr><td><strong>الفيديو</strong></td><td>يُنزَّل ويُفك تشفيره بـ AES ويُخزَّن مؤقتًا بصيغة MP4.</td></tr><tr><td><strong>الملفات</strong></td><td>تُنزَّل ويُفك تشفيرها بـ AES وتُخزَّن مؤقتًا، مع الحفاظ على اسم الملف الأصلي.</td></tr><tr><td><strong>الرسائل الصوتية</strong></td><td>إذا توفّر تفريغ نصي، يُستخرج كنص. وإلا يُنزَّل الصوت (بتنسيق SILK) ويُخزَّن مؤقتًا.</td></tr></tbody></table>
+<p><strong>الرسائل المقتبسة:</strong> تُستخرج أيضًا الوسائط من الرسائل المقتبسة (التي يُرد عليها)، ليتوفر للوكيل سياق عمّا يرد عليه المستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="aes-128-ecb-encrypted-cdn">CDN مشفّر بـ AES-128-ECB</h3>
+<p>تُنقل ملفات وسائط WeChat عبر شبكة CDN مشفّرة، ويتولى المحوّل ذلك بشفافية:</p>
+<ul>
+<li><strong>الوارد:</strong> تُنزَّل الوسائط المشفّرة من CDN باستخدام عناوين URL من نوع <code>encrypted_query_param</code>، ثم يُفك تشفيرها بـ AES-128-ECB باستخدام المفتاح الخاص بكل ملف والمُرفق في حمولة الرسالة.</li>
+<li><strong>الصادر:</strong> تُشفَّر الملفات محليًا بمفتاح AES-128-ECB عشوائي، وتُرفع إلى CDN، ويُضمَّن المرجع المشفّر في الرسالة الصادرة.</li>
+<li>مفتاح AES بطول 16 بايت (128 بت). وقد تصل المفاتيح بترميز base64 خام أو بترميز hex — ويتعامل المحوّل مع كلا التنسيقين.</li>
+<li>يتطلب ذلك حزمة Python المسماة <code>cryptography</code>.</li>
+</ul>
+<p>لا حاجة إلى أي إعداد — يجري التشفير وفك التشفير تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-sending">الصادر (الإرسال)</h3>
+<table><thead><tr><th>الدالة</th><th>ما ترسله</th></tr></thead><tbody><tr><td><code>send</code></td><td>رسائل نصية بتنسيق Markdown</td></tr><tr><td><code>send_image</code> / <code>send_image_file</code></td><td>رسائل صور أصلية (عبر الرفع إلى CDN)</td></tr><tr><td><code>send_document</code></td><td>مرفقات ملفات (عبر الرفع إلى CDN)</td></tr><tr><td><code>send_video</code></td><td>رسائل فيديو (عبر الرفع إلى CDN)</td></tr></tbody></table>
+<p>تمر جميع الوسائط الصادرة بمسار الرفع المشفّر إلى CDN:</p>
+<ol>
+<li>توليد مفتاح AES-128 عشوائي</li>
+<li>تشفير الملف بـ AES-128-ECB مع حشو PKCS#7</li>
+<li>طلب URL للرفع من iLink API (<code>getuploadurl</code>)</li>
+<li>رفع النص المشفّر إلى CDN</li>
+<li>إرسال الرسالة مع مرجع الوسائط المشفّرة</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-token-persistence">استمرارية Context Token</h2>
+<p>تتطلب iLink Bot API إعادة إرسال <code>context_token</code> مع كل رسالة صادرة إلى نظير معيّن. ويحتفظ المحوّل بمخزن لـ context tokens على القرص:</p>
+<ul>
+<li>تُحفظ الـ tokens لكل حساب ونظير في <code>~/.hermes/weixin/accounts/&lt;account_id&gt;.context-tokens.json</code></li>
+<li>عند بدء التشغيل، تُستعاد الـ tokens المحفوظة سابقًا</li>
+<li>تُحدِّث كل رسالة واردة الـ token المخزّن لذلك المرسل</li>
+<li>تتضمن الرسائل الصادرة تلقائيًا أحدث context token</li>
+</ul>
+<p>يضمن ذلك استمرارية الردود حتى بعد إعادة تشغيل الـ gateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="markdown-formatting">تنسيق Markdown</h2>
+<p>تستطيع عملاء WeChat المتصلة عبر iLink Bot API عرض Markdown مباشرةً، لذا يحافظ المحوّل على Markdown بدلًا من إعادة صياغته:</p>
+<ul>
+<li><strong>العناوين</strong> تبقى عناوين Markdown (<code>#</code>، <code>##</code>، ...)</li>
+<li><strong>الجداول</strong> تبقى جداول Markdown</li>
+<li><strong>كتل الشيفرة المسوّرة (code fences)</strong> تبقى كتل شيفرة مسوّرة</li>
+<li><strong>الأسطر الفارغة الزائدة</strong> تُختصر إلى سطرين جديدين خارج كتل الشيفرة المسوّرة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-chunking">تجزئة الرسائل</h2>
+<p>تُسلَّم الرسائل كرسالة محادثة واحدة كلما كانت ضمن حد المنصة. ولا تُقسَّم للتسليم إلا الحمولات الكبيرة جدًا:</p>
+<ul>
+<li>الحد الأقصى لطول الرسالة: <strong>4000 حرف</strong></li>
+<li>تبقى الرسائل التي دون الحد سليمة حتى لو احتوت على عدة فقرات أو فواصل أسطر</li>
+<li>تُقسَّم الرسائل الكبيرة جدًا عند حدود منطقية (الفقرات، الأسطر الفارغة، كتل الشيفرة المسوّرة)</li>
+<li>تُحفظ كتل الشيفرة المسوّرة سليمة كلما أمكن (لا تُقسَّم أبدًا في منتصف الكتلة إلا إذا تجاوزت الكتلة نفسها الحد)</li>
+<li>الكتل المفردة الكبيرة جدًا تلجأ احتياطيًا إلى منطق الاقتطاع في المحوّل الأساسي</li>
+<li>يمنع تأخير قدره 0.3 s بين الأجزاء إسقاط الرسائل بسبب حدّ المعدل (rate limit) في WeChat عند إرسال عدة أجزاء</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="typing-indicators">مؤشرات الكتابة</h2>
+<p>يعرض المحوّل حالة الكتابة في عميل WeChat:</p>
+<ol>
+<li>عند وصول رسالة، يجلب المحوّل <code>typing_ticket</code> عبر واجهة <code>getconfig</code> API</li>
+<li>تُخزَّن تذاكر الكتابة مؤقتًا لمدة 10 دقائق لكل مستخدم</li>
+<li>يرسل <code>send_typing</code> إشارة بدء الكتابة؛ ويرسل <code>stop_typing</code> إشارة إيقاف الكتابة</li>
+<li>يُطلق الـ gateway مؤشرات الكتابة تلقائيًا أثناء معالجة الوكيل للرسالة</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-poll-connection">اتصال الاستطلاع الطويل</h2>
+<p>يستخدم المحوّل الاستطلاع الطويل عبر HTTP (وليس WebSocket) لاستقبال الرسائل:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<ol>
+<li><strong>الاتصال:</strong> يتحقق من بيانات الاعتماد ويبدأ حلقة الاستطلاع</li>
+<li><strong>الاستطلاع:</strong> يستدعي <code>getupdates</code> بمهلة 35 ثانية؛ ويُبقي الخادم الطلب معلّقًا حتى تصل رسائل أو تنتهي المهلة</li>
+<li><strong>التوزيع:</strong> تُوزَّع الرسائل الواردة بشكل متزامن عبر <code>asyncio.create_task</code></li>
+<li><strong>مخزن المزامنة:</strong> يُحفظ مؤشر مزامنة دائم (<code>get_updates_buf</code>) على القرص ليستأنف المحوّل من الموضع الصحيح بعد إعادة التشغيل</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="retry-behavior">سلوك إعادة المحاولة</h3>
+<p>عند حدوث أخطاء في API، يستخدم المحوّل استراتيجية بسيطة لإعادة المحاولة:</p>
+<table><thead><tr><th>الحالة</th><th>السلوك</th></tr></thead><tbody><tr><td>خطأ عابر (الأول والثاني)</td><td>إعادة المحاولة بعد 2 ثانية</td></tr><tr><td>أخطاء متكررة (3 فأكثر)</td><td>التوقف لمدة 30 ثانية، ثم إعادة تعيين العدّاد</td></tr><tr><td>انتهاء صلاحية الجلسة (<code>errcode=-14</code>)</td><td>الإيقاف المؤقت لمدة 10 دقائق (قد يلزم تسجيل الدخول مجددًا)</td></tr><tr><td>انتهاء المهلة</td><td>إعادة الاستطلاع فورًا (سلوك الاستطلاع الطويل المعتاد)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="deduplication">إزالة التكرار</h3>
+<p>تُزال الرسائل الواردة المكررة باستخدام معرّفات الرسائل ضمن نافذة مدتها 5 دقائق. يمنع ذلك المعالجة المزدوجة أثناء الاضطرابات العابرة في الشبكة أو تداخل ردود الاستطلاع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-lock">قفل الـ Token</h3>
+<p>لا يمكن إلا لنسخة واحدة من gateway الخاص بـ Weixin استخدام token معيّن في وقت واحد. يحصل المحوّل على قفل محدد النطاق عند بدء التشغيل ويحرّره عند الإيقاف. وإذا كان gateway آخر يستخدم الـ token نفسه بالفعل، يفشل بدء التشغيل مع رسالة خطأ توضيحية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="all-environment-variables">جميع متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>WEIXIN_ACCOUNT_ID</code></td><td>✅</td><td>—</td><td>معرّف حساب iLink Bot (من تسجيل الدخول برمز QR)</td></tr><tr><td><code>WEIXIN_TOKEN</code></td><td>✅</td><td>—</td><td>token الخاص بـ iLink Bot (يُحفظ تلقائيًا من تسجيل الدخول برمز QR)</td></tr><tr><td><code>WEIXIN_BASE_URL</code></td><td>—</td><td><code>https://ilinkai.weixin.qq.com</code></td><td>URL الأساسي لـ iLink API</td></tr><tr><td><code>WEIXIN_CDN_BASE_URL</code></td><td>—</td><td><code>https://novac2c.cdn.weixin.qq.com/c2c</code></td><td>URL الأساسي لشبكة CDN لنقل الوسائط</td></tr><tr><td><code>WEIXIN_DM_POLICY</code></td><td>—</td><td><code>open</code></td><td>سياسة الوصول عبر الرسائل المباشرة: <code>open</code>، <code>allowlist</code>، <code>disabled</code>، <code>pairing</code></td></tr><tr><td><code>WEIXIN_GROUP_POLICY</code></td><td>—</td><td><code>disabled</code></td><td>سياسة الوصول في المجموعات: <code>open</code>، <code>allowlist</code>، <code>disabled</code></td></tr><tr><td><code>WEIXIN_ALLOWED_USERS</code></td><td>—</td><td><em>(فارغ)</em></td><td>معرّفات مستخدمين مفصولة بفواصل لقائمة سماح الرسائل المباشرة</td></tr><tr><td><code>WEIXIN_GROUP_ALLOWED_USERS</code></td><td>—</td><td><em>(فارغ)</em></td><td><strong>معرّفات المحادثات الجماعية</strong> مفصولة بفواصل (وليس معرّفات المستخدمين الأعضاء) لقائمة سماح المجموعات. اسم المتغير موروث من إصدارات سابقة — فهو يتوقع معرّفات مجموعات، لا معرّفات مستخدمين.</td></tr><tr><td><code>WEIXIN_HOME_CHANNEL</code></td><td>—</td><td>—</td><td>معرّف المحادثة لمخرجات cron والإشعارات</td></tr><tr><td><code>WEIXIN_HOME_CHANNEL_NAME</code></td><td>—</td><td><code>Home</code></td><td>الاسم المعروض للقناة الرئيسية (home channel)</td></tr><tr><td><code>WEIXIN_ALLOW_ALL_USERS</code></td><td>—</td><td>—</td><td>خيار على مستوى الـ gateway للسماح لجميع المستخدمين (يستخدمه معالج الإعداد)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td><code>Weixin startup failed: aiohttp and cryptography are required</code></td><td>ثبّت الحزمتين: <code>pip install aiohttp cryptography</code></td></tr><tr><td><code>Weixin startup failed: WEIXIN_TOKEN is required</code></td><td>نفّذ <code>hermes gateway setup</code> لإكمال تسجيل الدخول برمز QR، أو اضبط <code>WEIXIN_TOKEN</code> يدويًا</td></tr><tr><td><code>Weixin startup failed: WEIXIN_ACCOUNT_ID is required</code></td><td>اضبط <code>WEIXIN_ACCOUNT_ID</code> في ملف <code>.env</code> أو نفّذ <code>hermes gateway setup</code></td></tr><tr><td><code>Another local Hermes gateway is already using this Weixin token</code></td><td>أوقف نسخة الـ gateway الأخرى أولًا — يُسمح بمستطلِع واحد فقط لكل token</td></tr><tr><td>انتهاء صلاحية الجلسة (<code>errcode=-14</code>)</td><td>انتهت صلاحية جلسة تسجيل الدخول. أعد تنفيذ <code>hermes gateway setup</code> لمسح رمز QR جديد</td></tr><tr><td>انتهاء صلاحية رمز QR أثناء الإعداد</td><td>يتجدد رمز QR تلقائيًا حتى 3 مرات. إذا استمر انتهاء صلاحيته، فتحقق من اتصالك بالشبكة</td></tr><tr><td>البوت لا يرد على الرسائل المباشرة</td><td>تحقق من <code>WEIXIN_DM_POLICY</code> — إذا كانت قيمته <code>allowlist</code>، فيجب أن يكون المرسل ضمن <code>WEIXIN_ALLOWED_USERS</code></td></tr><tr><td>البوت يتجاهل رسائل المجموعات</td><td>القيمة الافتراضية لسياسة المجموعات هي <code>disabled</code>. اضبط <code>WEIXIN_GROUP_POLICY=open</code> أو <code>allowlist</code> — لكن لاحظ أن هويات بوت iLink المسجّلة برمز QR (<code>...@im.bot</code>) لا تستطيع عادةً استقبال رسائل مجموعات WeChat العادية على الإطلاق. وإذا لم تُظهر سجلات الـ gateway أي أحداث واردة خام لرسائل المجموعات، فالقيد من جانب iLink وليس في Hermes.</td></tr><tr><td>فشل تنزيل الوسائط أو رفعها</td><td>تأكد من تثبيت <code>cryptography</code>. وتحقق من الوصول الشبكي إلى <code>novac2c.cdn.weixin.qq.com</code></td></tr><tr><td><code>Blocked unsafe URL (SSRF protection)</code></td><td>يشير URL الوسائط الصادرة إلى عنوان خاص/داخلي. لا يُسمح إلا بعناوين URL العامة</td></tr><tr><td>الرسائل الصوتية تظهر كنص</td><td>إذا وفّر WeChat تفريغًا نصيًا، يستخدم المحوّل النص. وهذا سلوك متوقع</td></tr><tr><td>تظهر الرسائل مكررة</td><td>يزيل المحوّل التكرار حسب معرّف الرسالة. إذا رأيت رسائل مكررة، فتحقق مما إذا كانت عدة نسخ من الـ gateway قيد التشغيل</td></tr><tr><td><code>iLink POST ... HTTP 4xx/5xx</code></td><td>خطأ API من خدمة iLink. تحقق من صلاحية الـ token ومن الاتصال بالشبكة</td></tr><tr><td>رمز QR لا يُعرض في الطرفية</td><td>أعد التثبيت مع الإضافة (extra) الخاصة بالمراسلة: <code>cd ~/.hermes/hermes-agent &amp;&amp; uv pip install -e &quot;.[messaging]&quot;</code>. أو بدلًا من ذلك، افتح الـ URL المطبوع أعلى رمز QR</td></tr></tbody></table>

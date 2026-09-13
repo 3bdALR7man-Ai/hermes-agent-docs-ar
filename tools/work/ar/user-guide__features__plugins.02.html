@@ -1,0 +1,44 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="injecting-messages">حقن الرسائل (Injecting Messages)</h2>
+<p>يمكن للإضافات حقن رسائل في محادثة CLI أو جلسة gateway معروفة باستخدام <code>ctx.inject_message()</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p><strong>التوقيع:</strong> <code>ctx.inject_message(content: str, role: str = &quot;user&quot;, *, session_key: str | None = None) -&gt; bool</code></p>
+<p>في وضع CLI:</p>
+<ul>
+<li>إذا كان الوكيل <strong>خاملًا</strong> (بانتظار إدخال المستخدم)، تُصفّ الرسالة كإدخال تالٍ وتبدأ دورًا جديدًا.</li>
+<li>إذا كان الوكيل <strong>وسط دور</strong> (قيد التشغيل فعليًا)، تقاطع الرسالة العملية الجارية — تمامًا كما لو كتب المستخدم رسالة جديدة وضغط Enter.</li>
+<li>بالنسبة للأدوار غير <code>&quot;user&quot;</code>، يُسبَق المحتوى بـ <code>[role]</code> (مثل <code>[system] ...</code>).</li>
+<li>تُعيد <code>True</code> إذا صُفَّت الرسالة بنجاح.</li>
+</ul>
+<p>في وضع gateway:</p>
+<ul>
+<li><code>session_key</code> مطلوب ويجب أن يُعرّف جلسة gateway موجودة. إنه مفتاح التوجيه الثابت، وليس معرّف جلسة CLI.</li>
+<li>يعيد Hermes استخدام المنصة، والمحادثة، والسلسلة، والملف الشخصي، وسجل المحادثة المخزَّنين لتلك الجلسة. لا يمكن للإضافات توفير مسار محادثة جديد عبر هذه الواجهة.</li>
+<li>يعيد Hermes فحص المسار المخزَّن مقابل قواعد التفويض الحالية لـ gateway قبل الإرسال.</li>
+<li>المسارات التي اعتمدت فقط على قرار تفويض وقت المحوّل أو من مصدر أعلى تُرفَض ما لم يتمكن Hermes من إعادة التحقق منها من قوائم السماح الأساسية الحالية، أو الاقتران، أو إعداد صريح للسماح بكل شيء.</li>
+<li>النص المحقون هو دائمًا إدخال محادثة عادي. لا يمكنه استدعاء slash commands، أو الموافقة على أدوات، أو حلّ طلبات تأكيد أو توضيح معلَّقة.</li>
+<li>يبقى المسار والمحادثة مثبَّتين أثناء انتظار الإرسال. يُسقِط Hermes الطلب إذا غيّر استرجاع الموضوع المسار أو دارت الجلسة قبل بدء المعالجة.</li>
+<li>يدخل الطلب مسار رسائل محوّل المنصة العادي. الجلسات النشطة تستخدم طابور الجلسة المشغولة الحالي بدلًا من بدء دور منافس.</li>
+<li>تُعيد <code>True</code> عندما يقبل gateway الحي الطلب للإرسال غير المتزامن. هذا لا يؤكّد أن دور الوكيل أو التسليم على المنصة قد اكتمل.</li>
+<li>تُعيد <code>False</code> عندما تُغفَل <code>session_key</code>، أو لا تُمنَح الصلاحية، أو لا يوجد gateway حي يقبل الطلب. مفاتيح الجلسة غير المعروفة أو غير القابلة للتوجيه المكتشَفة بعد القبول غير المتزامن تُكتَب في سجل gateway.</li>
+</ul>
+<p>هذا يتيح لإضافات مثل عارضات التحكم عن بُعد، أو جسور المراسلة، أو مستقبِلات webhook، تغذية المحادثة برسائل من مصادر خارجية.</p>
+<p>يمكن لحقن gateway إرسال رد الوكيل إلى منصة مراسلة خارجية. مُعطَّل افتراضيًا لكل إضافة. امنحه لكل إضافة في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>امنح حقن gateway فقط للإضافات التي تثق بها. يتحقق Hermes من صلاحية واجهة المضيف هذه ويقيّدها بمسارات جلسات موجودة، لكن إضافات Python تعمل داخل العملية نفسها وهذا الإعداد ليس sandbox.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا تعرض واجهة الإضافة هذه نقطة نهاية HTTP عامة ولا أمر CLI لعمليات خارجية. يجب أن تعرف الإضافة مسبقًا <code>session_key</code> الخاص بـ gateway الهدف، مثلًا من إعداداتها الموثوقة الخاصة أو حالة جلسة محتفَظ بها سابقًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-mcp-servers-from-plugins">استدعاء خواديم MCP من الإضافات</h2>
+<p><code>ctx.call_mcp()</code> يتيح للإضافة استدعاء أداة على أحد خواديم MCP المُعدَّة للمستخدم — بشكل متزامن، من أي hook أو معالج أداة — عبر عميل MCP الأصلي الحالي في Hermes (نفس الاتصالات، وبوابات مستوى الثقة، وقاطع الدارة، ومنطق إعادة الاتصال المستخدَمة في أدوات MCP التي يستدعيها النموذج؛ أبدًا عميل موازٍ).</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><strong>التوقيع:</strong> <code>ctx.call_mcp(server: str, tool: str, arguments: dict | None = None, timeout: float = 30) -&gt; dict</code></p>
+<p>تُعيد ظرفًا ثابتًا: <code>{&quot;ok&quot;: True, &quot;result&quot;: ...}</code> (بالإضافة إلى <code>structuredContent</code> عندما يوفّره الخادم) أو <code>{&quot;ok&quot;: False, &quot;error&quot;: &quot;...&quot;}</code>. النتائج التي تتجاوز ~64 كيلوبايت تُقتَطع وتُوسَم بـ <code>&quot;truncated&quot;: True</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-default-off-per-server-allowlist">الأمان: مُعطَّل افتراضيًا، قائمة سماح لكل خادم</h3>
+<p>لا تملك الإضافة <strong>أي وصول إلى MCP افتراضيًا</strong>. يجب على المشغّل منح كل خادم صراحةً في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<ul>
+<li>استدعاء خادم غير موجود في القائمة يرفع <code>PermissionError</code> يسمّي مفتاح الإعداد الدقيق الواجب ضبطه.</li>
+<li>المنح لكل خادم ولكل إضافة — أبدًا صلاحية شاملة على كل خادم مُعدّ، ووسوم <code>&quot;*&quot;</code> غير مقبولة.</li>
+<li>كل استدعاء له مهلة مفروضة (30 ثانية افتراضيًا) بحيث لا يمكن لخادم MCP معلَّق أن يعطّل خط hooks أو الأدوات الذي استدعاه.</li>
+<li>خواديم MCP تعيد محتوى غير موثوق. عامل <code>result</code> كبيانات، لا كتعليمات — لا تُدخله في قرارات مميَّزة (موافقات، تنفيذ أوامر) دون تحقّق.</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>منح <code>mcp_allowlist</code> يمنح الإضافة نفس وصول النموذج إلى ذلك الخادم — بما في ذلك أي أدوات قادرة على الكتابة يعرضها الخادم (رهنًا ببوابات مستوى <code>trust</code> الخاصة بالخادم). امنح فقط الخواديم التي تحتاجها الإضافة فعلًا.</p></div></div>
+<p>راجع <strong><a href="/docs/developer-guide/plugins">الدليل الكامل</a></strong> لعقود المعالِج، وصيغة الـ schema، وسلوك الـ hook، ومعالجة الأخطاء، والأخطاء الشائعة.</p>

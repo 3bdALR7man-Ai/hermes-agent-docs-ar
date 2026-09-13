@@ -1,0 +1,244 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-management-commands">أوامر إدارة الجلسات</h2>
+<p>يوفّر Hermes مجموعة كاملة من أوامر إدارة الجلسات عبر <code>hermes sessions</code>:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-sessions">عرض قائمة الجلسات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>عندما يكون للجلسات عناوين، تعرض المخرجات العناوين والمعاينات والطوابع الزمنية النسبية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>عندما لا يكون لأي جلسة عنوان، يُستخدم شكل أبسط:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="export-sessions">تصدير الجلسات</h3>
+<p><code>hermes sessions export</code> واجهة واحدة لكل صيغ التصدير، تُحدَّد عبر <code>--format</code>:</p>
+<table><thead><tr><th>الصيغة</th><th>المُخرَج</th><th>استخدمها لـ</th></tr></thead><tbody><tr><td><code>jsonl</code> (الافتراضي)</td><td>كائن JSON واحد لكل جلسة</td><td>النسخ الاحتياطية، التبادل الآلي</td></tr><tr><td><code>md</code> / <code>qmd</code></td><td>ملف Markdown/Quarto واحد لكل جلسة + بيان (manifest)</td><td>الأرشيفات القابلة للقراءة، الملاحظات</td></tr><tr><td><code>html</code></td><td>صفحة واحدة قائمة بذاتها (شريط جانبي لتصدير عدة جلسات)</td><td>المشاركة، التصفح</td></tr><tr><td><code>trace</code></td><td>Claude Code JSONL</td><td>HF Agent Trace Viewer، <code>--upload</code></td></tr></tbody></table>
+<p>إضافةً إلى <code>--only user-prompts</code> لعرض يقتصر على الـ prompts فقط (jsonl أو md).</p>
+<p>تشترك كل الصيغ في نفس مفاتيح التحديد: <code>--session-id</code> لجلسة واحدة، أو مجموعة فلاتر <code>prune</code>/<code>archive</code> الكاملة للحجم — <code>--older-than</code> / <code>--newer-than</code> / <code>--before</code> / <code>--after</code> (مدد مثل <code>5h</code>/<code>2d</code>/<code>1w</code>، أو أيام مجردة، أو طوابع ISO الزمنية)، و<code>--source</code>، و<code>--title</code>، و<code>--model</code>، و<code>--provider</code>، و<code>--cwd</code>، و<code>--min/--max-messages</code>، و<code>--min/--max-tokens</code>، و<code>--min/--max-cost</code>، و<code>--min/--max-tool-calls</code>، و<code>--user</code>، و<code>--chat-id</code>، و<code>--chat-type</code>، و<code>--branch</code>، و<code>--end-reason</code>. <code>--dry-run</code> يعاين مجموعة التطابق دون كتابة. <code>--redact</code> يزيل الأسرار (مفاتيح API، الـ tokens، بيانات الاعتماد) من المحتوى المُصدَّر بأي صيغة — موصى به لأي شيء تنوي مشاركته. ملاحظة: فلاتر الحجم تطابق الجلسات <em>المنتهية</em>؛ أما <code>export</code> بلا فلاتر فيُفرِّغ كل شيء، بما فيه الجلسات النشطة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="jsonl-default">JSONL (الافتراضي)</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>تحتوي الملفات المُصدَّرة على كائن JSON واحد في كل سطر مع بيانات وصفية كاملة للجلسة وكل الرسائل.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="html">HTML</h4>
+<p><code>--format html</code> يكتب ملف HTML واحدًا قائمًا بذاته — بلا تبعيات عن بُعد — مع فقاعات رسائل مُنسَّقة، ومخرجات أدوات قابلة للطي، و(لتصدير عدة جلسات) شريط جانبي للتبديل بين الجلسات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompts-only">الـ prompts فقط</h4>
+<p><code>--only user-prompts</code> يُصدِّر فقط الـ prompts التي كتبتها — دون ردود المساعد أو مخرجات الأدوات أو سياق النظام. مفيد لبناء مكتبات prompts أو مراجعة ما طلبته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>يعمل مع <code>--format jsonl</code> (الافتراضي) أو <code>md</code>، ويحترم نفس فلاتر التصدير الحجمي، ويتضافر مع <code>--redact</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="traces-hf-agent-trace-viewer">التتبعات (HF Agent Trace Viewer)</h4>
+<p><code>--format trace</code> يُصدر Claude Code JSONL — شكل النسخة النصية الذي يكتشفه Hugging Face Hub تلقائيًا لـ <a href="https://huggingface.co/docs/hub/agent-traces" data-ext>Agent Trace Viewer</a> الخاص به. اكتبها محليًا، أو أضف <code>--upload</code> لرفعها إلى مجموعة بياناتك الخاصة الخاصة <code>hermes-traces</code> (تقرأ <code>HF_TOKEN</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>صادرات التتبع مُعتَّمة الأسرار افتراضيًا (فهي مُعدَّة لمغادرة الجهاز)؛ <code>--no-redact</code> يُلغي ذلك بعد مراجعة يدوية. <code>--upload</code> خاص ما لم يُستخدم <code>--public</code>. تصدير التتبع الحجمي مع الفلاتر يكتب ملف <code>&lt;id&gt;.trace.jsonl</code> واحدًا لكل جلسة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="markdown--qmd">Markdown / QMD</h4>
+<p>مرّر <code>--format md</code> أو <code>--format qmd</code> عندما تريد أرشيفًا قابلًا للقراءة قائمًا على الملفات قبل إخفاء أو حذف الجلسات القديمة. تكتب صادرات Markdown/QMD ملفًا واحدًا لكل جلسة في دليل (الافتراضي: <code>~/.hermes/session-exports</code>).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>يكتب تصدير Markdown/QMD ملف <code>.md</code> أو <code>.qmd</code> واحدًا لكل جلسة مُصدَّرة بالإضافة إلى <code>manifest.jsonl</code> بمسار الملف، وعدد الرسائل، ومعرّفات النسب، وSHA-256. يتطلب التصدير الحجمي فلترًا واحدًا على الأقل؛ يُرفَض التصدير الحجمي المجرَّد. <code>--delete-after-verified</code> مقصور عمدًا على <code>--session-id</code> ويتطلب <code>--yes</code>. نظرًا لأن حذف جلسة أصل يزيل أيضًا جلسات المفوَّض/subagent الخاصة بها، يُصدِّر هذا الوضع ويتحقق من كل مفوَّض في ملف منفصل قبل حذف أي شيء. إذا تغيّرت مجموعة المفوَّضين أثناء التصدير، يُرفَض الحذف. <code>--redact</code> يزيل الأسرار (مفاتيح API، الـ tokens، بيانات الاعتماد) من محتوى الرسائل ومخرجات الأدوات قبل الكتابة — موصى به لأي تصدير تنوي مشاركته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-a-session">حذف جلسة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rename-a-session">إعادة تسمية جلسة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>إذا كان العنوان مستخدمًا بالفعل لجلسة أخرى، يظهر خطأ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pin-a-session">تثبيت جلسة</h3>
+<p>يضبط التثبيت علامة &quot;احتفاظ&quot; دائمة: الجلسات المثبَّتة معفاة من
+اكتساح <code>sessions.auto_archive</code> للجلسات الراكدة وتظهر دائمًا في القوائم. إنها
+نفس العلامة التي يستخدمها قسم Pinned في الشريط الجانبي لـ Desktop — ثبّت من أي واجهة
+ويراها كلاهما.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prune-old-sessions">تقليم الجلسات القديمة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>تقبل قيم الوقت (<code>--older-than</code>، <code>--newer-than</code>، <code>--before</code>، <code>--after</code>) مدة
+(<code>5h</code>، <code>30m</code>، <code>2d</code>، <code>1w</code>)، أو عدد أيام مجرَّدًا، أو طابعًا زمنيًا
+بصيغة ISO (<code>2026-07-05</code>، <code>2026-07-05 14:30</code>). <code>--older-than</code>/<code>--before</code> يضبطان
+الحد الأعلى؛ <code>--newer-than</code>/<code>--after</code> يضبطان الحد الأدنى.
+يستخدم زوج <code>--older-than</code>/<code>--newer-than</code> آخر نشاط للرسائل (يعود إلى
+بدء الجلسة للجلسات الفارغة)؛ يستخدم <code>--before</code>/<code>--after</code> صراحةً
+وقت بدء الجلسة. اجمع بين أي زوج للحصول على نافذة زمنية.</p>
+<p>فلاتر الخصائص: <code>--source</code> (المنصة، مطابقة دقيقة)، <code>--title</code> / <code>--model</code> /
+<code>--branch</code> (سلسلة فرعية غير حساسة لحالة الأحرف)، <code>--provider</code> (مزوّد الفوترة،
+مطابقة دقيقة)، <code>--end-reason</code>، <code>--user</code>، <code>--chat-id</code>، <code>--chat-type</code> (مطابقة دقيقة)،
+<code>--cwd</code> (بادئة مسار)، بالإضافة إلى الحدود العددية <code>--min/--max-messages</code>،
+<code>--min/--max-tokens</code> (الدخل+الخرج)، و<code>--min/--max-cost</code> (بالدولار، الفعلي وإلا
+المقدَّر)، و<code>--min/--max-tool-calls</code>. استخدام أي فلتر يُعطِّل
+الافتراضي الضمني البالغ 90 يومًا، لذا فإن <code>hermes sessions prune --source cron</code> أو
+<code>--model gpt-4o</code> يطابق كل الأعمار — أضف علامة زمنية لتضييق النطاق. فقط
+<code>hermes sessions prune</code> المجردة تمامًا تحافظ على حد القطع البالغ 90 يومًا. كل تشغيل
+بلا <code>--yes</code> يعرض عدد المطابقات مع أقدم وأحدث جلسة مطابقة
+قبل طلب التأكيد.</p>
+<p>تُتخطَّى الجلسات المؤرشفة افتراضيًا؛ مرّر <code>--include-archived</code> لحذفها
+أيضًا.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="40"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>يحذف التقليم فقط الجلسات <strong>المنتهية</strong> (الجلسات التي أُنهيت صراحةً أو أُعيد ضبطها تلقائيًا). لا تُقلَّم الجلسات النشطة أبدًا.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-archive-sessions">أرشفة الجلسات بالجملة</h3>
+<p>إذا أردت إبعاد الجلسات عن قوائمك دون حذف أي شيء،
+يأخذ <code>hermes sessions archive</code> نفس فلاتر <code>prune</code> لكنه يُخفي
+الجلسات المطابقة بنعومة بدلًا من ذلك (يضبط نفس علامة الأرشفة التي تضبطها أرشفة جلسة
+واحدة من واجهة Desktop/Dashboard — تبقى الرسائل والبحث سليمين):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>مطلوب فلتر واحد على الأقل — يرفض <code>hermes sessions archive</code> المجرَّد
+أرشفة تاريخك بأكمله. الجلسات المؤرشفة مخفية من
+<code>hermes sessions list</code> و<code>/resume</code> لكنها تبقى في قاعدة البيانات ويمكن
+إلغاء أرشفتها من قائمة جلسات Desktop/Dashboard.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-statistics">إحصاءات الجلسة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>المُخرَج:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>لتحليلات أعمق — استخدام الـ tokens، تقديرات التكلفة، تفصيل الأدوات، وأنماط النشاط — استخدم <a href="/docs/reference/cli-commands#hermes-insights"><code>hermes insights</code></a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="repair-stranded-gateway-sessions">إصلاح جلسات gateway العالقة</h3>
+<p>إذا &quot;قفزت محادثة gateway إلى الوراء في الزمن&quot; بعد إعادة تشغيل — فاستأنفت
+موضوعًا عمره أيام كما لو أن الرسائل الأخيرة لم تحدث أبدًا — فقد تكون
+المحادثة الحية عالقة في صف جلسة فقد هويته التوجيهية
+(فئة التلف التي أُصلحت في عمل استمرارية الجلسة لإصدار v0.21؛ الإصدارات
+الحالية تمنعها من حيث البناء وتُشفى ذاتيًا وقت التشغيل).</p>
+<p>يجد <code>hermes sessions repair-routing</code> صفوف الجلسات الحاملة للرسائل دون هوية
+توجيهية ويُعيد ربط كل واحدة بالمحادثة التي تكمّلها —
+لكن فقط عندما تكون الأدلة قاطعة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>قواعد الأدلة:</p>
+<ul>
+<li><strong>النسب (lineage)</strong> — يشير <code>parent_session_id</code> الخاص باليتيمة إلى صف مُفهرَس من
+نفس المنصة (حقيقة مُسجَّلة؛ لا تُطبَّق نافذة زمنية)</li>
+<li><strong>التجاور (contiguity)</strong> — صف مُفهرَس واحد بالضبط من نفس المنصة سكت
+ضمن نافذة بدء اليتيمة</li>
+</ul>
+<p>أي شيء غامض (مرشحان لسابقة، أو يتيمان يدّعيان نفس
+السابقة) يُبلَّغ عنه مع سبب ويُترك دون تغيير — فقد يؤدي تبنٍّ خاطئ
+إلى دمج محادثة في محادثة أخرى. يُقاعَد الصف المُستبدَل
+تحت <code>superseded_by_repair</code>، بحيث لا يمكن لاستعادة إعادة التشغيل إحياءه أبدًا.</p>
+<p>الإصلاح ليس تلقائيًا <strong>عمدًا</strong>: إذا كانت المحادثة قد بنت منذ ذلك الحين
+تاريخًا ثانيًا، فاختيار الخيط الذي تكمّله قرارك أنت. تظل المحادثة
+العالقة قابلة للقراءة عبر <code>/resume</code> وبحث الجلسات في كلتا الحالتين —
+التوجيه هو الشيء الوحيد الذي يغيّره الإصلاح. اعمل نسخة احتياطية أولًا
+(<code>cp ~/.hermes/state.db ~/.hermes/state.db.bak</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="importing-sessions-from-claude-code-and-codex-cli">استيراد الجلسات من Claude Code وCodex CLI</h2>
+<p>بدأت محادثة في CLI وكيل آخر؟ يمكنك سحبها إلى Hermes
+ومتابعتها هنا. يقرأ Hermes سجلات جلسات Claude Code
+(<code>~/.claude/projects/</code>، أو <code>$CLAUDE_CONFIG_DIR/projects/</code> عندما يكون دليل إعدادات
+Claude Code منقولًا) وrollouts الخاصة بـ Codex CLI (<code>~/.codex/sessions/</code>، أو
+<code>$CODEX_HOME/sessions/</code>) — تُقرأ الملفات الأجنبية فقط، ولا تُعدَّل أبدًا.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>ينشئ <code>hermes sessions import</code> جلسة Hermes جديدة معنونة
+<code>Imported from Claude Code: &lt;first user message&gt;</code> (أو Codex CLI) ويطبع
+المعرّف بالإضافة إلى أمر <code>hermes --resume &lt;id&gt;</code> جاهز للصق.
+تعرض <code>--resume @claude</code> / <code>--resume @codex</code> نفس المُنتقي وتضعك
+مباشرة في المحادثة المستوردة.</p>
+<p><strong>Hermes Desktop</strong> يملك نفس أداة الاستيراد في لوحة الأوامر (<strong>Import
+session</strong>). تعرض السجلات على الجهاز الذي يعمل عليه
+الـ backend المتصل — وليس الحاسوب الذي يشغّل التطبيق — وتُظهر
+معاينة للقراءة فقط، و<strong>Continue in Hermes</strong> ينسخ المحادثة إلى
+profile المحدَّد. التصفح لا يكتب أبدًا إلى مخزن جلساتك، والاستيراد لا
+يمسّ الملف المصدر أبدًا، واستيراد نفس السجل مرتين يفتح النسخة
+الموجودة بدلًا من إنشاء نسخة أخرى.</p>
+<p>ما الذي يُنقَل: محادثة المستخدم/المساعد المرتَّبة، مع تكثيف نشاط
+الأدوات إلى ملاحظات <code>[ran tool: …]</code> قصيرة داخل أدوار المساعد.
+تُترَك system prompts، والسياق المحقون، وآثار الاستدلال، ومخرجات الأدوات الخام
+خلفًا — الاستيراد نسخة نصية نظيفة، وليس إعادة تشغيل حرفية بايتًا بايت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-search-tool">أداة البحث في الجلسات</h2>
+<p>يملك الوكيل أداة <code>session_search</code> مدمجة تُنفِّذ بحثًا نصيًا كاملًا عبر كل المحادثات السابقة باستخدام محرك FTS5 في SQLite — وتتيح للوكيل التمرير عبر أي جلسة يجدها. لا تُجري أي استدعاءات LLM وتُعيد عروضًا لرسائل فعلية من قاعدة البيانات بدلًا من توليد ملخصات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="four-calling-shapes">أربعة أشكال استدعاء</h3>
+<p>تستدل الأداة على ما تريده من الوسائط التي تضبطها. لا يوجد وسيط <code>mode</code>.</p>
+<p><strong>1. الاكتشاف — مرّر <code>query</code>:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>يُشغِّل FTS5، ويزيل التكرار حسب نسب الجلسة، ويُعيد أفضل N جلسة. يستخدم الاكتشاف تفصيلًا تكيّفيًا افتراضيًا: تتضمن أعلى النتائج تصنيفًا نافذة سياقها الكاملة وأطرافها، بينما تبقى النتائج الأدنى تصنيفًا مُضغَّطة. مرّر <code>detail=&quot;full&quot;</code> لتفصيل كل نتيجة بالكامل.</p>
+<p>تحمل كل نتيجة:</p>
+<ul>
+<li><code>session_id</code>، <code>title</code>، <code>when</code>، <code>source</code></li>
+<li><code>snippet</code> — مقتطف مطابقة مُبرَز بواسطة FTS5</li>
+<li><code>detail</code> — <code>full</code> أو <code>compact</code></li>
+<li><code>bookend_start</code> / <code>bookend_end</code> — أول/آخر 3 رسائل مستخدم+مساعد للنتائج الكاملة؛ قوائم فارغة للنتائج المُضغَّطة</li>
+<li><code>messages</code> — ±5 رسائل حول مطابقة FTS5 للنتائج الكاملة؛ رسالة الأنكر (anchor) المُعلَّمة فقط للنتائج المُضغَّطة</li>
+<li><code>match_message_id</code>، <code>messages_before</code>، <code>messages_after</code></li>
+</ul>
+<p>تُعيد النتيجة الأولى بناء الهدف ← المطابقة ← الحل فورًا. إذا بدت نتيجة مُضغَّطة أخرى أكثر وعدًا، استخدم معرّفي جلستها ورسالتها مع شكل التمرير. الزمن الفعلي المعتاد عشرات المللي ثوانٍ على قاعدة بيانات جلسة حقيقية.</p>
+<p><strong>2. التمرير — مرّر <code>session_id</code> + <code>around_message_id</code>:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>يُعيد نافذة من ±<code>window</code> رسالة تتمحور حول الأنكر. لا FTS5، لا أطراف — فقط الشريحة. استخدمه بعد استدعاء اكتشاف عندما تحتاج سياقًا أكثر من النافذة الافتراضية ±5.</p>
+<ul>
+<li>للتمرير <strong>للأمام</strong>: مرّر <code>messages[-1].id</code> مرة أخرى كـ <code>around_message_id</code></li>
+<li>للتمرير <strong>للخلف</strong>: مرّر <code>messages[0].id</code> مرة أخرى كـ <code>around_message_id</code></li>
+<li>تظهر رسالة الحد في كلتا النافذتين كعلامة توجيه</li>
+<li>عندما تكون <code>messages_before</code> أو <code>messages_after</code> أقل من <code>window</code>، فأنت عند بداية أو نهاية الجلسة</li>
+</ul>
+<p>الزمن الفعلي المعتاد: 1-2 مللي ثانية لكل استدعاء تمرير.</p>
+<p><strong>3. القراءة — مرّر <code>session_id</code> دون أنكر:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>يُعيد الجلسة كاملة، أو عرض بداية/نهاية محدود للجلسات الضخمة. يُستخدم هذا الشكل أيضًا لحل رابط <code>@session:&lt;profile&gt;/&lt;id&gt;</code>.</p>
+<p><strong>4. التصفح — بلا وسائط:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>يُعيد الجلسات الأخيرة زمنيًا (العناوين، المعاينات، الطوابع الزمنية). مفيد عندما يسأل المستخدم &quot;على ماذا كنت أعمل&quot; دون تسمية موضوع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fts5-query-syntax">صياغة استعلام FTS5</h3>
+<p>يدعم وضع الكلمات المفتاحية صياغة استعلام FTS5 القياسية:</p>
+<ul>
+<li>كلمات مفتاحية بسيطة: <code>docker deployment</code> (يفترض FTS5 AND افتراضيًا)</li>
+<li>عبارات: <code>&quot;exact phrase&quot;</code></li>
+<li>بوليانية: <code>docker OR kubernetes</code>، <code>python NOT java</code></li>
+<li>بادئة: <code>deploy*</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-parameters">وسائط اختيارية</h3>
+<ul>
+<li><code>sort</code> — <code>newest</code> أو <code>oldest</code>، فوق ترتيب FTS5. احذفه للترتيب حسب الصلة فقط (الافتراضي؛ مناسب للاستدعاء الاستكشافي). استخدم <code>newest</code> لأسئلة &quot;أين تركنا X&quot;، و<code>oldest</code> لأسئلة &quot;كيف بدأ X&quot;.</li>
+<li><code>detail</code> — <code>adaptive</code> (الافتراضي) يُفصِّل فقط أعلى نتيجة اكتشاف بالكامل؛ <code>full</code> يُفصِّل كل نتيجة اكتشاف.</li>
+<li><code>role_filter</code> — أدوار مفصولة بفواصل لتضمينها. يفترض الاكتشاف <code>user,assistant</code> افتراضيًا (مخرجات الأدوات عادةً ضجيج). مرّر <code>user,assistant,tool</code> لتضمين مخرجات الأدوات (لتصحيح سلوك الأدوات) أو <code>tool</code> للبحث في مخرجات الأدوات فقط.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-its-used">متى تُستخدم</h3>
+<p>يُوجَّه الوكيل لاستخدام بحث الجلسات تلقائيًا:</p>
+<blockquote>
+<p><em>&quot;عندما يشير المستخدم إلى شيء من محادثة سابقة أو تشتبه في وجود سياق سابق ذي صلة، استخدم session_search لاسترجاعه قبل أن تطلب منه التكرار.&quot;</em></p>
+</blockquote>
+<p>المحفّزات النموذجية: &quot;فعلنا هذا من قبل&quot;، &quot;تذكّر عندما&quot;، &quot;في المرة الماضية&quot;، &quot;كما ذكرت&quot;، أو أي إشارة إلى مشروع/شخص/مفهوم ليس في النافذة الحالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-platform-session-tracking">تتبع الجلسات لكل منصة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-sessions">جلسات Gateway</h3>
+<p>في منصات المراسلة، تُفهرَس الجلسات بمفتاح جلسة حتمي (deterministic) مبني من مصدر الرسالة:</p>
+<table><thead><tr><th>نوع المحادثة</th><th>صيغة المفتاح الافتراضية</th><th>السلوك</th></tr></thead><tbody><tr><td>Telegram DM</td><td><code>agent:main:telegram:dm:&lt;chat_id&gt;</code></td><td>جلسة واحدة لكل محادثة DM</td></tr><tr><td>Discord DM</td><td><code>agent:main:discord:dm:&lt;chat_id&gt;</code></td><td>جلسة واحدة لكل محادثة DM</td></tr><tr><td>WhatsApp DM</td><td><code>agent:main:whatsapp:dm:&lt;canonical_identifier&gt;</code></td><td>جلسة واحدة لكل مستخدم DM (تنهار مستعارات LID/الهاتف إلى هوية واحدة عند وجود تخطيط)</td></tr><tr><td>محادثة جماعية</td><td><code>agent:main:&lt;platform&gt;:group:&lt;chat_id&gt;:&lt;user_id&gt;</code></td><td>لكل مستخدم داخل المجموعة عندما تكشف المنصة عن معرّف مستخدم</td></tr><tr><td>خيط/موضوع جماعي</td><td><code>agent:main:&lt;platform&gt;:group:&lt;chat_id&gt;:&lt;thread_id&gt;</code></td><td>جلسة مشتركة لكل مشاركي الخيط (الافتراضي). لكل مستخدم مع <code>thread_sessions_per_user: true</code>.</td></tr><tr><td>قناة</td><td><code>agent:main:&lt;platform&gt;:channel:&lt;chat_id&gt;:&lt;user_id&gt;</code></td><td>لكل مستخدم داخل القناة عندما تكشف المنصة عن معرّف مستخدم</td></tr></tbody></table>
+<p>عندما لا يستطيع Hermes الحصول على معرّف مشارك لمحادثة مشتركة، يعود إلى جلسة مشتركة واحدة لتلك الغرفة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shared-vs-isolated-group-sessions">جلسات جماعية مشتركة مقابل معزولة</h3>
+<p>افتراضيًا، يستخدم Hermes <code>group_sessions_per_user: true</code> في <code>config.yaml</code>. هذا يعني:</p>
+<ul>
+<li>يمكن لأليس وبوب التحدث كلاهما مع Hermes في نفس قناة Discord دون مشاركة سجل النسخة النصية</li>
+<li>مهمة ثقيلة بالأدوات لمستخدم واحد لا تلوّث نافذة سياق مستخدم آخر</li>
+<li>تبقى معالجة المقاطعة أيضًا لكل مستخدم لأن مفتاح الوكيل الجاري يطابق مفتاح الجلسة المعزولة</li>
+</ul>
+<p>إذا أردت &quot;عقل غرفة&quot; واحدًا مشتركًا بدلًا من ذلك، اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>يُعيد ذلك المجموعات/القنوات إلى جلسة مشتركة واحدة لكل غرفة، مما يحافظ على السياق المحادثي المشترك لكن يشارك أيضًا تكاليف الـ tokens، وحالة المقاطعة، ونمو السياق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-continuity">استمرارية الجلسة</h3>
+<p>لا تُعاد ضبط محادثات gateway بعد الخمول أو عند حد يومي. استخدم <code>/new</code>
+أو <code>/reset</code> لمحادثة جديدة صريحة؛ يبقى ضغط السياق تلقائيًا.
+تُتجاهَل إعدادات <code>session_reset</code> القديمة، وتجاوزات سياسة إعادة الضبط، ومتغيرات بيئة
+مؤقت إعادة الضبط. يمكن تحرير الوكلاء المُخزَّنين مؤقتًا لاستعادة الموارد دون
+استبدال المحادثة الدائمة. تحدّ حدود نضارة استعادة إعادة التشغيل من الاستمرار
+التلقائي، لا السجل المُحمَّل عندما ترسل رسالة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-hygiene-why-you-should-still-run-new">نظافة الجلسة: لماذا لا يزال ينبغي عليك تشغيل <code>/new</code></h3>
+<p>لأن محادثات gateway لا تنتهي صلاحيتها من تلقاء نفسها أبدًا، من السهل تشغيل
+جلسة واحدة لأسابيع. هذا يعمل، لكنه يُبطل بصمت حلقة التعلّم
+ويُضخِّم التكاليف:</p>
+<ul>
+<li><strong>الذاكرة لا تُجدي إلا عند الحدود.</strong> تُحقَن <code>MEMORY.md</code> / <code>USER.md</code>
+عند بدء الجلسة، وتوجد <code>session_search</code> لاسترجاع ما سقط من
+السياق. في جلسة لا تنتهي أبدًا يبقى كل شيء <em>داخل</em> السياق، لذا لا سبب
+للوكيل لاستشارة الذاكرة — آلية &quot;التعلّم الذاتي&quot; بالكاد
+تعمل. تقطير الذاكرة (الحفظ قبل إعادة الضبط) لا يحدث أيضًا إلا عندما
+تنتهي جلسة فعلًا.</li>
+<li><strong>تنمو التكلفة مع السجل.</strong> يبقي الضغط جلسة طويلة عاملة،
+لكن كل دور لا يزال يحمل بادئة (مضغوطة) كبيرة. جلسة جديدة
+بذاكرة مُقطَّرة أرخص دائمًا تقريبًا من خيط عمره شهر.</li>
+</ul>
+<p>قاعدة عملية: أنهِ جلسة عندما تنهي مهمة أو موضوعًا. شغّل <code>/new</code>
+(مُسمّاة اختياريًا، مثل <code>/new payments-refactor</code>) عند نقاط التوقف الطبيعية —
+يومية أو لكل مشروع كلاهما يعمل. قبل إعادة الضبط، اطلب من الوكيل &quot;تذكّر
+أي شيء يستحق الاحتفاظ به&quot; إذا أظهر العمل تفضيلات أو
+إجراءات دائمة؛ يحفظ الوكيل الذاكرة والمهارات من الجلسة
+المنتهية تلقائيًا، لكن التنبيه الصريح يساعد. إعادة تشغيل الجهاز أو
+الـ gateway <strong>ليست</strong> حدًا — تُستأنف نفس الجلسة.</p>
+<p>راجع <a href="/docs/user-guide/features/memory">الذاكرة</a> لمعرفة ما الذي يُنقَل عبر الحدود.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="continuity-after-crashes-and-restarts">الاستمرارية بعد الأعطال وإعادة التشغيل</h3>
+<p>مُصمَّمة محادثة gateway لتكون <strong>جلسة مستمرة واحدة</strong> — تُضغَط
+مرارًا مع نموّها — حتى تشغّل صراحةً <code>/new</code> (أو <code>/reset</code>). يصمد هذا
+عبر أعطال gateway وإعادة تشغيله وتحديثاته:</p>
+<ul>
+<li>تُكتَب هوية الجلسة (مفتاح التوجيه، المحادثة، الأصل) <strong>ذريًا</strong> عند
+إنشاء صف الجلسة، في كل مسار إنشاء (<code>/new</code>، الرسالة الأولى،
+أبناء <code>/branch</code>). إذا فشلت هذه الكتابة يومًا، فإن تحديث التوجيه في الدور
+التالي مباشرة يُصلح الصف تلقائيًا.</li>
+<li>بعد إعادة التشغيل، يُعيد الـ gateway حل كل محادثة إلى الجلسة ذات أحدث
+<strong>نشاط فعلي</strong> — لا يمكن أبدًا لصف قديم راكد أن يفوز على
+المحادثة التي كنت تجريها فعلًا.</li>
+<li>تحترم الاستعادة <strong>حدود <code>/new</code></strong>: إذا كان أحدث حدث لمحادثة
+هو إعادة ضبط مقصودة، تبدأ الاستعادة من جديد بدلًا من التمدد خلف
+إعادة الضبط لإحياء جلسة أقدم. لا يمنع الوقت المنقضي وحده أبدًا
+استعادة محادثة دائمة.</li>
+</ul>

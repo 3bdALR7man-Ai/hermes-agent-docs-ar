@@ -1,0 +1,100 @@
+<header><h1>درس تطبيقي: بناء وكيل لمراجعة GitHub PR</h1></header>
+<p><strong>المشكلة:</strong> يفتح فريقك طلبات PR أسرع مما تستطيع مراجعته. تبقى طلبات PR معلّقة لأيام بانتظار من يطّلع عليها. يدمج المطوّرون المبتدئون أخطاءً لأن أحدًا لم يجد وقتًا للتحقق منها. وتقضي صباحاتك في اللحاق بالـ diffs بدلًا من البناء.</p>
+<p><strong>الحل:</strong> وكيل ذكاء اصطناعي (AI agent) يراقب مستودعاتك على مدار الساعة، ويراجع كل PR جديد بحثًا عن الأخطاء والمشكلات الأمنية وجودة الكود، ثم يرسل إليك ملخّصًا — فلا تقضي وقتك إلا في طلبات PR التي تحتاج فعلًا إلى حكم بشري.</p>
+<p><strong>ما الذي ستبنيه:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يستخدم هذا الدليل <strong>مهام cron</strong> لاستطلاع طلبات PR وفق جدول زمني — دون الحاجة إلى خادم أو endpoint عام. ويعمل خلف NAT والجدران النارية.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>هل تريد مراجعات فورية بدلًا من ذلك؟</div><div class="admonitionContent_BuS1"><p>إذا كان لديك endpoint عام متاح، فراجع <a href="/docs/guides/webhook-github-pr-review">التعليقات التلقائية على GitHub PR باستخدام Webhooks</a> — إذ يرسل GitHub الأحداث إلى Hermes فورًا عند فتح طلبات PR أو تحديثها.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>تثبيت Hermes Agent</strong> — راجع <a href="/docs/getting-started/installation">دليل التثبيت</a></li>
+<li><strong>تشغيل الـ Gateway</strong> لتنفيذ مهام cron:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+</li>
+<li><strong>تثبيت GitHub CLI (<code>gh</code>) ومصادقته</strong>:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+<li><strong>إعداد المراسلة</strong> (اختياري) — <a href="/docs/user-guide/messaging/telegram">Telegram</a> أو <a href="/docs/user-guide/messaging/discord">Discord</a></li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>لا تستخدم المراسلة؟ لا مشكلة</div><div class="admonitionContent_BuS1"><p>استخدم <code>deliver: &quot;local&quot;</code> لحفظ المراجعات في <code>~/.hermes/cron/output/</code>. وهو خيار ممتاز للاختبار قبل ربط الإشعارات.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-verify-the-setup">الخطوة 1: التحقق من الإعداد</h2>
+<p>تأكد من أن Hermes يستطيع الوصول إلى GitHub. ابدأ محادثة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اختبر ذلك بأمر بسيط:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>من المفترض أن ترى قائمة بطلبات PR المفتوحة. إذا نجح ذلك، فأنت جاهز.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-try-a-manual-review">الخطوة 2: تجربة مراجعة يدوية</h2>
+<p>وأنت لا تزال في المحادثة، اطلب من Hermes مراجعة PR حقيقي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>سيقوم Hermes بما يلي:</p>
+<ol>
+<li>تنفيذ <code>gh pr diff</code> لجلب تغييرات الكود</li>
+<li>قراءة الـ diff بأكمله</li>
+<li>إنتاج مراجعة منظّمة تتضمن ملاحظات محددة</li>
+</ol>
+<p>إذا كنت راضيًا عن الجودة، فقد حان وقت أتمتتها.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-create-a-review-skill">الخطوة 3: إنشاء مهارة للمراجعة</h2>
+<p>تمنح المهارة (skill) لـ Hermes إرشادات مراجعة متّسقة تستمر عبر الجلسات وتشغيلات cron. ومن دونها تتفاوت جودة المراجعة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>أنشئ الملف <code>~/.hermes/skills/code-review/SKILL.md</code>:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>تحقّق من تحميلها — شغّل <code>hermes</code> ومن المفترض أن ترى <code>code-review</code> في قائمة المهارات عند بدء التشغيل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-teach-it-your-conventions">الخطوة 4: تعليمه أعراف فريقك</h2>
+<p>هذا ما يجعل المراجِع مفيدًا فعلًا. ابدأ جلسة وعلّم Hermes معايير فريقك:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تبقى هذه الذكريات محفوظة بشكل دائم — وسيطبّق المراجِع أعرافك دون أن تضطر إلى تذكيره في كل مرة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-create-the-automated-cron-job">الخطوة 5: إنشاء مهمة Cron المؤتمتة</h2>
+<p>الآن اربط كل شيء معًا. أنشئ مهمة cron تعمل كل ساعتين:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>تحقّق من جدولتها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="other-useful-schedules">جداول زمنية مفيدة أخرى</h3>
+<table><thead><tr><th>الجدول الزمني</th><th>التوقيت</th></tr></thead><tbody><tr><td><code>0 */2 * * *</code></td><td>كل ساعتين</td></tr><tr><td><code>0 9,13,17 * * 1-5</code></td><td>ثلاث مرات يوميًا، في أيام العمل فقط</td></tr><tr><td><code>0 9 * * 1</code></td><td>ملخّص أسبوعي صباح كل يوم إثنين</td></tr><tr><td><code>30m</code></td><td>كل 30 دقيقة (للمستودعات كثيفة النشاط)</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-run-it-on-demand">الخطوة 6: التشغيل عند الطلب</h2>
+<p>لا تريد انتظار موعد الجدول؟ شغّلها يدويًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>أو من داخل جلسة محادثة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="going-further">التعمّق أكثر</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-reviews-directly-to-github">نشر المراجعات مباشرةً على GitHub</h3>
+<p>بدلًا من التسليم إلى Telegram، اجعل الوكيل يعلّق على الـ PR نفسه:</p>
+<p>أضف ما يلي إلى الـ prompt الخاص بمهمة cron:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>تأكد من أن <code>gh</code> يملك token بنطاق <code>repo</code>. تُنشر المراجعات باسم الحساب الذي صادق به <code>gh</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="weekly-pr-dashboard">لوحة PR أسبوعية</h3>
+<p>أنشئ نظرة عامة صباح كل يوم إثنين على جميع مستودعاتك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-repo-monitoring">مراقبة عدة مستودعات</h3>
+<p>وسّع النطاق بإضافة مزيد من المستودعات إلى الـ prompt. يعالجها الوكيل بالتتابع — دون الحاجة إلى أي إعداد إضافي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gh-command-not-found">&quot;gh: command not found&quot;</h3>
+<p>يعمل الـ gateway في بيئة محدودة. تأكد من وجود <code>gh</code> في مسار PATH الخاص بالنظام، ثم أعد تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reviews-are-too-generic">المراجعات عامة أكثر من اللازم</h3>
+<ol>
+<li>أضف المهارة <code>code-review</code> (الخطوة 3)</li>
+<li>علّم Hermes أعراف فريقك عبر الذاكرة (الخطوة 4)</li>
+<li>كلما زاد السياق المتوفر لديه عن الـ stack التقني الخاص بك، تحسّنت المراجعات</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-job-doesnt-run">مهمة cron لا تعمل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limits">حدود المعدل (Rate limits)</h3>
+<p>يسمح GitHub بـ 5,000 طلب API في الساعة للمستخدمين المُصادَقين. تستهلك مراجعة كل PR نحو 3-5 طلبات (القائمة + الـ diff + تعليقات اختيارية). وحتى مراجعة 100 PR يوميًا تبقى ضمن الحدود بفارق كبير.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-next">ما التالي؟</h2>
+<ul>
+<li><strong><a href="/docs/guides/webhook-github-pr-review">مراجعات PR المعتمدة على Webhook</a></strong> — احصل على مراجعات فورية عند فتح طلبات PR (يتطلب endpoint عامًا)</li>
+<li><strong><a href="/docs/guides/daily-briefing-bot">بوت الملخّص اليومي</a></strong> — ادمج مراجعات PR مع ملخّص الأخبار الصباحي</li>
+<li><strong><a href="/docs/developer-guide/plugins">بناء إضافة (Plugin)</a></strong> — غلّف منطق المراجعة في إضافة قابلة للمشاركة</li>
+<li><strong><a href="/docs/user-guide/profiles">Profiles</a></strong> — شغّل profile مخصصًا للمراجعة بذاكرته وإعداداته الخاصة</li>
+<li><strong><a href="/docs/user-guide/features/fallback-providers">المزوّدون الاحتياطيون (Fallback Providers)</a></strong> — اضمن استمرار المراجعات حتى عند تعطّل أحد المزوّدين</li>
+</ul>

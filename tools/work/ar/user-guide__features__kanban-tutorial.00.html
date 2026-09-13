@@ -1,0 +1,107 @@
+<header><h1>درس تطبيقي: Kanban</h1></header>
+<p>جولة عملية على حالات الاستخدام الأربع التي صُمّم نظام Kanban في Hermes من أجلها، مع فتح لوحة التحكم (dashboard) في المتصفح. إن لم تكن قد قرأت <a href="/docs/user-guide/features/kanban">النظرة العامة على Kanban</a> بعد، فابدأ بها — إذ يفترض هذا الدرس أنك تعرف معنى المهمة (task) والتشغيل (run) والمُكلَّف (assignee) والموزِّع (dispatcher).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>لوحة التحكم هي المكان الأكثر راحة لكي تراقب <strong>أنت</strong> النظام. أما العمّال (workers) من الوكلاء الذين يشغّلهم الموزِّع فلا يرون لوحة التحكم ولا CLI أبدًا — بل يتعاملون مع اللوحة عبر مجموعة <code>kanban_*</code> المخصّصة من <a href="/docs/user-guide/features/kanban#how-workers-interact-with-the-board">الأدوات (toolset)</a> (<code>kanban_show</code>، <code>kanban_list</code>، <code>kanban_complete</code>، <code>kanban_block</code>، <code>kanban_heartbeat</code>، <code>kanban_comment</code>، <code>kanban_attach</code>، <code>kanban_attach_url</code>، <code>kanban_attachments</code>، <code>kanban_create</code>، <code>kanban_link</code>، <code>kanban_unblock</code>). تمرّ الواجهات الثلاث — لوحة التحكم و CLI وأدوات العمّال — عبر قاعدة بيانات SQLite نفسها الخاصة بكل لوحة (<code>~/.hermes/kanban.db</code> للّوحة الافتراضية، و <code>~/.hermes/kanban/boards/&lt;slug&gt;/kanban.db</code> لأي لوحة تنشئها لاحقًا)، لذا تبقى كل لوحة متسقة بغضّ النظر عن الجهة التي جاء منها التغيير.</p>
+<p>يستخدم هذا الدرس اللوحة <code>default</code> طوال الوقت. إذا أردت عدة طوابير معزولة (واحدًا لكل مشروع / مستودع / مجال)، فراجع <a href="/docs/user-guide/features/kanban#boards-multi-project">اللوحات (متعددة المشاريع)</a> في النظرة العامة — إذ تنطبق مسارات CLI ولوحة التحكم والعمّال نفسها على كل لوحة، ولا يستطيع العمّال فعليًا رؤية المهام الموجودة في لوحات أخرى.</p>
+<p>في أنحاء هذا الدرس، <strong>كتل الكود الموسومة بـ <code>bash</code> هي أوامر تشغّلها <em>أنت</em>.</strong> أما كتل الكود الموسومة بـ <code># worker tool calls</code> فهي ما يُصدره نموذج العامل المُشغَّل على هيئة استدعاءات أدوات — وتُعرض هنا لكي ترى الحلقة كاملة من البداية إلى النهاية، لا لأنك ستشغّلها بنفسك يومًا ما.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-board-at-a-glance">اللوحة في لمحة</h2>
+<p><x-keep id="11"></x-keep></p>
+<p>ستة أعمدة، من اليسار إلى اليمين:</p>
+<ul>
+<li><strong>Triage</strong> — الأفكار الخام. افتراضيًا، يشغّل الموزِّع تلقائيًا <strong>المُفكِّك (decomposer)</strong> على المهام الموجودة هنا: يستخدم المُفكِّك المدمج <code>auxiliary.kanban_decomposer</code>، ويقرأ قائمة الـ profiles لديك مع أوصافها، ثم يُنتج مخططًا من المهام الفرعية الموجّهة إلى أنسب المتخصصين. تُبقى المهمة الأصلية حيّة بوصفها المهمة الأم، بحيث يستيقظ المُكلَّف بها (<code>kanban.orchestrator_profile</code>، أو الـ profile الافتراضي النشط عند عدم ضبطه) مجددًا ليحكم على الإنجاز حين ينتهي كل شيء. بدّل مفتاح <strong>Orchestration: Auto/Manual</strong> أعلى صفحة kanban للتبديل بين الوضعين. في الوضع اليدوي انقر <strong>⚗ Decompose</strong> على البطاقة، أو شغّل <code>hermes kanban decompose &lt;id&gt;</code> / <code>/kanban decompose &lt;id&gt;</code>. وللمهام المفردة التي لا تحتاج إلى توزيع على عدة مهام، ينفّذ <strong>✨ Specify</strong> إعادة كتابة للمواصفات دفعة واحدة (الهدف، والنهج، ومعايير القبول) ثم يرقّي المهمة إلى <code>todo</code>. اضبط النماذج تحت <code>auxiliary.kanban_decomposer</code> و <code>auxiliary.triage_specifier</code> في <code>config.yaml</code>. راجع <a href="/docs/user-guide/features/kanban#auto-vs-manual-orchestration">التنسيق التلقائي مقابل اليدوي</a> في دليل Kanban الرئيسي.</li>
+<li><strong>Todo</strong> — مهام أُنشئت لكنها تنتظر اعتمادياتها، أو لم تُسنَد بعد.</li>
+<li><strong>Ready</strong> — مهام أُسندت وتنتظر أن يستلمها الموزِّع.</li>
+<li><strong>In progress</strong> — عامل يشغّل المهمة حاليًا. عند تفعيل &quot;Lanes by profile&quot; (وهو الافتراضي)، يُقسَّم هذا العمود إلى مجموعات فرعية حسب المُكلَّف لتعرف في لمحة ما يفعله كل عامل.</li>
+<li><strong>Blocked</strong> — طلب عامل مدخلات بشرية، أو انطلق قاطع الدائرة (circuit breaker).</li>
+<li><strong>Done</strong> — مهام مكتملة.</li>
+</ul>
+<p>يحتوي الشريط العلوي على مرشّحات للبحث والمستأجر (tenant) والمُكلَّف، إضافةً إلى مفتاح <code>Lanes by profile</code> وزر <code>Nudge dispatcher</code> الذي يشغّل دورة توزيع واحدة فورًا بدلًا من انتظار الفاصل الزمني التالي للـ daemon. يؤدي النقر على أي بطاقة إلى فتح لوحتها الجانبية على اليمين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="flat-view">العرض المسطّح</h3>
+<p>إذا كانت مسارات الـ profiles مزدحمة، فعطّل &quot;Lanes by profile&quot; وسيتحوّل عمود In Progress إلى قائمة مسطّحة واحدة مرتّبة حسب وقت الاستلام:</p>
+<p><x-keep id="12"></x-keep></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="story-1--solo-dev-shipping-a-feature">القصة 1 — مطوّر منفرد يُطلق ميزة</h2>
+<p>أنت تبني ميزة. التدفق المعتاد: صمّم المخطط (schema)، ونفّذ الـ API، واكتب الاختبارات. ثلاث مهام بينها اعتماديات من نوع أم→ابن.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بما أن <code>API</code> لها <code>SCHEMA</code> مهمةً أمًّا، و <code>tests</code> لها <code>API</code> مهمةً أمًّا، فإن <code>SCHEMA</code> وحدها تبدأ في <code>ready</code>. وتبقى المهمتان الأخريان في <code>todo</code> حتى تكتمل مهامهما الأم. هذا هو محرّك ترقية الاعتماديات يؤدي عمله — فلن يلتقط أي عامل آخر مهمة كتابة الاختبارات قبل وجود API لاختباره.</p>
+<p>في دورة الموزِّع التالية (كل 60 ثانية افتراضيًا، أو فورًا إذا ضغطت <strong>Nudge dispatcher</strong>) يُشغَّل الـ profile ‏<code>backend-dev</code> بوصفه عاملًا مع <code>HERMES_KANBAN_TASK=$SCHEMA</code> في بيئته. إليك شكل حلقة استدعاءات الأدوات لدى العامل من داخل الوكيل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تستخدم <code>kanban_show</code> القيمة الافتراضية لـ <code>task_id</code> وهي <code>$HERMES_KANBAN_TASK</code>، لذا لا يحتاج العامل إلى معرفة المعرّف الخاص به. وتكتب <code>kanban_complete</code> الملخص + البيانات الوصفية في صف <code>task_runs</code> الحالي، وتُغلق ذلك التشغيل، وتنقل المهمة إلى <code>done</code> — كل ذلك في خطوة ذرّية واحدة عبر <code>kanban_db</code>.</p>
+<p>عندما تصل <code>SCHEMA</code> إلى <code>done</code>، يرقّي محرّك الاعتماديات <code>API</code> إلى <code>ready</code> تلقائيًا. وعندما يلتقط عامل الـ API المهمة، سيستدعي <code>kanban_show()</code> ويرى ملخص <code>SCHEMA</code> وبياناتها الوصفية مرفقة بتسليم المهمة الأم — فيعرف قرارات المخطط دون إعادة قراءة مستند تصميم طويل.</p>
+<p>انقر على مهمة المخطط المكتملة في اللوحة، وستعرض اللوحة الجانبية كل شيء:</p>
+<p><x-keep id="13"></x-keep></p>
+<p>قسم Run History في الأسفل هو الإضافة الأهم. محاولة واحدة: النتيجة <code>completed</code>، والعامل <code>@backend-dev</code>، والمدة، والطابع الزمني، وملخص التسليم كاملًا. وتُخزَّن كتلة البيانات الوصفية (<code>changed_files</code>، <code>decisions</code>) على التشغيل أيضًا، وتُعرض لأي عامل لاحق يقرأ هذه المهمة الأم.</p>
+<p>يمكنك فحص البيانات نفسها من الطرفية في أي وقت — هذه الأوامر هي <strong>أنت</strong> تُلقي نظرة على اللوحة، لا العامل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="story-2--fleet-farming">القصة 2 — تشغيل أسطول من العمّال</h2>
+<p>لديك ثلاثة عمّال (مترجم، ومُفرِّغ نصوص، وكاتب محتوى) وكومة من المهام المستقلة. تريد أن يسحب الثلاثة المهام بالتوازي وأن يُحرزوا تقدمًا مرئيًا. هذه أبسط حالة استخدام لـ kanban، وهي الحالة التي صُمّم التصميم الأصلي لتحسينها.</p>
+<p>أنشئ العمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>شغّل الـ gateway وانصرف — فهو يستضيف الموزِّع المضمَّن
+الذي يلتقط مهام الـ profiles المتخصصة الثلاثة من
+kanban.db نفسها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>الآن رشّح اللوحة على <code>content-ops</code> (أو ابحث ببساطة عن &quot;Transcribe&quot;) وستحصل على هذا:</p>
+<p><x-keep id="14"></x-keep></p>
+<p>مهمتا تفريغ مكتملتان، وواحدة قيد التشغيل، واثنتان جاهزتان تنتظران دورة الموزِّع التالية. عمود In Progress مجمّع حسب الـ profile (الوضع الافتراضي &quot;Lanes by profile&quot;) فترى المهمة النشطة لكل عامل دون تفحّص قائمة مختلطة. سيرقّي الموزِّع المهمة الجاهزة التالية إلى التشغيل فور اكتمال المهمة الحالية. ومع ثلاثة daemons تعمل على ثلاث مجموعات من المُكلَّفين بالتوازي، يُستنفد طابور المحتوى بأكمله دون أي تدخل بشري إضافي.</p>
+<p><strong>كل ما قالته القصة 1 عن التسليم المنظَّم لا يزال ينطبق هنا.</strong> فعامل الترجمة الذي يُنهي مهمة يُصدر <code>kanban_complete(summary=&quot;translated 4 pages, style matched existing marketing voice&quot;, metadata={&quot;duration_seconds&quot;: 720, &quot;tokens_used&quot;: 2100})</code> — وهو أمر مفيد للتحليلات ولأي مهمة لاحقة تعتمد على هذه المهمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="story-3--role-pipeline-with-retry">القصة 3 — pipeline أدوار مع إعادة المحاولة</h2>
+<p>هنا يُثبت Kanban جدارته مقارنةً بقائمة TODO مسطّحة. مدير منتج يكتب المواصفات. مهندس ينفّذها. مراجِع يرفض المحاولة الأولى. يحاول المهندس مجددًا بعد إجراء تعديلات. يوافق المراجِع.</p>
+<p>عرض لوحة التحكم، مع الترشيح على <code>auth-project</code>:</p>
+<p><x-keep id="15"></x-keep></p>
+<p>تستخدم لقطة الشاشة نموذج <strong>البطاقة اللاحقة المُنشأة مسبقًا</strong>: لبطاقة التنفيذ مهمة ابن مخصّصة للمراجِع. في هذا النموذج يجب أن يستدعي المهندس <code>kanban_complete</code> عندما يصبح التنفيذ جاهزًا، لكي تتمكن مهمة المراجِع الابن من مغادرة <code>todo</code>. لا تحظر (block) مهمة التنفيذ الأم لمجرد طلب مراجعة.</p>
+<p>أما في سير العمل الذي تتولى فيه البطاقة نفسها التنفيذ والمراجعة، فاستخدم دورة حياة المراجعة المدمجة بدلًا من ذلك. التسلسل الكامل تنفيذ → مراجعة → تعديلات → إعادة مراجعة هو:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يسجّل سجلّ تشغيل المهمة الآن <code>review_requested → changes_requested → review_requested → completed</code>. لكل محاولة فاعلها وملخصها وبياناتها الوصفية ونتيجتها، لذا يرى المهندس في المحاولة الثانية بالضبط ما رفضه المراجِع، وتبقى الموافقة النهائية قابلة للتدقيق. تُحجز <code>kanban_block</code> للتصعيد الخارجي الحقيقي (صلاحية وصول مفقودة، أو قرار يخص المنتج، أو بنية تحتية غير متاحة)، لا لملاحظات المراجعة العادية.</p>
+<p>إذا كنت تستخدم عمدًا نموذج البطاقة اللاحقة الظاهر في لقطة الشاشة، فإن المراجِع يفتح <code>Review password reset PR</code> بعد اكتمال مهمة التنفيذ الأم:</p>
+<p><x-keep id="16"></x-keep></p>
+<p>يتضمن <code>worker_context</code> الخاص ببطاقة المراجِع تسليمَ التنفيذ المكتمل. هذا سير عمل قائم على بطاقة منفصلة؛ فلا تجمعه مع <code>kanban_request_review</code> على البطاقة نفسها وإلا ستُكرّر مسار المراجعة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="story-4--circuit-breaker-and-crash-recovery">القصة 4 — قاطع الدائرة والتعافي من الأعطال</h2>
+<p>العمّال الحقيقيون يفشلون. بيانات اعتماد مفقودة، أو إنهاء بسبب نفاد الذاكرة (OOM)، أو أخطاء شبكة عابرة. لدى الموزِّع خطّا دفاع: <strong>قاطع الدائرة</strong> الذي يحظر المهمة تلقائيًا بعد N من الإخفاقات المتتالية كي لا تدور اللوحة في حلقة مفرغة إلى الأبد، و <strong>كشف الأعطال</strong> الذي يستعيد المهمة التي اختفى PID عاملها قبل انتهاء مدة TTL الخاصة بها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="circuit-breaker--permanent-looking-failure">قاطع الدائرة — إخفاق يبدو دائمًا</h3>
+<p>مهمة نشر لا تستطيع تشغيل عاملها لأن <code>AWS_ACCESS_KEY_ID</code> غير مضبوط في بيئة الـ profile:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يحاول الموزِّع تشغيل العامل. يفشل التشغيل (<code>RuntimeError: AWS_ACCESS_KEY_ID not set</code>). يُحرِّر الموزِّع الاستلام، ويزيد عدّاد الإخفاقات، ويحاول مجددًا في الدورة التالية. وبما أن هذا المثال يضبط <code>--max-retries 3</code>، ينطلق القاطع بعد ثلاثة إخفاقات متتالية: تنتقل المهمة إلى <code>blocked</code> بالنتيجة <code>gave_up</code>. إذا حذفت هذا الخيار، يستخدم Hermes القيمة <code>kanban.failure_limit</code> (الافتراضي: 2). لا مزيد من المحاولات حتى يرفع إنسانٌ الحظر عنها.</p>
+<p>انقر على المهمة المحظورة:</p>
+<p><x-keep id="17"></x-keep></p>
+<p>ثلاثة تشغيلات، جميعها بالخطأ نفسه في الحقل <code>error</code>. أول اثنين <code>spawn_failed</code> (قابلان لإعادة المحاولة)، والثالث <code>gave_up</code> (نهائي). يعرض سجل الأحداث أعلاه التسلسل الكامل: <code>created → claimed → spawn_failed → claimed → spawn_failed → claimed → gave_up</code>.</p>
+<p>في الطرفية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>إذا كان Telegram / Discord / Slack موصولًا، يُطلق الـ gateway إشعارًا عند حدث <code>gave_up</code> فتعلم بالعطل دون الحاجة إلى تفقّد اللوحة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="crash-recovery--worker-dies-mid-flight">التعافي من الأعطال — العامل يتوقف في منتصف العمل</h3>
+<p>أحيانًا ينجح التشغيل لكن عملية العامل تموت لاحقًا — بسبب segfault أو OOM أو <code>systemctl stop</code>. يستطلع الموزِّع <code>kill(pid, 0)</code> ويكتشف الـ pid الميت؛ فيُحرَّر الاستلام، وتعود المهمة إلى <code>ready</code>، وتمنحها الدورة التالية لعامل جديد.</p>
+<p>المثال الموجود في البيانات الأولية هو عملية ترحيل كانت تنفد منها الذاكرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تعرض اللوحة الجانبية السجل الكامل للمحاولتين:</p>
+<p><x-keep id="18"></x-keep></p>
+<p>التشغيل 1 — <code>crashed</code>، مع الخطأ <code>OOM kill at row 2.3M (process 99999 gone)</code>. التشغيل 2 — <code>completed</code>، مع <code>&quot;strategy&quot;: &quot;chunked with LIMIT + WHERE id &gt; last_id&quot;</code> في بياناته الوصفية. رأى العامل الذي أعاد المحاولة عطل التشغيل 1 في سياقه فاختار استراتيجية أكثر أمانًا؛ وتوضّح البيانات الوصفية لأي مراقب مستقبلي (أو كاتب تقرير ما بعد الحادثة) ما الذي تغيّر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="structured-handoff--why-summary-and-metadata-matter">التسليم المنظَّم — لماذا تهمّ <code>summary</code> و <code>metadata</code></h2>
+<p>في كل قصة أعلاه، استدعى العمّال <code>kanban_complete(summary=..., metadata=...)</code> في النهاية. هذا ليس للزينة — بل هو قناة التسليم الأساسية بين مراحل سير العمل.</p>
+<p>عندما يُشغَّل عامل على المهمة B ويستدعي <code>kanban_show()</code>، فإن <code>worker_context</code> الذي يتلقاه يتضمن:</p>
+<ul>
+<li><strong>المحاولات السابقة</strong> للمهمة B (التشغيلات السابقة: النتيجة، والملخص، والخطأ، والبيانات الوصفية) كي لا يكرّر العامل الذي يعيد المحاولة مسارًا فاشلًا.</li>
+<li><strong>نتائج المهام الأم</strong> — لكل مهمة أم، ملخص آخر تشغيل مكتمل وبياناته الوصفية — كي يرى العمّال اللاحقون لماذا وكيف أُنجز العمل السابق.</li>
+</ul>
+<p>يحلّ هذا محلّ رحلة &quot;التنقيب في التعليقات ومخرجات العمل&quot; التي تُرهق أنظمة kanban المسطّحة. يكتب مدير المنتج معايير القبول في البيانات الوصفية للمواصفات، فيراها عامل المهندس بشكل منظَّم في تسليم المهمة الأم. ويسجّل المهندس الاختبارات التي شغّلها وعدد الناجح منها، فيكون لدى عامل المراجِع تلك القائمة قبل فتح أي diff.</p>
+<p>توجد حماية الإغلاق الجماعي لأن هذه البيانات خاصة بكل تشغيل. يُرفض الأمر <code>hermes kanban complete a b c --summary X</code> (منك أنت، من CLI) — فنسخ الملخص نفسه ولصقه على ثلاث مهام يكاد يكون خطأً دائمًا. أما الإغلاق الجماعي دون خيارات التسليم فلا يزال يعمل في الحالة الشائعة &quot;أنهيتُ كومة من المهام الإدارية&quot;. ولا تكشف واجهة الأدوات عن أي صيغة جماعية على الإطلاق؛ فـ <code>kanban_complete</code> تعمل دائمًا على مهمة واحدة في كل مرة للسبب نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="follow-up-on-a-done-card--ci-remediation-via-the-parent-link">متابعة بطاقة مكتملة — معالجة أعطال CI عبر رابط المهمة الأم</h2>
+<p>بطاقة التنفيذ في القصة 1 أصبحت <code>done</code>. وبعد ساعتين يفشل CI على الـ branch المدموج. لا تُعِد فتح البطاقة المكتملة — فالبطاقات المكتملة تاريخ، وتسليمها يتدفق إلى الأمام. أنشئ بطاقة معالجة تكون البطاقة المكتملة <strong>مهمتها الأم</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>ثلاثة أمور تجعل هذا يعمل:</p>
+<ul>
+<li><strong>توزيع فوري.</strong> بما أن المهمة الأم <code>done</code> بالفعل، تُنشأ المهمة الابن مباشرةً في <code>ready</code> — ويستطيع الموزِّع استلامها في الدورة التالية. (أما ابن مهمة أم لا تزال مفتوحة فينتظر في <code>todo</code>.)</li>
+<li><strong>سياق موروث.</strong> يتضمن سياق عامل المعالجة قسم <em>Parent task results</em> الذي يحمل ملخص إنجاز <code>t_impl</code> وبياناته الوصفية — أي الملفات المعدّلة والقرارات التي سجّلها العامل الأصلي — فيعرف لماذا صيغ الكود على هذا النحو قبل أن يقرأ سطرًا منه.</li>
+<li><strong>أدلة جديدة في المتن.</strong> لم يكن سجل CI موجودًا عند اكتمال <code>t_impl</code>، لذا لا يمكن أن يكون في تسليم المهمة الأم — بل يوضع في متن البطاقة الجديدة، إلى جانب معايير قبول صريحة.</li>
+</ul>
+<p>يُفضَّل استخدام worktree/branch جديد لبطاقة المعالجة. فسحب الـ branch الأصلي يمنح العامل <em>حالة</em> المستودع لكن دون أيٍّ من <em>المبررات</em> — وتسليم المهمة الأم هو ما يحمل تلك المبررات. واستخدام profile المُكلَّف نفسه هو الصواب عادةً: فالـ profile الذي كتب الكود يمتلك المهارات اللازمة لإصلاحه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inspecting-a-task-currently-running">فحص مهمة قيد التشغيل</h2>
+<p>للاكتمال — إليك اللوحة الجانبية لمهمة لا تزال قيد التنفيذ (تنفيذ الـ API من القصة 1، التي استلمها <code>backend-dev</code> لكنها لم تكتمل بعد):</p>
+<p><x-keep id="19"></x-keep></p>
+<p>الحالة <code>Running</code>. يظهر التشغيل النشط في قسم Run History بالنتيجة <code>active</code> ودون <code>ended_at</code>. إذا مات هذا العامل أو انتهت مهلته، يُغلق الموزِّع هذا التشغيل بالنتيجة المناسبة ويفتح تشغيلًا جديدًا عند الاستلام التالي — ولا يختفي صف المحاولة أبدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="next-steps">الخطوات التالية</h2>
+<ul>
+<li><a href="/docs/user-guide/features/kanban">النظرة العامة على Kanban</a> — نموذج البيانات الكامل، ومفردات الأحداث، ومرجع CLI.</li>
+<li><code>hermes kanban --help</code> — كل أمر فرعي، وكل خيار.</li>
+<li><code>hermes kanban watch --kinds completed,gave_up,timed_out</code> — بث مباشر للأحداث النهائية عبر اللوحة بأكملها.</li>
+<li><code>hermes kanban notify-subscribe &lt;task&gt; --platform telegram --chat-id &lt;id&gt;</code> — احصل على تنبيه من الـ gateway عند انتهاء مهمة محددة.</li>
+</ul>

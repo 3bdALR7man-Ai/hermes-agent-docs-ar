@@ -1,0 +1,303 @@
+
+<header><h1>Telephony</h1></header>
+<p>وفّر أرقام Twilio، والرسائل النصية/الوسائط، والمكالمات الصادرة بالذكاء الاصطناعي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/productivity/telephony</code></td></tr><tr><td>المسار</td><td><code>optional-skills/productivity/telephony</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Nous Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>telephony</code>، <code>phone</code>، <code>sms</code>، <code>mms</code>، <code>voice</code>، <code>twilio</code>، <code>bland.ai</code>، <code>vapi</code>، <code>calling</code>، <code>texting</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/productivity/productivity-maps"><code>maps</code></a>، <a href="/docs/user-guide/skills/bundled/productivity/productivity-google-workspace"><code>google-workspace</code></a>، <a href="/docs/user-guide/skills/optional/email/email-agentmail"><code>agentmail</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Telephony — أرقام ومكالمات ورسائل دون تغيير الأدوات الأساسية</h1>
+<p>تمنح هذه المهارة الاختيارية Hermes قدرات هاتفية عملية مع إبقاء الاتصال الهاتفي خارج قائمة الأدوات الأساسية.</p>
+<p>تأتي مع سكربت مساعد، <code>scripts/telephony.py</code>، يمكنه:</p>
+<ul>
+<li>حفظ بيانات اعتماد المزوّد في <code>${HERMES_HOME:-~/.hermes}/.env</code></li>
+<li>البحث عن رقم هاتف من Twilio وشراؤه</li>
+<li>تذكّر ذلك الرقم المملوك للجلسات اللاحقة</li>
+<li>إرسال رسائل SMS / MMS من الرقم المملوك</li>
+<li>استطلاع الرسائل الواردة لذلك الرقم دون الحاجة إلى خادم webhook</li>
+<li>إجراء مكالمات Twilio مباشرة باستخدام <code>&lt;Say&gt;</code> أو <code>&lt;Play&gt;</code> من TwiML</li>
+<li>استيراد رقم Twilio المملوك إلى Vapi</li>
+<li>إجراء مكالمات صادرة بالذكاء الاصطناعي عبر Bland.ai أو Vapi</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-solves">ما تحلّه هذه المهارة</h2>
+<p>صُمِّمت هذه المهارة لتغطية المهام الهاتفية العملية التي يريدها المستخدمون فعلًا:</p>
+<ul>
+<li>المكالمات الصادرة</li>
+<li>إرسال الرسائل النصية</li>
+<li>امتلاك رقم وكيل قابل لإعادة الاستخدام</li>
+<li>التحقق من الرسائل التي تصل إلى ذلك الرقم لاحقًا</li>
+<li>الحفاظ على ذلك الرقم والمعرّفات المرتبطة به بين الجلسات</li>
+<li>هوية هاتفية جاهزة للمستقبل لاستطلاع الرسائل النصية الواردة وأتمتة أخرى</li>
+</ul>
+<p>هذه المهارة <strong>لا</strong> تحوّل Hermes إلى بوابة هاتفية واردة في الوقت الفعلي. تُعالَج الرسائل النصية الواردة عبر استطلاع واجهة Twilio REST API. وهذا يكفي للعديد من سير العمل، بما في ذلك الإشعارات وبعض عمليات استرجاع رمز لمرة واحدة، دون إضافة بنية تحتية أساسية لـ webhook.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety-rules--mandatory">قواعد السلامة — إلزامية</h2>
+<ol>
+<li>أكّد دائمًا قبل إجراء مكالمة أو إرسال رسالة نصية.</li>
+<li>لا تتصل أبدًا بأرقام الطوارئ.</li>
+<li>لا تستخدم الاتصال الهاتفي أبدًا للمضايقة أو الرسائل غير المرغوبة أو انتحال الهوية أو أي شيء غير قانوني.</li>
+<li>عامل أرقام هواتف الأطراف الثالثة كبيانات تشغيلية حساسة:
+<ul>
+<li>لا تحفظها في ذاكرة Hermes</li>
+<li>لا تُدرجها في وثائق المهارة أو الملخصات أو ملاحظات المتابعة ما لم يرغب المستخدم في ذلك صراحةً</li>
+</ul>
+</li>
+<li>يجوز الاحتفاظ بـ<strong>رقم Twilio المملوك للوكيل</strong> بشكل دائم لأنه جزء من إعدادات المستخدم.</li>
+<li>أرقام VoIP <strong>غير مضمونة</strong> العمل مع جميع مسارات المصادقة الثنائية (2FA) الخاصة بالأطراف الثالثة. استخدمها بحذر ووضّح توقعات المستخدم بجلاء.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decision-tree--which-service-to-use">شجرة القرار — أي خدمة تُستخدم؟</h2>
+<p>استخدم هذا المنطق بدلًا من توجيه ثابت للمزوّد:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-i-want-hermes-to-own-a-real-phone-number">1) &quot;أريد أن يمتلك Hermes رقم هاتف حقيقيًا&quot;</h3>
+<p>استخدم <strong>Twilio</strong>.</p>
+<p>السبب:</p>
+<ul>
+<li>أسهل مسار لشراء رقم والاحتفاظ به</li>
+<li>أفضل دعم لـ SMS / MMS</li>
+<li>أبسط آلية لاستطلاع الرسائل النصية الواردة</li>
+<li>أنظف مسار مستقبلي إلى webhooks واردة أو معالجة المكالمات</li>
+</ul>
+<p>حالات الاستخدام:</p>
+<ul>
+<li>استقبال رسائل نصية لاحقًا</li>
+<li>إرسال تنبيهات النشر / إشعارات cron</li>
+<li>الحفاظ على هوية هاتفية قابلة لإعادة الاستخدام للوكيل</li>
+<li>التجربة لاحقًا مع مسارات مصادقة قائمة على الهاتف</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-i-only-need-the-easiest-outbound-ai-phone-call-right-now">2) &quot;أحتاج فقط الآن إلى أسهل مكالمة هاتفية صادرة بالذكاء الاصطناعي&quot;</h3>
+<p>استخدم <strong>Bland.ai</strong>.</p>
+<p>السبب:</p>
+<ul>
+<li>الإعداد الأسرع</li>
+<li>مفتاح API واحد</li>
+<li>لا حاجة لشراء أو استيراد رقم بنفسك أولًا</li>
+</ul>
+<p>المقايضة:</p>
+<ul>
+<li>مرونة أقل</li>
+<li>جودة الصوت مقبولة، لكنها ليست الأفضل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-i-want-the-best-conversational-ai-voice-quality">3) &quot;أريد أفضل جودة صوت لذكاء اصطناعي محادثي&quot;</h3>
+<p>استخدم <strong>Twilio + Vapi</strong>.</p>
+<p>السبب:</p>
+<ul>
+<li>يمنحك Twilio الرقم المملوك</li>
+<li>يمنحك Vapi جودة مكالمة ذكاء اصطناعي محادثي أفضل ومرونة أكبر في الصوت/النموذج</li>
+</ul>
+<p>المسار المُوصى به:</p>
+<ol>
+<li>اشترِ رقم Twilio واحفظه</li>
+<li>استورده إلى Vapi</li>
+<li>احفظ قيمة <code>VAPI_PHONE_NUMBER_ID</code> المُعادة</li>
+<li>استخدم <code>ai-call --provider vapi</code></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-i-want-to-call-with-a-custom-prerecorded-voice-message">4) &quot;أريد الاتصال برسالة صوتية مسجَّلة مسبقًا ومخصَّصة&quot;</h3>
+<p>استخدم <strong>مكالمة Twilio المباشرة</strong> مع رابط صوتي عام.</p>
+<p>السبب:</p>
+<ul>
+<li>أسهل طريقة لتشغيل ملف MP3 مخصَّص</li>
+<li>يتناسب جيدًا مع <code>text_to_speech</code> الخاص بـ Hermes بالإضافة إلى مضيف ملفات عام أو نفق (tunnel)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="files-and-persistent-state">الملفات والحالة الدائمة</h2>
+<p>تحفظ المهارة حالة الاتصال الهاتفي في مكانين:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes_home-hermesenv"><code>${HERMES_HOME:-~/.hermes}/.env</code></h3>
+<p>يُستخدم لبيانات اعتماد المزوّد طويلة الأمد ومعرّفات الرقم المملوك، على سبيل المثال:</p>
+<ul>
+<li><code>TWILIO_ACCOUNT_SID</code></li>
+<li><code>TWILIO_AUTH_TOKEN</code></li>
+<li><code>TWILIO_PHONE_NUMBER</code></li>
+<li><code>TWILIO_PHONE_NUMBER_SID</code></li>
+<li><code>BLAND_API_KEY</code></li>
+<li><code>VAPI_API_KEY</code></li>
+<li><code>VAPI_PHONE_NUMBER_ID</code></li>
+<li><code>PHONE_PROVIDER</code> (مزوّد مكالمة الذكاء الاصطناعي: bland أو vapi)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermestelephony_statejson"><code>~/.hermes/telephony_state.json</code></h3>
+<p>يُستخدم للحالة الخاصة بالمهارة وحدها التي يجب أن تبقى بين الجلسات، على سبيل المثال:</p>
+<ul>
+<li>رقم Twilio الافتراضي / SID المحفوظ</li>
+<li>معرّف رقم هاتف Vapi المحفوظ</li>
+<li>SID/تاريخ آخر رسالة واردة لنقاط تحقق استطلاع صندوق الوارد</li>
+</ul>
+<p>وهذا يعني:</p>
+<ul>
+<li>في المرة القادمة التي تُحمَّل فيها المهارة، يمكن لـ <code>diagnose</code> إخبارك بالرقم المضبوط بالفعل</li>
+<li>يمكن لـ <code>twilio-inbox --since-last --mark-seen</code> المتابعة من نقطة التحقق السابقة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="locate-the-helper-script">تحديد موقع السكربت المساعد</h2>
+<p>بعد تثبيت هذه المهارة، حدّد موقع السكربت كالتالي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا كان <code>SCRIPT</code> فارغًا، فالمهارة غير مثبَّتة بعد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install">التثبيت</h2>
+<p>هذه مهارة اختيارية رسمية، لذا ثبّتها من Skills Hub:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-setup">إعداد المزوّد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="twilio--owned-number-smsmms-direct-calls-inbound-sms-polling">Twilio — رقم مملوك، SMS/MMS، مكالمات مباشرة، استطلاع الرسائل الواردة</h3>
+<p>سجّل في:</p>
+<ul>
+<li><a href="https://www.twilio.com/try-twilio" data-ext>https://www.twilio.com/try-twilio</a></li>
+</ul>
+<p>ثم احفظ بيانات الاعتماد في Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ابحث عن أرقام متاحة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اشترِ رقمًا وتذكّره:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>عرض الأرقام المملوكة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>اضبط أحدها كافتراضي لاحقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="blandai--easiest-outbound-ai-calling">Bland.ai — أسهل مكالمات صادرة بالذكاء الاصطناعي</h3>
+<p>سجّل في:</p>
+<ul>
+<li><a href="https://app.bland.ai" data-ext>https://app.bland.ai</a></li>
+</ul>
+<p>احفظ الإعدادات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vapi--better-conversational-voice-quality">Vapi — جودة صوت محادثي أفضل</h3>
+<p>سجّل في:</p>
+<ul>
+<li><a href="https://dashboard.vapi.ai" data-ext>https://dashboard.vapi.ai</a></li>
+</ul>
+<p>احفظ مفتاح API أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>استورد رقم Twilio المملوك لديك إلى Vapi واحفظ معرّف رقم الهاتف المُعاد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>إذا كنت تعرف بالفعل معرّف رقم هاتف Vapi، احفظه مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnose-current-state">تشخيص الحالة الحالية</h2>
+<p>يمكنك في أي وقت فحص ما تعرفه المهارة بالفعل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>استخدم هذا أولًا عند استئناف العمل في جلسة لاحقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير العمل الشائع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-buy-an-agent-number-and-keep-using-it-later">أ. شراء رقم للوكيل ومواصلة استخدامه لاحقًا</h3>
+<ol>
+<li>احفظ بيانات اعتماد Twilio:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<ol start="2">
+<li>ابحث عن رقم:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<ol start="3">
+<li>اشترِه واحفظه في <code>${HERMES_HOME:-~/.hermes}/.env</code> + الحالة:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<ol start="4">
+<li>في الجلسة التالية، شغّل:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يعرض هذا الرقم الافتراضي المحفوظ وحالة نقطة تحقق صندوق الوارد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="b-send-a-text-from-the-agent-number">ب. إرسال رسالة نصية من رقم الوكيل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>مع وسائط:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="c-check-inbound-texts-later-with-no-webhook-server">ج. التحقق من الرسائل الواردة لاحقًا دون خادم webhook</h3>
+<p>استطلع صندوق الوارد للرقم الافتراضي في Twilio:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>اعرض فقط الرسائل التي وصلت بعد آخر نقطة تحقق، وتقدّم بنقطة التحقق عند الانتهاء من القراءة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>هذه هي الإجابة الرئيسية على سؤال &quot;كيف أصل إلى الرسائل التي يستقبلها الرقم في المرة القادمة التي تُحمَّل فيها المهارة؟&quot;</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="d-make-a-direct-twilio-call-with-built-in-tts">د. إجراء مكالمة Twilio مباشرة بتحويل نص إلى كلام مدمج</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="e-call-with-a-prerecorded--custom-voice-message">هـ. الاتصال برسالة صوتية مسجَّلة مسبقًا / مخصَّصة</h3>
+<p>هذا هو المسار الرئيسي لإعادة استخدام دعم <code>text_to_speech</code> الموجود في Hermes.</p>
+<p>استخدم هذا عندما:</p>
+<ul>
+<li>تريد أن تستخدم المكالمة صوت TTS المضبوط في Hermes بدلًا من <code>&lt;Say&gt;</code> الخاص بـ Twilio</li>
+<li>تريد تسليم صوتي باتجاه واحد (ملخّص، تنبيه، نكتة، تذكير، تحديث حالة)</li>
+<li>أنت <strong>لا</strong> تحتاج إلى مكالمة هاتفية محادثية حية</li>
+</ul>
+<p>ولّد الصوت أو استضفه بشكل منفصل، ثم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>سير العمل المُوصى به من Hermes TTS إلى Twilio Play:</p>
+<ol>
+<li>ولّد الصوت باستخدام <code>text_to_speech</code> الخاص بـ Hermes.</li>
+<li>اجعل ملف MP3 الناتج متاحًا للوصول العام.</li>
+<li>أجرِ مكالمة Twilio باستخدام <code>--audio-url</code>.</li>
+</ol>
+<p>مثال على مسار عمل الوكيل:</p>
+<ul>
+<li>اطلب من Hermes إنشاء صوت الرسالة باستخدام <code>text_to_speech</code></li>
+<li>عند الحاجة، اعرض الملف عبر رابط استضافة ثابتة مؤقتة / نفق / تخزين كائنات</li>
+<li>استخدم <code>twilio-call --audio-url ...</code> لتسليمه عبر الهاتف</li>
+</ul>
+<p>خيارات استضافة جيدة لملف MP3:</p>
+<ul>
+<li>رابط تخزين/كائن عام مؤقت</li>
+<li>نفق قصير الأجل إلى خادم ملفات ثابتة محلي</li>
+<li>أي رابط HTTPS موجود يمكن لمزوّد الهاتف جلبه مباشرة</li>
+</ul>
+<p>ملاحظة مهمة:</p>
+<ul>
+<li>Hermes TTS رائع للرسائل الصادرة المسجَّلة مسبقًا</li>
+<li>Bland/Vapi أفضل لـ<strong>المكالمات المحادثية الحية بالذكاء الاصطناعي</strong> لأنهما يتوليان بنفسهما مكدّس الصوت الهاتفي في الوقت الفعلي</li>
+<li>لا يُستخدم Hermes STT/TTS وحده هنا كمحرك محادثة هاتفية ثنائية الاتجاه بالكامل؛ فذلك يتطلب تكاملًا للبث/webhook أثقل بكثير مما تحاول هذه المهارة تقديمه</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="f-navigate-a-phone-tree--ivr-with-twilio-direct-calling">و. التنقل في شجرة هاتفية / IVR باستخدام اتصال Twilio المباشر</h3>
+<p>إذا احتجت إلى الضغط على أرقام بعد اتصال المكالمة، استخدم <code>--send-digits</code>.
+تفسّر Twilio <code>w</code> كانتظار قصير.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>هذا مفيد للوصول إلى فرع قائمة معيَّن قبل التحويل إلى إنسان أو تسليم رسالة حالة قصيرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="g-outbound-ai-phone-call-with-blandai">ز. مكالمة هاتفية صادرة بالذكاء الاصطناعي عبر Bland.ai</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>تحقق من الحالة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>اطرح أسئلة تحليل Bland بعد الانتهاء:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="h-outbound-ai-phone-call-with-vapi-on-your-owned-number">ح. مكالمة هاتفية صادرة بالذكاء الاصطناعي عبر Vapi على رقمك المملوك</h3>
+<ol>
+<li>استورد رقم Twilio الخاص بك إلى Vapi:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<ol start="2">
+<li>أجرِ المكالمة:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<ol start="3">
+<li>تحقق من النتيجة:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="suggested-agent-procedure">إجراء مقترح للوكيل</h2>
+<p>عندما يطلب المستخدم مكالمة أو رسالة نصية:</p>
+<ol>
+<li>حدّد أي مسار يناسب الطلب عبر شجرة القرار.</li>
+<li>شغّل <code>diagnose</code> إذا كانت حالة الإعدادات غير واضحة.</li>
+<li>اجمع تفاصيل المهمة كاملة.</li>
+<li>أكّد مع المستخدم قبل الاتصال أو إرسال الرسالة.</li>
+<li>استخدم الأمر الصحيح.</li>
+<li>استطلع النتائج عند الحاجة.</li>
+<li>لخّص النتيجة دون تخزين أرقام الأطراف الثالثة في ذاكرة Hermes.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-skill-still-does-not-do">ما لا تزال هذه المهارة لا تفعله</h2>
+<ul>
+<li>الردّ على المكالمات الواردة في الوقت الفعلي</li>
+<li>دفع رسائل SMS حية إلى حلقة الوكيل عبر webhook</li>
+<li>دعم مضمون لمزوّدي مصادقة ثنائية (2FA) عشوائيين من أطراف ثالثة</li>
+</ul>
+<p>ستتطلب هذه الأمور بنية تحتية أكبر من مجرد مهارة اختيارية بحتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>يمكن لحسابات Twilio التجريبية والقواعد الإقليمية أن تقيّد من يمكنك الاتصال به/مراسلته.</li>
+<li>ترفض بعض الخدمات أرقام VoIP للمصادقة الثنائية.</li>
+<li>يستطلع <code>twilio-inbox</code> واجهة REST API؛ وليس تسليمًا فوريًا بالدفع (push).</li>
+<li>لا تزال مكالمات Vapi الصادرة تعتمد على وجود رقم مستورَد صالح.</li>
+<li>Bland هو الأسهل، لكنه ليس دائمًا الأفضل صوتًا.</li>
+<li>لا تخزّن أرقام هواتف عشوائية للأطراف الثالثة في ذاكرة Hermes.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة التحقق</h2>
+<p>بعد الإعداد، يجب أن تكون قادرًا على القيام بكل ما يلي باستخدام هذه المهارة وحدها:</p>
+<ol>
+<li>يعرض <code>diagnose</code> جاهزية المزوّد والحالة المحفوظة</li>
+<li>البحث عن رقم Twilio وشراؤه</li>
+<li>حفظ ذلك الرقم في <code>${HERMES_HOME:-~/.hermes}/.env</code></li>
+<li>إرسال رسالة SMS من الرقم المملوك</li>
+<li>استطلاع الرسائل النصية الواردة للرقم المملوك لاحقًا</li>
+<li>إجراء مكالمة Twilio مباشرة</li>
+<li>إجراء مكالمة بالذكاء الاصطناعي عبر Bland أو Vapi</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li>أرقام هاتف Twilio: <a href="https://www.twilio.com/docs/phone-numbers/api" data-ext>https://www.twilio.com/docs/phone-numbers/api</a></li>
+<li>مراسلة Twilio: <a href="https://www.twilio.com/docs/messaging/api/message-resource" data-ext>https://www.twilio.com/docs/messaging/api/message-resource</a></li>
+<li>صوت Twilio: <a href="https://www.twilio.com/docs/voice/api/call-resource" data-ext>https://www.twilio.com/docs/voice/api/call-resource</a></li>
+<li>وثائق Vapi: <a href="https://docs.vapi.ai/" data-ext>https://docs.vapi.ai/</a></li>
+<li>Bland.ai: <a href="https://app.bland.ai/" data-ext>https://app.bland.ai/</a></li>
+</ul>

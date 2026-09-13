@@ -1,0 +1,138 @@
+
+<header><h1>Serving Llms Vllm</h1></header>
+<p>vLLM: تقديم خدمة (serving) عالية الإنتاجية لنماذج اللغة الكبيرة، OpenAI API، التكميم (quantization).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/mlops/inference/serving-llms-vllm</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>vllm</code>, <code>torch</code>, <code>transformers</code></td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>vLLM</code>, <code>Inference Serving</code>, <code>PagedAttention</code>, <code>Continuous Batching</code>, <code>High Throughput</code>, <code>Production</code>, <code>OpenAI API</code>, <code>Quantization</code>, <code>Tensor Parallelism</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>vLLM - تقديم خدمة عالية الأداء لنماذج اللغة الكبيرة</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>استخدمها عند نشر واجهات LLM API في بيئة الإنتاج، أو تحسين زمن استجابة/إنتاجية الـ inference، أو تقديم خدمة نماذج بذاكرة GPU محدودة. تدعم نقاط نهاية متوافقة مع OpenAI، والتكميم (GPTQ/AWQ/FP8)، والتوازي الموتري (Tensor Parallelism).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>تحقّق vLLM إنتاجية أعلى بـ 24 ضعفًا مقارنةً بمكتبة transformers القياسية بفضل PagedAttention (تخزين مؤقت KV قائم على الكتل) والدُفعات المستمرة (continuous batching) (مزج طلبات prefill/decode).</p>
+<p><strong>التثبيت</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>Inference أساسي دون اتصال (offline)</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>خادم متوافق مع OpenAI</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير العمل الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-production-api-deployment">سير العمل 1: نشر API في بيئة الإنتاج</h3>
+<p>انسخ قائمة التحقق هذه وتتبّع التقدّم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطوة 1: اضبط إعدادات الخادم</strong></p>
+<p>اختر الإعدادات وفقًا لحجم نموذجك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>الخطوة 2: اختبر بحركة مرور محدودة</strong></p>
+<p>نفّذ اختبار حمل (load test) قبل الإنتاج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تحقّق من أن TTFT (الزمن حتى أول token) أقل من 500ms والإنتاجية أعلى من 100 طلب/ثانية.</p>
+<p><strong>الخطوة 3: فعِّل المراقبة</strong></p>
+<p>يعرض vLLM مقاييس Prometheus على المسار <code>/metrics</code> عبر منفذ API (المنفذ الافتراضي 8000):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>المقاييس الأساسية التي يجب مراقبتها:</p>
+<ul>
+<li><code>vllm:time_to_first_token_seconds</code> - زمن الاستجابة (latency)</li>
+<li><code>vllm:num_requests_running</code> - الطلبات النشطة</li>
+<li><code>vllm:gpu_cache_usage_perc</code> - استخدام التخزين المؤقت KV</li>
+</ul>
+<p><strong>الخطوة 4: انشر إلى بيئة الإنتاج</strong></p>
+<p>استخدم Docker لنشر متسق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>الخطوة 5: تحقّق من مقاييس الأداء</strong></p>
+<p>تحقّق من أن النشر يفي بالأهداف:</p>
+<ul>
+<li>TTFT أقل من 500ms (بالنسبة للـ prompts القصيرة)</li>
+<li>الإنتاجية أعلى من الهدف المحدّد بالطلب/الثانية</li>
+<li>استخدام GPU أعلى من 80%</li>
+<li>لا توجد أخطاء OOM في السجلّات</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-offline-batch-inference">سير العمل 2: inference دفعي دون اتصال (offline)</h3>
+<p>لمعالجة مجموعات بيانات كبيرة دون عبء تشغيل خادم.</p>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>الخطوة 1: جهّز بيانات الإدخال</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>الخطوة 2: اضبط محرّك LLM</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong>الخطوة 3: نفّذ الـ inference الدفعي</strong></p>
+<p>يقوم vLLM تلقائيًا بتجميع الطلبات في دفعات لتحقيق الكفاءة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>الخطوة 4: عالج النتائج</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-quantized-model-serving">سير العمل 3: تقديم خدمة نموذج مكمَّم (quantized)</h3>
+<p>لتشغيل نماذج كبيرة ضمن ذاكرة GPU محدودة.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><strong>الخطوة 1: اختر طريقة التكميم</strong></p>
+<ul>
+<li><strong>AWQ</strong>: الأفضل لنماذج 70B، مع أدنى فقدان في الدقة</li>
+<li><strong>GPTQ</strong>: دعم واسع للنماذج، ضغط جيد</li>
+<li><strong>FP8</strong>: الأسرع على معالجات H100 الرسومية</li>
+</ul>
+<p><strong>الخطوة 2: ابحث عن نموذج مكمَّم مسبقًا أو أنشئه</strong></p>
+<p>استخدم نماذج مكمَّمة مسبقًا من HuggingFace:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><strong>الخطوة 3: شغّل مع خيار التكميم</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>الخطوة 4: تحقّق من الدقة</strong></p>
+<p>اختبر أن المخرجات تطابق الجودة المتوقّعة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-vs-alternatives">متى تستخدمه مقابل البدائل</h2>
+<p><strong>استخدم vLLM عندما:</strong></p>
+<ul>
+<li>تنشر واجهات LLM API في بيئة الإنتاج (أكثر من 100 طلب/ثانية)</li>
+<li>تقدّم خدمة نقاط نهاية متوافقة مع OpenAI</li>
+<li>تحتاج نماذج كبيرة مع ذاكرة GPU محدودة</li>
+<li>تطبيقات متعددة المستخدمين (chatbots، مساعدون)</li>
+<li>تحتاج زمن استجابة منخفض مع إنتاجية عالية</li>
+</ul>
+<p><strong>استخدم البدائل بدلًا من ذلك:</strong></p>
+<ul>
+<li><strong>llama.cpp</strong>: الـ inference على CPU/الأطراف (edge)، لمستخدم واحد</li>
+<li><strong>HuggingFace transformers</strong>: البحث، النمذجة الأولية، التوليد لمرة واحدة</li>
+<li><strong>TensorRT-LLM</strong>: خاص بـ NVIDIA فقط، عند الحاجة إلى أقصى أداء مطلق</li>
+<li><strong>Text-Generation-Inference</strong>: عندما تكون بالفعل ضمن منظومة HuggingFace</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">المشاكل الشائعة</h2>
+<p><strong>المشكلة: نفاد الذاكرة أثناء تحميل النموذج</strong></p>
+<p>قلّل استخدام الذاكرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>أو استخدم التكميم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>المشكلة: بطء أول token (TTFT أكثر من ثانية واحدة)</strong></p>
+<p>فعِّل التخزين المؤقت للبادئات (prefix caching) للـ prompts المتكرّرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>بالنسبة للـ prompts الطويلة، فعِّل chunked prefill:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p><strong>المشكلة: خطأ النموذج غير موجود</strong></p>
+<p>استخدم <code>--trust-remote-code</code> للنماذج المخصّصة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p><strong>المشكلة: إنتاجية منخفضة (أقل من 50 طلب/ثانية)</strong></p>
+<p>زِد عدد التسلسلات المتزامنة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>تحقّق من استخدام GPU باستخدام <code>nvidia-smi</code> - يجب أن يكون أعلى من 80%.</p>
+<p><strong>المشكلة: الـ inference أبطأ من المتوقّع</strong></p>
+<p>تحقّق من أن التوازي الموتري (tensor parallelism) يستخدم عدد GPUs من مضاعفات القوة الثانية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>فعِّل فك الترميز التخميني (speculative decoding) لتوليد أسرع (مرّر الإعدادات بصيغة JSON؛
+تمت إزالة <code>--speculative-model</code> لصالح <code>--speculative-config</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-topics">مواضيع متقدّمة</h2>
+<p><strong>أنماط نشر الخادم</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/skills/mlops/inference/serving-llms-vllm/references/server-deployment.md" data-ext>references/server-deployment.md</a> للاطلاع على إعدادات Docker وKubernetes وموازنة الحمل.</p>
+<p><strong>تحسين الأداء</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/skills/mlops/inference/serving-llms-vllm/references/optimization.md" data-ext>references/optimization.md</a> لضبط PagedAttention، وتفاصيل الدُفعات المستمرة، ونتائج القياس المرجعي.</p>
+<p><strong>دليل التكميم</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/skills/mlops/inference/serving-llms-vllm/references/quantization.md" data-ext>references/quantization.md</a> لإعداد AWQ/GPTQ/FP8، وتجهيز النماذج، ومقارنات الدقة.</p>
+<p><strong>استكشاف الأخطاء وإصلاحها</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/skills/mlops/inference/serving-llms-vllm/references/troubleshooting.md" data-ext>references/troubleshooting.md</a> للاطلاع على رسائل الأخطاء التفصيلية، وخطوات تصحيح الأخطاء، وتشخيصات الأداء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hardware-requirements">متطلبات العتاد</h2>
+<ul>
+<li><strong>النماذج الصغيرة (7B-13B)</strong>: بطاقة A10 واحدة (24GB) أو A100 (40GB)</li>
+<li><strong>النماذج المتوسطة (30B-40B)</strong>: بطاقتا A100 (40GB) مع التوازي الموتري</li>
+<li><strong>النماذج الكبيرة (70B فأكثر)</strong>: 4 بطاقات A100 (40GB) أو بطاقتا A100 (80GB)، استخدم AWQ/GPTQ</li>
+</ul>
+<p>المنصات المدعومة: NVIDIA (الأساسية)، AMD ROCm، معالجات Intel الرسومية، وحدات TPU</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li>التوثيق الرسمي: <a href="https://docs.vllm.ai" data-ext>https://docs.vllm.ai</a></li>
+<li>GitHub: <a href="https://github.com/vllm-project/vllm" data-ext>https://github.com/vllm-project/vllm</a></li>
+<li>الورقة البحثية: &quot;Efficient Memory Management for Large Language Model Serving with PagedAttention&quot; (SOSP 2023)</li>
+<li>المجتمع: <a href="https://discuss.vllm.ai" data-ext>https://discuss.vllm.ai</a></li>
+</ul>

@@ -1,0 +1,104 @@
+<header><h1>مخططات الأتمتة (Automation Blueprints)</h1></header>
+<p>مخططات جاهزة للنسخ واللصق لأنماط الأتمتة الشائعة. يستخدم كل مخطط <a href="/docs/user-guide/features/cron">مُجدوِل cron</a> المدمج في Hermes للمُحفِّزات الزمنية، و<a href="/docs/user-guide/messaging/webhooks">منصة webhook</a> للمُحفِّزات القائمة على الأحداث.</p>
+<p>يعمل كل مخطط مع <strong>أي نموذج</strong>، فهو غير مقيّد بمزوّد واحد.</p>
+<p>للاطلاع على مخططات ذات معاملات تُملأ عبر نماذج إدخال بدلًا من صياغة cron، راجع <a href="/docs/reference/automation-blueprints-catalog">كتالوج Automation Blueprints</a>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>ثلاثة أنواع من المُحفِّزات</div><div class="admonitionContent_BuS1"><table><thead><tr><th>المُحفِّز</th><th>الكيفية</th><th>الأداة</th></tr></thead><tbody><tr><td><strong>الجدولة</strong></td><td>يعمل وفق وتيرة محددة (كل ساعة، أو كل ليلة، أو كل أسبوع)</td><td>الأداة <code>cronjob</code> أو الـ slash command <code>/cron</code></td></tr><tr><td><strong>حدث GitHub</strong></td><td>ينطلق عند فتح PR، أو عمليات push، أو الـ issues، أو نتائج CI</td><td>منصة Webhook (<code>hermes webhook subscribe</code>)</td></tr><tr><td><strong>استدعاء API</strong></td><td>ترسل خدمة خارجية طلب POST يحمل JSON إلى الـ endpoint الخاص بك</td><td>منصة Webhook (مسارات config.yaml أو <code>hermes webhook subscribe</code>)</td></tr></tbody></table><p>تدعم الأنواع الثلاثة جميعها التسليم إلى Telegram و Discord و Slack و SMS والبريد الإلكتروني وتعليقات GitHub أو الملفات المحلية.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="development-workflow">سير عمل التطوير</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="nightly-backlog-triage">فرز الأعمال المتراكمة ليليًا</h3>
+<p>صنّف الـ issues الجديدة وحدّد أولوياتها ولخّصها كل ليلة، ثم أرسل ملخّصًا مجمّعًا إلى قناة فريقك.</p>
+<p><strong>المُحفِّز:</strong> جدولة (ليليًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-pr-code-review">مراجعة كود PR تلقائيًا</h3>
+<p>راجع كل pull request تلقائيًا عند فتحه، وانشر تعليق مراجعة مباشرةً على الـ PR.</p>
+<p><strong>المُحفِّز:</strong> GitHub webhook</p>
+<p><strong>الخيار A — اشتراك ديناميكي (CLI):</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>الخيار B — مسار ثابت (config.yaml):</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>بعد ذلك في GitHub: <strong>Settings → Webhooks → Add webhook</strong> → Payload URL: <code>http://your-server:8644/webhooks/github-pr-review</code>، و Content type: <code>application/json</code>، و Secret: <code>github-webhook-secret</code>، و Events: <strong>Pull requests</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docs-drift-detection">اكتشاف انحراف التوثيق</h3>
+<p>فحص أسبوعي للـ PRs المدمجة للعثور على تغييرات API التي تتطلّب تحديث التوثيق.</p>
+<p><strong>المُحفِّز:</strong> جدولة (أسبوعيًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dependency-security-audit">تدقيق أمان الاعتماديات</h3>
+<p>فحص يومي بحثًا عن الثغرات المعروفة في اعتماديات المشروع.</p>
+<p><strong>المُحفِّز:</strong> جدولة (يوميًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="devops--monitoring">DevOps والمراقبة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="deploy-verification">التحقق من النشر</h3>
+<p>شغّل اختبارات smoke بعد كل عملية نشر. يرسل CI/CD pipeline الخاص بك طلب POST إلى الـ webhook عند اكتمال النشر.</p>
+<p><strong>المُحفِّز:</strong> استدعاء API (webhook)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يُطلقه CI/CD pipeline الخاص بك على النحو التالي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="alert-triage">فرز التنبيهات</h3>
+<p>اربط تنبيهات المراقبة بالتغييرات الأخيرة لصياغة مسودة استجابة. يعمل مع Datadog أو PagerDuty أو Grafana أو أي نظام تنبيهات يستطيع إرسال JSON عبر POST.</p>
+<p><strong>المُحفِّز:</strong> استدعاء API (webhook)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="uptime-monitor">مراقبة وقت التشغيل (Uptime)</h3>
+<p>افحص الـ endpoints كل 30 دقيقة، ولا ترسل إشعارًا إلا عندما يتعطّل شيء ما.</p>
+<p><strong>المُحفِّز:</strong> جدولة (كل 30 دقيقة)</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/scripts/check-uptime.py</div><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="research--intelligence">البحث وجمع المعلومات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="competitive-repository-scout">رصد مستودعات المنافسين</h3>
+<p>راقب مستودعات المنافسين بحثًا عن PRs وميزات وقرارات معمارية مثيرة للاهتمام.</p>
+<p><strong>المُحفِّز:</strong> جدولة (يوميًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ai-news-digest">ملخّص أخبار الذكاء الاصطناعي</h3>
+<p>حصيلة أسبوعية لمستجدات AI/ML.</p>
+<p><strong>المُحفِّز:</strong> جدولة (أسبوعيًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="paper-digest-with-notes">ملخّص الأوراق البحثية مع الملاحظات</h3>
+<p>فحص يومي لـ arXiv يحفظ الملخّصات في نظام تدوين الملاحظات الذي تستخدمه.</p>
+<p><strong>المُحفِّز:</strong> جدولة (يوميًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="github-event-automations">أتمتة أحداث GitHub</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-auto-labeling">وسم الـ Issues تلقائيًا</h3>
+<p>ضع الوسوم على الـ issues الجديدة وردّ عليها تلقائيًا.</p>
+<p><strong>المُحفِّز:</strong> GitHub webhook</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ci-failure-analysis">تحليل إخفاقات CI</h3>
+<p>حلّل إخفاقات CI وانشر التشخيصات على الـ PR.</p>
+<p><strong>المُحفِّز:</strong> GitHub webhook</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-port-changes-across-repos">نقل التغييرات تلقائيًا بين المستودعات</h3>
+<p>عندما يُدمج PR في أحد المستودعات، انقل التغيير المكافئ تلقائيًا إلى مستودع آخر.</p>
+<p><strong>المُحفِّز:</strong> GitHub webhook</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="business-operations">عمليات الأعمال</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stripe-payment-monitoring">مراقبة مدفوعات Stripe</h3>
+<p>تتبّع أحداث الدفع واحصل على ملخّصات لحالات الإخفاق.</p>
+<p><strong>المُحفِّز:</strong> استدعاء API (webhook)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="daily-revenue-summary">ملخّص الإيرادات اليومي</h3>
+<p>اجمع مقاييس الأعمال الرئيسية كل صباح.</p>
+<p><strong>المُحفِّز:</strong> جدولة (يوميًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-skill-workflows">سير عمل متعدد المهارات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-audit-pipeline">Pipeline لتدقيق الأمان</h3>
+<p>اجمع بين عدة مهارات (skills) لإجراء مراجعة أمنية أسبوعية شاملة.</p>
+<p><strong>المُحفِّز:</strong> جدولة (أسبوعيًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="content-pipeline">Pipeline للمحتوى</h3>
+<p>ابحث عن المحتوى واكتب مسوّدته وجهّزه وفق جدول زمني.</p>
+<p><strong>المُحفِّز:</strong> جدولة (أسبوعيًا)</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-schedule-syntax">صياغة جدولة Cron</h3>
+<table><thead><tr><th>التعبير</th><th>المعنى</th></tr></thead><tbody><tr><td><code>every 30m</code></td><td>كل 30 دقيقة</td></tr><tr><td><code>every 2h</code></td><td>كل ساعتين</td></tr><tr><td><code>0 2 * * *</code></td><td>يوميًا الساعة 2:00 صباحًا</td></tr><tr><td><code>0 9 * * 1</code></td><td>كل يوم اثنين الساعة 9:00 صباحًا</td></tr><tr><td><code>0 9 * * 1-5</code></td><td>أيام العمل الساعة 9:00 صباحًا</td></tr><tr><td><code>0 3 * * 0</code></td><td>كل يوم أحد الساعة 3:00 صباحًا</td></tr><tr><td><code>0 */6 * * *</code></td><td>كل 6 ساعات</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-targets">أهداف التسليم</h3>
+<table><thead><tr><th>الهدف</th><th>الخيار</th><th>ملاحظات</th></tr></thead><tbody><tr><td>المحادثة نفسها</td><td><code>--deliver origin</code></td><td>الافتراضي — يُسلِّم إلى المكان الذي أُنشئت فيه المهمة</td></tr><tr><td>ملف محلي</td><td><code>--deliver local</code></td><td>يحفظ المخرجات دون إشعار</td></tr><tr><td>Telegram</td><td><code>--deliver telegram</code></td><td>القناة الرئيسية، أو <code>telegram:CHAT_ID</code> لمحادثة محددة</td></tr><tr><td>Discord</td><td><code>--deliver discord</code></td><td>القناة الرئيسية، أو <code>discord:CHANNEL_ID</code></td></tr><tr><td>Slack</td><td><code>--deliver slack</code></td><td>القناة الرئيسية</td></tr><tr><td>SMS</td><td><code>--deliver sms:+15551234567</code></td><td>مباشرةً إلى رقم هاتف</td></tr><tr><td>سلسلة (thread) محددة</td><td><code>--deliver telegram:-100123:456</code></td><td>موضوع (topic) في منتدى Telegram</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-template-variables">متغيرات قوالب Webhook</h3>
+<table><thead><tr><th>المتغير</th><th>الوصف</th></tr></thead><tbody><tr><td><code>{pull_request.title}</code></td><td>عنوان الـ PR</td></tr><tr><td><code>{issue.number}</code></td><td>رقم الـ issue</td></tr><tr><td><code>{repository.full_name}</code></td><td><code>owner/repo</code></td></tr><tr><td><code>{action}</code></td><td>إجراء الحدث (opened، closed، إلخ)</td></tr><tr><td><code>{__raw__}</code></td><td>حمولة JSON الكاملة (تُقتطع عند 4000 حرف)</td></tr><tr><td><code>{sender.login}</code></td><td>مستخدم GitHub الذي أطلق الحدث</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-silent-pattern">نمط [SILENT]</h3>
+<p>عندما تحتوي استجابة مهمة cron على <code>[SILENT]</code>، يُلغى التسليم. استخدم ذلك لتجنّب سيل الإشعارات في عمليات التشغيل الهادئة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>وهذا يعني أنك لن تتلقّى إشعارًا إلا عندما يكون لدى الوكيل ما يستحق الإبلاغ عنه.</p>

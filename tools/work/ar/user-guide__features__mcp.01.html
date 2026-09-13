@@ -1,0 +1,193 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-registers-mcp-tools">كيف يسجّل Hermes أدوات MCP</h2>
+<p>يضيف Hermes بادئة إلى أسماء أدوات MCP حتى لا تتعارض مع أسماء الأدوات المدمجة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>أمثلة:</p>
+<table><thead><tr><th>الخادم</th><th>أداة MCP</th><th>الاسم المسجَّل</th></tr></thead><tbody><tr><td><code>filesystem</code></td><td><code>read_file</code></td><td><code>mcp_filesystem_read_file</code></td></tr><tr><td><code>github</code></td><td><code>create-issue</code></td><td><code>mcp_github_create_issue</code></td></tr><tr><td><code>my-api</code></td><td><code>query.data</code></td><td><code>mcp_my_api_query_data</code></td></tr></tbody></table>
+<p>عمليًا، لا تحتاج عادةً إلى استدعاء الاسم ذي البادئة يدويًا — إذ يرى Hermes الأداة ويختارها أثناء استدلاله المعتاد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-result-sanitization-and-_meta">تنقية نتائج الأدوات و <code>_meta</code></h3>
+<p>يُطبَّق سلوكان على كل نتيجة لأداة MCP قبل أن يراها النموذج:</p>
+<ul>
+<li><strong>تُزال محارف Unicode TAG غير المرئية.</strong> المحارف الواقعة في النطاق U+E0000–U+E007F لا تظهر إطلاقًا في الطرفيات وواجهات المحادثة، لكنها مرئية بالكامل للنموذج — وهي قناة تهريب كلاسيكية لحقن الـ prompt (prompt injection) يستغلها خادم خبيث أو مُخترَق. يزيلها Hermes من نتائج الأدوات، ومحتوى الموارد، وأوصاف الأدوات. أما تسلسلات وسوم الإيموجي المشروعة (مثل أعلام المناطق 🏴󠁧󠁢󠁳󠁣󠁴󠁿) فتُحفظ كما هي.</li>
+<li><strong>تُعرض بيانات <code>_meta</code> الخاصة بالمورِّدين؛ أما المفاتيح المحجوزة للبروتوكول فلا.</strong> عندما يُرفق خادم خريطة <code>_meta</code> بنتيجة أداة (بمساحات أسماء خاصة بالمورِّدين مثل <code>com.example/handoff</code>)، يمرّرها Hermes إلى النموذج إلى جانب محتوى النتيجة. وتُحذف المفاتيح الواقعة تحت البادئات المحجوزة للبروتوكول — أي تسمية <code>modelcontextprotocol</code> أو <code>mcp</code> متبوعة بتسمية أخرى، مثل <code>modelcontextprotocol.io/...</code> أو <code>tools.mcp.com/...</code> — بما يتوافق مع قواعد أسماء المفاتيح في مواصفة MCP. وإذا لم يتبقَّ شيء موجَّه إلى النموذج، يُحذف الحقل <code>_meta</code> كليًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-utility-tools">أدوات MCP المساعدة</h2>
+<p>عندما يكون ذلك مدعومًا، يسجّل Hermes أيضًا أدوات مساعدة حول موارد MCP والـ prompts:</p>
+<ul>
+<li><code>list_resources</code></li>
+<li><code>read_resource</code></li>
+<li><code>list_prompts</code></li>
+<li><code>get_prompt</code></li>
+</ul>
+<p>تُسجَّل هذه الأدوات لكل خادم بنمط البادئة نفسه، على سبيل المثال:</p>
+<ul>
+<li><code>mcp_github_list_resources</code></li>
+<li><code>mcp_github_get_prompt</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="important">مهم</h3>
+<p>أصبحت هذه الأدوات المساعدة الآن تراعي القدرات المتاحة:</p>
+<ul>
+<li>لا يسجّل Hermes أدوات الموارد المساعدة إلا إذا كانت جلسة MCP تدعم فعلًا عمليات الموارد</li>
+<li>لا يسجّل Hermes أدوات الـ prompts المساعدة إلا إذا كانت جلسة MCP تدعم فعلًا عمليات الـ prompts</li>
+</ul>
+<p>لذا فإن الخادم الذي يوفّر أدوات قابلة للاستدعاء دون موارد/prompts لن يحصل على تلك الأغلفة الإضافية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-server-filtering">التصفية على مستوى كل خادم</h2>
+<p>يمكنك التحكم في الأدوات التي يضيفها كل خادم MCP إلى Hermes، ما يتيح إدارة دقيقة لمساحة أسماء الأدوات لديك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disable-a-server-entirely">تعطيل خادم بالكامل</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>عند ضبط <code>enabled: false</code>، يتخطى Hermes الخادم كليًا ولا يحاول حتى الاتصال به.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="whitelist-server-tools">قائمة سماح لأدوات الخادم</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>لا تُسجَّل إلا أدوات خادم MCP المذكورة.</p>
+<p>يمكن أن تكون الإدخالات في <code>include</code>/<code>exclude</code> أيضًا أنماط glob ‏(<code>*</code>، <code>?</code>، <code>[...]</code>،
+وتُطابَق مع مراعاة حالة الأحرف): فالنمط <code>include: [&quot;*_dns_*&quot;]</code> يسجّل كل أداة يحتوي
+اسمها على <code>_dns_</code>. أما الإدخالات العادية التي لا تتضمن محارف خاصة فتبقى مطابقة تامة.
+وأنماط glob هي الطريقة العملية لتصفية الخوادم التي توفّر آلاف
+الأدوات المولَّدة تلقائيًا للـ endpoints بحسب عائلة المنتج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="blacklist-server-tools">قائمة حظر لأدوات الخادم</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>تُسجَّل جميع أدوات الخادم باستثناء الأدوات المستبعدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="glob-patterns">أنماط Glob</h3>
+<p>تقبل كلتا القائمتين أنماط glob على نمط fnmatch إلى جانب الأسماء الدقيقة — وهذا ضروري
+للواجهات المسطّحة الضخمة مثل API MCP الخاص بـ Cloudflare ‏(<code>?codemode=false</code>، بنحو 3,300
+أداة)، حيث يكون استبعاد مجالات المنتجات endpoint تلو الآخر أمرًا غير عملي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>الإدخالات التي لا تحتوي على محارف glob الخاصة (<code>*</code>، <code>?</code>، <code>[</code>) تُطابَق بدقة — فالإدخال <code>docs</code>
+يستبعد فقط الأداة المسمّاة <code>docs</code>، ولا يستبعد أبدًا <code>docs_search</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="precedence-rule">قاعدة الأولوية</h3>
+<p>إذا وُجدت القائمتان معًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>فإن <code>include</code> هي الغالبة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filter-utility-tools-too">تصفية الأدوات المساعدة أيضًا</h3>
+<p>يمكنك أيضًا تعطيل الأغلفة المساعدة التي يضيفها Hermes بشكل منفصل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>وهذا يعني:</p>
+<ul>
+<li><code>tools.resources: false</code> يعطّل <code>list_resources</code> و<code>read_resource</code></li>
+<li><code>tools.prompts: false</code> يعطّل <code>list_prompts</code> و<code>get_prompt</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-example">مثال كامل</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-happens-if-everything-is-filtered-out">ماذا يحدث إذا صُفّي كل شيء؟</h2>
+<p>إذا كانت إعداداتك تستبعد جميع الأدوات القابلة للاستدعاء وتعطّل أو تُغفل جميع الأدوات المساعدة المدعومة، فلن يُنشئ Hermes toolset فارغًا لـ MCP وقت التشغيل لذلك الخادم.</p>
+<p>وهذا يُبقي قائمة الأدوات نظيفة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="runtime-behavior">السلوك وقت التشغيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery-time">وقت الاكتشاف</h3>
+<p>يكتشف Hermes خوادم MCP عند بدء التشغيل ويسجّل أدواتها في سجل الأدوات المعتاد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dynamic-tool-discovery">الاكتشاف الديناميكي للأدوات</h3>
+<p>يمكن لخوادم MCP إبلاغ Hermes عند تغيّر أدواتها المتاحة وقت التشغيل عبر إرسال إشعار <code>notifications/tools/list_changed</code>. وعندما يتلقى Hermes هذا الإشعار، يعيد تلقائيًا جلب قائمة أدوات الخادم ويحدّث السجل — دون الحاجة إلى تشغيل <code>/reload-mcp</code> يدويًا.</p>
+<p>يفيد هذا مع خوادم MCP التي تتغير قدراتها ديناميكيًا (مثل خادم يضيف أدوات عند تحميل مخطط قاعدة بيانات جديد، أو يزيل أدوات عندما تتوقف خدمة ما عن العمل).</p>
+<p>عملية التحديث محمية بقفل، بحيث لا تتسبب الإشعارات المتلاحقة من الخادم نفسه في عمليات تحديث متداخلة. أما إشعارات تغيّر الـ prompts والموارد (<code>prompts/list_changed</code>، <code>resources/list_changed</code>) فتُستقبل لكن لا يُتخذ بشأنها أي إجراء بعد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reloading">إعادة التحميل</h3>
+<p>إذا غيّرت إعدادات MCP، فاستخدم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>يعيد هذا تحميل خوادم MCP من الإعدادات ويحدّث قائمة الأدوات المتاحة. وهو أيضًا الطريقة الصريحة لإعادة فحص الأدوات المشروطة بالتوفر (Docker، و<code>HASS_TOKEN</code>، و OAuth…): فمجموعة أدوات الجلسة تبقى مجمّدة فيما عدا ذلك، لذا فإن بيانات الاعتماد أو الـ daemon الذي يظهر في منتصف الجلسة لا يُلتقط إلا عند <code>/reload-mcp</code>، أو <code>/new</code>، أو ضغط السياق. أما تغييرات الأدوات وقت التشغيل التي يدفعها الخادم نفسه، فراجع <a href="#dynamic-tool-discovery">الاكتشاف الديناميكي للأدوات</a> أعلاه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="toolsets">Toolsets</h3>
+<p>يُنشئ كل خادم MCP مُعدّ أيضًا toolset وقت التشغيل عندما يضيف أداة مسجّلة واحدة على الأقل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>وهذا يسهّل فهم خوادم MCP والتعامل معها على مستوى الـ toolset.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">نموذج الأمان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stdio-env-filtering">تصفية متغيرات البيئة في Stdio</h3>
+<p>بالنسبة لخوادم stdio، لا يمرّر Hermes بيئة الـ shell الكاملة لديك دون تمييز.</p>
+<p>لا يُمرَّر إلا <code>env</code> المُعدّ صراحةً إلى جانب حد أدنى آمن من المتغيرات الأساسية. وهذا يقلّل من تسرّب الأسرار عن غير قصد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-level-exposure-control">التحكم في الكشف على مستوى الإعدادات</h3>
+<p>دعم التصفية الجديد هو أيضًا وسيلة تحكم أمنية:</p>
+<ul>
+<li>عطّل الأدوات الخطرة التي لا تريد أن يراها النموذج</li>
+<li>اكشف قائمة سماح دنيا فقط للخوادم الحسّاسة</li>
+<li>عطّل أغلفة الموارد/الـ prompts عندما لا تريد كشف تلك الواجهة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-use-cases">أمثلة على حالات الاستخدام</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="github-server-with-a-minimal-issue-management-surface">خادم GitHub بواجهة دنيا لإدارة الـ issues</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>استخدمه هكذا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stripe-server-with-dangerous-actions-removed">خادم Stripe مع إزالة الإجراءات الخطرة</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>استخدمه هكذا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filesystem-server-for-a-single-project-root">خادم نظام ملفات لجذر مشروع واحد</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>استخدمه هكذا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-server-not-connecting">خادم MCP لا يتصل</h3>
+<p>تحقّق مما يلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>ثم تحقّق من إعداداتك وأعد تشغيل Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools-not-appearing">الأدوات لا تظهر</h3>
+<p>الأسباب المحتملة:</p>
+<ul>
+<li>فشل الخادم في الاتصال</li>
+<li>فشل الاكتشاف</li>
+<li>استبعدت إعدادات التصفية لديك الأدوات</li>
+<li>القدرة المساعدة غير موجودة على ذلك الخادم</li>
+<li>الخادم معطّل بواسطة <code>enabled: false</code></li>
+</ul>
+<p>إذا كنت تُجري التصفية عن قصد، فهذا متوقع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-didnt-resource-or-prompt-utilities-appear">لماذا لم تظهر الأدوات المساعدة للموارد أو الـ prompts؟</h3>
+<p>لأن Hermes أصبح لا يسجّل تلك الأغلفة إلا عند تحقق الشرطين معًا:</p>
+<ol>
+<li>أن تسمح بها إعداداتك</li>
+<li>أن تدعم جلسة الخادم تلك القدرة فعلًا</li>
+</ol>
+<p>هذا مقصود، ويُبقي قائمة الأدوات معبّرة عن الواقع بدقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parallel-tool-calls">استدعاءات الأدوات المتوازية</h2>
+<p>تعمل أدوات MCP افتراضيًا بالتتابع — أداة واحدة في كل مرة. إذا كان خادم MCP لديك يوفّر أدوات آمنة للتشغيل المتزامن (مثل الاستعلامات للقراءة فقط، أو استدعاءات API المستقلة)، فيمكنك تفعيل التنفيذ المتوازي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>عندما تكون قيمة <code>supports_parallel_tool_calls</code> هي <code>true</code>، قد ينفّذ Hermes عدة أدوات من ذلك الخادم في الوقت نفسه ضمن دفعة واحدة من استدعاءات الأدوات، تمامًا كما يفعل مع الأدوات المدمجة المخصّصة للقراءة فقط (web_search و read_file وغيرهما).</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="50"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>لا تفعّل الاستدعاءات المتوازية إلا لخوادم MCP التي تكون أدواتها آمنة للتشغيل في الوقت نفسه. إذا كانت الأدوات تقرأ وتكتب حالة مشتركة أو ملفات أو قواعد بيانات أو موارد خارجية، فراجع حالات التسابق (race conditions) في القراءة/الكتابة قبل تفعيل هذا الإعداد.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-sampling-support">دعم MCP Sampling</h2>
+<p>يمكن لخوادم MCP طلب inference من LLM عبر Hermes باستخدام بروتوكول <code>sampling/createMessage</code>. يتيح ذلك لخادم MCP أن يطلب من Hermes توليد نص نيابةً عنه — وهو مفيد للخوادم التي تحتاج إلى قدرات LLM لكنها لا تملك وصولًا خاصًا بها إلى نموذج.</p>
+<p>الـ Sampling <strong>مفعّل افتراضيًا</strong> لجميع خوادم MCP (عندما تدعمه MCP SDK). اضبطه لكل خادم تحت المفتاح <code>sampling</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<p>يتضمن معالج الـ sampling محدِّدًا للمعدل بنافذة منزلقة، ومهلًا زمنية لكل طلب، وحدودًا لعمق حلقات الأدوات لمنع الاستخدام الخارج عن السيطرة. وتُتتبَّع المقاييس (عدد الطلبات، والأخطاء، والـ tokens المستخدمة) لكل نسخة خادم.</p>
+<p>لتعطيل الـ sampling لخادم محدد:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-elicitation-support">دعم MCP Elicitation</h2>
+<p>يمكن لخوادم MCP أن تطلب من المستخدم مدخلات منظّمة في منتصف استدعاء أداة عبر بروتوكول <code>elicitation/create</code> ‏(mcp Python SDK ≥ 1.11.0). يوجّه Hermes طلبات الـ elicitation من نوع <strong>form-mode</strong> عبر واجهة الموافقة الموجودة لديه — مطالبة تفاعلية في CLI/TUI، أو أزرار موافقة على منصات الـ gateway مثل Telegram و Slack — بحيث يصل الطلب إليك أينما كانت الجلسة. أما طلبات الـ elicitation من نوع <strong>URL-mode</strong> (حيث يوجّهك الخادم إلى عنوان URL خارجي) فتُرفض لأنها غير مدعومة.</p>
+<p>الـ Elicitation <strong>مفعّل افتراضيًا</strong> لكل خادم. اضبطه تحت المفتاح <code>elicitation</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<p>تطابق المهلة الافتراضية البالغة 5 دقائق القيمة الافتراضية لموافقات الـ gateway، حتى يتسع الوقت للمستخدمين على الواجهات غير المتزامنة للرد قبل أن يستسلم الخادم. وتُتتبَّع المقاييس لكل خادم (الطلبات، والمقبولة، والمرفوضة، والأخطاء) في المعالج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-hermes-as-an-mcp-server">تشغيل Hermes كخادم MCP</h2>
+<p>إلى جانب الاتصال <strong>بخوادم</strong> MCP، يمكن لـ Hermes أيضًا <strong>أن يكون</strong> خادم MCP. يتيح ذلك للوكلاء الآخرين الداعمين لـ MCP ‏(Claude Code و Cursor و Codex أو أي عميل MCP) استخدام قدرات المراسلة في Hermes — سرد المحادثات، وقراءة سجل الرسائل، وإرسال الرسائل عبر جميع منصاتك المتصلة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this">متى تستخدم هذا</h3>
+<ul>
+<li>تريد أن يرسل Claude Code أو Cursor أو أي وكيل برمجة آخر رسائل Telegram/Discord/Slack ويقرأها عبر Hermes</li>
+<li>تريد خادم MCP واحدًا يربطك بجميع منصات المراسلة المتصلة بـ Hermes دفعة واحدة</li>
+<li>لديك بالفعل gateway لـ Hermes قيد التشغيل مع منصات متصلة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-1">البدء السريع</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<p>يُشغّل هذا خادم MCP من نوع stdio. ويتولى عميل MCP (وليس أنت) إدارة دورة حياة العملية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-client-configuration">إعداد عميل MCP</h3>
+<p>أضف Hermes إلى إعدادات عميل MCP لديك. على سبيل المثال، في ملف <code>~/.claude/claude_desktop_config.json</code> الخاص بـ Claude Code:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<p>أو إذا كنت قد ثبّتّ Hermes في موقع محدد:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-tools">الأدوات المتاحة</h3>
+<p>يوفّر خادم MCP عشر أدوات، تطابق واجهة جسر القنوات في OpenClaw، إضافةً إلى متصفح قنوات خاص بـ Hermes:</p>
+<table><thead><tr><th>الأداة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>conversations_list</code></td><td>يسرد محادثات المراسلة النشطة. يمكن التصفية حسب المنصة أو البحث بالاسم.</td></tr><tr><td><code>conversation_get</code></td><td>يجلب معلومات تفصيلية عن محادثة واحدة باستخدام مفتاح الجلسة.</td></tr><tr><td><code>messages_read</code></td><td>يقرأ سجل الرسائل الأخيرة لمحادثة ما.</td></tr><tr><td><code>attachments_fetch</code></td><td>يستخرج المرفقات غير النصية (الصور، والوسائط) من رسالة محددة.</td></tr><tr><td><code>events_poll</code></td><td>يستطلع أحداث المحادثات الجديدة منذ موضع مؤشر (cursor) معيّن.</td></tr><tr><td><code>events_wait</code></td><td>استطلاع طويل (long-poll) / انتظار حتى وصول الحدث التالي (شبه فوري).</td></tr><tr><td><code>messages_send</code></td><td>يرسل رسالة عبر منصة ما (مثل <code>telegram:123456</code>، <code>discord:#general</code>).</td></tr><tr><td><code>channels_list</code></td><td>يسرد وجهات المراسلة المتاحة عبر جميع المنصات.</td></tr><tr><td><code>permissions_list_open</code></td><td>يسرد طلبات الموافقة المعلّقة التي رُصدت خلال جلسة الجسر هذه.</td></tr><tr><td><code>permissions_respond</code></td><td>يسمح بطلب موافقة معلّق أو يرفضه.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-system">نظام الأحداث</h3>
+<p>يتضمن خادم MCP جسر أحداث حيًّا يستطلع قاعدة بيانات الجلسات في Hermes بحثًا عن رسائل جديدة. يمنح هذا عملاء MCP اطلاعًا شبه فوري على المحادثات الواردة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>
+<p>أنواع الأحداث: <code>message</code>، <code>approval_requested</code>، <code>approval_resolved</code></p>
+<p>طابور الأحداث موجود في الذاكرة ويبدأ عند اتصال الجسر. أما الرسائل الأقدم فمتاحة عبر <code>messages_read</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="options">الخيارات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
+<p>يقرأ خادم MCP بيانات المحادثات مباشرةً من مخزن الجلسات في Hermes — إذ يُعد <code>~/.hermes/state.db</code> المصدر الأساسي، بينما يُحتفظ بـ <code>sessions.json</code> فقط كمصدر احتياطي قديم. يستطلع خيط (thread) في الخلفية قاعدة البيانات بحثًا عن رسائل جديدة ويحتفظ بطابور أحداث في الذاكرة. ولإرسال الرسائل، يستخدم محرك الإرسال الداخلي نفسه (<code>tools/send_message_tool.py</code>) الذي يشغّل تسليم مهام cron و CLI ‏<code>hermes send</code>.</p>
+<p>لا يلزم أن يكون الـ gateway قيد التشغيل لعمليات القراءة (سرد المحادثات، وقراءة السجل، واستطلاع الأحداث). لكنه يلزم أن يكون قيد التشغيل لعمليات الإرسال، لأن محوّلات المنصات (platform adapters) تحتاج إلى اتصالات نشطة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="current-limits">القيود الحالية</h3>
+<ul>
+<li>يوفّر <code>hermes mcp serve</code> المدمج حاليًا خادم MCP <strong>يعمل عبر stdio فقط</strong>. إذا كنت تحتاج إلى خادم HTTP MCP، فشغّل محوّلًا منفصلًا — أو، وهو الأكثر شيوعًا بكثير، استخدم جانب <strong>العميل</strong> في MCP ضمن Hermes، والذي يدعم بالفعل stdio و HTTP كليهما (<code>url</code> + <code>headers</code> في <code>mcp_servers.yaml</code> / <code>config.yaml</code>؛ راجع <a href="#http-servers">خوادم HTTP</a> أعلاه).</li>
+<li>استطلاع الأحداث بفواصل تقارب 200ms عبر استطلاع لقاعدة البيانات مُحسَّن بالاعتماد على mtime (يتخطى العمل عندما لا تتغير الملفات)</li>
+<li>لا يوجد دعم لبروتوكول الإشعارات الفورية <code>claude/channel</code> بعد</li>
+<li>الإرسال نصي فقط (لا يمكن إرسال وسائط/مرفقات عبر <code>messages_send</code>)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/guides/use-mcp-with-hermes">استخدام MCP مع Hermes</a></li>
+<li><a href="/docs/reference/cli-commands">أوامر CLI</a></li>
+<li><a href="/docs/reference/slash-commands">Slash Commands</a></li>
+<li><a href="/docs/reference/faq">الأسئلة الشائعة</a></li>
+</ul>

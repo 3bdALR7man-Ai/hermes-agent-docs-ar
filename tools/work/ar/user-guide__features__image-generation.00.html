@@ -1,0 +1,176 @@
+<header><h1>توليد الصور</h1></header>
+<p>يولّد Hermes Agent الصور انطلاقًا من prompts نصية عبر FAL.ai. ويدعم أحد عشر نموذجًا جاهزة للاستخدام مباشرةً، لكل منها موازنات مختلفة بين السرعة والجودة والتكلفة. ويمكن للمستخدم ضبط النموذج النشط عبر <code>hermes tools</code>، ويُحفَظ اختياره في <code>config.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-models">النماذج المدعومة</h2>
+<table><thead><tr><th>النموذج</th><th>السرعة</th><th>نقاط القوة</th><th>السعر</th></tr></thead><tbody><tr><td><code>fal-ai/flux-2/klein/9b</code> <em>(الافتراضي)</em></td><td><code>&lt;1s</code></td><td>سريع، ونص واضح وحاد</td><td>$0.006/MP</td></tr><tr><td><code>fal-ai/flux-2-pro</code></td><td>~6s</td><td>واقعية فوتوغرافية بمستوى الاستوديو</td><td>$0.03/MP</td></tr><tr><td><code>fal-ai/z-image/turbo</code></td><td>~2s</td><td>ثنائي اللغة EN/CN، و6B من المعاملات</td><td>$0.005/MP</td></tr><tr><td><code>fal-ai/nano-banana-pro</code></td><td>~8s</td><td>Gemini 3 Pro، وعمق في الاستدلال، وعرض النصوص</td><td>$0.15/image (1K)</td></tr><tr><td><code>fal-ai/gpt-image-1.5</code></td><td>~15s</td><td>الالتزام بالـ prompt</td><td>$0.034/image</td></tr><tr><td><code>fal-ai/gpt-image-2</code></td><td>~20s</td><td>أحدث ما توصلت إليه التقنية (SOTA) في عرض النصوص مع CJK، وواقعية فوتوغرافية مدركة للعالم</td><td>$0.04–0.06/image</td></tr><tr><td><code>fal-ai/ideogram/v3</code></td><td>~5s</td><td>أفضل خطوط طباعية (typography)</td><td>$0.03–0.09/image</td></tr><tr><td><code>fal-ai/recraft/v4/pro/text-to-image</code></td><td>~8s</td><td>التصميم، وأنظمة الهوية التجارية، وجاهز للإنتاج</td><td>$0.25/image</td></tr><tr><td><code>fal-ai/qwen-image</code></td><td>~12s</td><td>قائم على LLM، والنصوص المعقدة</td><td>$0.02/MP</td></tr><tr><td><code>fal-ai/krea/v2/medium/text-to-image</code></td><td>~15-25s</td><td>الرسوم التوضيحية، والأنمي، واللوحات الفنية، والأساليب التعبيرية/الفنية</td><td>$0.030–0.035/image</td></tr><tr><td><code>fal-ai/krea/v2/large/text-to-image</code></td><td>~25-60s</td><td>الواقعية الفوتوغرافية، والمظاهر الخام ذات الملمس (ضبابية الحركة، والحبيبات، ومظهر الأفلام)</td><td>$0.060–0.065/image</td></tr></tbody></table>
+<p>الأسعار هي أسعار FAL وقت كتابة هذا المستند؛ راجع <a href="https://fal.ai/" data-ext>fal.ai</a> للاطلاع على الأرقام الحالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>مشتركو Nous</div><div class="admonitionContent_BuS1"><p>إذا كان لديك اشتراك مدفوع في <a href="https://portal.nousresearch.com" data-ext>Nous Portal</a>، فيمكنك استخدام توليد الصور عبر <strong><a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a></strong> دون مفتاح FAL API. ويبقى اختيارك للنموذج محفوظًا في كلا المسارين. يمكن للتثبيتات الجديدة تشغيل <code>hermes setup --portal</code> لتسجيل الدخول وتفعيل جميع أدوات الـ gateway دفعة واحدة؛ أما التثبيتات الحالية فيمكنها اختيار <strong>Nous Subscription</strong> بوصفه الـ backend لتوليد الصور عبر <code>hermes tools</code>.</p><p>إذا أعاد الـ gateway المُدار الاستجابة <code>HTTP 4xx</code> لنموذج معين، فهذا يعني أن ذلك النموذج لم يُمرَّر بعد عبر الـ proxy من جهة البوابة (portal) — وسيخبرك الوكيل بذلك مع خطوات المعالجة (التبديل إلى FAL.ai في <code>hermes tools</code> باستخدام <code>FAL_KEY</code> الخاص بك للوصول المباشر، أو اختيار نموذج مختلف).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-a-fal-api-key">الحصول على مفتاح FAL API</h3>
+<ol>
+<li>أنشئ حسابًا على <a href="https://fal.ai/" data-ext>fal.ai</a></li>
+<li>أنشئ مفتاح API من لوحة التحكم الخاصة بك</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-and-pick-a-model">الإعداد واختيار النموذج</h3>
+<p>شغّل أمر الأدوات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>انتقل إلى <strong>🎨 Image Generation</strong>، واختر الـ backend (Nous Subscription أو FAL.ai)، وبعدها تعرض أداة الاختيار جميع النماذج المدعومة في جدول بأعمدة محاذاة — استخدم مفاتيح الأسهم للتنقل، و Enter للاختيار:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُحفَظ اختيارك في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يمثّل <code>image_gen.provider</code> مفتاح الاختيار الوحيد: القيمة <code>nous</code> توجّه الطلبات عبر Tool Gateway المُدار؛ واسم المورّد (<code>fal</code>، <code>openai</code>، <code>xai</code>، <code>krea</code>، ...) يتصل مباشرةً باستخدام مفتاحك الخاص. يتبع وقت التشغيل هذا الاختيار المحفوظ دائمًا — إذ يُتجاهَل <code>FAL_KEY</code> الموجود في <code>.env</code> ما دام الإعداد <code>provider: nous</code>، ويؤدي <code>provider: fal</code> دون <code>FAL_KEY</code> إلى الخطأ <code>image_gen is configured to use fal (set via hermes tools), but FAL_KEY is not set. Run &#x27;hermes tools&#x27; to change it.</code> بدلًا من إعادة التوجيه بصمت. غيّر المزوّدين عبر <code>hermes tools</code>، لا بإضافة المفاتيح أو حذفها. (القيمة المنطقية القديمة <code>use_gateway</code> موروثة (legacy) — ما زالت تُقرأ على أنها <code>nous</code> عندما تكون <code>true</code>، لكنها لم تعد تُكتب أبدًا.)</p>
+<p>القيمة الافتراضية لـ <code>max_parallel_requests</code> هي <code>4</code>. يقيّدها Hermes بحيث لا تقل عن واحد
+ولا تتجاوز الحد العام لعمّال الأدوات (tool-worker)، فيتلقى مزوّدو الصور طلبات متوازية محدودة
+دون السماح لدفعة صور بتجاوز سقف التزامن الخاص بالوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="openrouter-the-full-image-api-catalog">OpenRouter: كتالوج Image API الكامل</h3>
+<p>مع <code>image_gen.provider: openrouter</code>، تعرض أداة اختيار النماذج كتالوج الصور الحي
+الكامل لدى OpenRouter — أي نماذج
+<a href="https://openrouter.ai/docs/guides/overview/multimodal/image-generation" data-ext>Image API</a>
+المخصّصة (Seedream و FLUX.2 و Recraft و Qwen Image و MAI و Krea و Riverflow و Grok
+Imagine وغيرها — أكثر من 40 معرّفًا) مدمجةً مع نماذج الصور في chat-completions.
+يُجلَب الكتالوج مباشرةً من <code>GET /images/models</code> و <code>GET /models</code>، لذا
+تظهر النماذج الجديدة في أداة الاختيار بمجرد أن يوفّرها OpenRouter؛ دون الحاجة إلى تحديث
+Hermes. ويوجّه التوليد كل نموذج تلقائيًا إلى الواجهة التي تخدمه
+(<code>POST /images/generations</code> المخصّصة أو chat-completions).
+يمرّر Nous Portal بروتوكول chat-completions فقط، لذا تعرض أداة الاختيار الخاصة به
+النماذج التي تُخدَم عبر المحادثة فقط.</p>
+<p>توضع الإعدادات الاختيارية لكل طلب الخاصة بنماذج Image API ضمن قسم الإعدادات
+المخصّص لها (أو عبر متغيرات البيئة <code>OPENROUTER_IMAGE_API_*</code>):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gpt-image-quality">جودة GPT-Image</h3>
+<p>جودة طلبات <code>fal-ai/gpt-image-1.5</code> و <code>fal-ai/gpt-image-2</code> مثبّتة على <code>medium</code> (~$0.034–$0.06/image بدقة 1024×1024). لا نتيح المستويين <code>low</code> / <code>high</code> كخيار للمستخدم حتى تبقى فوترة Nous Portal قابلة للتنبؤ لجميع المستخدمين — إذ يتراوح فرق التكلفة بين المستويات من 3 إلى 22 ضعفًا. إذا أردت خيارًا أرخص، فاختر Klein 9B أو Z-Image Turbo؛ وإذا أردت جودة أعلى، فاستخدم Nano Banana Pro أو Recraft V4 Pro.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="meta-model-api-muse-image">Meta Model API: ‏Muse Image</h3>
+<p>مع <code>image_gen.provider: meta-ai</code>، تُولَّد الصور عبر
+<a href="https://api.meta.ai" data-ext>Meta Model API</a> (<code>https://api.meta.ai/v1</code>)، وهو
+الـ endpoint نفسه المتوافق مع OpenAI الذي يخدم نماذج المحادثة Muse Spark. وهو
+الرفيق الخاص بتوليد الصور لمزوّد المحادثة المضمّن <code>meta-ai</code>.</p>
+<table><thead><tr><th>النموذج</th><th>السرعة</th><th>نقاط القوة</th><th>السعر</th></tr></thead><tbody><tr><td><code>muse-image-1.0</code> <em>(الافتراضي)</em></td><td>~10s</td><td>توليد الصور عبر Meta Model API</td><td>$0.01/image</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تعيد المصادقة استخدام متغيرات البيئة نفسها الخاصة بمزوّد المحادثة من Meta — <code>MODEL_API_KEY</code>
+(الاسم الموثّق لدى Meta)، مع قبول <code>META_API_KEY</code> / <code>META_MODEL_API_KEY</code>
+كأسماء بديلة. اضبط <code>META_BASE_URL</code> للإشارة إلى proxy أو مضيف بديل. يقتصر الدعم حاليًا على
+تحويل النص إلى صورة فقط؛ وتُحفَظ الاستجابات في <code>$HERMES_HOME/cache/images/</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="fal-gpt-image-25">FAL: ‏GPT Image 2.5</h2>
+<p>اختر <strong>GPT Image 2.5 Flare</strong> أو <strong>GPT Image 2.5 Sunburst</strong> ضمن
+<code>hermes tools</code> → Image Generation → FAL.ai. معرّفات النماذج هي:</p>
+<ul>
+<li><code>openai/gpt-image-2.5/flare/text-to-image</code></li>
+<li><code>openai/gpt-image-2.5/sunburst/text-to-image</code></li>
+</ul>
+<p>على سبيل المثال:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يؤدي تمرير <code>image_url</code> أو صور مرجعية إلى الاختيار التلقائي لـ endpoint
+<code>openai/gpt-image-2.5/flare/edit</code> أو <code>openai/gpt-image-2.5/sunburst/edit</code> المقابل.
+ويقبل كلاهما حتى 16 صورة مصدرية. يثبّت Hermes الجودة على <code>medium</code>، تماشيًا مع
+سياسته الحالية لـ FAL GPT Image بدلًا من القيمة الافتراضية الأعلى تكلفةً لدى FAL وهي <code>high</code>.
+يستخدم الوضعان الأفقي والعمودي إعدادات 4:3 المسبقة لاستيفاء الحد الأدنى لعدد البكسلات؛
+أما المربع فيستخدم <code>square_hd</code>. ويبقى تكبير الدقة (upscaling) معطّلًا ما لم يُطلَب.</p>
+<p>تحتسب FAL الرسوم بحسب الـ tokens، لا بسعر ثابت للصورة: $5/M لإدخال النص، و$1.25/M لإدخال النص المخزّن
+مؤقتًا، و$10/M لإخراج النص، و$8/M لإدخال الصور، و$2/M لإدخال الصور المخزّن مؤقتًا، و
+$30/M لإخراج الصور، مع التقريب للأعلى إلى $0.0001 لكل طلب. راجع صفحتي
+<a href="https://fal.ai/models/openai/gpt-image-2.5/flare/text-to-image" data-ext>Flare</a> و
+<a href="https://fal.ai/models/openai/gpt-image-2.5/sunburst/text-to-image" data-ext>Sunburst</a>.
+يتطلب استخدام FAL مباشرةً مفتاح <code>FAL_KEY</code> ممولًا برصيد؛ أما التوفر عبر الـ gateway المُدار
+فيعتمد على قائمة الـ endpoints المسموح بها في ذلك الـ gateway، ولا يُستدَل عليه من توفر النموذج لدى FAL.
+وتبقى القيم الافتراضية الحالية للمزوّد والنموذج دون تغيير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-api-gpt-image-25">OpenAI API: ‏GPT Image 2.5</h2>
+<p>يدعم المزوّد <strong>OpenAI</strong> نموذجي GPT Image 2.5 Flare (للإنشاء اليومي السريع)
+و Sunburst (للتوليد والتحرير بدقة)، باستخدام <code>OPENAI_API_KEY</code>.
+اخترهما عبر <code>hermes tools</code> → Image Generation → OpenAI، أو اضبط:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يستخدم <code>gpt-image-2.5-flare</code> و <code>gpt-image-2.5-sunburst</code> الجودة التلقائية.
+أضف <code>-low</code> أو <code>-medium</code> أو <code>-high</code> أو <code>-xhigh</code> أو <code>-max</code> لاختيار جودة ثابتة،
+مثل <code>gpt-image-2.5-sunburst-high</code>. ويدعم كلاهما التوليد والتحرير
+مع ما يصل إلى 16 صورة مرجعية. وتبقى اختيارات GPT Image 2 الحالية والقيمة الافتراضية
+<code>gpt-image-2-medium</code> دون تغيير.</p>
+<p>هذا استخدام مدفوع لـ API، منفصل عن اشتراك ChatGPT/Codex. تبلغ تكلفة كلا النموذجين
+$5 لكل مليون token من إدخال النص، و$8 لكل مليون token من إدخال الصور، و
+$30 لكل مليون token من إخراج الصور (وأسعار الإدخال المخزّن مؤقتًا هي $1.25 و$2
+على التوالي). تختلف تكلفة الصورة الواحدة بحسب الاستخدام؛ ولا تقدّر حاسبة GPT Image 2
+استهلاك الـ tokens في الإصدار 2.5. راجع الوثائق الرسمية لـ
+<a href="https://developers.openai.com/api/docs/models/gpt-image-2.5-flare" data-ext>Flare</a> و
+<a href="https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst" data-ext>Sunburst</a>.</p>
+<p>يبقى المزوّد <strong>OpenAI (Codex auth)</strong> منفصلًا: فالـ backend الخاص به قد يقبل
+قيمة لنموذج الصور دون أن يلتزم بذلك الاختيار، لذا فإن نجاح توليد صورة
+وحده لا يثبت أن التوجيه تم إلى Flare أو Sunburst. تُتاح هذه الاختيارات
+عبر مزوّد OpenAI API المباشر و FAL، لا كاختيارات مُتحقَّق منها عبر Codex auth.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="usage">الاستخدام</h2>
+<p>المخطط (schema) الذي يراه الوكيل مبسّط عن قصد — إذ يعتمد النموذج ما قمت بإعداده أيًّا كان:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-to-image--editing">تحويل صورة إلى صورة / التحرير</h2>
+<p>الأداة نفسها <code>image_generate</code> <strong>تحرّر الصور الموجودة</strong> أيضًا عندما يدعم النموذج
+النشط ذلك — مرّر صورة مصدرية وسيوجّه الـ backend الطلب تلقائيًا إلى endpoint
+التحرير الخاص به (على غرار طريقة تعامل <code>video_generate</code> مع تحويل الصورة إلى فيديو).
+وإذا أغفلت الصورة المصدرية، يصبح الطلب تحويلًا عاديًا من نص إلى صورة.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يتحكم مُدخلان في عملية التحرير:</p>
+<ul>
+<li><strong><code>image_url</code></strong> — الصورة المصدرية الأساسية المراد تحريرها/تحويلها (URL عام أو مسار محلي).</li>
+<li><strong><code>reference_image_urls</code></strong> — مراجع إضافية للأسلوب/التكوين (بحد أقصى يختلف بحسب النموذج).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-backends-support-editing">الـ backends التي تدعم التحرير</h3>
+<table><thead><tr><th>الـ Backend</th><th>صورة إلى صورة</th><th>الحد الأقصى للمراجع</th><th>الآلية</th></tr></thead><tbody><tr><td><strong>FAL.ai</strong> (النماذج القادرة على التحرير أدناه)</td><td>✓</td><td>حتى 16 (بحسب النموذج)</td><td>يوجّه الطلب إلى endpoint <code>/edit</code> الخاص بالنموذج</td></tr><tr><td><strong>OpenAI</strong> (GPT Image 2 / 2.5 Flare / Sunburst)</td><td>✓</td><td>حتى 16</td><td><code>images.edit()</code></td></tr><tr><td><strong>xAI</strong> (Grok Imagine)</td><td>✓</td><td>1</td><td><code>/v1/images/edits</code> (<code>grok-imagine-image-quality</code>)</td></tr><tr><td><strong>Krea</strong> (<code>Krea 2</code>)</td><td>✓</td><td>حتى 10</td><td>توليد موجَّه بالمراجع (<code>image_style_references</code>)</td></tr><tr><td><strong>OpenAI (Codex auth)</strong></td><td>✓</td><td>حتى 16</td><td>أداة <code>image_generation</code> في Codex Responses مع أجزاء محتوى <code>input_image</code></td></tr><tr><td><strong>OpenRouter</strong> (نماذج Image API)</td><td>✓</td><td>حتى 14–16 (بحسب النموذج)</td><td><code>input_references</code> على <code>POST /images/generations</code>؛ والنماذج المخدومة عبر المحادثة تستخدم أجزاء محتوى <code>image_url</code> (حتى 3)</td></tr></tbody></table>
+<p>نماذج FAL التي تملك endpoint للتحرير: <code>flux-2/klein/9b</code>، <code>flux-2-pro</code>،
+<code>nano-banana-pro</code>، <code>gpt-image-1.5</code>، <code>gpt-image-2</code>، <code>ideogram/v3</code>، و
+<code>qwen-image</code>، إضافةً إلى GPT Image 2.5 Flare و Sunburst المذكورين أعلاه. أما نماذج FAL المخصّصة لتحويل النص إلى صورة فقط (<code>z-image/turbo</code>، <code>recraft</code>،
+<code>krea/*</code>) فترفض مدخلات الصور برسالة خطأ واضحة توجّهك إلى
+نموذج قادر على التحرير.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>دعم OpenAI (Codex auth) بأفضل جهد</div><div class="admonitionContent_BuS1"><p>تستضيف واجهة Codex (<code>chatgpt.com/backend-api/codex</code>) الأداة <code>image_generation</code>
+كأداة قد يستدعيها نموذج المحادثة، ولا يستطيع Hermes فرض الاستدعاء — إذ
+يرفض الـ backend كل أشكال <code>tool_choice</code> للأدوات المستضافة، لذا يعتمد الطلب
+على التعليمات لتوجيه النموذج. وعندما يمتنع النموذج المضيف عن
+استدعاء الأداة، يفشل الاستدعاء بالخطأ <code>empty_response</code>. كما أُفيد بأن إمكانية الوصول إلى أداة الصور
+المستضافة أصلًا تختلف من حساب
+إلى آخر. إذا كنت تحتاج إلى أن يعمل توليد الصور بشكل حتمي، فاضبط
+الـ backend <strong>OpenAI</strong> (مفتاح API) أو <strong>FAL</strong> أو <strong>xAI</strong> بدلًا من ذلك.</p></div></div>
+<p>تُعرَض قدرة النموذج النشط على التحرير في وصف الأداة وقت
+التشغيل، فيعرف الوكيل ما إذا كان <code>image_url</code> سيُحترَم قبل أن
+يستدعي الأداة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="aspect-ratios">نسب الأبعاد</h2>
+<p>تقبل جميع النماذج نسب الأبعاد الثلاث نفسها من منظور الوكيل. وداخليًا، تُملأ مواصفات الحجم الأصلية لكل نموذج تلقائيًا:</p>
+<table><thead><tr><th>مُدخل الوكيل</th><th>image_size (flux/z-image/qwen/recraft/ideogram)</th><th>aspect_ratio (nano-banana-pro)</th><th>image_size (gpt-image-1.5)</th><th>image_size (gpt-image-2)</th></tr></thead><tbody><tr><td><code>landscape</code></td><td><code>landscape_16_9</code></td><td><code>16:9</code></td><td><code>1536x1024</code></td><td><code>landscape_4_3</code> (1024×768)</td></tr><tr><td><code>square</code></td><td><code>square_hd</code></td><td><code>1:1</code></td><td><code>1024x1024</code></td><td><code>square_hd</code> (1024×1024)</td></tr><tr><td><code>portrait</code></td><td><code>portrait_16_9</code></td><td><code>9:16</code></td><td><code>1024x1536</code></td><td><code>portrait_4_3</code> (768×1024)</td></tr></tbody></table>
+<p>يُربَط GPT Image 2 بإعدادات 4:3 المسبقة بدلًا من 16:9 لأن الحد الأدنى لعدد البكسلات لديه هو 655,360 — وسيُرفَض الإعداد المسبق <code>landscape_16_9</code> (1024×576 = 589,824).</p>
+<p>يحدث هذا التحويل في <code>_build_fal_payload()</code> — فلا يحتاج كود الوكيل أبدًا إلى معرفة الفروق في المخطط بين النماذج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="upscaling">تكبير الدقة (Upscaling)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="opt-in-only">بالتفعيل الاختياري فقط</h3>
+<p>لا يكبّر أي نموذج الدقة افتراضيًا. فنماذج الصور الحديثة تُخرج أفضل جودة لديها
+بشكل أصلي، ومكبّرات الدقة المتاحة هي محسّنات <em>إبداعية</em> (تمريرات
+diffusion) قد تعيد رسم المحتوى بشكل خفي — مما يُضعف النصوص المعروضة والوجوه
+والتفاصيل الدقيقة. لذلك لا يعمل تكبير الدقة إلا عندما يطلبه الوكيل صراحةً.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-upscale-parameter-per-call-opt-in">المعامل <code>upscale</code> (تفعيل اختياري لكل استدعاء)</h3>
+<ul>
+<li><code>upscale: true</code> — يضيف تمريرة عالية الدقة بعد التوليد:</li>
+</ul>
+<table><thead><tr><th>الـ Backend</th><th>مكبّر الدقة</th></tr></thead><tbody><tr><td><strong>FAL.ai</strong></td><td>Clarity Upscaler (2×، +$0.03/MP)</td></tr><tr><td><strong>Krea</strong></td><td>Krea Enhance (2×، بحد أقصى 8K)</td></tr><tr><td>الـ backends الأخرى</td><td>لا يوجد مكبّر دقة؛ تُعاد الدقة الأصلية</td></tr></tbody></table>
+<ul>
+<li><code>upscale: false</code> / أو إغفاله — الدقة الأصلية (الافتراضي)</li>
+</ul>
+<p>يقبل <code>video_generate</code> أيضًا <code>upscale: true</code> على الـ backend الخاص بـ FAL، فيضيف
+مكبّر الفيديو <strong>SeedVR2</strong> من ByteDance (2×، $0.001/MP من الفيديو الناتج) بعد
+التوليد.</p>
+<p>عند تشغيل تمريرة الصور في FAL، تُستخدم الإعدادات التالية:</p>
+<table><thead><tr><th>الإعداد</th><th>القيمة</th></tr></thead><tbody><tr><td>معامل التكبير (Upscale factor)</td><td>2×</td></tr><tr><td>الإبداعية (Creativity)</td><td>0.35</td></tr><tr><td>التشابه (Resemblance)</td><td>0.6</td></tr><tr><td>مقياس التوجيه (Guidance scale)</td><td>4</td></tr><tr><td>خطوات الـ inference</td><td>18</td></tr></tbody></table>
+<p>إذا فشل تكبير الدقة (مشكلة في الشبكة، أو حدّ المعدل)، تُعاد الصورة الأصلية تلقائيًا. وتتضمن الاستجابة <code>upscaled: true/false</code> ليعرف الوكيل الدقة التي حصل عليها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-internally">آلية العمل الداخلية</h2>
+<ol>
+<li><strong>تحديد النموذج</strong> — تقرأ <code>_resolve_fal_model()</code> القيمة <code>image_gen.model</code> من <code>config.yaml</code>، ثم تعود احتياطيًا إلى متغير البيئة <code>FAL_IMAGE_MODEL</code>، ثم إلى <code>fal-ai/flux-2/klein/9b</code>.</li>
+<li><strong>بناء الحمولة (payload)</strong> — تحوّل <code>_build_fal_payload()</code> قيمة <code>aspect_ratio</code> إلى الصيغة الأصلية للنموذج (enum للإعداد المسبق، أو enum لنسبة الأبعاد، أو قيمة GPT حرفية)، وتدمج المعاملات الافتراضية للنموذج، وتطبّق أي تجاوزات من المستدعي، ثم ترشّح النتيجة وفق القائمة البيضاء <code>supports</code> الخاصة بالنموذج حتى لا تُرسَل المفاتيح غير المدعومة أبدًا.</li>
+<li><strong>الإرسال</strong> — توجّه <code>_submit_fal_request()</code> الطلب عبر بيانات اعتماد FAL المباشرة أو عبر Nous gateway المُدار، بحسب الاختيار المحفوظ في <code>image_gen.provider</code>.</li>
+<li><strong>تكبير الدقة</strong> — لا يعمل إلا عندما يمرّر الوكيل <code>upscale: true</code>؛ فالقيمة الافتراضية في الكتالوج معطّلة لكل النماذج.</li>
+<li><strong>التسليم</strong> — يُعاد URL الصورة النهائية إلى الوكيل، الذي يُصدر الوسم <code>MEDIA:&lt;url&gt;</code> الذي تحوّله محوّلات المنصات (platform adapters) إلى وسائط أصلية.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging">تصحيح الأخطاء</h2>
+<p>فعّل سجلات تصحيح الأخطاء:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>تُكتب سجلات تصحيح الأخطاء في <code>./logs/image_tools_debug_&lt;session_id&gt;.json</code> مع تفاصيل كل استدعاء (النموذج، والمعاملات، والتوقيت، والأخطاء).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-delivery">التسليم على المنصات</h2>
+<table><thead><tr><th>المنصة</th><th>طريقة التسليم</th></tr></thead><tbody><tr><td><strong>CLI</strong></td><td>يُطبع URL الصورة بصيغة markdown <code>![](url)</code> — انقر لفتحه</td></tr><tr><td><strong>Telegram</strong></td><td>رسالة صورة مع الـ prompt كتعليق</td></tr><tr><td><strong>Discord</strong></td><td>مضمّنة في رسالة</td></tr><tr><td><strong>Slack</strong></td><td>يعرض Slack معاينة الـ URL تلقائيًا</td></tr><tr><td><strong>WhatsApp</strong></td><td>رسالة وسائط</td></tr><tr><td><strong>المنصات الأخرى</strong></td><td>URL كنص عادي</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>تتطلب بيانات اعتماد</strong> للـ backend النشط (FAL <code>FAL_KEY</code> / Nous Subscription، <code>OPENAI_API_KEY</code>، xAI OAuth، <code>KREA_API_KEY</code>)</li>
+<li><strong>التحرير يعتمد على النموذج</strong> — لا يعمل تحويل الصورة إلى صورة إلا على النماذج القادرة على التحرير (راجع الجدول أعلاه)؛ أما النماذج المخصّصة لتحويل النص إلى صورة فقط فترفض مدخلات الصور برسالة خطأ واضحة</li>
+<li><strong>عناوين URL مؤقتة</strong> — تُعيد الـ backends عناوين URL مستضافة تنتهي صلاحيتها بعد ساعات/أيام؛ ويحفظ Hermes محتواها في الـ cache المحلي لكي يظل التسليم يعمل بعد انتهاء الصلاحية</li>
+<li><strong>قيود خاصة بكل نموذج</strong> — بعض النماذج لا تدعم <code>seed</code> و <code>num_inference_steps</code> وغيرها. يُسقط المرشّح <code>supports</code> / <code>edit_supports</code> المعاملات غير المدعومة بصمت؛ وهذا سلوك متوقع</li>
+</ul>

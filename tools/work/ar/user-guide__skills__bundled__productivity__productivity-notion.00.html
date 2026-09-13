@@ -1,0 +1,165 @@
+
+<header><h1>Notion</h1></header>
+<p>واجهة Notion API + أداة ntn CLI: الصفحات، وقواعد البيانات، وMarkdown، وWorkers.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/productivity/notion</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>community</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Notion</code>, <code>Productivity</code>, <code>Notes</code>, <code>Database</code>, <code>API</code>, <code>CLI</code>, <code>Workers</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Notion</h1>
+<p>تعامل مع Notion بطريقتين. يعمل رمز التكامل نفسه لكلتيهما — اختر حسب المتاح.</p>
+<p>◆ <strong>واجهة <code>ntn</code> CLI</strong> — واجهة CLI الرسمية لـ Notion. صياغة أقصر، ورفع ملفات بسطر واحد، ومطلوبة لـ Workers. تعمل فقط على macOS وLinux حتى مايو 2026 (دعم Windows "قادم قريبًا"). <strong>الخيار الافتراضي عند تثبيتها.</strong>
+◆ <strong>HTTP + curl</strong> — تعمل في كل مكان بما في ذلك Windows. <strong>الخيار الاحتياطي الافتراضي</strong> عندما لا تكون <code>ntn</code> مثبّتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-get-an-integration-token-required-for-both-paths">1. احصل على رمز تكامل (مطلوب لكلا المسارين)</h3>
+<ol>
+<li>أنشئ تكاملًا من <a href="https://notion.so/my-integrations" data-ext>https://notion.so/my-integrations</a></li>
+<li>انسخ مفتاح API (يبدأ بـ <code>ntn_</code> أو <code>secret_</code>)</li>
+<li>خزّنه في <code>${HERMES_HOME:-~/.hermes}/.env</code>:
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li><strong>شارك الصفحات/قواعد البيانات المستهدفة مع التكامل</strong> في Notion: قائمة الصفحة <code>...</code> ← <code>Connect to</code> ← اسم تكاملك. بدون ذلك، تُعيد الواجهة الخطأ 404 لتلك الصفحة رغم وجودها.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-install-ntn-preferred-path-on-macos--linux">2. ثبّت <code>ntn</code> (المسار المفضّل على macOS / Linux)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>تخطَّ <code>ntn login</code> — استخدم رمز التكامل بدلًا منه.</strong> يعمل هذا دون واجهة رسومية (headlessly)، بلا حاجة إلى متصفح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>أضِف تلك المتغيرات المُصدَّرة إلى ملف تعريف shell الخاص بك (أو إلى <code>${HERMES_HOME:-~/.hermes}/.env</code>) بحيث ترثها كل جلسة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-choose-path-at-runtime">3. اختر المسار وقت التشغيل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>مستخدمو Windows: تخطَّ الخطوة 2 كليًا حتى يصدر <code>ntn</code> الأصلي — يعمل المسار B جيدًا. إذا أردت راحة استخدام CLI الآن، ثبّت <code>ntn</code> داخل WSL2.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-basics">أساسيات API</h2>
+<p><code>Notion-Version: 2025-09-03</code> مطلوبة في كل طلبات HTTP. تتولى <code>ntn</code> ذلك نيابةً عنك. في هذا الإصدار، ما يسمّيه المستخدمون "قواعد بيانات" يُسمّى <strong>مصادر بيانات (data sources)</strong> في الواجهة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-a--ntn-cli-preferred-macos--linux">المسار A — واجهة <code>ntn</code> CLI (المفضّلة، macOS / Linux)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="raw-api-calls-shorthand-for-curl">استدعاءات API الخام (اختصار لـ curl)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>ملاحظات الصياغة:</p>
+<ul>
+<li><code>key=value</code> — حقول نصية</li>
+<li><code>key[nested]=value</code> — حقول كائن متداخلة</li>
+<li><code>key:=value</code> — إسناد مُنمَّط (منطقية، أرقام، null، مصفوفات)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search">البحث</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-metadata">قراءة بيانات صفحة وصفية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-as-markdown-agent-friendly">قراءة صفحة كصيغة Markdown (مناسبة للوكيل)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-content-as-blocks">قراءة محتوى صفحة ككتل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-page-from-markdown">إنشاء صفحة من Markdown</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="patch-a-page-with-markdown">تحديث صفحة (PATCH) بواسطة Markdown</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-a-database-data-source">استعلام قاعدة بيانات (مصدر بيانات)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>للاستعلامات المعقدة التي تحتوي <code>sorts</code>، أو شروط فلترة متعددة، أو منطقًا مركّبًا، مرّر JSON عبر أنبوب (pipe):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-uploads-one-liner--biggest-cli-win">رفع الملفات (بسطر واحد — أكبر ميزة في CLI)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>قارن بتدفق HTTP المكوّن من 3 خطوات (إنشاء رفع ← PUT للبايتات ← الإشارة إليه).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="useful-env-vars">متغيرات بيئة مفيدة</h3>
+<table><thead><tr><th>المتغير</th><th>التأثير</th></tr></thead><tbody><tr><td><code>NOTION_API_TOKEN</code></td><td>رمز المصادقة (يتجاوز الحلقة المفاتيح keychain) — اضبطه على رمز التكامل الخاص بك</td></tr><tr><td><code>NOTION_KEYRING=0</code></td><td>بيانات اعتماد قائمة على الملفات في <code>~/.config/notion/auth.json</code> بدلًا من keychain نظام التشغيل</td></tr><tr><td><code>NOTION_WORKSPACE_ID</code></td><td>تخطي مطالبة اختيار مساحة العمل</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-b--http--curl-cross-platform-default-on-windows">المسار B — HTTP + curl (متعدد المنصات، الافتراضي على Windows)</h2>
+<p>تشترك كل الطلبات في هذا النمط:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>على Windows تعمل نسخة <code>curl</code> المرفقة مع Windows 10 فما فوق كما هي. يمكن لمستخدمي PowerShell أيضًا استخدام <code>Invoke-RestMethod</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-1">البحث</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-metadata-1">قراءة بيانات صفحة وصفية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-as-markdown-agent-friendly-1">قراءة صفحة كصيغة Markdown (مناسبة للوكيل)</h3>
+<p>أسهل تمريرًا لنموذج مقارنة بـ JSON الكتل.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-page-content-as-blocks-when-you-need-structure">قراءة محتوى صفحة ككتل (عندما تحتاج إلى البنية)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-page-from-markdown-1">إنشاء صفحة من Markdown</h3>
+<p>يقبل <code>POST /v1/pages</code> معامل جسم <code>markdown</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="patch-a-page-with-markdown-1">تحديث صفحة (PATCH) بواسطة Markdown</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-page-in-a-database-typed-properties">إنشاء صفحة داخل قاعدة بيانات (خصائص مُنمَّطة)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-a-database-data-source-1">استعلام قاعدة بيانات (مصدر بيانات)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-database">إنشاء قاعدة بيانات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-page-properties">تحديث خصائص صفحة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="append-blocks-to-a-page">إلحاق كتل بصفحة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-uploads-3-step-flow">رفع الملفات (تدفق من 3 خطوات)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="property-types">أنواع الخصائص</h2>
+<p>صيغ الخصائص الشائعة لعناصر قاعدة البيانات:</p>
+<ul>
+<li><strong>العنوان:</strong> <code>{&quot;title&quot;: [{&quot;text&quot;: {&quot;content&quot;: &quot;...&quot;}}]}</code></li>
+<li><strong>نص منسّق:</strong> <code>{&quot;rich_text&quot;: [{&quot;text&quot;: {&quot;content&quot;: &quot;...&quot;}}]}</code></li>
+<li><strong>اختيار مفرد:</strong> <code>{&quot;select&quot;: {&quot;name&quot;: &quot;Option&quot;}}</code></li>
+<li><strong>اختيار متعدد:</strong> <code>{&quot;multi_select&quot;: [{&quot;name&quot;: &quot;A&quot;}, {&quot;name&quot;: &quot;B&quot;}]}</code></li>
+<li><strong>تاريخ:</strong> <code>{&quot;date&quot;: {&quot;start&quot;: &quot;2026-01-15&quot;, &quot;end&quot;: &quot;2026-01-16&quot;}}</code></li>
+<li><strong>مربع اختيار:</strong> <code>{&quot;checkbox&quot;: true}</code></li>
+<li><strong>رقم:</strong> <code>{&quot;number&quot;: 42}</code></li>
+<li><strong>رابط:</strong> <code>{&quot;url&quot;: &quot;https://...&quot;}</code></li>
+<li><strong>بريد إلكتروني:</strong> <code>{&quot;email&quot;: &quot;user@example.com&quot;}</code></li>
+<li><strong>علاقة:</strong> <code>{&quot;relation&quot;: [{&quot;id&quot;: &quot;page_id&quot;}]}</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-version-2025-09-03--databases-vs-data-sources">إصدار API رقم 2025-09-03 — قواعد البيانات مقابل مصادر البيانات</h2>
+<ul>
+<li><strong>أصبحت قواعد البيانات مصادر بيانات.</strong> استخدم endpoints من نوع <code>/data_sources/</code> للاستعلام والجلب.</li>
+<li><strong>معرّفان لكل قاعدة بيانات:</strong> <code>database_id</code> و<code>data_source_id</code>.
+<ul>
+<li><code>database_id</code> عند إنشاء الصفحات: <code>parent: {&quot;database_id&quot;: &quot;...&quot;}</code></li>
+<li><code>data_source_id</code> عند الاستعلام: <code>POST /v1/data_sources/{id}/query</code></li>
+</ul>
+</li>
+<li>يُعيد البحث قواعد البيانات بصيغة <code>&quot;object&quot;: &quot;data_source&quot;</code> مع حقل <code>data_source_id</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notion-workers-advanced-requires-ntn">Notion Workers (متقدّم، يتطلّب <code>ntn</code>)</h2>
+<p>Workers هي برامج TypeScript تستضيفها Notion نيابةً عنك. يمكن لعامل (worker) واحد أن يعرض أي مزيج من:</p>
+<ul>
+<li><strong>Syncs</strong> — تسحب بيانات من واجهات API خارجية إلى قاعدة بيانات Notion وفق جدول زمني (30 دقيقة افتراضيًا).</li>
+<li><strong>Tools</strong> — تظهر كأدوات قابلة للاستدعاء داخل Custom Agents في Notion.</li>
+<li><strong>Webhooks</strong> — تستقبل أحداث HTTP من خدمات خارجية (GitHub، Stripe، وغيرها) وتتصرف داخل Notion.</li>
+</ul>
+<p><strong>قيود الخطة/المنصة:</strong></p>
+<ul>
+<li>تعمل CLI على كل الخطط. <strong>يتطلب نشر Workers خطة Business أو Enterprise.</strong></li>
+<li><code>ntn</code> متاحة فقط على macOS/Linux حتى مايو 2026. يحتاج مستخدمو Windows إلى WSL2 أو الانتظار حتى يتوفر الدعم الأصلي.</li>
+<li>مجانية حتى 11 أغسطس 2026؛ ثم تُحتسب وفق ائتمانات Notion بعد ذلك.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="minimal-worker">أبسط Worker</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p><code>src/index.ts</code>:</p>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-capability">إمكانية Webhook</h3>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>بعد النشر: يُظهر <code>ntn workers webhooks list</code> الرابط الذي تولّده Notion. عامل هذا الرابط كسرّ — فأي شخص يملكه يستطيع إرسال أحداث POST ما لم تُضِف تحقق التوقيع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="worker-lifecycle-commands">أوامر دورة حياة Worker</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>عند الطلب ببناء Worker، أنشئ الهيكل بواسطة <code>ntn workers new</code>، واكتب الكود في <code>src/index.ts</code>، واضبط أي أسرار باستخدام <code>ntn workers env set</code>، ثم انشره. تغطي وثائق Notion على <a href="https://developers.notion.com/workers" data-ext>https://developers.notion.com/workers</a> واجهة API كاملة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notion-flavored-markdown-used-by-markdown-endpoints">صيغة Notion الخاصة من Markdown (تستخدمها endpoints من نوع <code>/markdown</code>)</h2>
+<p>صيغة CommonMark القياسية بالإضافة إلى وسوم شبيهة بـ XML لكتل Notion الخاصة. استخدم <strong>tabs</strong> للمسافة البادئة.</p>
+<p><strong>كتل تتجاوز CommonMark:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p><strong>ضمن السطر:</strong></p>
+<ul>
+<li>الإشارات (Mentions): <code>&lt;mention-user url=&quot;...&quot;/&gt;</code>، و<code>&lt;mention-page url=&quot;...&quot;&gt;Title&lt;/mention-page&gt;</code>، و<code>&lt;mention-date start=&quot;2026-05-15&quot;/&gt;</code></li>
+<li>التسطير: <code>&lt;span underline=&quot;true&quot;&gt;text&lt;/span&gt;</code></li>
+<li>اللون: <code>&lt;span color=&quot;blue&quot;&gt;text&lt;/span&gt;</code> أو على مستوى الكتلة <code>{color=&quot;blue&quot;}</code> في السطر الأول</li>
+<li>الرياضيات: ضمن السطر <code>$x^2$</code>، وككتلة <code>$$ ... $$</code></li>
+<li>الاستشهادات: <code>[^https://example.com]</code></li>
+</ul>
+<p><strong>الألوان:</strong> <code>gray brown orange yellow green blue purple pink red</code>، بالإضافة إلى صيغ <code>*_bg</code> للخلفيات.</p>
+<p>تنهار العناوين من المستوى 5/6 إلى H4. تُعرض أسطر <code>&gt;</code> المتعددة ككتل اقتباس منفصلة — استخدم <code>&lt;br&gt;</code> داخل علامة <code>&gt;</code> واحدة للاقتباسات متعددة الأسطر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-the-right-path">اختيار المسار الصحيح</h2>
+<table><thead><tr><th>المهمة</th><th>mac / Linux</th><th>Windows</th></tr></thead><tbody><tr><td>قراءة/كتابة الصفحات، البحث، استعلام قواعد البيانات</td><td><code>ntn api ...</code></td><td>curl</td></tr><tr><td>قراءة صفحة ليلخّصها وكيل</td><td><code>ntn api v1/pages/{id}/markdown</code></td><td>endpoint من نوع curl <code>/markdown</code></td></tr><tr><td>رفع ملف</td><td><code>ntn files create &lt; file</code></td><td>تدفق HTTP من 3 خطوات</td></tr><tr><td>استكشاف API لمرة واحدة</td><td><code>ntn api ...</code></td><td>curl</td></tr><tr><td>بناء sync / webhook / أداة وكيل تستضيفها Notion</td><td><code>ntn workers ...</code></td><td>WSL2 + <code>ntn workers ...</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li>مُعرّفات الصفحات/قواعد البيانات هي UUID (بشرطات أو بدونها — كلاهما مقبول).</li>
+<li>حدّ المعدل: نحو 3 طلبات/ثانية في المتوسط. لا تتجاوز CLI هذا الحد.</li>
+<li>لا تستطيع الواجهة ضبط فلاتر <strong>عرض (view)</strong> قاعدة البيانات — فذلك مقتصر على الواجهة الرسومية فقط.</li>
+<li>استخدم <code>&quot;is_inline&quot;: true</code> عند إنشاء مصادر بيانات لتضمينها داخل صفحة.</li>
+<li>مرّر دائمًا <code>-s</code> إلى curl لإخفاء أشرطة التقدم (ناتج أنظف للوكيل).</li>
+<li>مرّر JSON عبر <code>jq</code> عند القراءة: <code>... | jq &#x27;.results[0].properties&#x27;</code>.</li>
+<li>توفّر Notion الآن أيضًا خادم MCP (<code>Notion MCP</code>، بكفاءة أعلى في استهلاك الـ tokens بنحو 91% على عمليات قواعد البيانات مقارنة بالإصدار السابق) — وصّله عبر دعم MCP في Hermes إن أردت وصولًا متدفقًا (streaming) إلى Notion من داخل الجلسة، لكن المسارات أعلاه كافية لمعظم المهام الفردية.</li>
+</ul>

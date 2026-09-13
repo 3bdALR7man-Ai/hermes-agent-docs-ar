@@ -1,0 +1,178 @@
+<header><h1>Profiles: تشغيل عدة وكلاء</h1></header>
+<p>شغّل عدة وكلاء Hermes مستقلين على الجهاز نفسه — لكل منها إعداداته الخاصة، ومفاتيح API، والذاكرة، والجلسات، والمهارات، وحالة gateway الخاصة به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-are-profiles">ما هي الـ profiles؟</h2>
+<p>الـ profile هو دليل منزلي (home directory) منفصل لـ Hermes. يحصل كل profile على دليله الخاص الذي يحتوي على <code>config.yaml</code> و<code>.env</code> و<code>SOUL.md</code> الخاصة به، إضافةً إلى الذاكرة، والجلسات، والمهارات، ومهام cron، وقاعدة بيانات الحالة. تتيح لك الـ profiles تشغيل وكلاء منفصلين لأغراض مختلفة — مساعد برمجة، وبوت شخصي، ووكيل بحث — دون خلط حالة Hermes بينها.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>امنح كل وكيل profile خاصًا به</div><div class="admonitionContent_BuS1"><p>لا توجّه أبدًا عمليتَي وكيل إلى الـ profile نفسه (نفس دليل Hermes المنزلي). فكلاهما يكتب في الذاكرة تلقائيًا، ويحمّل كل منهما كتابات الآخر في الـ system prompt الخاص به عند بدء الجلسة — بحيث يتراكم أثر كاتبَين على منزل واحد إلى أن يتوقف عن أن يكون ما ضبطته أنت. الـ profiles موجودة تحديدًا لمنع هذا؛ الوكلاء الذين يحتاجون إلى ذاكرة مشتركة ينبغي أن يستخدموا بدلًا من ذلك <a href="/docs/user-guide/features/memory-providers">مزوّد ذاكرة خارجي (external memory provider)</a>.</p></div></div>
+<p>عند إنشاء profile، يصبح تلقائيًا أمرًا خاصًا به. أنشئ profile باسم <code>coder</code> وستحصل فورًا على <code>coder chat</code> و<code>coder setup</code> و<code>coder gateway start</code> وهكذا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>هذا كل ما في الأمر. أصبح <code>coder</code> الآن profile خاصًا به لـ Hermes، بإعداداته وذاكرته وحالته الخاصة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-a-profile">إنشاء profile</h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>الإعداد الأسرع: نفّذ <code>hermes setup --portal</code> داخل الـ profile الجديد لربط النماذج والأدوات دفعة واحدة. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="blank-profile">Profile فارغ</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ينشئ profile جديدًا مزوّدًا بالمهارات المضمّنة (bundled) من البداية. نفّذ <code>mybot setup</code> لإعداد مفاتيح API والنموذج ورموز gateway.</p>
+<p>إذا كنت تخطط لاستخدام هذا الـ profile كعامل (worker) في kanban (أو تريد أن يوجّه منسّق kanban العمل إليه)، مرّر <code>--description &quot;&lt;role&gt;&quot;</code> عند الإنشاء ليعرف المنسّق ما الذي يجيده:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يمكنك أيضًا ضبط الوصف أو توليده تلقائيًا لاحقًا باستخدام <code>hermes profile describe</code> — راجع <a href="/docs/user-guide/features/kanban#auto-vs-manual-orchestration">دليل Kanban</a> لمعرفة نموذج التوجيه الكامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clone-config-only---clone">استنساخ الإعدادات فقط (<code>--clone</code>)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ينسخ <code>config.yaml</code> و<code>.env</code> و<code>SOUL.md</code> الخاصة بالـ profile الحالي، والمهارات، وملفَي الذاكرة المنسّقين <code>memories/MEMORY.md</code> و<code>memories/USER.md</code> إلى الـ profile الجديد — تُعامَل الذاكرة كجزء من هوية الوكيل، شأنها شأن <code>SOUL.md</code>. أما الجلسات و<code>state.db</code> ومهام cron وكل شيء آخر فتبدأ فارغة. للحصول على ذاكرة فارغة أيضًا، أنشئ الـ profile من دون <code>--clone</code> أو احذف الملفين لاحقًا؛ فالوكيل لا يرجع أبدًا إلى ذاكرة profile آخر عند غيابهما. حرّر <code>~/.hermes/profiles/work/.env</code> لمفاتيح API مختلفة، أو <code>~/.hermes/profiles/work/SOUL.md</code> لشخصية مختلفة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clone-everything---clone-all">استنساخ كل شيء (<code>--clone-all</code>)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>ينسخ <strong>كل شيء</strong> — الإعدادات، ومفاتيح API، والشخصية، وكل الذاكرة، والمهارات، والإضافات. لقطة (snapshot) عاملة كاملة. يُستثنى تاريخ كل profile على حدة (تاريخ الجلسات، و<code>state.db</code>، و<code>backups/</code>، و<code>state-snapshots/</code>، و<code>checkpoints/</code>) — فهذه تخصّ الـ profile المصدر ويمكن أن تصل إلى عشرات الغيغابايتات. كما لا تُستنسخ <strong>مهام cron</strong>: فهي عمل مجدول مرتبط بالـ profile المصدر وقناة التسليم الخاصة به، والاستنساخ الذي يرثها سيؤدي إلى تشغيل كل مهمة مرتين (بوابتان (gateways)، ومعرّفات مهام متطابقة). يبدأ الـ profile الجديد بمجلد <code>cron/</code> فارغ. للحصول على نسخة احتياطية كاملة تتضمن التاريخ ومهام cron، استخدم بدلًا من ذلك <code>hermes profile export</code> أو <code>hermes backup</code>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>تسجيلات دخول OAuth مشتركة وليست منسوخة</div><div class="admonitionContent_BuS1"><p>تعتمد تسجيلات دخول OAuth الخاصة بـ Anthropic (Claude Pro/Max) وOpenAI Codex وxAI على <strong>رموز تحديث (refresh tokens) للاستخدام الواحد</strong> — فنسخة إحداها ليست بيانات اعتماد ثانية، بل هي بيانات الاعتماد نفسها بمالكَين، وأول profile يحدّثها يلغيها لكل النسخ الأخرى. لذلك يُسقط <code>--clone-all</code> (وكذلك مرآة بيانات الاعتماد في لوحة التحكم) صفوف OAuth هذه من النسخة. يستمر الـ profile الجديد بقراءة تسجيل الدخول من <code>~/.hermes/auth.json</code> الجذري، ويُكتب أي تحديث للرمز يتم داخل أي profile إلى الجذر، بحيث تبقى كل الـ profiles مسجّلة الدخول. أما مفاتيح API الثابتة فتُنسخ كالمعتاد. لمنح profile تسجيل دخول OAuth منفصلًا خاصًا به، نفّذ <code>hermes -p &lt;name&gt; auth add &lt;provider&gt;</code> داخله.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clone-from-a-specific-profile">الاستنساخ من profile محدد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يحدّد <code>--clone-from &lt;source&gt;</code> الـ profile المصدر مباشرةً، ويعني ضمنيًا استنساخ الإعدادات/المهارات/SOUL. اجمعه مع <code>--clone-all</code> عندما تريد نسخة كاملة من ذلك الـ profile المصدر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messaging-channels-are-never-cloned---clone-channels-to-opt-in">قنوات المراسلة لا تُستنسخ أبدًا (استخدم <code>--clone-channels</code> للانضمام اختياريًا)</h3>
+<p>كل استنساخ — سواء <code>--clone</code> أو <code>--clone-from</code> أو <code>--clone-all</code>، أو خيار
+"clone from profile" في لوحة التحكم أو Desktop أو TUI — ينسخ المصدر <strong>من دون قنوات المراسلة الخاصة به</strong>: رموز البوت
+وقوائم السماح (<code>TELEGRAM_BOT_TOKEN</code> و<code>DISCORD_ALLOWED_USERS</code> و<code>WHATSAPP_ENABLED</code>
+و<code>API_SERVER_KEY</code> و<code>WEBHOOK_SECRET</code>، ...)، وأقسام <code>platforms:</code> / <code>telegram:</code> / <code>discord:</code> في
+<code>config.yaml</code>، و<code>gateway.multiplex_profiles</code> / <code>profile_routes</code>، و(في حالة <code>--clone-all</code>)
+مخزن الاقتران (pairing store)، وجلسة WhatsApp، وحالات أخرى خاصة بكل بوت. أما مفاتيح API للمزوّدين والأدوات، وقسم
+النموذج، وإعدادات الذاكرة، والمهارات، و<code>SOUL.md</code> فتُنسخ كما كانت. ويطبع الأمر أي
+منصات تُركت خلف الركب.</p>
+<p>السبب هو أن البوت الواحد لا يمكن أن ينتمي إلا إلى profile واحد: فبوابتان (gateways) مستقلتان تحملان
+نفس الرمز تتنازعان على الـ long-poll الخاص به، وأي <a href="/docs/user-guide/multi-profile-gateways">بوابة مضاعَفة (multiplexed gateway)</a>
+تُوقف المحوّل المكرَّر جانبًا (كما يرفض <code>hermes gateway migrate --multiplex</code> ذلك برسالة عائق واحدة لكل بيانات اعتماد
+مكررة لكل منصة). اضبط بوتات الـ profile الجديد الخاصة به عبر
+<code>hermes -p &lt;name&gt; setup</code> أو صفحة Messaging في لوحة التحكم.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يُرفض <code>--clone-channels</code> عندما تخدم بوابة مضاعَفة قيد التشغيل المصدر فعلًا
+(لأن النسخة ستُوقف جانبًا فورًا)، وإلا فإنه يطبع تحذيرًا يسمّي المنصات
+المشتركة الآن مع المصدر. يطبع <code>hermes profile list</code> التحذير نفسه لأي
+profile موجود تتطابق بيانات اعتماد البوت الخاصة به حرفيًا مع الافتراضي، بحيث تظهر النسخ القديمة
+قبل أن تسبّب مشكلة. تُشتق مجموعة المفاتيح من محوّلات المنصات نفسها (سجلات
+التسجيل وجدول env الخاص بالبوابة)، لذا تُغطّى أي منصة جديدة تلقائيًا.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>ذاكرة Honcho و profiles</div><div class="admonitionContent_BuS1"><p>عند تفعيل Honcho، تنشئ عمليات الاستنساخ تلقائيًا نظير AI (AI peer) مخصصًا للـ profile الجديد مع مشاركة مساحة عمل المستخدم نفسها. يبني كل profile ملاحظاته وهويته الخاصة. راجع <a href="/docs/user-guide/features/memory-providers#honcho">Honcho -- Multi-agent / Profiles</a> للتفاصيل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-profiles">استخدام الـ profiles</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="command-aliases">أسماء مستعارة للأوامر (Command aliases)</h3>
+<p>يحصل كل profile تلقائيًا على اسم مستعار للأمر عند <code>~/.local/bin/&lt;name&gt;</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يعمل الاسم المستعار مع كل أمر فرعي في hermes — فهو ببساطة <code>hermes -p &lt;name&gt;</code> من الداخل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the--p-flag">الخيار <code>-p</code></h3>
+<p>يمكنك أيضًا استهداف profile صراحةً مع أي أمر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sticky-default-hermes-profile-use">الافتراضي الثابت (<code>hermes profile use</code>)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يضبط افتراضيًا بحيث تستهدف أوامر <code>hermes</code> العادية ذلك الـ profile. مثل <code>kubectl config use-context</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="knowing-where-you-are">معرفة أين أنت</h3>
+<p>تُظهر واجهة CLI دائمًا الـ profile النشط:</p>
+<ul>
+<li><strong>موجّه الأوامر (Prompt)</strong>: <code>coder ❯</code> بدلًا من <code>❯</code></li>
+<li><strong>الشعار الافتتاحي (Banner)</strong>: يُظهر <code>Profile: coder</code> عند بدء التشغيل</li>
+<li><strong><code>hermes profile</code></strong>: يُظهر اسم الـ profile الحالي، والمسار، والنموذج، وحالة gateway</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profiles-vs-workspaces-vs-sandboxing">الـ profiles مقابل مساحات العمل مقابل الحوسبة المعزولة (sandboxing)</h2>
+<p>كثيرًا ما تُخلط الـ profiles بمساحات العمل أو sandboxes، لكنها أمور مختلفة:</p>
+<ul>
+<li>يمنح الـ <strong>profile</strong> Hermes دليل حالة خاصًا به: <code>config.yaml</code> و<code>.env</code> و<code>SOUL.md</code>، والجلسات، والذاكرة، والسجلات، ومهام cron، وحالة gateway.</li>
+<li>مساحة العمل (<strong>workspace</strong>) أو دليل العمل (<strong>working directory</strong>) هو المكان الذي تبدأ منه أوامر الطرفية. يُضبط ذلك بشكل منفصل عبر <code>terminal.cwd</code>.</li>
+<li>الـ <strong>sandbox</strong> هو ما يحدّ من الوصول إلى نظام الملفات. لا تعزل الـ profiles <strong>الوكيل عزلًا حقيقيًا (sandbox)</strong>.</li>
+</ul>
+<p>على terminal backend الافتراضي وهو <code>local</code>، يظل للوكيل نفس صلاحية الوصول إلى نظام الملفات التي يملكها حساب مستخدمك. الـ profile لا يمنعه من الوصول إلى مجلدات خارج دليل الـ profile.</p>
+<p>إذا أردت أن يبدأ profile داخل مجلد مشروع محدد، اضبط <code>terminal.cwd</code> صريحًا ومطلقًا في <code>config.yaml</code> الخاص بذلك الـ profile:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>استخدام <code>cwd: &quot;.&quot;</code> على backend المحلي (local) يعني "الدليل الذي انطُلق منه Hermes"، وليس "دليل الـ profile".</p>
+<p>لاحظ أيضًا ما يلي:</p>
+<ul>
+<li>يمكن لـ <code>SOUL.md</code> أن يوجّه النموذج، لكنه لا يفرض حدود مساحة عمل.</li>
+<li>تسري التغييرات في <code>SOUL.md</code> بشكل نظيف على جلسة جديدة. أما الجلسات القائمة فقد لا تزال تستخدم حالة الـ prompt القديمة.</li>
+<li>سؤال النموذج "في أي دليل أنت؟" ليس اختبار عزل موثوقًا. إن احتجت دليل بداية يمكن التنبؤ به للأدوات، اضبط <code>terminal.cwd</code> صراحةً.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-gateways">تشغيل الـ gateways</h2>
+<p>يشغّل كل profile الـ gateway الخاص به كعملية منفصلة برمز بوت خاص بها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="different-bot-tokens">رموز بوت مختلفة</h3>
+<p>لكل profile ملف <code>.env</code> خاص به. اضبط رمز بوت Telegram/Discord/Slack مختلفًا في كل واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety-token-locks">السلامة: أقفال الرموز</h3>
+<p>إذا استخدم profiles اثنان الرمز نفسه للبوت عن طريق الخطأ، تُحجب الـ gateway الثانية برسالة خطأ واضحة تسمّي الـ profile المتعارض. مدعوم لـ Telegram وDiscord وSlack وWhatsApp وSignal.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="persistent-services">الخدمات الدائمة (Persistent services)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>يحصل كل profile على اسم خدمة خاص به. وتعمل بشكل مستقل.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>داخل صورة Docker الرسمية</div><div class="admonitionContent_BuS1"><p>تُشرف على gateways كل profile أداة <a href="https://github.com/just-containers/s6-overlay" data-ext>s6-overlay</a> (وهي PID 1 داخل الحاوية)، لذا يسجّل <code>hermes profile create &lt;name&gt;</code> تلقائيًا فتحة خدمة s6 عند <code>/run/service/gateway-&lt;name&gt;/</code>. يُرسِل <code>hermes -p &lt;name&gt; gateway start/stop/restart</code> الأمر إلى <code>s6-svc</code> بدلًا من توليد عملية مستقلة — تُعاد الأعطال (crashes) إلى العمل تلقائيًا، ويحافظ <code>docker restart</code> على مجموعة الـ gateways التي كانت تعمل سابقًا. راجع <a href="/docs/user-guide/docker#per-profile-gateway-supervision">Per-profile gateway supervision</a> للتفاصيل.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-profiles">إعداد الـ profiles</h2>
+<p>لكل profile ما يخصّه:</p>
+<ul>
+<li><strong><code>config.yaml</code></strong> — النموذج، والمزوّد، والـ toolsets، وكل الإعدادات</li>
+<li><strong><code>.env</code></strong> — مفاتيح API، ورموز البوت</li>
+<li><strong><code>SOUL.md</code></strong> — الشخصية والتعليمات</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>إذا أردت أن يعمل هذا الـ profile ضمن مشروع محدد افتراضيًا، اضبط أيضًا <code>terminal.cwd</code> الخاص به:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-the-dashboard">من لوحة التحكم</h3>
+<p><a href="/docs/user-guide/features/web-dashboard#managing-multiple-profiles">لوحة تحكم الويب</a>
+هي واجهة على مستوى الجهاز يمكنها إدارة إعدادات <strong>أي</strong> profile، ومفاتيح
+API، والمهارات، وMCPs، والنموذج عبر مبدّل الـ profile في الشريط الجانبي — من دون
+حاجة إلى لوحة تحكم لكل profile على حدة. يوجّه <code>coder dashboard</code> إلى لوحة تحكم
+الجهاز مع تحديد profile باسم <code>coder</code> مسبقًا. يتبع تبويب Chat في لوحة التحكم
+المبدّلَ أيضًا، فيُنشئ محادثة تحت منزل
+الـ profile المحدد.</p>
+<p>ملاحظة: "Set as active" في صفحة Profiles بلوحة التحكم هو الافتراضي
+الثابت لتشغيلات <strong>CLI/gateway المستقبلية</strong> (كما في <code>hermes profile use</code>) —
+لتحرير profile من لوحة التحكم، استخدم المبدّل بدلًا من ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating">التحديث</h2>
+<p>يسحب <code>hermes update</code> الكود مرة واحدة (مشتركة) ويزامن المهارات المضمّنة الجديدة مع <strong>كل</strong> الـ profiles تلقائيًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>لا تُستبدل أبدًا المهارات التي عدّلها المستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-profiles">إدارة الـ profiles</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>في المحادثة، يوجد الأمران نفسهما بصيغة <code>/export</code> و<code>/import</code> — وفي تطبيق سطح المكتب باسم <strong>⌘K → Export/Import profile…</strong>. راجع <a href="#sharing-a-profile">مشاركة profile</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="naming-the-default-profile">تسمية الـ profile الافتراضي</h3>
+<p>المعرّف الداخلي للـ profile الافتراضي هو دائمًا <code>default</code> — ولا يمكن
+إعادة تسميته حقًا لأن <code>~/.hermes</code> هو جذر التثبيت. بدلًا من ذلك تؤدي إعادة تسميته إلى
+ضبط <strong>اسم عرض (display name)</strong>، تُظهره واجهات المستخدم بدلًا من المعرّف الخام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>يظهر اسم العرض في <code>hermes profile list</code>/<code>show</code>، وأمر المحادثة
+<code>/profile</code>، ولوحة التحكم، وتطبيق سطح المكتب (بما في ذلك قائمة
+Bot Mode). وهو عرض فقط: يستمر <code>-p default</code>، وأسماء الخدمات، ومهام cron،
+وكل مرجع آخر في استخدام المعرّف الأصلي <code>default</code>. يُخزَّن
+كـ <code>display_name</code> في <code>~/.hermes/profile.yaml</code>؛ احذف ذلك السطر
+للتراجع. يمكن أن تحمل الـ profiles المسمّاة <code>display_name</code> أيضًا (يبقى بعد
+إعادة تسمية حقيقية)، لكن <code>rename</code> لها ما زال يعيد تسمية الـ profile نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="deleting-a-profile">حذف profile</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يوقف هذا الأمر الـ gateway، ويزيل خدمة systemd/launchd، ويزيل الاسم المستعار للأمر، ويحذف كل بيانات الـ profile. سيُطلب منك كتابة اسم الـ profile للتأكيد.</p>
+<p>استخدم <code>--yes</code> لتخطي التأكيد: <code>hermes profile delete coder --yes</code></p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا يمكنك حذف الـ profile الافتراضي (<code>~/.hermes</code>). لإزالة كل شيء، استخدم <code>hermes uninstall</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tab-completion">الإكمال التلقائي بمفتاح Tab</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>أضف هذا السطر إلى <code>~/.bashrc</code> أو <code>~/.zshrc</code> للحصول على إكمال تلقائي دائم. يُكمِل أسماء الـ profiles بعد <code>-p</code>، وأوامر profile الفرعية، والأوامر ذات المستوى الأعلى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>تستخدم الـ profiles متغير البيئة <code>HERMES_HOME</code>. عند تشغيل <code>coder chat</code>، يضبط سكربت الـ wrapper <code>HERMES_HOME=~/.hermes/profiles/coder</code> قبل تشغيل hermes. وبما أن 119 ملفًا أو أكثر في قاعدة الكود تحلّ المسارات عبر <code>get_hermes_home()</code>، تُحدَّد حالة Hermes تلقائيًا ضمن نطاق دليل الـ profile — الإعدادات، والجلسات، والذاكرة، والمهارات، وقاعدة بيانات الحالة، وPID الخاص بـ gateway، والسجلات، ومهام cron.</p>
+<p>وهذا منفصل عن دليل عمل الطرفية. يبدأ تنفيذ الأدوات من <code>terminal.cwd</code> (أو دليل الإطلاق عند <code>cwd: &quot;.&quot;</code> على backend المحلي)، وليس تلقائيًا من <code>HERMES_HOME</code>.</p>
+<p>في التثبيتات على الجهاز المضيف (host)، تحافظ العمليات الفرعية للأدوات على <code>HOME</code> الحقيقي لمستخدم نظام التشغيل افتراضيًا، بحيث
+تستمر بيانات اعتماد CLI الموجودة تحت <code>~</code> في العمل عبر الـ profiles. تُعزل بيانات الـ profile عبر
+<code>HERMES_HOME</code>، لا عبر تغيير <code>HOME</code>. لا تزال backends الحاويات تستخدم
+<code>{HERMES_HOME}/home</code> لحالة الأدوات الدائمة، ويمكن لمستخدمي الجهاز المضيف الذين يحتاجون إلى إعدادات أدوات
+منفصلة تمامًا لكل profile أن ينضموا اختياريًا عبر <code>terminal.home_mode: profile</code>.</p>
+<p>هذا يعني أمرين يسهل الخلط بينهما:</p>
+<ul>
+<li><code>HERMES_HOME</code> هو حدود الـ profile. يتحكم في إعدادات Hermes، و<code>.env</code>،
+والذاكرة، والجلسات، والمهارات، والسجلات، ومهام cron، وحالة gateway، وبيانات Hermes
+الأخرى.</li>
+<li><code>HOME</code> هو منزل نظام التشغيل/المستخدم الذي تتوقعه الأدوات الخارجية. في تثبيتات الجهاز المضيف،
+يحافظ Hermes عليه كمنزل المستخدم الحقيقي افتراضيًا بحيث تجد أدوات مثل
+<code>git</code> و<code>ssh</code> و<code>gh</code> و<code>az</code> و<code>npm</code> وClaude Code وCodex نفس بيانات
+الاعتماد التي تستخدمها في shell العادي.</li>
+</ul>
+<p>المقايضة هي أن profiles الجهاز المضيف تشترك في حالة CLI العادية على مستوى المستخدم افتراضيًا.
+إذا احتجت هويات CLI منفصلة لكل profile، اضبط <code>terminal.home_mode: profile</code> في <code>config.yaml</code> الخاص بذلك الـ profile. في هذا الوضع يشغّل Hermes العمليات الفرعية للأدوات
+بـ <code>HOME={HERMES_HOME}/home</code>؛ وستحتاج بعدها إلى تهيئة أو ربط
+<code>~/.ssh</code> و<code>~/.gitconfig</code> و<code>~/.config/gh</code> الخاصة بالـ profile، ومصادقة CLI السحابية،
+ومصادقة Claude/Codex، وحالة npm، وملفات مماثلة داخل منزل ذلك الـ profile.</p>
+<p>يعرض Hermes أيضًا <code>HERMES_REAL_HOME</code> للعمليات الفرعية بحيث تستطيع السكربتات إيجاد
+منزل الحساب الحقيقي عندما يكون <code>home_mode: profile</code> مفعّلًا.</p>
+<p>الـ profile الافتراضي هو ببساطة <code>~/.hermes</code> نفسه. لا حاجة إلى ترحيل — تعمل التثبيتات القائمة بالطريقة نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sharing-a-profile">مشاركة profile</h2>
+<p>يمكن نقل profile بنيته على جهاز إلى جهاز آخر — محطة عملك الخاصة، أو حاسوب زميل، أو المجتمع. مساران:</p>
+<p><strong>إرسال ملف.</strong> يحزم <code>/export</code> الـ profile في ملف <code>.tar.gz</code> واحد — المهارات، والذاكرة، والشخصية، ومهام cron، والإضافات، والإعدادات، و(من سطح المكتب) السمة (theme) والتخطيط الخاصَين بك. تُزال مفاتيح API. يشغّل المستلم <code>/import</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p><strong>نشر توزيعة (distribution).</strong> غلّف الـ profile كـ <strong>مستودع git</strong> بحيث يثبّته المستلمون بأمر واحد ويسحبون تحديثات مُصدَرة لاحقًا. يحمل SOUL، والإعدادات، والمهارات، ومهام cron، واتصالات MCP؛ أما بيانات الاعتماد والذاكرة والجلسات فتبقى خاصة بكل جهاز.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>استخدم ملف تصدير لتسليم لمرة واحدة أو نقل؛ واستخدم توزيعة لوكيل ستستمر في شحن تحديثاته. راجع <strong><a href="/docs/user-guide/profile-distributions">توزيعات Profile: مشاركة وكيل كامل</a></strong> لكليهما — جدول المقارنة، والتأليف، والنشر، ودلالات التحديث، ونموذج الأمان.</p>

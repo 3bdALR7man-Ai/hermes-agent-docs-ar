@@ -1,0 +1,100 @@
+<header><h1>اجتماعات Microsoft Teams</h1></header>
+<p>استخدم Teams meeting pipeline عندما تريد من Hermes استقبال أحداث اجتماعات Microsoft Graph، وجلب نصوص الاجتماعات (transcripts) أولًا، والرجوع إلى التسجيلات مع STT عند الحاجة، ثم تسليم ملخّص منظَّم إلى الوجهات اللاحقة (downstream sinks).</p>
+<p>المتطلبات المسبقة: راجع <a href="/docs/user-guide/messaging/teams">Microsoft Teams</a> لإعداد البوت وبيانات الاعتماد الأساسية.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>Teams Meetings</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<p>تركّز هذه الصفحة على الإعداد والتفعيل:</p>
+<ul>
+<li>بيانات اعتماد Graph</li>
+<li>إعدادات مستمع webhook</li>
+<li>أوضاع التسليم في Teams</li>
+<li>بنية إعدادات pipeline</li>
+</ul>
+<p>للعمليات التشغيلية اليومية بعد الإطلاق، وفحوصات الانتقال إلى الإنتاج، وورقة عمل المشغّل، استخدم الدليل المخصّص: <a href="/docs/guides/operate-teams-meeting-pipeline">تشغيل Teams Meeting Pipeline</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-feature-does">ما الذي تفعله هذه الميزة</h2>
+<p>يقوم pipeline بما يلي:</p>
+<ol>
+<li>يستقبل أحداث webhook من Microsoft Graph</li>
+<li>يحدّد الاجتماع ويفضّل عناصر النصوص (transcript artifacts) أولًا</li>
+<li>يرجع إلى تنزيل التسجيل مع STT عند عدم توفّر نص صالح للاستخدام</li>
+<li>يخزّن حالة المهام الدائمة وسجلات الوجهات (sink records) محليًا</li>
+<li>يمكنه كتابة الملخّصات إلى Notion و Linear و Microsoft Teams</li>
+</ol>
+<p>تبقى إجراءات المشغّل ضمن CLI (الأمر الفرعي <code>teams-pipeline</code> تسجّله الإضافة <code>teams_pipeline</code> — فعّلها عبر <code>hermes plugins enable teams_pipeline</code> أو اضبط <code>plugins.enabled: [teams_pipeline]</code> في <code>config.yaml</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>قبل تفعيل pipeline الاجتماعات، تأكد من توفّر ما يلي:</p>
+<ul>
+<li>تثبيت Hermes يعمل</li>
+<li><a href="/docs/user-guide/messaging/teams">إعداد بوت Microsoft Teams</a> القائم، إذا كنت تريد التسليم الصادر إلى Teams</li>
+<li>بيانات اعتماد تطبيق Microsoft Graph مع الصلاحيات المطلوبة لموارد الاجتماعات التي تنوي الاشتراك فيها</li>
+<li>عنوان URL عام يعمل بـ HTTPS يستطيع Microsoft Graph استدعاءه لتسليم webhook</li>
+<li>تثبيت <code>ffmpeg</code> إذا كنت تريد الرجوع الاحتياطي إلى التسجيل مع STT</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-add-microsoft-graph-credentials">الخطوة 1: أضف بيانات اعتماد Microsoft Graph</h2>
+<p>أضف بيانات اعتماد Graph الخاصة بالتطبيق فقط (app-only) إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تُستخدم بيانات الاعتماد هذه من قِبل:</p>
+<ul>
+<li>الأساس البرمجي لعميل Graph</li>
+<li>أوامر صيانة الاشتراكات</li>
+<li>تحديد الاجتماعات وجلب العناصر (artifacts)</li>
+<li>التسليم الصادر إلى Teams عبر Graph عندما لا توفّر access token مخصّصًا لـ Teams</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-enable-the-graph-webhook-listener">الخطوة 2: فعّل مستمع Graph Webhook</h2>
+<p>مستمع webhook هو منصة gateway باسم <code>msgraph_webhook</code>. كحدّ أدنى، فعّله واضبط قيمة client state:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُقرأ مضيف الربط (bind host) من <code>extra.host</code> الخاص بالمنصة في <code>config.yaml</code> (لا يوجد متغير بيئة باسم <code>MSGRAPH_WEBHOOK_HOST</code> — راجع <a href="/docs/user-guide/messaging/msgraph-webhook">مرجع مستمع webhook</a>).</p>
+<p>يوفّر المستمع:</p>
+<ul>
+<li><code>/msgraph/webhook</code> لإشعارات Graph</li>
+<li><code>/health</code> لفحص سلامة بسيط</li>
+</ul>
+<p>تحتاج إلى توجيه endpoint الـ HTTPS العام إلى هذا المستمع. على سبيل المثال، إذا كان نطاقك العام <code>https://ops.example.com</code>، فسيكون عنوان URL لإشعارات Graph عادةً:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-teams-delivery-and-pipeline-behavior">الخطوة 3: اضبط التسليم إلى Teams وسلوك Pipeline</h2>
+<p>يقرأ pipeline الاجتماعات إعدادات وقت التشغيل من مدخل المنصة <code>teams</code> القائم. توجد الخيارات الخاصة بـ pipeline ضمن <code>teams.extra.meeting_pipeline</code>، بينما يبقى التسليم الصادر إلى Teams ضمن إعدادات منصة Teams المعتادة.</p>
+<p>مثال على <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إذا ربطت المستمع بمضيف غير loopback مثل <code>0.0.0.0</code>، فيجب عليك أيضًا ضبط <code>allowed_source_cidrs</code> على نطاقات العناوين الصادرة لـ webhook من Microsoft. أما الربط على loopback (<code>127.0.0.1</code> / <code>::1</code>) فهو الإعداد المقصود للأنفاق التطويرية (dev tunnels) و reverse proxy المحلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="teams-delivery-modes">أوضاع التسليم في Teams</h2>
+<p>يدعم pipeline وضعين لتسليم الملخّصات إلى Teams ضمن إضافة Teams القائمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="incoming_webhook"><code>incoming_webhook</code></h3>
+<p>استخدم هذا الوضع عندما تريد نشرًا بسيطًا عبر webhook إلى Teams دون إنشاء رسائل القنوات عبر Graph.</p>
+<p>الإعدادات المطلوبة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="graph"><code>graph</code></h3>
+<p>استخدم هذا الوضع عندما تريد أن ينشر Hermes الملخّص عبر Microsoft Graph في محادثة أو قناة على Teams.</p>
+<p>الوجهات المدعومة:</p>
+<ul>
+<li><code>chat_id</code></li>
+<li><code>team_id</code> + <code>channel_id</code></li>
+<li><code>team_id</code> + <code>home_channel</code> كقيمة احتياطية لمنصة Teams القائمة</li>
+</ul>
+<p>مثال:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-start-the-gateway">الخطوة 4: شغّل Gateway</h2>
+<p>شغّل Hermes بالطريقة المعتادة بعد تحديث الإعدادات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أو، إذا كنت تشغّل Hermes داخل Docker، فشغّل gateway بالطريقة نفسها التي تتبعها في عملية النشر لديك.</p>
+<p>تحقّق من المستمع:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-create-graph-subscriptions">الخطوة 5: أنشئ اشتراكات Graph</h2>
+<p>استخدم CLI الخاصة بالإضافة لإنشاء الاشتراكات وفحصها.</p>
+<p>أمثلة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>تنتهي صلاحية اشتراكات Graph خلال 72 ساعة</div><div class="admonitionContent_BuS1"><p>يحدّ Microsoft Graph مدة اشتراكات webhook بـ 72 ساعة ولا يجدّدها تلقائيًا. يتعيّن عليك إلزامًا جدولة <code>hermes teams-pipeline maintain-subscriptions</code> قبل الانتقال إلى الإنتاج، وإلا ستتوقف الإشعارات بصمت بعد ثلاثة أيام من أي إنشاء يدوي للاشتراك. راجع <a href="/docs/guides/operate-teams-meeting-pipeline#automating-subscription-renewal-required-for-production">أتمتة تجديد الاشتراكات</a> في دليل تشغيل المشغّل (runbook) — حيث تجد ثلاثة خيارات (Hermes cron، أو systemd timer، أو crontab عادي).</p></div></div>
+<p>لصيانة الاشتراكات ومسارات عمل المشغّل اليومية، تابع مع الدليل: <a href="/docs/guides/operate-teams-meeting-pipeline">تشغيل Teams Meeting Pipeline</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="validation">التحقق</h2>
+<p>نفّذ لقطة التحقق (validation snapshot) المدمجة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>فحوصات مصاحبة مفيدة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>ما الذي تتحقق منه</th></tr></thead><tbody><tr><td>فشل التحقق من Graph webhook</td><td>تأكد من أن عنوان URL العام صحيح ويمكن الوصول إليه، وأن Graph يستدعي المسار <code>/msgraph/webhook</code> بالضبط</td></tr><tr><td>لا تظهر المهام في <code>hermes teams-pipeline list</code></td><td>تأكد من تفعيل <code>msgraph_webhook</code> ومن أن الاشتراكات تشير إلى عنوان URL الصحيح للإشعارات</td></tr><tr><td>لا ينجح أسلوب النص أولًا (transcript-first) أبدًا</td><td>تحقّق من صلاحيات Graph لموارد النصوص، ومن وجود عنصر النص (transcript artifact) لذلك الاجتماع</td></tr><tr><td>فشل الرجوع الاحتياطي إلى التسجيل</td><td>تأكد من تثبيت <code>ffmpeg</code> ومن أن تطبيق Graph يستطيع الوصول إلى عناصر التسجيل</td></tr><tr><td>فشل تسليم الملخّص إلى Teams</td><td>أعد التحقق من <code>delivery_mode</code> ومعرّفات الوجهات وإعدادات مصادقة Teams</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/messaging/teams">إعداد بوت Microsoft Teams</a></li>
+<li><a href="/docs/guides/operate-teams-meeting-pipeline">تشغيل Teams Meeting Pipeline</a></li>
+</ul>

@@ -1,0 +1,219 @@
+
+<header><h1>Comfyui</h1></header>
+<p>توليد الصور والفيديو والصوت عبر workflows الانتشار (diffusion).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/creative/comfyui</code></td></tr><tr><td>المسار</td><td><code>optional-skills/creative/comfyui</code></td></tr><tr><td>الإصدار</td><td><code>5.1.0</code></td></tr><tr><td>المؤلف</td><td>[&#x27;kshitijk4poor&#x27;, &#x27;alt-glitch&#x27;, &#x27;purzbeats&#x27;]</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>macos, linux, windows</td></tr><tr><td>الوسوم</td><td><code>comfyui</code>, <code>image-generation</code>, <code>stable-diffusion</code>, <code>flux</code>, <code>sd3</code>, <code>wan-video</code>, <code>hunyuan-video</code>, <code>creative</code>, <code>generative-ai</code>, <code>video-generation</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/mlops/mlops-stable-diffusion"><code>stable-diffusion</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>ComfyUI</h1>
+<p>ولِّد الصور والفيديو والصوت والمحتوى ثلاثي الأبعاد عبر ComfyUI باستخدام
+<code>comfy-cli</code> الرسمية للإعداد ودورة الحياة، وواجهة REST/WebSocket المباشرة
+لتنفيذ الـ workflow.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-in-this-skill">محتويات هذه المهارة</h2>
+<p><strong>مستندات مرجعية (<code>references/</code>):</strong></p>
+<ul>
+<li><code>official-cli.md</code> — كل أمر <code>comfy ...</code>، مع الخيارات (flags)</li>
+<li><code>rest-api.md</code> — endpoints الخاصة بـ REST + WebSocket (محلي + سحابي)، ومخططات الحمولة (payload schemas)</li>
+<li><code>workflow-format.md</code> — صيغة JSON بتنسيق API، وأنواع العُقد الشائعة، وتخطيط المعاملات (param mapping)</li>
+<li><code>template-integrity.md</code> — تحويل <code>comfyui-workflow-templates</code> من
+صيغة المحرِّر إلى صيغة API: تجاوز Reroute، مفاتيح المُدخلات الديناميكية المنقّطة
+(<code>values.a</code>، <code>resize_type.width</code>)، خصوصيات Cloud (إعادة توجيه 302، مهمة واحدة متزامنة
+في الفئة المجانية، سقف VRAM عند 1080p)، ودمج ffmpeg متوافق مع Discord.
+بقلم <a href="https://github.com/purzbeats" data-ext>@purzbeats</a>. حمّل هذا الملف كلما
+بدأت من قالب رسمي.</li>
+</ul>
+<p><strong>السكربتات (<code>scripts/</code>):</strong></p>
+<table><thead><tr><th>السكربت</th><th>الغرض</th></tr></thead><tbody><tr><td><code>_common.py</code></td><td>HTTP مشترك، توجيه Cloud، كتالوجات العُقد (لا تشغّله مباشرة)</td></tr><tr><td><code>hardware_check.py</code></td><td>فحص GPU/VRAM/القرص ← التوصية بين محلي أو Comfy Cloud</td></tr><tr><td><code>comfyui_setup.sh</code></td><td>فحص العتاد + تثبيت comfy-cli + تثبيت ComfyUI + التشغيل + التحقق</td></tr><tr><td><code>extract_schema.py</code></td><td>قراءة workflow ← سرد المعاملات القابلة للتحكم + اعتماديات النماذج</td></tr><tr><td><code>check_deps.py</code></td><td>مطابقة workflow مع الخادم قيد التشغيل ← سرد العُقد/النماذج الناقصة</td></tr><tr><td><code>auto_fix_deps.py</code></td><td>تشغيل check_deps ثم <code>comfy node install</code> / <code>comfy model download</code></td></tr><tr><td><code>run_workflow.py</code></td><td>حقن المعاملات، الإرسال، المراقبة، تنزيل النواتج (HTTP أو WS)</td></tr><tr><td><code>run_batch.py</code></td><td>إرسال workflow لعدد N مرات مع sweeps، بالتوازي حتى حدود فئتك</td></tr><tr><td><code>ws_monitor.py</code></td><td>عارض WebSocket فوري للمهام قيد التنفيذ (تقدّم مباشر)</td></tr><tr><td><code>health_check.py</code></td><td>مشغّل قائمة تحقق التحقّق — comfy-cli + الخادم + النماذج + اختبار سريع</td></tr><tr><td><code>fetch_logs.py</code></td><td>سحب traceback / رسائل الحالة لمعرّف prompt_id معيّن</td></tr></tbody></table>
+<p><strong>أمثلة workflows (<code>workflows/</code>):</strong> SD 1.5، SDXL، Flux Dev، SDXL img2img،
+SDXL inpaint، ESRGAN upscale، AnimateDiff video، Wan T2V. راجع
+<code>workflows/README.md</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم توليد صور باستخدام Stable Diffusion أو SDXL أو Flux أو SD3، إلخ</li>
+<li>يريد المستخدم تشغيل ملف workflow معيّن في ComfyUI</li>
+<li>يريد المستخدم تسلسل خطوات توليدية (txt2img ← upscale ← إصلاح الوجه)</li>
+<li>يحتاج المستخدم إلى ControlNet، أو inpainting، أو img2img، أو خطوط أنابيب (pipelines) متقدّمة أخرى</li>
+<li>يطلب المستخدم إدارة قائمة انتظار ComfyUI، أو فحص النماذج، أو تثبيت عُقد مخصّصة</li>
+<li>يريد المستخدم توليد فيديو/صوت/محتوى ثلاثي الأبعاد عبر AnimateDiff أو Hunyuan أو Wan أو AudioCraft، إلخ</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-two-layers">البنية المعمارية: طبقتان</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>لماذا طبقتان؟</strong> الواجهة الرسمية (CLI) ممتازة للتثبيت وإدارة الخادم
+لكنها توفر دعمًا محدودًا لتنفيذ الـ workflow. تسدّ واجهة REST/WS تلك
+الفجوة — تتولى السكربتات حقن المعاملات، ومراقبة التنفيذ، وتنزيل
+النواتج التي لا تقوم بها CLI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="detect-environment">كشف البيئة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا لم يكن أي شيء مثبّتًا، راجع <strong>الإعداد والتهيئة</strong> أدناه — لكن نفّذ دائمًا
+فحص العتاد أولًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-line-health-check">فحص صحة سريع بسطر واحد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-workflow">سير العمل الأساسي</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-get-a-workflow-json-in-api-format">الخطوة 1: احصل على JSON خاص بـ workflow بصيغة API</h3>
+<p>يجب أن تكون الـ workflows بصيغة API (لكل عقدة <code>class_type</code>). تأتي من:</p>
+<ul>
+<li>واجهة ComfyUI على الويب ← <strong>Workflow → Export (API)</strong> (الواجهة الأحدث) أو
+زر "Save (API Format)" القديم (الواجهة الأقدم)</li>
+<li>دليل <code>workflows/</code> الخاص بهذه المهارة (أمثلة جاهزة للتشغيل)</li>
+<li>تنزيلات من المجتمع (civitai، Reddit، Discord) — عادةً بصيغة المحرِّر،
+يجب تحميلها في ComfyUI ثم إعادة تصديرها</li>
+</ul>
+<p>صيغة المحرِّر (مصفوفتا <code>nodes</code> و<code>links</code> على المستوى الأعلى) <strong>غير قابلة
+للتنفيذ مباشرة</strong>. تكتشف السكربتات ذلك وتخبرك بإعادة التصدير.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-see-whats-controllable">الخطوة 2: اطّلع على ما هو قابل للتحكم</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-run-with-parameters">الخطوة 3: شغّل بالمعاملات</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تولّد القيمة <code>-1</code> لـ <code>seed</code> (أو إغفالها مع <code>--randomize-seed</code>) قيمة seed
+عشوائية جديدة لكل تشغيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-present-results">الخطوة 4: اعرض النتائج</h3>
+<p>تُصدر السكربتات JSON إلى stdout يصف كل ملف ناتج:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decision-tree">شجرة القرار</h2>
+<table><thead><tr><th>يقول المستخدم</th><th>الأداة</th><th>الأمر</th></tr></thead><tbody><tr><td><strong>دورة الحياة (استخدم comfy-cli)</strong></td><td></td><td></td></tr><tr><td>"install ComfyUI"</td><td>comfy-cli</td><td><code>bash scripts/comfyui_setup.sh</code></td></tr><tr><td>"start ComfyUI"</td><td>comfy-cli</td><td><code>comfy launch --background</code></td></tr><tr><td>"stop ComfyUI"</td><td>comfy-cli</td><td><code>comfy stop</code></td></tr><tr><td>"install X node"</td><td>comfy-cli</td><td><code>comfy node install &lt;name&gt;</code></td></tr><tr><td>"download X model"</td><td>comfy-cli</td><td><code>comfy model download --url &lt;url&gt; --relative-path models/checkpoints</code></td></tr><tr><td>"list installed models"</td><td>comfy-cli</td><td><code>comfy model list</code></td></tr><tr><td>"list installed nodes"</td><td>comfy-cli</td><td><code>comfy node show installed</code></td></tr><tr><td><strong>التنفيذ (استخدم السكربتات)</strong></td><td></td><td></td></tr><tr><td>"is everything ready?"</td><td>سكربت</td><td><code>health_check.py</code> (اختياريًا مع <code>--workflow X --smoke-test</code>)</td></tr><tr><td>"what can I change in this workflow?"</td><td>سكربت</td><td><code>extract_schema.py W.json</code></td></tr><tr><td>"check if W's deps are met"</td><td>سكربت</td><td><code>check_deps.py W.json</code></td></tr><tr><td>"fix missing deps"</td><td>سكربت</td><td><code>auto_fix_deps.py W.json</code></td></tr><tr><td>"generate an image"</td><td>سكربت</td><td><code>run_workflow.py --workflow W --args &#x27;{...}&#x27;</code></td></tr><tr><td>"use this image" (img2img)</td><td>سكربت</td><td><code>run_workflow.py --input-image image=./x.png ...</code></td></tr><tr><td>"8 variations with random seeds"</td><td>سكربت</td><td><code>run_batch.py --count 8 --randomize-seed ...</code></td></tr><tr><td>"show me live progress"</td><td>سكربت</td><td><code>ws_monitor.py --prompt-id &lt;id&gt;</code></td></tr><tr><td>"fetch the error from job X"</td><td>سكربت</td><td><code>fetch_logs.py &lt;prompt_id&gt;</code></td></tr><tr><td><strong>REST المباشرة</strong></td><td></td><td></td></tr><tr><td>"what's in the queue?"</td><td>REST</td><td><code>curl http://HOST:8188/queue</code> (محلي) أو <code>--host https://cloud.comfy.org</code></td></tr><tr><td>"cancel that"</td><td>REST</td><td><code>curl -X POST http://HOST:8188/interrupt</code></td></tr><tr><td>"free GPU memory"</td><td>REST</td><td><code>curl -X POST http://HOST:8188/free</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup--onboarding">الإعداد والتهيئة</h2>
+<p>عندما يطلب المستخدم إعداد ComfyUI، <strong>أول ما يجب فعله هو سؤاله عمّا إذا كان
+يريد Comfy Cloud (مستضاف، بلا تثبيت، مفتاح API) أو محلي (تثبيت
+ComfyUI على جهازه)</strong>. لا تبدأ بتنفيذ أوامر التثبيت أو فحوصات
+العتاد قبل أن يجيب.</p>
+<p><strong>التوثيق الرسمي:</strong> <a href="https://docs.comfy.org/installation" data-ext>https://docs.comfy.org/installation</a>
+<strong>توثيق CLI:</strong> <a href="https://docs.comfy.org/comfy-cli/getting-started" data-ext>https://docs.comfy.org/comfy-cli/getting-started</a>
+<strong>توثيق Cloud:</strong> <a href="https://docs.comfy.org/get_started/cloud" data-ext>https://docs.comfy.org/get_started/cloud</a>
+<strong>واجهة Cloud API:</strong> <a href="https://docs.comfy.org/development/cloud/overview" data-ext>https://docs.comfy.org/development/cloud/overview</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-0-ask-local-vs-cloud-always-first">الخطوة 0: اسأل بين محلي وCloud (دائمًا أولًا)</h3>
+<p>نص مقترح:</p>
+<blockquote>
+<p>"هل تريد تشغيل ComfyUI محليًا على جهازك، أم استخدام Comfy Cloud؟</p>
+<ul>
+<li><strong>Comfy Cloud</strong> — مستضاف على وحدات معالجة رسومية RTX 6000 Pro، وجميع النماذج الشائعة مثبّتة مسبقًا،
+بلا إعداد. يتطلب مفتاح API (اشتراك مدفوع مطلوب فعليًا لتشغيل
+الـ workflows؛ الفئة المجانية للقراءة فقط). الأفضل إذا لم يكن لديك GPU قوي.</li>
+<li><strong>محلي</strong> — مجاني، لكن يجب أن يستوفي جهازك متطلبات العتاد:
+<ul>
+<li>GPU من NVIDIA بذاكرة VRAM <strong>≥6 غيغابايت</strong> (≥8 غيغابايت لـ SDXL، ≥12 غيغابايت لـ Flux/الفيديو)، أو</li>
+<li>GPU من AMD بدعم ROCm (لينكس)، أو</li>
+<li>جهاز Mac بمعالج Apple Silicon (M1 فما فوق) بذاكرة موحّدة <strong>≥16 غيغابايت</strong> (يُنصح بـ ≥32 غيغابايت).</li>
+<li>أجهزة Mac بمعالج Intel والأجهزة بلا GPU لن تعمل — استخدم Cloud بدلًا من ذلك.</li>
+</ul>
+</li>
+</ul>
+<p>أيّهما تريد؟"</p>
+</blockquote>
+<p>التوجيه:</p>
+<ul>
+<li><strong>Cloud</strong> ← انتقل إلى <strong>المسار A</strong>.</li>
+<li><strong>محلي</strong> ← نفّذ فحص العتاد أولًا، ثم اختر مسارًا من المسارات B–E حسب النتيجة.</li>
+<li><strong>غير متأكد</strong> ← نفّذ فحص العتاد ودَع النتيجة تقرّر.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-verify-hardware-only-if-user-chose-local">الخطوة 1: تحقق من العتاد (فقط إذا اختار المستخدم محلي)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<table><thead><tr><th>النتيجة</th><th>المعنى</th><th>الإجراء</th></tr></thead><tbody><tr><td><code>ok</code></td><td>≥8 غيغابايت VRAM (منفصل) أو ≥32 غيغابايت ذاكرة موحّدة (Apple Silicon)</td><td>تثبيت محلي — استخدم <code>comfy_cli_flag</code> من التقرير</td></tr><tr><td><code>marginal</code></td><td>SD1.5 يعمل؛ SDXL محدود؛ Flux/الفيديو غير مرجّح</td><td>محلي مناسب لـ workflows الخفيفة، وإلا فـ <strong>المسار A (Cloud)</strong></td></tr><tr><td><code>cloud</code></td><td>لا GPU قابل للاستخدام، أقل من 6 غيغابايت VRAM، أقل من 16 غيغابايت ذاكرة موحّدة Apple، Mac بمعالج Intel، بايثون Rosetta</td><td><strong>انتقل إلى Cloud</strong> ما لم يفرض المستخدم صراحةً التشغيل المحلي</td></tr></tbody></table>
+<p>يُظهر السكربت أيضًا <code>wsl: true</code> (WSL2 مع تمرير NVIDIA) و
+<code>rosetta: true</code> (بايثون x86_64 على Apple Silicon — يجب إعادة تثبيته كـ ARM64).</p>
+<p>إذا كانت النتيجة <code>cloud</code> لكن المستخدم يريد التشغيل المحلي، لا تتابع بصمت.
+اعرض مصفوفة <code>notes</code> حرفيًا واسأله عمّا إذا كان يريد (أ) الانتقال إلى
+Cloud أو (ب) فرض تثبيت محلي (سيسبب نفاد ذاكرة (OOM) أو بطئًا غير قابل للاستخدام مع النماذج الحديثة).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-an-installation-path">اختيار مسار التثبيت</h3>
+<p>استخدم فحص العتاد أولًا. الجدول أدناه بديل احتياطي لحال كان
+المستخدم قد أخبرك بالفعل عن عتاده:</p>
+<table><thead><tr><th>الحالة</th><th>المسار الموصى به</th></tr></thead><tbody><tr><td><code>verdict: cloud</code> من فحص العتاد</td><td><strong>المسار A: Comfy Cloud</strong></td></tr><tr><td>بلا GPU / يريد التجربة بلا التزام</td><td><strong>المسار A: Comfy Cloud</strong></td></tr><tr><td>Windows + NVIDIA + غير تقني</td><td><strong>المسار B: ComfyUI Desktop</strong></td></tr><tr><td>Windows + NVIDIA + تقني</td><td><strong>المسار C: Portable</strong> أو <strong>المسار D: comfy-cli</strong></td></tr><tr><td>Linux + أي GPU</td><td><strong>المسار D: comfy-cli</strong> (الأسهل)</td></tr><tr><td>macOS + Apple Silicon</td><td><strong>المسار B: Desktop</strong> أو <strong>المسار D: comfy-cli</strong></td></tr><tr><td>بلا واجهة (headless) / خادم / CI / وكلاء</td><td><strong>المسار D: comfy-cli</strong></td></tr></tbody></table>
+<p>للمسار المؤتمت بالكامل (فحص العتاد ← التثبيت ← التشغيل ← التحقق):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يشغّل <code>hardware_check.py</code> داخليًا، ويرفض التثبيت محليًا عندما تكون
+النتيجة <code>cloud</code> (ما لم تُستخدم <code>--force-cloud-override</code>)، ويختار خيار
+<code>comfy-cli</code> المناسب، ويفضّل <code>pipx</code>/<code>uvx</code> على <code>pip</code> العام لتجنّب تلويث
+بايثون النظام.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-a-comfy-cloud-no-local-install">المسار A: Comfy Cloud (بلا تثبيت محلي)</h3>
+<p>للمستخدمين بلا GPU قوي أو من يريدون إعدادًا صفريًا. مستضاف على RTX 6000 Pro.</p>
+<p><strong>التوثيق:</strong> <a href="https://docs.comfy.org/get_started/cloud" data-ext>https://docs.comfy.org/get_started/cloud</a></p>
+<ol>
+<li>سجّل في <a href="https://comfy.org/cloud" data-ext>https://comfy.org/cloud</a></li>
+<li>أنشئ مفتاح API في <a href="https://platform.comfy.org/login" data-ext>https://platform.comfy.org/login</a></li>
+<li>اضبط المفتاح:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+</li>
+<li>شغّل الـ workflows:
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+</li>
+</ol>
+<p><strong>الأسعار:</strong> <a href="https://www.comfy.org/cloud/pricing" data-ext>https://www.comfy.org/cloud/pricing</a>
+<strong>المهام المتزامنة:</strong> Free/Standard واحدة، Creator ثلاث، Pro خمس. الفئة المجانية
+<strong>لا يمكنها تشغيل الـ workflows عبر API</strong> — يمكنها فقط تصفّح النماذج. يلزم اشتراك مدفوع
+لـ <code>/api/prompt</code>، <code>/api/upload/*</code>، <code>/api/view</code>، إلخ.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-b-comfyui-desktop-windows--macos">المسار B: ComfyUI Desktop (Windows / macOS)</h3>
+<p>مثبّت بنقرة واحدة للمستخدمين غير التقنيين. حاليًا في مرحلة Beta.</p>
+<p><strong>التوثيق:</strong> <a href="https://docs.comfy.org/installation/desktop" data-ext>https://docs.comfy.org/installation/desktop</a></p>
+<ul>
+<li><strong>Windows (NVIDIA):</strong> <a href="https://download.comfy.org/windows/nsis/x64" data-ext>https://download.comfy.org/windows/nsis/x64</a></li>
+<li><strong>macOS (Apple Silicon):</strong> <a href="https://comfy.org" data-ext>https://comfy.org</a></li>
+</ul>
+<p>Linux <strong>غير مدعوم</strong> لـ Desktop — استخدم المسار D.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-c-comfyui-portable-windows-only">المسار C: ComfyUI Portable (Windows فقط)</h3>
+<p><strong>التوثيق:</strong> <a href="https://docs.comfy.org/installation/comfyui_portable_windows" data-ext>https://docs.comfy.org/installation/comfyui_portable_windows</a></p>
+<p>نزّله من <a href="https://github.com/comfyanonymous/ComfyUI/releases" data-ext>https://github.com/comfyanonymous/ComfyUI/releases</a>، استخرجه،
+شغّل <code>run_nvidia_gpu.bat</code>. حدِّثه عبر <code>update/update_comfyui_stable.bat</code>.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-d-comfy-cli-all-platforms--recommended-for-agents">المسار D: comfy-cli (كل المنصات — موصى به للوكلاء)</h3>
+<p>الواجهة الرسمية (CLI) هي أفضل مسار للإعدادات الآلية بلا واجهة (headless).</p>
+<p><strong>التوثيق:</strong> <a href="https://docs.comfy.org/comfy-cli/getting-started" data-ext>https://docs.comfy.org/comfy-cli/getting-started</a></p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-comfy-cli">تثبيت comfy-cli</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>عطّل التحليلات (analytics) بشكل غير تفاعلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-comfyui">تثبيت ComfyUI</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>الموقع الافتراضي: <code>~/comfy/ComfyUI</code> (لينكس)، <code>~/Documents/comfy/ComfyUI</code>
+(macOS/Win). تجاوزه بـ <code>comfy --workspace /custom/path install</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch--verify">التشغيل / التحقق</h4>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-e-manual-install-advanced--unsupported-hardware">المسار E: التثبيت اليدوي (متقدّم / عتاد غير مدعوم)</h3>
+<p>لـ Ascend NPU وCambricon MLU وIntel Arc أو عتاد آخر غير مدعوم.</p>
+<p><strong>التوثيق:</strong> <a href="https://docs.comfy.org/installation/manual_install" data-ext>https://docs.comfy.org/installation/manual_install</a></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-install-download-models">بعد التثبيت: تنزيل النماذج</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>سرد المثبَّت: <code>comfy model list</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-install-install-custom-nodes">بعد التثبيت: تثبيت عُقد مخصّصة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-install-verify">بعد التثبيت: التحقق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-upload-img2img--inpainting">رفع الصور (img2img / Inpainting)</h2>
+<p>أبسط طريقة هي استخدام <code>--input-image</code> مع <code>run_workflow.py</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>يرفع الخيار (flag) الملف <code>photo.png</code>، ثم يحقن اسم ملفه من جانب الخادم في
+أي معامل بالمخطط (schema) اسمه <code>image</code>. لـ inpainting، مرّر كليهما:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>الرفع اليدوي عبر REST:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cloud-specifics">خصوصيات Cloud</h2>
+<ul>
+<li><strong>الرابط الأساسي:</strong> <code>https://cloud.comfy.org</code></li>
+<li><strong>المصادقة:</strong> ترويسة <code>X-API-Key</code> (أو <code>?token=KEY</code> لـ WebSocket)</li>
+<li><strong>مفتاح API:</strong> اضبط <code>$COMFY_CLOUD_API_KEY</code> مرة واحدة وستلتقطه السكربتات تلقائيًا</li>
+<li><strong>تنزيل النواتج:</strong> يعيد <code>/api/view</code> إعادة توجيه 302 إلى رابط موقَّع؛ تتبعه السكربتات
+وتحذف <code>X-API-Key</code> قبل الجلب من نظام التخزين الخلفي
+(لا تُسرِّب مفتاح API إلى S3/CloudFront).</li>
+<li><strong>اختلافات endpoints عن ComfyUI المحلي:</strong>
+<ul>
+<li><code>/api/object_info</code>، <code>/api/queue</code>، <code>/api/userdata</code> — <strong>403 على الفئة المجانية</strong>؛
+للمدفوعين فقط.</li>
+<li>يُعاد تسمية <code>/history</code> إلى <code>/history_v2</code> على Cloud (توجّه السكربتات
+تلقائيًا).</li>
+<li>يُعاد تسمية <code>/models/&lt;folder&gt;</code> إلى <code>/experiment/models/&lt;folder&gt;</code> على Cloud
+(توجّه السكربتات تلقائيًا).</li>
+<li>يُتجاهل حاليًا <code>clientId</code> في WebSocket — تستقبل كل الاتصالات
+الخاصة بمستخدم نفس البث. رشِّح حسب <code>prompt_id</code> من جانب العميل.</li>
+<li>يُقبَل <code>subfolder</code> عند الرفع لكن يُتجاهل — لدى Cloud مساحة أسماء مسطّحة.</li>
+</ul>
+</li>
+<li><strong>المهام المتزامنة:</strong> Free/Standard: 1، Creator: 3، Pro: 5. تُصفّ الزيادات (Extras)
+تلقائيًا. استخدم <code>run_batch.py --parallel N</code> لتشبع حدود فئتك.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="queue--system-management">إدارة قائمة الانتظار والنظام</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>

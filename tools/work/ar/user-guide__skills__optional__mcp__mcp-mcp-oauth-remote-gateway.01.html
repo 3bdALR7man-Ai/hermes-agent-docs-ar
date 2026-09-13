@@ -1,0 +1,70 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls--lessons-learned">النقاط الحرجة والدروس المستفادة</h2>
+<ol>
+<li>
+<p><strong>لا تفترض أن &quot;headless&quot; تعني استحالة OAuth.</strong> يعمل التدفق المدمج بشكل جيد مع CLI المحلي؛ والمشكلة تقتصر على عمليات النشر البعيدة حيث يكون متصفح المستخدم وعملية Hermes على جهازين مختلفين. تحقق من بيئة التشغيل قبل أن تجزم بأن OAuth غير متاح.</p>
+</li>
+<li>
+<p><strong>اقرأ المصدر، لا وثائق المهارة فقط.</strong> <code>tools/mcp_oauth.py</code> ومرجع إعدادات MCP في <code>website/docs/</code> هما المرجعان الموثوقان. ابحث في شجرة الكود (grep) قبل أن تخبر المستخدم أن ميزة ما &quot;غير موجودة&quot;.</p>
+</li>
+<li>
+<p><strong>فلتر وكيل المستخدم في Cloudflare.</strong> يضع كثير من مزوّدي MCP/OAuth بنيتهم التحتية خلف Cloudflare، الذي يرفض بـ 403 وكلاء مستخدم من نوع <code>python-urllib/*</code> على نقاط البيانات الوصفية رغم أنها عامة. اضبط <code>User-Agent: python-httpx/0.27</code> (أو أي سلسلة تشبه المتصفح) في كل طلب ضمن هذا التدفق. يستخدم Hermes نفسه httpx، لذا لا تظهر هذه المشكلة أبدًا في مسار الاتصال الفعلي.</p>
+</li>
+<li>
+<p><strong>أدرج <code>resource</code> في كل من طلب التفويض وطلب الرمز.</strong> مؤشرات الموارد في RFC 8707 ليست اختيارية بالنسبة لمعظم خوادم MCP الحديثة — فهي تربط الرمز الصادر بمورد MCP المحدد. قد يعمل حذفها أحيانًا رغم ذلك، لكنه قد يُنتج رمزًا يفشل لاحقًا عند خادم MCP بخطأ في النطاق (scope) أو الجمهور (audience).</p>
+</li>
+<li>
+<p><strong>الشرطة المائلة الختامية مهمة.</strong> تُعلن بعض الخوادم عن المورد بصيغة <code>https://mcp.example.com/</code> بشرطة مائلة ختامية وترفض الرموز الصادرة مقابل النسخة بلا شرطة. انسخ قيمة <code>resource</code> حرفيًا من استجابة <code>.well-known/oauth-protected-resource</code>.</p>
+</li>
+<li>
+<p><strong><code>/reload-mcp</code> صامت عند الفشل.</strong> إذا أظهرت إعادة التحميل &quot;No MCP tools available&quot; دون سطر <code>change_detail</code>، فهذا يعني أن خادمًا موجودًا في الإعدادات فشل في الاتصال ولم يظهر أي خطأ. تتبّع سجل الأخطاء، واختبر الرمز مباشرةً بطلب <code>initialize</code> يدوي، واطلب — إن بدا كل شيء سليمًا — إعادة تشغيل كاملة للعملية.</p>
+</li>
+<li>
+<p><strong>يمكن لقاطع الدارة (circuit breaker) أن يبقى صامدًا بعد <code>/reload-mcp</code>.</strong> يحتفظ <code>tools/mcp_tool.py</code> بقاموس عدّاد أخطاء على مستوى الوحدة (module-level) بحد أدنى صغير. وبمجرد تفعيله (مثلًا بعد أن ينتج انتهاء صلاحية الرمز عدة إخفاقات متتالية)، يمكن لمعالج الأداة أن يقطع الدارة قبل استدعاء الخادم، فلا يعيد أي استدعاء ناجح ضبط العدّاد. العرَض: تقول إعادة التحميل &quot;Reconnected: X&quot; لكن الاستدعاءات اللاحقة ما زالت تفشل بخطأ &quot;server unreachable&quot; في المحادثة نفسها. ترتيب الاسترداد: جرّب <code>/reload-mcp</code> أولًا (رخيص، لا يسبب أي اضطراب في عملية الدردشة) — فهو قادر في الإصدارات الحالية على مسح العدّاد؛ لا تصعّد إلى إعادة تشغيل كاملة لعملية gateway إلا إذا ظل استدعاء حي يقطع الدارة بعد إعادة التحميل. لا تبدأ بالقول &quot;يجب أن تعيد التشغيل&quot;.</p>
+</li>
+<li>
+<p><strong>تحديث رمز access_token منتهي الصلاحية مع قاطع دارة مفعّل يمثّل جمودًا (deadlock).</strong> يعمل منطق التحديث التلقائي (auto-refresh) ضمن مسار استدعاء MCP نفسه، وهو ما يقطعه قاطع الدارة بعد تفعيله. لا يفيد تحديث الرمز يدويًا على القرص بمفرده — اقرن أي تحديث يدوي للرمز بإعادة تشغيل كاملة، لا بـ <code>/reload-mcp</code>.</p>
+</li>
+<li>
+<p><strong>ظهور <code>invalid_grant</code> عند تحديث يدوي يعني أن رمز التحديث ميت — وإعادة المصادقة هي الحل الوحيد، فلا تكرر المحاولة.</strong> عندما تنتهي صلاحية access_token لفترة طويلة كفاية، قد يُلغى refresh_token أيضًا من جهة الخادم. عندئذ يُعيد طلب POST بـ <code>grant_type=refresh_token</code> استجابة HTTP 400 بصيغة <code>{&quot;error&quot;:&quot;invalid_grant&quot;,...}</code> (تختلف الصياغة: &quot;Grant not found&quot;، &quot;Token expired&quot;، &quot;refresh token is invalid&quot;). لا يوجد أي تعافٍ من جهة gateway. أعد الأمر إلى المستخدم بخيارين: (أ) إعادة تنفيذ خطوات OAuth اليدوية كاملة (الخطوات 3–10)، أو (ب) إن كان المزوّد يوفّر مفتاح API شخصيًا ثابتًا، التحوّل إليه — بلا دورة تحديث/انتهاء صلاحية، وأكثر ثباتًا لـ gateway بعيد غير مراقَب. اكتشف المشكلة مبكرًا: قبل أي عملية إنشاء/تحديث ضد MCP يعمل بـ OAuth، تحقق من <code>expires_at</code> مقابل <code>time.time()</code>؛ فإن كانت الصلاحية منتهية بالفعل، حاول التحديث أولًا وأظهر <code>invalid_grant</code> فورًا بدل أن تفشل في منتصف المهمة.</p>
+</li>
+<li>
+<p><strong>نجاح التحديث مع استمرار رفض الرمز = إلغاء الجلسة من جهة الخادم؛ ولا يُصلحه إلا تدفق authorization_code جديد.</strong> يختلف هذا عن النقطة 9. قد يبدو ملف الرمز المخزّن سليمًا (<code>expires_at</code> بعيد، و refresh_token موجود)، لكن طلب <code>initialize</code> حيًا يُعيد <code>401 invalid_token</code> بجسم JSON-RPC مثل <code>{&quot;error&quot;:{&quot;code&quot;:-32002,&quot;message&quot;:&quot;Session expired. Please re-authenticate.&quot;}}</code>. وطلب POST بـ <code>grant_type=refresh_token</code> قد <strong>ينجح</strong> (HTTP 200، رمز وصول جديد) — لكن الرمز الجديد تمامًا يحصل على نفس الخطأ <code>-32002</code>. لقد ألغى المزوّد <em>جلسة</em> MCP الأساسية من جهته؛ وتُعيد سلسلة تحديث OAuth سك بيانات اعتماد جديدة لكنها لا تستطيع إعادة إنشاء جلسة مُلغاة. قاعدة القرار عندما يبلّغ MCP يعمل بـ OAuth بأنه &quot;غير متصل&quot;: (1) اختبر access_token المخزّن بطلب <code>initialize</code> يدوي؛ (2) إن ظهر <code>401 invalid_token</code>، حاول التحديث واختبر الرمز الجديد؛ (3أ) إذا نجح الرمز الجديد → اكتبه وأعد التشغيل لمسح قاطع الدارة؛ (3ب) إذا استمر ظهور <code>-32002</code>/&quot;Session expired&quot; على الرمز الجديد → توقّف، فهذا إلغاء جلسة، وسلّم المستخدم رابط التفويض لإعادة مصادقة كاملة. يُشغّل <code>scripts/diagnose-oauth-mcp.py</code> الخطوتين 1–2 تلقائيًا ويطبع الفرع الذي أنت فيه. لـ gateway غير مراقَب تتكرر فيه إلغاءات الجلسة، فضّل مفتاح API شخصيًا ثابتًا. راجع <code>references/stripe-mcp-oauth-revocation.md</code> لمثال عملي على مزوّد يُلغي الجلسة أسبوعيًا.</p>
+</li>
+<li>
+<p><strong>ملف معلومات العميل ليس اختياريًا.</strong> يحتاج Hermes إلى <code>&lt;server&gt;.client.json</code> لمعرفة <code>client_id</code> اللازم لعمليات منح التحديث (refresh). تخطّي كتابته يعني فشل أول تحديث واضطرار المستخدم لإعادة المصادقة — وكتابة كلا الملفين هي بيت القصيد من هذه المهارة.</p>
+</li>
+<li>
+<p><strong>لا تكتب رابط إعادة التوجيه يدويًا ليفتحه المستخدم.</strong> ولّد رابط التفويض برمجيًا باستخدام <code>urllib.parse.urlencode()</code>. المسافات في الصلاحيات (scopes) والأحرف الخاصة في <code>state</code> تُفسد الروابط المُركّبة بدمج نصي (string-concatenated).</p>
+</li>
+<li>
+<p><strong>أمان: ملف التخزين المؤقت (stash) يحتوي على <code>code_verifier</code>.</strong> احذف <code>/tmp/.mcp-oauth-work/&lt;server&gt;.json</code> فورًا بعد نجاح تبادل الرمز. لا داعي للاحتفاظ بسرّ إثبات هوية بعد استهلاكه.</p>
+</li>
+<li>
+<p><strong>اكتب ما أعادته نقطة نهاية الرمز فعليًا.</strong> قد يمنح خادم التفويض نطاقًا (scope) أضيق (أو أوسع) مما طُلب. اكتب <code>scope</code> من استجابة تبادل الرمز إلى <code>&lt;server&gt;.json</code>، لا ما طلبته في الخطوة 5. عندما تكون <code>scopes_supported: []</code>، فإن قائمة الصلاحيات الصريحة التي ترسلها هي المرجع الموثوق في الاتجاهين: بعض الخوادم تمنح بالضبط ما تسرده (أرسل صلاحيات ضيّقة لأقل امتياز، أو عدّد المجموعة الكاملة إذا احتاج المستخدم كل شيء)، وبعضها لا يُعيد الصلاحية الممنوحة وقت التسجيل — واستجابة تبادل الرمز وحدها هي الموثوقة.</p>
+</li>
+<li>
+<p><strong>غالبًا ما تعمل رموز OAuth أيضًا كرموز Bearer ضد واجهة REST العامة للمزوّد.</strong> غالبًا ما لا يكون access_token في <code>&lt;server&gt;.json</code> &quot;خاصًا بـ MCP فقط&quot; — فينجح <code>Authorization: Bearer &lt;token&gt;</code> ضد واجهة REST الموثّقة للمزوّد كلما مُنح نطاق المورد المقابل. هذا جزء من مواصفة OAuth 2.0 نفسها، لا خاصية من خصائص مزوّد بعينه. عندما يكون خادم MCP للقراءة فقط لكنك تحتاج عملية كتابة، تحقق مما إذا كان رمز OAuth يستطيع الوصول مباشرةً إلى واجهة REST الخاصة بالمزوّد قبل اقتراح مفتاح API منفصل.</p>
+</li>
+<li>
+<p><strong>يمكن لإخفاء الأسرار (secret redaction) أن يخفي الرموز في مخرجات الأدوات.</strong> إذا كان إخفاء الأسرار مفعّلًا، تظهر الرموز والسلاسل المبهمة الطويلة كـ <code>***</code> في مخرجات نتائج الأدوات، فلا يمكنك تنفيذ <code>print(response)</code> للحفاظ على ظهور access_token عبر الأدوار. ومقترنًا بقيم <code>code</code> أحادية الاستخدام في منح authorization_code: إذا طبعت استجابة تبادل الرمز، فقد تفقد الرمز وتستهلك الرمز (code) معًا، مما يفرض إعادة البدء برابط تفويض جديد. <strong>اكتب access_token دائمًا مباشرةً إلى ملفه النهائي في نفس كتلة الكود التي تنفّذ فيها تبادل الرمز.</strong> إن احتجت الطباعة للتنقيح (debugging)، اطبع فقط <code>len(access_token)</code> و <code>token_type</code> و <code>scope</code> و <code>expires_in</code> — لا السرّ نفسه أبدًا.</p>
+</li>
+<li>
+<p><strong>يستخدم GitHub MCP (<code>api.githubcopilot.com/mcp/</code>) تطبيق OAuth سرّي مُسجّلًا مسبقًا، لا DCR + PKCE عامًا.</strong> تحمل معلومات عميله <code>client_secret</code> فعليًا و <code>token_endpoint_auth_method: client_secret_post</code>. يجب أن يتضمّن طلب POST لتبادل الرمز إلى <code>https://github.com/login/oauth/access_token</code> حقل النموذج <code>client_secret</code> إلى جانب <code>client_id</code> و <code>code</code> و <code>code_verifier</code> و <code>redirect_uri</code> (يظل PKCE مُحترمًا فوق ذلك). رابط إعادة التوجيه <strong>ثابت</strong> في إعدادات تطبيق OAuth — لا يمكنك تغييره، فلا تنطبق حيلة منفذ المستمع اليدوي؛ يترك المستخدم فقط المتصفح يفشل في الاتصال بذلك المنفذ ثم يلصق رابط شريط العناوين لاحقًا.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-not-to-do">ما لا يجب فعله</h2>
+<ul>
+<li><strong>لا تستخدم <code>mcp-remote</code> كحل احتياطي.</strong> فهو يشغّل عملية فرعية npx يجلس خادم استدعاء OAuth الخاص بها أيضًا على loopback الحاوية البعيدة — المشكلة نفسها. لا يفيد <code>mcp-remote</code> إلا عندما لا يتحدث عميل MCP HTTP بعيدًا إطلاقًا (وHermes يتحدثه أصلًا).</li>
+<li><strong>لا تدفع نحو &quot;الصق رمز API الخاص بك وسأضيف الترويسات&quot;</strong> إذا طلب المستخدم صراحةً استخدام OAuth. اعرض الاختصار عبر الرمز الثابت فقط بعد شرح سبب فشل تدفق OAuth الأصلي في عمليات النشر البعيدة. احترم اختيار المستخدم لبذل الجهد الإضافي مقابل وصول محدود النطاق وبلا حاجة لتدوير الرموز.</li>
+<li><strong>لا تدّعِ أن Hermes لا يدعم ميزة ما دون قراءة المصدر.</strong> ابحث في شجرة الكود المصدري قبل إطلاق أي حكم حول القدرات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference-files">ملفات مرجعية سريعة</h2>
+<ul>
+<li><code>scripts/diagnose-oauth-mcp.py</code> — أداة تشخيص قابلة لإعادة التشغيل، للقراءة فقط افتراضيًا. لاسم خادم مُعطى، تختبر access_token المخزّن، وتحاول التحديث، وتختبر الرمز الجديد، وتطبع بالضبط فرع الاسترداد الذي أنت فيه (<code>TOKEN_OK</code> = قاطع الدارة/إعادة التشغيل، <code>REFRESH_FIXED</code> = حفظ+إعادة تشغيل، <code>SESSION_REVOKED</code> = إعادة مصادقة كاملة، <code>REFRESH_DEAD</code> = إعادة مصادقة كاملة/مفتاح API). مرّر <code>--write</code> لحفظ رمز مُحدَّث ناجح بشكل ذري (atomically). لا يطبع قيم الأسرار أبدًا. <strong>شغّل هذا أولًا عندما يبلّغ خادم MCP يعمل بـ OAuth بأنه &quot;غير متصل&quot;</strong> — فهو يجسّد شجرة قرار النقاط الحرجة 7/9/10.</li>
+<li><code>references/stripe-mcp-oauth-revocation.md</code> — مثال عملي (Stripe) على مزوّد يُلغي جلسة OAuth الخاصة به بشكل متكرر، والحل الدائم: التحوّل إلى مفتاح API مقيَّد ثابت.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذات صلة</h2>
+<ul>
+<li><code>native-mcp</code> — دليل عام لإعداد MCP في Hermes. المرجع الموثوق للإعدادات موجود هناك.</li>
+<li><code>mcporter</code> — جسر CLI الخارجي، لاستدعاءات MCP العرضية خارج إعدادات Hermes.</li>
+</ul>

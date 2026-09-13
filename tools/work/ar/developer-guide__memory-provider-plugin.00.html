@@ -1,0 +1,139 @@
+<header><h1>بناء إضافة مزوّد ذاكرة (Memory Provider Plugin)</h1></header>
+<p>تمنح إضافات مزوّدي الذاكرة Hermes Agent معرفة دائمة عبر الجلسات تتجاوز MEMORY.md وUSER.md المدمجين. يغطي هذا الدليل كيفية بناء واحدة.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>مزوّدو الذاكرة هم أحد نوعين من <strong>إضافات المزوّد (provider plugin)</strong>. الآخر هو <a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a>، التي تستبدل ضاغط السياق المدمج. يتبع كلاهما النمط نفسه: اختيار أحادي، مبني على الإعدادات، يُدار عبر <code>hermes plugins</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation-layouts">تخطيطات التثبيت</h2>
+<p>يكتشف Hermes مزوّدي الذاكرة من أربعة مصادر، بترتيب الأولوية هذا:</p>
+<table><thead><tr><th>المصدر</th><th>الموقع</th><th>ملاحظات</th></tr></thead><tbody><tr><td>مضمّن (Bundled)</td><td><code>plugins/memory/&lt;name&gt;/</code></td><td>يُشحَن مع Hermes. مغلق أمام مزوّدين جدد — راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/CONTRIBUTING.md" data-ext>CONTRIBUTING</a>.</td></tr><tr><td>المستخدم (User)</td><td><code>$HERMES_HOME/plugins/&lt;name&gt;/</code></td><td>يضعه المستخدم، لكل profile.</td></tr><tr><td>المشروع (Project)</td><td><code>./.hermes/plugins/&lt;name&gt;/</code></td><td>اختياري (opt-in) عبر <code>HERMES_ENABLE_PROJECT_PLUGINS=1</code>.</td></tr><tr><td>الحزمة (Package)</td><td>نقطة دخول <code>hermes_agent.memory_providers</code></td><td><code>pip install</code>، لا حاجة لنسخ شيء.</td></tr></tbody></table>
+<p>المصادر السابقة تفوز عند تصادم الأسماء، بحيث لا يمكن لدليل يُوضع في شجرة عمل حجب مزوّد مُشحَن أبدًا.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>هذا عكس ترتيب &quot;الأحدث يفوز&quot; في نظام الإضافات العام. يُفعَّل مزوّد
+الذاكرة بـ<em>الاسم</em> (<code>memory.provider</code>)، لذا فإن الحجب قد يعيد توجيه ذاكرة
+الوكيل بصمت بدلًا من مجرد استبدال أداة.</p></div></div>
+<p>الاكتشاف <em>يُعدِّد</em> فقط — ولا يستورد مزوّدًا أبدًا. لا يعمل شيء حتى
+يسمّيه <code>memory.provider</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-provider">مزوّد بالدليل (Directory Provider)</h3>
+<p>يعيش مزوّد الدليل في <code>plugins/memory/&lt;name&gt;/</code> عندما يكون مضمَّنًا مع
+Hermes، وفي <code>$HERMES_HOME/plugins/&lt;name&gt;/</code> عندما يثبّته مستخدم، أو في
+<code>./.hermes/plugins/&lt;name&gt;/</code> لمزوّد محلي بالمشروع:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="packaged-provider">مزوّد مُحزَّم (Packaged Provider)</h3>
+<p>ينشر مزوّد مثبَّت عبر pip نقطة دخول في مجموعة
+<code>hermes_agent.memory_providers</code>. اسم نقطة الدخول هو اسم المزوّد الذي يختاره
+المستخدمون في <code>memory.provider</code>؛ وقيمتها تشير إلى دالة
+<code>register(ctx)</code> الخاصة بالمزوّد:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">pyproject.toml</div><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اجعل نقطة الدخول تشير إلى <strong>الحزمة</strong>، أو إلى <code>register(ctx)</code> داخلها،
+واحتفظ بتنفيذك ومهاراتك ومواردك الأخرى في تخطيط حزمة Python العادي.
+لا حاجة لأي نسخ تحت <code>$HERMES_HOME/plugins/</code>.</p>
+<p>تحصل نقطة دخول الحزمة على كل ما يحصل عليه تثبيت الدليل، بما في ذلك
+الملفان اللذان يقرأهما Hermes من القرص بدلًا من استيرادهما — <code>config_schema.py</code>
+(لوحة إعدادات لوحة التحكم) و<code>cli.py</code> (أوامر <code>hermes &lt;provider&gt;</code> الفرعية
+الخاصة بك). يوجد كلاهما بجانب <code>__init__.py</code> الخاص بحزمتك، لذا اجعل
+نقطة الدخول تشير إلى حزمة بدلًا من وحدة (module) واحدة إذا شحنت أيًا منهما.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-memoryprovider-abc">الصنف المجرد MemoryProvider</h2>
+<p>تنفّذ إضافتك الصنف الأساسي المجرد (abstract base class) <code>MemoryProvider</code> من <code>agent/memory_provider.py</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-methods">الدوال المطلوبة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-lifecycle">دورة الحياة الأساسية</h3>
+<table><thead><tr><th>الدالة</th><th>وقت الاستدعاء</th><th>يجب تنفيذها؟</th></tr></thead><tbody><tr><td><code>name</code> (خاصية)</td><td>دائمًا</td><td><strong>نعم</strong></td></tr><tr><td><code>is_available()</code></td><td>عند تهيئة الوكيل، قبل التفعيل</td><td><strong>نعم</strong> — بلا أي استدعاءات شبكة</td></tr><tr><td><code>initialize(session_id, **kwargs)</code></td><td>عند بدء تشغيل الوكيل</td><td><strong>نعم</strong></td></tr><tr><td><code>get_tool_schemas()</code></td><td>بعد التهيئة، لحقن الأدوات</td><td><strong>نعم</strong></td></tr><tr><td><code>handle_tool_call(tool_name, args, **kwargs)</code></td><td>عندما يستخدم الوكيل أدواتك</td><td><strong>نعم</strong> (إن كان لديك أدوات)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="config">الإعدادات</h3>
+<table><thead><tr><th>الدالة</th><th>الغرض</th><th>يجب تنفيذها؟</th></tr></thead><tbody><tr><td><code>get_config_schema()</code></td><td>الإعلان عن حقول الإعدادات لـ <code>hermes memory setup</code></td><td><strong>نعم</strong></td></tr><tr><td><code>save_config(values, hermes_home)</code></td><td>كتابة الإعدادات غير السرية إلى الموقع الأصلي</td><td><strong>نعم</strong> (ما لم تكن معتمدة على متغيرات البيئة فقط)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-hooks">الـ hooks الاختيارية</h3>
+<table><thead><tr><th>الدالة</th><th>وقت الاستدعاء</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td><code>system_prompt_block()</code></td><td>تجميع system prompt</td><td>معلومات مزوّد ثابتة</td></tr><tr><td><code>prefetch(query, *, session_id=&quot;&quot;)</code></td><td>قبل كل استدعاء API</td><td>إعادة السياق المسترجَع</td></tr><tr><td><code>queue_prefetch(query, *, session_id=&quot;&quot;)</code></td><td>بعد كل دور</td><td>تسخين مسبق (pre-warm) للدور التالي</td></tr><tr><td><code>sync_turn(user, assistant, *, session_id=&quot;&quot;, messages=None)</code></td><td>بعد كل دور مكتمل</td><td>حفظ المحادثة</td></tr><tr><td><code>on_session_end(messages)</code></td><td>انتهاء المحادثة</td><td>استخلاص/تفريغ نهائي</td></tr><tr><td><code>on_pre_compress(messages)</code></td><td>قبل ضغط السياق</td><td>حفظ الرؤى (insights) قبل التخلص من البيانات</td></tr><tr><td><code>on_memory_write(action, target, content)</code></td><td>كتابات الذاكرة المدمجة</td><td>عكسها إلى الـ backend الخاص بك</td></tr><tr><td><code>shutdown()</code></td><td>خروج العملية</td><td>تنظيف الاتصالات</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="oversized-prefetch-results">نتائج prefetch كبيرة الحجم بشكل زائد</h3>
+<p>نتائج <code>prefetch()</code> الخارجية التي تتجاوز عتبة الفيضان المضبوطة تُكتب
+إلى ملف فيضان خاص وتُستبدَل بمعاينة رأس/ذيل مضبوطة.
+تتضمن المعاينة المسار بحيث يمكن للوكيل قراءة النتيجة الكاملة عند
+الحاجة الفعلية إليها. النتائج التي تساوي العتبة أو تقل عنها تُعاد دون تغيير.</p>
+<p>يستخدم هذا إعدادات <code>hooks.output_spill</code> المشتركة (<code>10,000</code> حرف
+افتراضيًا)؛ راجع <a href="/docs/developer-guide/plugins/#oversized-context-spill">الإضافات — فيضان السياق الزائد الحجم</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre-compress-checkpoints-fail-closed">نقاط تفتيش ما قبل الضغط (فشل بأمان)</h2>
+<p><code>on_pre_compress()</code> بأفضل جهد افتراضيًا: إذا أطلق مزوّدك استثناءً، يسجّل
+المضيف الإخفاق ويستمر الضغط. هذا هو الافتراضي الصحيح لاستخلاص
+الرؤى — والافتراضي الخاطئ لمزوّد مهمته أرشفة أدلة النص الكامل
+إلى مخزن دائم <em>قبل</em> إعادة الكتابة المُفقِدة (lossy). لهذه
+الحالة يقدّم المضيف عقد نقطة تفتيش اختياري (إصدار API v2):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يفعّل المشغّلون هذا الفرض لكل نشر:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>مع تفعيل هذا التقييد، <strong>يفشل الضغط بأمان</strong> قبل أي إعادة كتابة مُفقِدة ما
+لم يكمل مزوّد نشط يعلن عن الـ API نقطة تفتيشه: يُحفَظ
+النص الكامل غير المضغوط، وتخفق محاولة الضغط برمز
+<code>BLOCKED_MISSING_PREREQUISITE</code>، ويمكن إعادة المحاولة بمجرد أن يتعافى
+مخزنك. مع تعطيل هذا التقييد (الافتراضي)، لا يتغير شيء بالنسبة للمزوّدين الحاليين.</p>
+<p>يرتبط هذا التقييد بكل سلطة ضغط، لا بمُلخِّص Hermes
+فقط: يُوقَف الضغط الأصلي من جهة الخادم (<code>compression.codex_responses_native</code>)
+بينما التقييد مسلَّح، ويُجبَر الضغط الدقيق بعد الدور (post-turn micro-compaction)
+(<code>compression.micro_compact</code>) على الإيقاف عند تهيئة الوكيل (فهو يمتصّ
+التبادلات القديمة في ملخّص متجدد بلا نقطة ربط لنقطة تفتيش في مساره)، ويُرفَض
+وضع API الخاص بـ <code>codex_app_server</code> عند تهيئة الوكيل — إذ يضغط وكيل codex
+سلسلته الخاصة بلا حد صادق لما قبل الضغط، لذا لا يمكن ضمان نقطة
+تفتيش مطلوبة هناك. يبقى ضاغط Hermes الواعي بنقاط التفتيش
+السلطة المُفقِدة الوحيدة.</p>
+<p>ما يستقبله مزوّدك يعتمد على إصدار API المُعلَن. مزوّدو الإصدار 1
+(الافتراضي الضمني — كل مزوّد موجود مسبقًا) يحتفظون بالعقد
+التاريخي: قائمة الرسائل الخام، تمامًا كما كانت. مزوّدو نقاط تفتيش
+الإصدار 2 يستقبلون أدلة مباشرة مُطبَّعة بدلًا من ذلك:
+صفوف نصوص المستخدم/المساعد فقط — نتائج الأدوات، والرسائل النظامية،
+وحمولة <code>tool_calls</code> الخاصة برسائل المساعد (يُحتفَظ بنثرها)، وملخصات
+الضغط السابقة تُصفَّى من جهة المضيف. تُعرَف الملخصات السابقة
+عبر علامة رسالة دائمة <code>_compressed_summary</code> تنجو من إعادات تشغيل
+العملية، بحيث لا تُغذّي جلسة مستأنَفة أرشيفك بملخصات مشتقة أبدًا.</p>
+<p><strong>يجب أن تكون نقاط التفتيش متماثلة القوة (idempotent).</strong> بعد حظر بسبب الفشل الآمن،
+تستدعي محاولة الضغط التالية <code>on_pre_compress()</code> مرة أخرى بنفس النص —
+والنص الذي نما قليلًا فقط ينتج أدلة متداخلة إلى حد كبير. رتّب
+كتابات أرشيفك حسب المحتوى (مثلًا بصمة رقمية للنص) واستخدم upsert،
+بحيث تتماثل إعادات المحاولة والتداخلات بدلًا من
+تراكم أرشيفات مكررة.</p>
+<p>اختبارات العقد: <code>tests/agent/test_pre_compress_checkpoint_contract.py</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-schema">مخطط الإعدادات (Config Schema)</h2>
+<p>تُعيد <code>get_config_schema()</code> قائمة من واصفات الحقول (field descriptors) المستخدَمة في <code>hermes memory setup</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>الحقول ذات <code>secret: True</code> و<code>env_var</code> تذهب إلى <code>.env</code>. الحقول غير السرية تُمرَّر إلى <code>save_config()</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>مخطط مبسّط مقابل مخطط كامل</div><div class="admonitionContent_BuS1"><p>يُطرَح كل حقل في <code>get_config_schema()</code> أثناء <code>hermes memory setup</code>. المزوّدون ذوو الخيارات الكثيرة ينبغي أن يبقوا المخطط مبسّطًا — لا تُدرِج سوى الحقول التي <strong>يجب</strong> على المستخدم ضبطها (مفتاح API، بيانات الاعتماد المطلوبة). وثّق الإعدادات الاختيارية في مرجع ملف إعدادات (مثل <code>$HERMES_HOME/myprovider.json</code>) بدلًا من الطلب عن كل واحدة أثناء الإعداد. هذا يبقي معالج الإعداد سريعًا مع الاستمرار في دعم الإعدادات المتقدمة. راجع مزوّد Supermemory كمثال — فهو لا يطلب سوى مفتاح API؛ وكل الخيارات الأخرى تعيش في <code>supermemory.json</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="save-config">حفظ الإعدادات</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>بالنسبة للمزوّدين المعتمدين فقط على متغيرات البيئة، اترك القيمة الافتراضية دون تنفيذ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-entry-point">نقطة دخول الإضافة</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يمكن للمزوّد أيضًا عرض مهارات للقراءة فقط من نفس الاستدعاء. تكون المهارات
+مُقيَّدة باسم نقطة الدخول ولا تُحمَّل إلا عندما يكون مزوّد الذاكرة
+هذا نشطًا:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>مع تفعيل نقطة الدخول <code>my-provider</code>، تصبح المهارة متاحة باسم
+<code>my-provider:maintenance</code> عبر <code>skill_view()</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluginyaml">plugin.yaml</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="threading-contract">عقد الـ Threading</h2>
+<p><strong>يجب أن تكون <code>sync_turn()</code> غير حاجبة (non-blocking).</strong> إذا كان لدى الـ backend الخاص بك زمن استجابة (استدعاءات API، معالجة LLM)، شغّل العمل في thread daemon:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><code>messages</code> هو سياق محادثة اختياري بأسلوب OpenAI كما كان عند اكتمال
+الدور. عند وجوده، يتضمن رسائل المستخدم/المساعد، واستدعاءات أدوات المساعد،
+ورسائل نتائج الأدوات. المزوّدون الذين لا يحتاجون سياق الدور الخام يمكنهم حذف
+معامل <code>messages</code>؛ وسيستمر Hermes باستدعائهم بالتوقيع القديم.</p>
+<p>على مزوّدي السحابة توثيق أي أجزاء من <code>messages</code> تُرسَل خارج الجهاز.
+قد تحتوي استدعاءات الأدوات ونتائجها على مسارات ملفات، أو مخرجات أوامر، أو بيانات
+مساحة عمل أخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profile-isolation">عزل Profile</h2>
+<p><strong>يجب</strong> أن تستخدم كل مسارات التخزين معامل <code>hermes_home</code> من <code>initialize()</code>، لا <code>~/.hermes</code> مُثبَّتًا بشكل ثابت:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<p>راجع <code>tests/agent/test_memory_provider.py</code> واختبارات الذاكرة المجاورة (<code>tests/agent/test_memory_session_switch.py</code>، و<code>tests/agent/test_memory_user_id.py</code>، و<code>tests/run_agent/test_memory_provider_init.py</code>) لأنماط شاملة من طرف إلى طرف.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-cli-commands">إضافة أوامر CLI</h2>
+<p>يمكن لإضافات مزوّد الذاكرة تسجيل شجرة أوامر CLI فرعية خاصة بها (مثل <code>hermes my-provider status</code>، و<code>hermes my-provider config</code>). يستخدم هذا نظام اكتشاف قائمًا على الاصطلاح (convention-based) — بلا تغييرات على الملفات الأساسية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
+<ol>
+<li>أضف ملف <code>cli.py</code> إلى دليل إضافتك</li>
+<li>عرّف دالة <code>register_cli(subparser)</code> تبني شجرة argparse</li>
+<li>يكتشفها نظام إضافة الذاكرة عند بدء التشغيل عبر <code>discover_plugin_cli_commands()</code></li>
+<li>تظهر أوامرك تحت <code>hermes &lt;provider-name&gt; &lt;subcommand&gt;</code></li>
+</ol>
+<p><strong>التقييد حسب المزوّد النشط:</strong> تظهر أوامر CLI الخاصة بك فقط عندما يكون مزوّدك هو <code>memory.provider</code> النشط في الإعدادات. إذا لم يُعِد المستخدم ضبط مزوّدك، لن تظهر أوامرك في <code>hermes --help</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example">مثال</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementation">التنفيذ المرجعي</h3>
+<p>راجع <code>plugins/memory/honcho/cli.py</code> لمثال كامل بـ 13 أمرًا فرعيًا، وإدارة عبر عدة profiles (<code>--target-profile</code>)، وقراءة/كتابة الإعدادات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure-with-cli">هيكل الدليل مع CLI</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-provider-rule">قاعدة المزوّد الواحد</h2>
+<p>يمكن أن يكون <strong>مزوّد ذاكرة خارجي واحد فقط</strong> نشطًا في وقت واحد. إذا حاول مستخدم تسجيل مزوّد ثانٍ، يرفضه MemoryManager بتحذير. هذا يمنع تضخّم مخطط الأدوات وتعارض الـ backends.</p>

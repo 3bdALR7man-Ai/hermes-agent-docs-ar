@@ -1,0 +1,166 @@
+<header><h1>بروتوكول خادم اللغة (LSP)</h1></header>
+<p>يشغّل Hermes خوادم لغة (language servers) كاملة — مثل pyright و gopls و rust-analyzer و
+typescript-language-server و clangd ونحو 20 خادمًا آخر — كعمليات فرعية في
+الخلفية، ويغذّي تشخيصاتها الدلالية (semantic diagnostics) إلى فحص الـ lint
+الذي يُجرى بعد الكتابة وتستخدمه <code>write_file</code> و <code>patch</code>. فعندما يعدّل الوكيل
+ملفًا، يرى بالضبط الأخطاء التي أدخلها ذلك التعديل — لا أخطاء
+الصياغة فحسب، بل أيضًا <strong>أخطاء الأنواع، والأسماء غير المعرّفة، والاستيرادات المفقودة،
+والمشكلات الدلالية على مستوى المشروع بأكمله</strong> التي يكتشفها خادم اللغة.</p>
+<p>هذه هي البنية المعمارية نفسها التي تستخدمها وكلاء البرمجة من الطراز الأول. ويقدّمها Hermes
+مكتفية ذاتيًا: فلا حاجة إلى محرر مضيف، ولا إضافات
+لتثبيتها، ولا daemon منفصل لإدارته.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-lsp-runs">متى يعمل LSP</h2>
+<p>يعتمد تشغيل LSP على <strong>اكتشاف مساحة عمل git</strong>. فعندما يكون مجلد العمل الخاص بالوكيل
+(أو الملف الجاري تعديله) داخل مستودع git، يعمل LSP
+على مساحة العمل تلك. وعندما لا يكون أيٌّ منهما داخل مستودع git، يبقى LSP
+خاملًا — وهذا مفيد لـ messaging gateways حيث يكون مجلد العمل الحالي (cwd) هو
+المجلد الرئيسي للمستخدم ولا يوجد مشروع لتشخيصه.</p>
+<p>الفحص متعدد الطبقات: فحص الصياغة داخل العملية أولًا (خلال ميكروثوانٍ)،
+ثم تشخيصات LSP ثانيًا عندما تكون الصياغة سليمة. ولا يمكن لخادم لغة غير مستقر أو
+مفقود أن يُفشل عملية كتابة أبدًا — إذ يعود كل مسار فشل في LSP
+بصمت إلى نتيجة فحص الصياغة وحدها.</p>
+<p>وبشكل ملموس، مع كل عملية <code>write_file</code> أو <code>patch</code> ناجحة:</p>
+<ol>
+<li>يلتقط Hermes خط أساس (baseline) للتشخيصات الحالية للملف.</li>
+<li>ينفّذ عملية الكتابة.</li>
+<li>يستعلم خادم اللغة مجددًا، ويستبعد التشخيصات التي كانت
+موجودة مسبقًا في خط الأساس، ويعرض الجديدة منها فقط.</li>
+</ol>
+<p>يرى الوكيل مخرجات مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يحمل الحقل <code>lint</code> نتيجة فحص الصياغة (تحليل داخل العملية يستغرق ميكروثوانٍ
+عبر <code>ast.parse</code> و <code>json.loads</code> وغيرهما)؛ بينما يحمل الحقل
+<code>lsp_diagnostics</code> التشخيصات الدلالية الواردة من
+خادم اللغة الحقيقي. قناتان، وإشارتان مستقلتان — فيرى
+الوكيل الملف السليم من حيث الصياغة والذي يعاني مشكلات دلالية على أنه
+<code>lint: ok</code> مع حقل <code>lsp_diagnostics</code> غير فارغ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-languages">اللغات المدعومة</h2>
+<table><thead><tr><th>اللغة</th><th>الخادم</th><th>التثبيت التلقائي</th></tr></thead><tbody><tr><td>Python</td><td><code>pyright-langserver</code></td><td>npm</td></tr><tr><td>TypeScript / JavaScript / JSX / TSX</td><td><code>typescript-language-server</code></td><td>npm</td></tr><tr><td>Vue</td><td><code>@vue/language-server</code></td><td>npm</td></tr><tr><td>Svelte</td><td><code>svelte-language-server</code></td><td>npm</td></tr><tr><td>Astro</td><td><code>@astrojs/language-server</code></td><td>npm</td></tr><tr><td>Go</td><td><code>gopls</code></td><td><code>go install</code></td></tr><tr><td>Rust</td><td><code>rust-analyzer</code></td><td>يدوي (rustup)</td></tr><tr><td>C / C++</td><td><code>clangd</code></td><td>يدوي (LLVM)</td></tr><tr><td>Bash / Zsh</td><td><code>bash-language-server</code></td><td>npm</td></tr><tr><td>YAML</td><td><code>yaml-language-server</code></td><td>npm</td></tr><tr><td>Lua</td><td><code>lua-language-server</code></td><td>يدوي (إصدارات GitHub)</td></tr><tr><td>PHP</td><td><code>intelephense</code></td><td>npm</td></tr><tr><td>OCaml</td><td><code>ocaml-lsp</code></td><td>يدوي (opam)</td></tr><tr><td>Dockerfile</td><td><code>dockerfile-language-server-nodejs</code></td><td>npm</td></tr><tr><td>Terraform</td><td><code>terraform-ls</code></td><td>يدوي</td></tr><tr><td>Dart</td><td><code>dart language-server</code></td><td>يدوي (dart sdk)</td></tr><tr><td>Haskell</td><td><code>haskell-language-server</code></td><td>يدوي (ghcup)</td></tr><tr><td>Julia</td><td><code>julia</code> + LanguageServer.jl</td><td>يدوي</td></tr><tr><td>Clojure</td><td><code>clojure-lsp</code></td><td>يدوي</td></tr><tr><td>Nix</td><td><code>nixd</code></td><td>يدوي</td></tr><tr><td>Zig</td><td><code>zls</code></td><td>يدوي</td></tr><tr><td>Gleam</td><td><code>gleam lsp</code></td><td>يدوي (gleam install)</td></tr><tr><td>Elixir</td><td><code>elixir-ls</code></td><td>يدوي</td></tr><tr><td>Prisma</td><td><code>prisma language-server</code></td><td>يدوي</td></tr><tr><td>Kotlin</td><td><code>kotlin-language-server</code></td><td>يدوي</td></tr><tr><td>Java</td><td><code>jdtls</code></td><td>يدوي</td></tr><tr><td>PowerShell</td><td><code>PowerShellEditorServices</code> (المضيف <code>pwsh</code>)</td><td>يدوي (ملف zip للإصدار)</td></tr></tbody></table>
+<p>بالنسبة للمُدخلات &quot;اليدوية&quot;، ثبّت الخادم عبر مدير سلسلة الأدوات (toolchain)
+المناسب لتلك اللغة (rustup، أو ghcup، أو opam، أو brew،
+…). ويكتشف Hermes الملف التنفيذي تلقائيًا في PATH أو في
+<code>&lt;HERMES_HOME&gt;/lsp/bin/</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="powershell">PowerShell</h3>
+<p>لا يُعدّ PowerShellEditorServices ملفًا تنفيذيًا واحدًا — بل هو حزمة وحدات PowerShell
+يُطلقها مضيف <code>pwsh</code> (PowerShell 7+) أو <code>powershell</code>. خطوات
+الإعداد:</p>
+<ol>
+<li>ثبّت <a href="https://github.com/PowerShell/PowerShell" data-ext>PowerShell</a> بحيث
+يكون <code>pwsh</code> (أو <code>powershell</code> في Windows) موجودًا في PATH.</li>
+<li>نزّل أحدث ملف zip للإصدار من
+<a href="https://github.com/PowerShell/PowerShellEditorServices/releases" data-ext>إصدارات PowerShellEditorServices</a>
+واستخرجه.</li>
+<li>وجّه Hermes إلى الحزمة المستخرجة — أي المجلد الذي يحتوي على
+<code>PowerShellEditorServices/Start-EditorServices.ps1</code>. وذلك بإحدى الطرق التالية:
+<ul>
+<li>اضبط <code>lsp.servers.powershell.command: [&quot;/path/to/bundle&quot;]</code> في
+<code>config.yaml</code>، أو</li>
+<li>استخرجها إلى <code>&lt;HERMES_HOME&gt;/lsp/PowerShellEditorServices</code>، أو</li>
+<li>صدّر <code>PSES_BUNDLE_PATH=/path/to/bundle</code>.</li>
+</ul>
+</li>
+</ol>
+<p>يُبلغ <code>hermes lsp status</code> بالحالة <code>installed</code> بمجرد العثور على <code>pwsh</code>؛ وإذا كانت
+الحزمة مفقودة فسترى تحذيرًا لمرة واحدة في السجلات مع
+رابط التنزيل.</p>
+<p>تُثبَّت بعض الخوادم إلى جانب اعتمادية نظيرة (peer dependency) لا يجلبها npm
+تلقائيًا. والحالة الحالية هي <code>typescript-language-server</code>،
+الذي يتطلب أن تكون حزمة SDK <code>typescript</code> قابلة للاستيراد من شجرة
+<code>node_modules</code> نفسها — لذا يثبّت Hermes الحزمتين معًا عندما
+تنفّذ <code>hermes lsp install typescript</code> أو عندما يُفعَّل التثبيت التلقائي عند أول
+استخدام.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli">CLI</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>hermes lsp status</code> هو أفضل نقطة انطلاق — إذ يعرض
+اللغات التي ستحصل على تشخيصات دلالية حاليًا، واللغات التي تحتاج إلى
+تثبيت ملف تنفيذي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>تعمل القيم الافتراضية مع الإعدادات المعتادة؛ فلا شيء يحتاج إلى ضبط إذا كانت الملفات التنفيذية
+موجودة في PATH.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-server-keys">المفاتيح الخاصة بكل خادم</h3>
+<ul>
+<li><code>disabled: true</code> — يتخطى هذا الخادم كليًا حتى عندما
+تطابق امتداداته أحد الملفات.</li>
+<li><code>command: [bin, ...args]</code> — يثبّت مسارًا مخصصًا للملف التنفيذي، ويتجاوز
+التثبيت التلقائي.</li>
+<li><code>env: {KEY: value}</code> — متغيرات بيئة إضافية تُمرَّر إلى العملية المُطلقة.</li>
+<li><code>initialization_options: {...}</code> — تُدمج في حمولة LSP
+<code>initializationOptions</code> المُرسلة ضمن مصافحة <code>initialize</code>.
+وهي خاصة بكل خادم؛ لذا راجع توثيق خادم اللغة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation-locations">مواقع التثبيت</h2>
+<p>عند ضبط <code>install_strategy: auto</code>، يثبّت Hermes الملفات التنفيذية في
+<code>&lt;HERMES_HOME&gt;/lsp/bin/</code>. وتُثبَّت حزم NPM في
+<code>&lt;HERMES_HOME&gt;/lsp/node_modules/</code> مع روابط رمزية للملفات التنفيذية في المستوى الأعلى.
+أما الملفات التنفيذية لـ Go فتأتي من <code>go install</code> مع توجيه <code>GOBIN</code> إلى
+مجلد التجهيز.</p>
+<p>لا يُثبَّت أي شيء أبدًا في <code>/usr/local/</code> أو <code>~/.local/</code> أو أي موقع
+مشترك آخر — فمجلد التجهيز مملوك بالكامل لـ Hermes، ويُحذف
+عند إعادة ضبط الـ profile.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-characteristics">خصائص الأداء</h2>
+<p>تُطلق خوادم LSP <strong>بشكل كسول (lazy)</strong> عند أول استخدام. فتعديل ملف Python
+في مشروع لم يشهد أي نشاط على ملفات <code>.py</code> من قبل يُطلق pyright؛ ويستغرق
+الإطلاق 1-3 ثوانٍ لمعظم الخوادم (وقد يستغرق rust-analyzer أكثر من 10 ثوانٍ
+في مشروع لم يُفهرس بعد). وتعيد التعديلات اللاحقة في مساحة العمل نفسها استخدام
+الخادم العامل.</p>
+<p>تضيف طبقة LSP بضع ميلي ثوانٍ إلى عمليات الكتابة السليمة عندما لا
+تصدر أي تشخيصات. وعندما تصدر تشخيصات، تكون ميزانية
+الانتظار <code>wait_timeout</code> ثانية — وعادةً يستجيب الخادم خلال
+عشرات الميلي ثوانٍ في حالة pyright/tsserver، وخلال بضع ثوانٍ في حالة
+rust-analyzer أثناء الفهرسة.</p>
+<p>تخضع التشخيصات <strong>لشرط الحداثة</strong>: فلا تُحتسب النتيجة إلا عندما يكون
+الخادم قد أنتجها لمحتوى التعديل الحالي (دفعة
+<code>publishDiagnostics</code> عند التغيير أو بعده، أو طلب سحب للتشخيصات (pull request)
+أُجيب عنه بعده). والخوادم البطيئة التي لم تُعد الفحص بعد تُنتج
+&quot;لا بيانات&quot; لذلك التعديل — ولا يُعاد أبدًا الإبلاغ عن أخطاء قديمة
+على أنها حالية.</p>
+<p>تبقى الخوادم حية ما دامت قيد الاستخدام، وتُوقف بعد
+<code>lsp.idle_timeout</code> ثانية (الافتراضي 600) دون أي نشاط على الملفات — لذا لم يعد
+الـ gateway طويل التشغيل الذي يتعامل مع worktrees كثيرة يراكم
+عملية خادم لغة لكل مساحة عمل إلى الأبد. ويُعاد إطلاق الخادم الذي أُوقف
+تلقائيًا عند عملية الملفات التالية ذات الصلة. اضبط
+<code>idle_timeout: 0</code> لتعطيل الإيقاف والإبقاء على فهرس كل خادم جاهزًا
+طوال عمر العملية.</p>
+<p>الخوادم التي تدعم مساحات العمل متعددة الجذور (حاليًا pyright) تعمل
+<strong>كعملية واحدة</strong> لكل عملية Hermes: فأول مشروع Python يُطلقها،
+وكل جذر مشروع إضافي — مثل worktrees الشقيقة في git التي
+تعدّلها subagents متوازية — يُلحق بالخادم نفسه كمجلد مساحة عمل
+إضافي بدلًا من تشغيل نسخة أخرى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling">التعطيل</h2>
+<p>اضبط <code>lsp.enabled: false</code> في <code>config.yaml</code> لتعطيل النظام الفرعي
+بأكمله. فيعود الفحص الذي يلي الكتابة إلى فحص الصياغة داخل العملية
+(<code>ast.parse</code> لـ Python، و <code>json.loads</code> لـ JSON، وغيرهما)، والذي
+يأتي دون تغيير عن الإصدارات السابقة.</p>
+<p>لتعطيل لغة واحدة دون تعطيل الطبقة بأكملها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong><code>hermes lsp status</code> يعرض خادمًا بالحالة &quot;missing&quot;</strong></p>
+<p>الملف التنفيذي غير موجود في PATH ولا في <code>&lt;HERMES_HOME&gt;/lsp/bin/</code>. نفّذ
+<code>hermes lsp install &lt;server_id&gt;</code> لمحاولة التثبيت التلقائي، أو
+ثبّت الملف التنفيذي يدويًا عبر سلسلة الأدوات المعتادة لتلك اللغة.</p>
+<p><strong>قسم <code>Backend warnings</code> في <code>hermes lsp status</code></strong></p>
+<p>تأتي بعض الخوادم كأغلفة رقيقة (wrappers) حول CLI خارجي يتولى التشخيص
+الفعلي — فهي تنطلق بشكل سليم وتقبل الطلبات، لكنها لا تُصدر
+أخطاء أبدًا عندما يكون الملف التنفيذي المساعد مفقودًا. والحالة الأكثر شيوعًا هي
+<code>bash-language-server</code>، الذي يفوّض التشخيص إلى <code>shellcheck</code>.
+وعندما يعرض <code>hermes lsp status</code> قسم <code>Backend warnings</code>، ثبّت
+الأداة المذكورة عبر مدير الحزم في نظام التشغيل لديك:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>ويُسجَّل التحذير نفسه مرة واحدة عند إطلاق الخادم في
+<code>~/.hermes/logs/agent.log</code>.</p>
+<p><strong>الخادم ينطلق لكنه لا يُرجع أي تشخيصات</strong></p>
+<p>افحص <code>~/.hermes/logs/agent.log</code> بحثًا عن مُدخلات <code>[agent.lsp.client]</code> —
+إذ تُسجَّل هناك مخرجات stderr من خادم اللغة وأخطاء البروتوكول
+على حد سواء. تحتاج بعض الخوادم (وخاصة rust-analyzer) إلى إنهاء
+فهرسة المشروع بأكمله قبل أن تُصدر تشخيصات لكل ملف؛ لذا قد
+يكتمل أول تعديل بعد تشغيل الخادم دون تشخيصات، ثم
+تلتقطها التعديلات اللاحقة.</p>
+<p><strong>تعطّل الخادم</strong></p>
+<p>يُضاف الخادم المتعطّل إلى مجموعة الخوادم المعطوبة (broken-set) ولن تُعاد محاولة تشغيله طوال
+بقية الجلسة. نفّذ <code>hermes lsp restart</code> لمسح هذه المجموعة؛
+وسيُعاد إطلاقه مع التعديل التالي.</p>
+<p><strong>تعديل ملف خارج أي مستودع git</strong></p>
+<p>بحكم التصميم، لا يعمل LSP إلا داخل مستودع git. فإذا لم يكن المشروع
+مُهيّأً بعد، نفّذ <code>git init</code> لتفعيل تشخيصات LSP. وإلا فينطبق
+البديل الاحتياطي المعتمد على فحص الصياغة وحده داخل العملية.</p>

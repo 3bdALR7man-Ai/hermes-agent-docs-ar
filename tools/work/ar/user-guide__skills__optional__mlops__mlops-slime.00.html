@@ -1,0 +1,148 @@
+
+<header><h1>Slime</h1></header>
+<p>تدريب لاحق بالتعلّم المعزز (RL post-training) لنماذج LLM باستخدام Megatron وSGLang.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/slime</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/slime</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>sglang-router&gt;=0.2.3</code>, <code>ray</code>, <code>torch&gt;=2.0.0</code>, <code>transformers&gt;=4.40.0</code></td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Reinforcement Learning</code>, <code>Megatron-LM</code>, <code>SGLang</code>, <code>GRPO</code>, <code>Post-Training</code>, <code>GLM</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>slime: إطار عمل للتدريب اللاحق لنماذج LLM لتوسيع التعلّم المعزز</h1>
+<p>slime هو إطار عمل للتدريب اللاحق لنماذج LLM من فريق THUDM بجامعة Tsinghua، ويشغّل GLM-4.5 وGLM-4.6 وGLM-4.7. يربط بين Megatron-LM للتدريب وSGLang لتوليد rollout بإنتاجية عالية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-slime">متى تستخدم slime</h2>
+<p><strong>اختر slime عندما تحتاج إلى:</strong></p>
+<ul>
+<li>تدريب أصلي بـ Megatron-LM مع استدلال بـ SGLang</li>
+<li>سير عمل مخصص لتوليد البيانات مع مخازن بيانات (data buffers) مرنة</li>
+<li>تدريب نماذج GLM أو Qwen3 أو DeepSeek V3 أو Llama 3</li>
+<li>إطار عمل بحثي المستوى مدعوم إنتاجيًا (من Z.ai)</li>
+</ul>
+<p><strong>ضع البدائل في الاعتبار عندما:</strong></p>
+<ul>
+<li>تحتاج إلى ميزات استقرار بمستوى المؤسسات ← استخدم <strong>miles</strong></li>
+<li>تريد مرونة في تبديل الواجهة الخلفية (backend) ← استخدم <strong>verl</strong></li>
+<li>تحتاج إلى تجريدات (abstractions) أصلية لـ PyTorch ← استخدم <strong>torchforge</strong></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-features">الميزات الرئيسية</h2>
+<ul>
+<li><strong>التدريب</strong>: Megatron-LM مع دعم كامل للتوازي (TP وPP وDP وSP)</li>
+<li><strong>Rollout</strong>: توليد بإنتاجية عالية قائم على SGLang مع موجّه (router)</li>
+<li><strong>مخزن البيانات (Data Buffer)</strong>: إدارة مرنة للمطالبات وتخزين العينات</li>
+<li><strong>النماذج</strong>: GLM-4.x، Qwen3، DeepSeek V3/R1، Llama 3</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-source">من المصدر</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-grpo-training">البدء السريع: تدريب GRPO</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-standard-grpo-training">سير العمل 1: تدريب GRPO القياسي</h2>
+<p>استخدم سير العمل هذا لتدريب نماذج الاستدلال بمزايا نسبية للمجموعة (group-relative advantages).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites-checklist">قائمة تحقق المتطلبات المسبقة</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="27"></x-keep> بيئة Docker أو تثبيت Megatron-LM + SGLang</li>
+<li class="task-list-item"><x-keep id="28"></x-keep> نقطة حفظ للنموذج (بصيغة HuggingFace أو Megatron)</li>
+<li class="task-list-item"><x-keep id="29"></x-keep> بيانات تدريب بصيغة JSONL</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-prepare-data">الخطوة 1: تحضير البيانات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>أو بصيغة محادثة (chat format):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-configure-model">الخطوة 2: ضبط إعداد النموذج</h3>
+<p>اختر سكربت نموذج مُعَدّ مسبقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-launch-training">الخطوة 3: تشغيل التدريب</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-monitor-training">الخطوة 4: مراقبة التدريب</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="30"></x-keep> تحقّق من TensorBoard: <code>tensorboard --logdir outputs/</code></li>
+<li class="task-list-item"><x-keep id="31"></x-keep> تأكد من أن منحنيات المكافأة (reward) في تزايد</li>
+<li class="task-list-item"><x-keep id="32"></x-keep> راقب استخدام GPU عبر العُقد</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-asynchronous-training">سير العمل 2: التدريب غير المتزامن</h2>
+<p>استخدم الوضع غير المتزامن لتحقيق إنتاجية أعلى عبر تداخل rollout مع التدريب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-async">متى تستخدم الوضع غير المتزامن</h3>
+<ul>
+<li>النماذج الكبيرة ذات أزمنة التوليد الطويلة</li>
+<li>ارتفاع زمن خمول GPU في الوضع المتزامن</li>
+<li>ذاكرة كافية للتخزين المؤقت (buffering)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="launch-async-training">تشغيل التدريب غير المتزامن</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="async-specific-parameters">معاملات خاصة بالوضع غير المتزامن</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-multi-turn-agentic-training">سير العمل 3: تدريب وكيل متعدد الأدوار</h2>
+<p>استخدم سير العمل هذا لتدريب وكلاء يستخدمون أدوات أو استدلالًا متعدد الخطوات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h3>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="33"></x-keep> دالة توليد مخصصة لمنطق تعدد الأدوار</li>
+<li class="task-list-item"><x-keep id="34"></x-keep> واجهة أداة/بيئة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-define-custom-generate-function">الخطوة 1: عرّف دالة توليد مخصصة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-launch-with-custom-function">الخطوة 2: شغّل باستخدام الدالة المخصصة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>راجع <code>examples/search-r1/</code> للاطلاع على مثال بحث متعدد الأدوار كامل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="three-argument-categories">فئات المعاملات الثلاث</h3>
+<p>يستخدم slime ثلاثة أنواع من المعاملات:</p>
+<p><strong>1. معاملات Megatron</strong> (تُمرَّر مباشرة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p><strong>2. معاملات SGLang</strong> (تبدأ بـ <code>--sglang-</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><strong>3. معاملات slime</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-constraints">القيود الرئيسية</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>مثال: 32 × 8 = 256 × 1</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-buffer-system">نظام مخزن البيانات</h2>
+<p>يتيح مخزن بيانات slime إدارة بيانات مرنة:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-data-source">مصدر بيانات أساسي</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="buffered-data-source-off-policy">مصدر بيانات مخزَّن مؤقتًا (Off-Policy)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues-and-solutions">المشكلات الشائعة وحلولها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-sglang-engine-crash">المشكلة: انهيار محرك SGLang</h3>
+<p><strong>الأعراض</strong>: يتوقف محرك الاستدلال في منتصف التدريب</p>
+<p><strong>الحلول</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-weight-sync-timeout">المشكلة: انتهاء مهلة مزامنة الأوزان</h3>
+<p><strong>الأعراض</strong>: يتوقف التدريب بعد rollout</p>
+<p><strong>الحلول</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-oom-during-training">المشكلة: نفاد الذاكرة (OOM) أثناء التدريب</h3>
+<p><strong>الأعراض</strong>: نفاد ذاكرة CUDA في مرحلة backward pass</p>
+<p><strong>الحلول</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="issue-slow-data-loading">المشكلة: بطء تحميل البيانات</h3>
+<p><strong>الأعراض</strong>: خمول GPU أثناء جلب البيانات</p>
+<p><strong>الحلول</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-models">النماذج المدعومة</h2>
+<table><thead><tr><th>عائلة النموذج</th><th>الإعدادات</th></tr></thead><tbody><tr><td>GLM</td><td>GLM-4.5، GLM-4.6، GLM-4.7، GLM-Z1-9B</td></tr><tr><td>Qwen</td><td>Qwen3 (4B، 8B، 30B-A3B)، Qwen3-MoE، Qwen2.5</td></tr><tr><td>DeepSeek</td><td>V3، V3.1، R1</td></tr><tr><td>Llama</td><td>Llama 3 (8B، 70B)</td></tr><tr><td>أخرى</td><td>Kimi K2، Moonlight-16B</td></tr></tbody></table>
+<p>لكل نموذج سكربتات مُعَدّة مسبقًا في <code>scripts/models/</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-topics">مواضيع متقدمة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="co-location-mode">وضع التشارك (Co-location)</h3>
+<p>شارك وحدات GPU بين التدريب والاستدلال لتقليل استهلاك الذاكرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-reward-model">نموذج مكافأة مخصص</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="evaluation-multi-task">التقييم متعدد المهام</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>الوثائق</strong>: <a href="https://thudm.github.io/slime/" data-ext>https://thudm.github.io/slime/</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/THUDM/slime" data-ext>https://github.com/THUDM/slime</a></li>
+<li><strong>المدونة</strong>: <a href="https://lmsys.org/blog/2025-07-09-slime/" data-ext>https://lmsys.org/blog/2025-07-09-slime/</a></li>
+<li><strong>أمثلة</strong>: راجع مجلد <code>examples/</code> للاطلاع على أكثر من 14 مثالًا تطبيقيًا</li>
+</ul>

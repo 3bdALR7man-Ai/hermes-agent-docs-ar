@@ -1,0 +1,152 @@
+
+<header><h1>Trl Fine Tuning</h1></header>
+<p>TRL: نمذجة المكافأة (reward modeling) بطرق SFT و DPO و GRPO و RLOO لـ RLHF في نماذج LLM.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/trl-fine-tuning</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/training/trl-fine-tuning</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>trl</code>، <code>transformers</code>، <code>datasets</code>، <code>peft</code>، <code>accelerate</code>، <code>torch</code></td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>Post-Training</code>، <code>TRL</code>، <code>Reinforcement Learning</code>، <code>Fine-Tuning</code>، <code>SFT</code>، <code>DPO</code>، <code>GRPO</code>، <code>RLOO</code>، <code>RLHF</code>، <code>Preference Alignment</code>، <code>HuggingFace</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>TRL - Transformer Reinforcement Learning</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>توفّر TRL طرق ما بعد التدريب (post-training) لمواءمة النماذج اللغوية مع تفضيلات البشر.</p>
+<p><strong>التثبيت</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>الضبط الدقيق الخاضع للإشراف (Supervised Fine-Tuning)</strong> (ضبط التعليمات):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>DPO</strong> (المواءمة مع التفضيلات):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سير عمل شائع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-full-rlhf-pipeline-sft--reward-model--rloo">سير العمل 1: خط أنابيب RLHF كامل (SFT ← نموذج المكافأة ← RLOO)</h3>
+<p>خط أنابيب كامل من النموذج الأساسي إلى نموذج موائم مع تفضيلات البشر.</p>
+<blockquote>
+<p><strong>ملاحظة (TRL 1.x):</strong> تم <strong>إزالة</strong> PPO من TRL — لم تعد <code>PPOTrainer</code> و <code>PPOConfig</code> و
+<code>python -m trl.scripts.ppo</code> موجودة. استخدم أحد أدوات التدريب online-RL التي ما زالت TRL توفّرها:
+<strong>RLOO</strong> (<code>RLOOTrainer</code> / <code>trl rloo</code>) هي الأقرب كبديل مباشر لخط أنابيب
+RLHF المعتمد على نموذج مكافأة، بينما <strong>GRPO</strong> (<code>GRPOTrainer</code> / <code>trl grpo</code>، راجع سير العمل 3) هي
+البديل الأكثر كفاءة من حيث الذاكرة. الخطوات أدناه تستخدم RLOO.</p>
+</blockquote>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطوة 1: الضبط الدقيق الخاضع للإشراف</strong></p>
+<p>درّب النموذج الأساسي على بيانات اتباع التعليمات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>الخطوة 2: تدريب نموذج المكافأة</strong></p>
+<p>درّب نموذجًا للتنبؤ بتفضيلات البشر:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>الخطوة 3: التعلم المعزز بـ RLOO</strong></p>
+<p>حسّن السياسة (policy) باستخدام نموذج المكافأة. أُزيلت PPO في TRL 1.x؛ استخدم واجهة سطر أوامر RLOO
+(<code>trl rloo</code>) مع تمرير نموذج المكافأة المدرَّب عبر <code>--reward_model_name_or_path</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>المكافئ بلغة Python (<code>RLOOTrainer</code> / <code>RLOOConfig</code>):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>الخطوة 4: التقييم</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-simple-preference-alignment-with-dpo">سير العمل 2: مواءمة تفضيلات بسيطة باستخدام DPO</h3>
+<p>وائم النموذج مع التفضيلات دون نموذج مكافأة.</p>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>الخطوة 1: إعداد مجموعة بيانات التفضيلات</strong></p>
+<p>صيغة مجموعة البيانات:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>حمّل مجموعة البيانات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد DPO</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p><strong>الخطوة 3: التدريب باستخدام DPOTrainer</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><strong>بديل CLI</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-memory-efficient-online-rl-with-grpo">سير العمل 3: تعلم معزز فوري (online RL) موفّر للذاكرة باستخدام GRPO</h3>
+<p>درّب باستخدام التعلم المعزز مع أقل استهلاك للذاكرة.</p>
+<p>لتوجيه متعمق حول GRPO — تصميم دالة المكافأة، ورؤى تدريب حاسمة (سلوك الخسارة، انهيار النمط mode collapse، والضبط)، وأنماط متقدمة متعددة المراحل — راجع <strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/grpo-training.md" data-ext>references/grpo-training.md</a></strong>. يوجد سكربت تدريب جاهز للإنتاج في <strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/templates/basic_grpo_training.py" data-ext>templates/basic_grpo_training.py</a></strong>.</p>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><strong>الخطوة 1: تعريف دالة المكافأة</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>أو استخدم نموذج مكافأة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><strong>الخطوة 2: إعداد GRPO</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>الخطوة 3: التدريب باستخدام GRPOTrainer</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p><strong>CLI</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-vs-alternatives">متى تستخدمها مقابل البدائل</h2>
+<p><strong>استخدم TRL عندما:</strong></p>
+<ul>
+<li>تحتاج إلى مواءمة النموذج مع تفضيلات البشر</li>
+<li>تملك بيانات تفضيلات (أزواج مختار/مرفوض)</li>
+<li>تريد استخدام التعلم المعزز (RLOO، GRPO)</li>
+<li>تحتاج إلى تدريب نموذج مكافأة</li>
+<li>تنفّذ RLHF (خط أنابيب كامل)</li>
+</ul>
+<p><strong>اختيار الطريقة</strong>:</p>
+<ul>
+<li><strong>SFT</strong>: تملك أزواج prompt-completion، وتريد اتباع تعليمات أساسي</li>
+<li><strong>DPO</strong>: تملك تفضيلات، وتريد مواءمة بسيطة (بلا حاجة إلى نموذج مكافأة)</li>
+<li><strong>RLOO</strong>: تملك نموذج مكافأة، وتريد تعلمًا معززًا فوريًا (online RL) (مسار RLHF المعتمد على نموذج المكافأة؛ أُزيلت PPO في TRL 1.x)</li>
+<li><strong>GRPO</strong>: مُقيَّد بالذاكرة، وتريد تعلمًا معززًا فوريًا مع دوال مكافأة</li>
+<li><strong>نموذج المكافأة</strong>: تبني خط أنابيب RLHF، وتحتاج إلى تقييم المخرجات</li>
+</ul>
+<p><strong>استخدم بدائل أخرى بدلًا من ذلك:</strong></p>
+<ul>
+<li><strong>HuggingFace Trainer</strong>: للضبط الدقيق الأساسي دون تعلم معزز</li>
+<li><strong>Axolotl</strong>: لإعداد التدريب عبر YAML</li>
+<li><strong>LitGPT</strong>: للتعليم وضبط دقيق بسيط</li>
+<li><strong>Unsloth</strong>: لتدريب LoRA السريع</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">مشكلات شائعة</h2>
+<p><strong>المشكلة: نفاد الذاكرة أثناء تدريب DPO</strong></p>
+<p>قلّل حجم الدفعة وطول التسلسل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>أو استخدم gradient checkpointing:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p><strong>المشكلة: جودة مواءمة ضعيفة</strong></p>
+<p>اضبط معامل beta:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>المشكلة: نموذج المكافأة لا يتعلّم</strong></p>
+<p>تحقّق من نوع دالة الخسارة (loss) ومعدل التعلّم:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>تأكد أن مجموعة بيانات التفضيلات تحتوي على فائزين واضحين:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p><strong>المشكلة: عدم استقرار تدريب التعلم المعزز الفوري (RLOO/GRPO)</strong></p>
+<p>اضبط تسوية KL/beta باتجاه السياسة المرجعية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-topics">مواضيع متقدمة</h2>
+<p><strong>دليل تدريب SFT</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/sft-training.md" data-ext>references/sft-training.md</a> لصيغ مجموعات البيانات، وقوالب المحادثة (chat templates)، واستراتيجيات packing، والتدريب متعدد GPU.</p>
+<p><strong>متغيرات DPO</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/dpo-variants.md" data-ext>references/dpo-variants.md</a> لـ IPO و cDPO و RPO ودوال خسارة DPO الأخرى مع المعاملات الفائقة (hyperparameters) الموصى بها.</p>
+<p><strong>نمذجة المكافأة</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/reward-modeling.md" data-ext>references/reward-modeling.md</a> لمكافآت النتيجة مقابل العملية، ودالة خسارة Bradley-Terry، وتقييم نموذج المكافأة.</p>
+<p><strong>طرق التعلم المعزز الفوري</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/online-rl.md" data-ext>references/online-rl.md</a> لـ PPO و GRPO و RLOO و OnlineDPO مع إعدادات مفصّلة.</p>
+<p><strong>تعمّق في GRPO</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/references/grpo-training.md" data-ext>references/grpo-training.md</a> لأنماط GRPO على مستوى الخبراء — فلسفة تصميم دالة المكافأة، ورؤى التدريب (لماذا ترتفع الخسارة، وكشف انهيار النمط)، وضبط المعاملات الفائقة، والتدريب متعدد المراحل، واستكشاف الأخطاء وإصلاحها. القالب الجاهز للإنتاج في <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/training/trl-fine-tuning/templates/basic_grpo_training.py" data-ext>templates/basic_grpo_training.py</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hardware-requirements">متطلبات العتاد</h2>
+<ul>
+<li><strong>GPU</strong>: NVIDIA (يتطلب CUDA)</li>
+<li><strong>VRAM</strong>: يعتمد على النموذج والطريقة
+<ul>
+<li>SFT بحجم 7B: 16GB (مع LoRA)</li>
+<li>DPO بحجم 7B: 24GB (يخزّن النموذج المرجعي)</li>
+<li>RLOO بحجم 7B: 40GB (السياسة + نموذج المكافأة)</li>
+<li>GRPO بحجم 7B: 24GB (أكثر كفاءة من حيث الذاكرة)</li>
+</ul>
+</li>
+<li><strong>متعدد GPU</strong>: مدعوم عبر <code>accelerate</code></li>
+<li><strong>الدقة المختلطة (Mixed precision)</strong>: يُنصح بـ BF16 (على A100/H100)</li>
+</ul>
+<p><strong>تحسين استخدام الذاكرة</strong>:</p>
+<ul>
+<li>استخدم LoRA/QLoRA لجميع الطرق</li>
+<li>فعّل gradient checkpointing</li>
+<li>استخدم أحجام دفعات أصغر مع تجميع التدرجات (gradient accumulation)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li>التوثيق: <a href="https://huggingface.co/docs/trl/" data-ext>https://huggingface.co/docs/trl/</a></li>
+<li>GitHub: <a href="https://github.com/huggingface/trl" data-ext>https://github.com/huggingface/trl</a></li>
+<li>الأوراق البحثية:
+<ul>
+<li>&quot;Training language models to follow instructions with human feedback&quot; (InstructGPT، 2022)</li>
+<li>&quot;Direct Preference Optimization: Your Language Model is Secretly a Reward Model&quot; (DPO، 2023)</li>
+<li>&quot;Group Relative Policy Optimization&quot; (GRPO، 2024)</li>
+</ul>
+</li>
+<li>أمثلة: <a href="https://github.com/huggingface/trl/tree/main/examples/scripts" data-ext>https://github.com/huggingface/trl/tree/main/examples/scripts</a></li>
+</ul>

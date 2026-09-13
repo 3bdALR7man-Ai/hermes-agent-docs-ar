@@ -1,0 +1,133 @@
+
+<header><h1>Flash Attention</h1></header>
+<p>تسريع تدريب واستدلال (inference) نماذج transformer على التسلسلات الطويلة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/flash-attention</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/flash-attention</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>flash-attn</code>, <code>torch</code>, <code>transformers</code></td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Optimization</code>, <code>Flash Attention</code>, <code>Attention Optimization</code>, <code>Memory Efficiency</code>, <code>Speed Optimization</code>, <code>Long Context</code>, <code>PyTorch</code>, <code>SDPA</code>, <code>H100</code>, <code>FP8</code>, <code>Transformers</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Flash Attention - آلية Attention سريعة وفعّالة في استخدام الذاكرة</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<p>توفّر Flash Attention تسريعًا بمقدار 2 إلى 4 مرات وتقليلًا للذاكرة بمقدار 10 إلى 20 مرة لآلية attention في نماذج transformer، عبر التبليط (tiling) والحساب المُعاد (recomputation) الواعيين بعمليات الإدخال/الإخراج (IO-aware).</p>
+<p><strong>الدعم الأصلي في PyTorch (الأسهل، PyTorch 2.2+)</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>مكتبة flash-attn (ميزات أكثر)</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-workflows">سيناريوهات العمل الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-1-enable-in-existing-pytorch-model">السيناريو 1: التفعيل في نموذج PyTorch موجود</h3>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطوة 1: تحقّق من إصدار PyTorch</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>إذا كان الإصدار أقل من 2.2، رقِّه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>الخطوة 2: فعِّل backend الخاص بـ Flash Attention</strong></p>
+<p>استبدل آلية attention القياسية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>افرض استخدام backend الخاص بـ Flash Attention (أصبح <code>torch.backends.cuda.sdp_kernel</code> مهملًا (deprecated)؛ استخدم
+<code>torch.nn.attention.sdpa_kernel</code> مع <code>SDPBackend</code>):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>الخطوة 3: تحقّق من التسريع عبر التحليل الجانبي (profiling)</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>المتوقَّع: تسريع بمقدار 2 إلى 4 مرات للتسلسلات التي تتجاوز 512 توكن.</p>
+<p><strong>الخطوة 4: اختبر تطابق الدقة مع خط الأساس (baseline)</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-2-use-flash-attn-library-for-advanced-features">السيناريو 2: استخدام مكتبة flash-attn للميزات المتقدمة</h3>
+<p>لأجل multi-query attention، أو sliding window، أو FP8 على H100.</p>
+<p>انسخ قائمة التحقق هذه:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p><strong>الخطوة 1: ثبّت مكتبة flash-attn</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>الخطوة 2: عدِّل كود attention</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p><strong>الخطوة 3: فعِّل الميزات المتقدمة</strong></p>
+<p>Multi-query attention (مشاركة K/V بين الرؤوس):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>Sliding window attention (attention محلية):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><strong>الخطوة 4: قِس الأداء (benchmark)</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow-3-h100-fp8-optimization-flashattention-3">السيناريو 3: تحسين FP8 على H100 (FlashAttention-3)</h3>
+<p>لأقصى أداء على وحدات GPU من فئة Hopper (H100).</p>
+<blockquote>
+<p><strong>مهم:</strong> حزمة pip باسم <code>flash-attn</code> (الإصدار 2.8.x) تتضمّن <strong>FlashAttention-2 فقط</strong> — و
+<strong>لا</strong> تحتوي على FA3 أو نوى (kernels) FP8 الخاصة بـ H100، كما أن <code>flash_attn_func</code> <strong>لا</strong> يستخدم FP8 تلقائيًا.
+أما FlashAttention-3 فهي بنية <strong>تجريبية (beta)</strong> منفصلة تُبنى من المصدر انطلاقًا من مجلد <code>hopper/</code>
+في المستودع، ويُصل إليها عبر وحدة <code>flash_attn_interface</code>. تدعم FA3 كلًا من FP16/BF16 للتمرير الأمامي والخلفي (forward+backward)
+أما FP8 فمدعوم <strong>للتمرير الأمامي فقط</strong>.</p>
+</blockquote>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><strong>الخطوة 1: تحقّق من وجود GPU من طراز H100</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><strong>الخطوة 2: ابنِ وثبِّت FlashAttention-3 من المصدر</strong></p>
+<p>FA3 غير مضمَّنة في <code>pip install flash-attn</code>. ابنِها من المجلد الفرعي <code>hopper/</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong>الخطوة 3: استخدم واجهة FA3 (التمرير الأمامي بـ FP8)</strong></p>
+<p>تُوفّر FA3 وحدتها الخاصة <code>flash_attn_interface</code> (مختلفة عن وحدة <code>flash_attn</code> الخاصة بـ FA2).
+مسار FP8 مخصّص <strong>للتمرير الأمامي فقط</strong> ويتوقّع مدخلات من نوع <code>float8_e4m3fn</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-vs-alternatives">متى تستخدمها مقابل البدائل</h2>
+<p><strong>استخدم Flash Attention عندما:</strong></p>
+<ul>
+<li>تدرِّب نماذج transformer بتسلسلات تتجاوز 512 توكن</li>
+<li>تشغِّل inference بسياق طويل (أكثر من 2K توكن)</li>
+<li>ذاكرة GPU محدودة (نفاد الذاكرة مع attention القياسية)</li>
+<li>تحتاج تسريعًا بمقدار 2 إلى 4 مرات دون فقدان في الدقة</li>
+<li>تستخدم PyTorch 2.2+ أو يمكنك تثبيت flash-attn</li>
+</ul>
+<p><strong>استخدم البدائل بدلًا من ذلك:</strong></p>
+<ul>
+<li><strong>Attention القياسية</strong>: للتسلسلات الأقصر من 256 توكن (العبء الإضافي لا يستحق)</li>
+<li><strong>xFormers</strong>: عند الحاجة إلى أنواع attention أكثر (وليس السرعة فقط)</li>
+<li><strong>Attention فعّالة في الذاكرة</strong>: لـ inference على CPU (تحتاج Flash Attention إلى GPU)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">المشكلات الشائعة</h2>
+<p><strong>المشكلة: ImportError: cannot import flash_attn</strong></p>
+<p>ثبِّت باستخدام خيار no-build-isolation:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>أو ثبِّت CUDA toolkit أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p><strong>المشكلة: أبطأ من المتوقَّع (بلا تسريع)</strong></p>
+<p>تزداد فائدة Flash Attention مع طول التسلسل:</p>
+<ul>
+<li>أقل من 512 توكن: تسريع طفيف (10-20%)</li>
+<li>512 إلى 2K توكن: تسريع بمقدار 2 إلى 3 مرات</li>
+<li>
+<blockquote>
+<p>2K توكن: تسريع بمقدار 3 إلى 4 مرات</p>
+</blockquote>
+</li>
+</ul>
+<p>تحقّق من أن طول التسلسل كافٍ.</p>
+<p><strong>المشكلة: RuntimeError: CUDA error</strong></p>
+<p>تحقّق من أن GPU يدعم Flash Attention:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>تتطلّب Flash Attention:</p>
+<ul>
+<li>Ampere (A100، A10): ✅ دعم كامل</li>
+<li>Turing (T4): ✅ مدعوم</li>
+<li>Volta (V100): ❌ غير مدعوم</li>
+</ul>
+<p><strong>المشكلة: تراجع في الدقة</strong></p>
+<p>تحقّق من أن dtype هو float16 أو bfloat16 (وليس float32):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>تستخدم Flash Attention float16/bfloat16 من أجل السرعة. float32 غير مدعوم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-topics">مواضيع متقدمة</h2>
+<p><strong>التكامل مع HuggingFace Transformers</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/flash-attention/references/transformers-integration.md" data-ext>references/transformers-integration.md</a> لتفعيل Flash Attention في نماذج BERT وGPT وLlama.</p>
+<p><strong>مقاييس الأداء (benchmarks)</strong>: راجع <a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/flash-attention/references/benchmarks.md" data-ext>references/benchmarks.md</a> لمقارنات تفصيلية للسرعة والذاكرة عبر وحدات GPU وأطوال التسلسل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hardware-requirements">متطلبات العتاد</h2>
+<ul>
+<li><strong>GPU</strong>: NVIDIA Ampere أو أحدث (A100، A10، A30) أو AMD MI200 أو أحدث</li>
+<li><strong>VRAM</strong>: نفس متطلبات attention القياسية (لا تزيد Flash Attention الذاكرة)</li>
+<li><strong>CUDA</strong>: 12.0+ (11.8 كحد أدنى)</li>
+<li><strong>PyTorch</strong>: 2.2+ للدعم الأصلي</li>
+</ul>
+<p><strong>غير مدعوم</strong>: V100 (Volta)، وinference على CPU</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li>الورقة البحثية: &quot;FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness&quot; (NeurIPS 2022)</li>
+<li>الورقة البحثية: &quot;FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning&quot; (ICLR 2024)</li>
+<li>مدونة: <a href="https://tridao.me/blog/2024/flash3/" data-ext>https://tridao.me/blog/2024/flash3/</a></li>
+<li>GitHub: <a href="https://github.com/Dao-AILab/flash-attention" data-ext>https://github.com/Dao-AILab/flash-attention</a></li>
+<li>وثائق PyTorch: <a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html" data-ext>https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html</a></li>
+</ul>

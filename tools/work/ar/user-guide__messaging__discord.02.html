@@ -1,0 +1,153 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-model-picker">أداة اختيار النموذج التفاعلية</h2>
+<p>أرسل <code>/model</code> دون وسائط في قناة Discord لفتح أداة اختيار النموذج القائمة على القوائم المنسدلة:</p>
+<ol>
+<li><strong>اختيار المزوّد</strong> — قائمة Select منسدلة تعرض المزوّدين المتاحين (حتى 25 مزوّدًا).</li>
+<li><strong>اختيار النموذج</strong> — قائمة منسدلة ثانية تعرض نماذج المزوّد المختار (حتى 25 نموذجًا).</li>
+</ol>
+<p>تنتهي مهلة أداة الاختيار بعد 120 ثانية. ولا يستطيع التفاعل معها إلا المستخدمون المفوَّضون (المُدرجون في <code>DISCORD_ALLOWED_USERS</code>). وإذا كنت تعرف اسم النموذج، فاكتب <code>/model &lt;name&gt;</code> مباشرةً.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-slash-commands-for-skills">Slash Commands أصلية للمهارات</h2>
+<p>يسجّل Hermes المهارات المثبّتة تلقائيًا بوصفها <strong>Discord Application Commands أصلية</strong>. ويعني ذلك أن المهارات تظهر في قائمة الإكمال التلقائي <code>/</code> في Discord إلى جانب الأوامر المدمجة.</p>
+<ul>
+<li>تصبح كل مهارة slash command في Discord (مثل <code>/code-review</code> و <code>/ascii-art</code>)</li>
+<li>تقبل المهارات معامِلًا نصيًا اختياريًا <code>args</code></li>
+<li>يفرض Discord حدًا أقصى قدره 100 application command لكل بوت — فإذا كان لديك مهارات أكثر من الخانات المتاحة، تُتجاوز المهارات الزائدة مع تحذير في السجلات</li>
+<li>تُسجَّل المهارات أثناء بدء تشغيل البوت إلى جانب الأوامر المدمجة مثل <code>/model</code> و <code>/reset</code> و <code>/bg</code></li>
+</ul>
+<p>لا يلزم أي إعداد إضافي — فأي مهارة تُثبَّت عبر <code>hermes skills install</code> تُسجَّل تلقائيًا كـ slash command في Discord عند إعادة تشغيل الـ gateway التالية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling-slash-command-registration">تعطيل تسجيل Slash Commands</h3>
+<p>إذا كنت تشغّل عدة gateways من Hermes على تطبيق Discord نفسه (مثل staging و production)، فيجب أن يتولى واحد منها فقط التسجيل العام للـ slash commands — وإلا فإن آخر عملية تشغيل تفوز وتتذبذب التسجيلات. عطّل تسجيل الـ slash commands على الـ gateway &quot;التابع&quot; (follower):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>إبقاء هذا الإعداد على <code>true</code> في الـ gateway &quot;الأساسي&quot; (primary) يحافظ على السلوك المعتاد — أي أوامر عامة في قائمة <code>/</code> للأوامر المدمجة والمهارات المثبّتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-media-inline-media-tags">إرسال الوسائط (وسوم <code>MEDIA:</code> المضمّنة)</h2>
+<p>يدعم محوّل Discord رفع الملفات الأصلي لكل أنواع الوسائط الشائعة عبر وسوم <code>MEDIA:/path/to/file</code> المضمّنة التي يُصدرها الوكيل في رده — إذ يزيل المحوّل الوسم ويرفع الملف تلقائيًا:</p>
+<table><thead><tr><th>النوع</th><th>طريقة التسليم</th></tr></thead><tbody><tr><td>الصور (PNG/JPG/WebP)</td><td>مرفق صورة أصلي في Discord مع معاينة مضمّنة</td></tr><tr><td>صور GIF المتحركة</td><td>تُرفع عبر <code>send_animation</code> باسم <code>animation.gif</code> ليشغّلها Discord مضمّنةً (لا كصورة مصغّرة ثابتة)</td></tr><tr><td>الفيديو (MP4/MOV)</td><td><code>send_video</code> — مشغّل فيديو أصلي</td></tr><tr><td>الصوت / الرسائل الصوتية</td><td><code>send_voice</code> — رسالة صوتية أصلية متى أمكن، وإلا فمرفق ملف</td></tr><tr><td>المستندات (PDF/ZIP/docx/إلخ)</td><td><code>send_document</code> — مرفق أصلي مع زر تنزيل</td></tr></tbody></table>
+<p>يعتمد الحد الأقصى لحجم كل عملية رفع في Discord على مستوى تعزيز (boost) الخادم (25 MB مجانًا، وحتى 500 MB). وإذا تلقّى Hermes خطأ HTTP 413، يعود المحوّل إلى إرسال رابط يشير إلى مسار ذاكرة التخزين المؤقت المحلية بدلًا من الفشل بصمت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="receiving-arbitrary-file-types">استقبال أي نوع من الملفات</h2>
+<p>يُقبل أي نوع ملف يرفعه المستخدم. فالتفويض بمراسلة الوكيل هو البوابة — لا امتداد الملف. يُنزَّل كل ملف مرفوع، ويُخزَّن مؤقتًا ضمن <code>~/.hermes/cache/documents/</code>، ويُقدَّم إلى الوكيل كحدث رسالة من نوع <code>DOCUMENT</code> ليتمكن من فحص الملف باستخدام <code>terminal</code> (<code>ffprobe</code> و <code>unzip</code> و <code>file</code> و <code>strings</code> وغيرها) أو <code>read_file</code>.</p>
+<ul>
+<li>تحتفظ الأنواع المعروفة (PDF و docx/xlsx/pptx و zip والصور/الصوت/الفيديو وغيرها) بنوع MIME الدقيق الخاص بها.</li>
+<li>تعود الأنواع غير المعروفة إلى نوع المحتوى الذي أعلنه الرفع، أو إلى <code>application/octet-stream</code> إذا لم يُحدَّد أي نوع.</li>
+<li>الملفات الصغيرة القابلة لفك الترميز بـ UTF-8 (النصوص والكود والإعدادات و HTML و CSS و JSON و YAML وغيرها) يُحقن محتواها تلقائيًا في الـ prompt حتى 100 KiB. أما الملفات الثنائية التي يتعذّر فك ترميزها فتُقدَّم كملاحظة سياق تشير إلى مسارها فقط (مع تحويل المسار تلقائيًا للطرفيات المعزولة في sandbox على Docker/Modal عبر <code>to_agent_visible_cache_path</code>)، كي لا تُضخّم الـ context window.</li>
+</ul>
+<p>القيد الوحيد على الملفات الواردة هو الحد الأقصى لحجم كل ملف (الافتراضي 32 MiB):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>متغير البيئة المكافئ: <code>DISCORD_MAX_ATTACHMENT_BYTES=33554432</code> (أو <code>0</code> لإلغاء الحد).</p>
+<p>أصبح الخيار القديم <code>discord.allow_any_attachment</code> الآن بلا أثر — إذ يُقبل أي نوع ملف دائمًا — ولم يُبقَ عليه إلا كي لا تُصدر ملفات الإعدادات الحالية أخطاء.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>تكلفة الذاكرة عند إلغاء الحد</div><div class="admonitionContent_BuS1"><p>تعطيل الحد الأقصى للحجم (<code>max_attachment_bytes: 0</code>) يعني أن المستخدم يستطيع إرسال ملف بحجم عدة غيغابايتات إلى البوت، وسيقوم الـ gateway بتخزينه في الذاكرة أثناء كتابته إلى القرص. لا تضبط هذا إلا في عمليات التثبيت الموثوقة ذات المستخدم الواحد. أما البوتات المشتركة، فأبقِ فيها القيمة الافتراضية 32 MiB أو ارفعها بحذر.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-prompts-clarify">الأسئلة التفاعلية (clarify)</h2>
+<p>عندما يستدعي الوكيل أداة <code>clarify</code> — ليسألك عن النهج الذي تفضّله، أو ليحصل على ملاحظاتك بعد إنجاز مهمة، أو ليتحقق منك قبل اتخاذ قرار غير بسيط — يعرض Discord السؤال مع <strong>زر لكل خيار</strong>:</p>
+<blockquote>
+<p>Which framework should I use for the dashboard?</p>
+<p>[1. Next.js] [2. Remix] [3. Astro] [Other (type answer)]</p>
+</blockquote>
+<p>انقر على زر مرقّم للإجابة، أو انقر على <strong>Other</strong> لكتابة رد حر (تصبح الرسالة التالية التي ترسلها في تلك القناة هي الإجابة). أما استدعاءات <code>clarify</code> المفتوحة (بلا خيارات محددة مسبقًا) فتتجاوز الأزرار وتلتقط رسالتك التالية فحسب.</p>
+<p>تُعطِّل الأزرار نفسها بمجرد اختيار أحد الخيارات، كي لا تؤدي النقرات المكررة إلى حسم السؤال مرتين. اضبط مهلة الرد عبر <code>agent.clarify_timeout</code> في <code>~/.hermes/config.yaml</code> (القيمة الافتراضية <code>600</code> ثانية). وإذا لم تردّ خلال المهلة، يتحرّر الوكيل برسالة تنبيهية (sentinel) ويتكيّف مع الموقف بدلًا من البقاء عالقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية</h2>
+<p>يمكنك تعيين &quot;قناة رئيسية&quot; (home channel) يرسل إليها البوت الرسائل الاستباقية (مثل مخرجات مهام cron والتذكيرات والإشعارات). وهناك طريقتان لضبطها:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-the-slash-command">استخدام الـ Slash Command</h3>
+<p>اكتب <code>/sethome</code> في أي قناة Discord يوجد فيها البوت، فتصبح تلك القناة هي القناة الرئيسية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-configuration">الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>استبدل المعرّف بمعرّف القناة الفعلي (انقر بزر الفأرة الأيمن → Copy Channel ID مع تفعيل Developer Mode).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-messages">الرسائل الصوتية</h2>
+<p>يدعم Hermes Agent الرسائل الصوتية في Discord:</p>
+<ul>
+<li><strong>الرسائل الصوتية الواردة</strong> تُفرَّغ نصيًا تلقائيًا باستخدام مزوّد STT المضبوط: <code>faster-whisper</code> محليًا (دون مفتاح)، أو Groq Whisper (<code>GROQ_API_KEY</code>)، أو OpenAI Whisper (<code>VOICE_TOOLS_OPENAI_KEY</code>).</li>
+<li><strong>تحويل النص إلى كلام</strong>: استخدم <code>/voice tts</code> ليرسل البوت ردودًا صوتية منطوقة إلى جانب الردود النصية.</li>
+<li><strong>القنوات الصوتية في Discord</strong>: يستطيع Hermes أيضًا الانضمام إلى قناة صوتية، والاستماع إلى المستخدمين المتحدثين، والرد عليهم صوتيًا في القناة.</li>
+</ul>
+<p>للاطلاع على دليل الإعداد والتشغيل الكامل، راجع:</p>
+<ul>
+<li><a href="/docs/user-guide/features/voice-mode">الوضع الصوتي (Voice Mode)</a></li>
+<li><a href="/docs/guides/use-voice-mode-with-hermes">استخدام Voice Mode مع Hermes</a></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-channel-audio-effects-ambient--verbal-acks">المؤثرات الصوتية في القنوات الصوتية (الصوت المحيطي + الإقرارات اللفظية)</h3>
+<p>عندما يكون البوت في قناة صوتية، يمكنك منحه طابعًا أقرب إلى المحادثة: إقرار لفظي قصير (&quot;let me look into that&quot;) قبل أن يبدأ العمل، وخلفية صوتية محيطية خفيفة توحي &quot;بالتفكير&quot; تُشغَّل في الخلفية أثناء عمل الأدوات — إذ يُخفض الكلامُ الصوتَ المحيطي ثم يعيده تدريجيًا عند انتهائه، على غرار وضع الصوت في Grok.</p>
+<p>لا تشغّل مكتبة discord.py إلا تدفقًا صوتيًا واحدًا لكل اتصال، لذا يثبّت Hermes مازجًا برمجيًا (software mixer) على التدفق الصادر يجمع الحلقة المحيطية والإقرارات وردود TTS في ذلك التدفق الواحد — فتتداخل بدلًا من أن يقطع بعضها بعضًا.</p>
+<p>هذه الميزة <strong>معطّلة افتراضيًا</strong>. فعّلها في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>اضبط <code>voice_channel_inactivity_timeout_seconds: 0</code> إذا أردت أن يبقى البوت في القناة الصوتية حتى تنفيذ <code>/voice leave</code> صراحةً أو قطع الاتصال يدويًا. وتحافظ القيمة الافتراضية على السلوك التاريخي بالمغادرة التلقائية بعد 300 ثانية من الخمول.</li>
+<li><code>voice_playback_timeout_seconds</code> حد أدنى، لا سقف صارم لردود TTS الطويلة. إذ يفحص Hermes مدة الصوت المُولَّد وينتظر <code>duration + 30s</code> إذا كانت أطول من الحد الأدنى المضبوط.</li>
+<li>يُطلَق الإقرار مرة واحدة على الأكثر في كل دور، وفقط عندما يكون البوت في قناة صوتية والمازج نشطًا. ويستخدم مزوّد TTS المضبوط لديك.</li>
+<li>يقبل <code>ambient_path</code> أي ملف يستطيع <code>ffmpeg</code> فك ترميزه؛ ويُشغَّل في حلقة متصلة دون انقطاع. اتركه فارغًا لاستخدام الخلفية الصوتية المُولَّدة المدمجة (دون الحاجة إلى أي ملف).</li>
+<li>توجد جميع الإعدادات في <code>config.yaml</code> (لا في <code>.env</code>) — فهي إعدادات سلوكية، لا أسرار.</li>
+<li>عندما تكون قيمة <code>voice_fx.enabled</code> هي <code>false</code>، يستخدم تشغيل الصوت المسار الأصلي أحادي اللقطة ولا يتغير شيء.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="forum-channels">قنوات المنتدى</h2>
+<p>لا تقبل قنوات المنتدى في Discord (النوع 15) الرسائل المباشرة — فكل منشور في المنتدى يجب أن يكون سلسلة محادثة (thread). يكتشف Hermes قنوات المنتدى تلقائيًا وينشئ منشور سلسلة محادثة جديدًا كلما احتاج إلى الإرسال إليها، لذا تعمل الردود النصية و TTS والصور والرسائل الصوتية ومرفقات الملفات جميعها دون معالجة خاصة من الوكيل.</p>
+<ul>
+<li><strong>اسم سلسلة المحادثة</strong> يُشتق من السطر الأول من الرسالة (بعد إزالة بادئة عنوان markdown، وبحد أقصى 100 حرف). وعندما تقتصر الرسالة على مرفقات، يُستخدم اسم الملف كاسم احتياطي للسلسلة.</li>
+<li><strong>المرفقات</strong> تُرسل مع الرسالة الافتتاحية للسلسلة الجديدة — دون خطوة رفع منفصلة، ودون إرسال جزئي.</li>
+<li><strong>استدعاء واحد، سلسلة واحدة</strong>: كل عملية إرسال إلى المنتدى تُنشئ سلسلة محادثة جديدة. لذا تنتج عمليات الإرسال المتتالية إلى المنتدى نفسه سلاسل منفصلة.</li>
+<li><strong>الاكتشاف على ثلاث طبقات</strong>: ذاكرة التخزين المؤقت لدليل القنوات أولًا، ثم ذاكرة تخزين مؤقت للفحص محلية على مستوى العملية ثانيًا، ثم فحص حي عبر <code>GET /channels/{id}</code> كملاذ أخير (وتُحفظ نتيجته بعد ذلك طوال عمر العملية).</li>
+</ul>
+<p>يؤدي تحديث الدليل (عبر <code>/channels refresh</code> على المنصات التي توفّره، أو بإعادة تشغيل الـ gateway) إلى ملء ذاكرة التخزين المؤقت بأي قنوات منتدى أُنشئت بعد بدء تشغيل البوت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-online-but-not-responding-to-messages">البوت متصل لكنه لا يردّ على الرسائل</h3>
+<p><strong>السبب</strong>: إما أن Message Content Intent معطّل، أو أن مصادقة Discord تفشل بالإغلاق (fail closed) لعدم ضبط أي سياسة وصول.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>
+<p>انتقل إلى <a href="https://discord.com/developers/applications" data-ext>Developer Portal</a> → تطبيقك → Bot → Privileged Gateway Intents → فعّل <strong>Message Content Intent</strong> → Save Changes.</p>
+</li>
+<li>
+<p>تحقّق من ضبط سياسة وصول واحدة على الأقل في Discord:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+</li>
+<li>
+<p>أعد تشغيل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+</li>
+</ol>
+<p>إذا ذكر سجل الـ gateway أن Discord متصل وأن فحوص REST API تعمل، لكن جميع الرسائل الواردة لا تلقى أي رد، فابحث عن هذا التحذير في <code>~/.hermes/logs/gateway.log</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>يتعمّد Hermes 0.18 الفشل بالإغلاق (fail closed) في المحوّلات التي يمكن الوصول إليها من الخارج. فبوت Discord الذي لا يملك <code>DISCORD_ALLOWED_USERS</code>، ولا <code>DISCORD_ALLOWED_ROLES</code>، ولا <code>DISCORD_ALLOWED_CHANNELS</code>، ولا خيار السماح للجميع صراحةً، سيتصل بنجاح لكنه سيرفض المستخدمين الواردين قبل المعالجة المعتادة للرسائل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="privileged-intents--privilegedintentsrequired-error-on-startup">خطأ &quot;Privileged intents&quot; / <code>PrivilegedIntentsRequired</code> عند بدء التشغيل</h3>
+<p><strong>السبب</strong>: يطلب Hermes صلاحيات Gateway Intents مميّزة (privileged) غير مفعّلة للبوت في Developer Portal، فيرفض Discord اتصال WebSocket. يطلب Hermes دائمًا <strong>Message Content Intent</strong>. ويطلب أيضًا <strong>Server Members Intent</strong> عندما تستخدم قائمة السماح أسماء مستخدمين (لا معرّفات رقمية) أو عند ضبط <code>DISCORD_ALLOWED_ROLES</code>. أما Presence Intent فغير مطلوب.</p>
+<p><strong>الحل</strong>:</p>
+<ol>
+<li>انتقل إلى <a href="https://discord.com/developers/applications" data-ext>Developer Portal</a> → تطبيقك → Bot → Privileged Gateway Intents.</li>
+<li>فعّل <strong>Message Content Intent</strong> (مطلوب). وفعّل <strong>Server Members Intent</strong> إذا كنت تستخدم أسماء المستخدمين أو قوائم سماح قائمة على الأدوار.</li>
+<li>انقر على <strong>Save Changes</strong>، ثم أعد تشغيل الـ gateway (<code>hermes gateway restart</code>).</li>
+</ol>
+<p>من المفترض أن يذكر سجل الـ gateway الـ intent (أو الـ intents) التي طلبها Hermes بالضبط. وإلى أن تُفعَّل، سيواصل Discord رفض الاتصال — فهذا خطأ في إعدادات البوابة (portal)، لا مشكلة شبكة متقطعة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-cant-see-messages-in-a-specific-channel">البوت لا يرى الرسائل في قناة معيّنة</h3>
+<p><strong>السبب</strong>: دور البوت لا يملك صلاحية عرض تلك القناة.</p>
+<p><strong>الحل</strong>: في Discord، انتقل إلى إعدادات القناة → Permissions → أضف دور البوت مع تفعيل <strong>View Channel</strong> و <strong>Read Message History</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="403-forbidden-errors">أخطاء 403 Forbidden</h3>
+<p><strong>السبب</strong>: تنقص البوت صلاحيات مطلوبة.</p>
+<p><strong>الحل</strong>: أعد دعوة البوت بالصلاحيات الصحيحة باستخدام الرابط من الخطوة 5، أو عدّل صلاحيات دور البوت يدويًا في Server Settings → Roles.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-offline">البوت غير متصل</h3>
+<p><strong>السبب</strong>: Hermes gateway لا يعمل، أو الـ token غير صحيح.</p>
+<p><strong>الحل</strong>: تحقّق من أن <code>hermes gateway</code> قيد التشغيل. وتحقّق من <code>DISCORD_BOT_TOKEN</code> في ملف <code>.env</code> الخاص بك. وإذا أعدت تعيين الـ token مؤخرًا، فحدّثه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-not-allowed--bot-ignores-you">&quot;User not allowed&quot; / البوت يتجاهلك</h3>
+<p><strong>السبب</strong>: معرّف المستخدم الخاص بك غير موجود في <code>DISCORD_ALLOWED_USERS</code>.</p>
+<p><strong>الحل</strong>: أضف معرّف المستخدم الخاص بك إلى <code>DISCORD_ALLOWED_USERS</code> في <code>~/.hermes/.env</code> وأعد تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="people-in-the-same-channel-are-sharing-context-unexpectedly">الأشخاص في القناة نفسها يتشاركون السياق على نحو غير متوقع</h3>
+<p><strong>السبب</strong>: الإعداد <code>group_sessions_per_user</code> معطّل، أو أن المنصة لا تستطيع توفير معرّف مستخدم للرسائل في ذلك السياق.</p>
+<p><strong>الحل</strong>: اضبط ما يلي في <code>~/.hermes/config.yaml</code> وأعد تشغيل الـ gateway:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>إذا كنت تريد عمدًا محادثة مشتركة للغرفة، فأبقِه معطّلًا — لكن توقّع سجل محادثة مشتركًا وسلوك مقاطعة مشتركًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="44"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>DISCORD_ALLOWED_USERS</code> (أو <code>DISCORD_ALLOWED_ROLES</code>) لتقييد من يمكنه التفاعل مع البوت. فبدون أيٍّ منهما، يرفض الـ gateway جميع المستخدمين افتراضيًا كإجراء أمان. ولا تفوّض إلا الأشخاص الذين تثق بهم — فالمستخدمون المفوَّضون يملكون وصولًا كاملًا إلى قدرات الوكيل، بما في ذلك استخدام الأدوات والوصول إلى النظام.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="role-based-access-control">التحكم في الوصول القائم على الأدوار</h3>
+<p>في الخوادم التي يُدار فيها الوصول عبر الأدوار بدلًا من قوائم المستخدمين الفردية (فرق الإشراف، وموظفو الدعم، والأدوات الداخلية)، استخدم <code>DISCORD_ALLOWED_ROLES</code> — وهي قائمة معرّفات أدوار مفصولة بفواصل. ويُفوَّض أي عضو يحمل أحد تلك الأدوار.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>الدلالات:</p>
+<ul>
+<li><strong>منطق OR مع قائمة السماح بالمستخدمين.</strong> يُفوَّض المستخدم إذا كان معرّفه موجودًا في <code>DISCORD_ALLOWED_USERS</code> <strong>أو</strong> كان يحمل أي دور موجود في <code>DISCORD_ALLOWED_ROLES</code>.</li>
+<li><strong>تفعيل Server Members Intent تلقائيًا.</strong> عند ضبط <code>DISCORD_ALLOWED_ROLES</code>، يفعّل البوت الـ Members intent عند الاتصال — وهو مطلوب كي يرسل Discord معلومات الأدوار مع سجلات الأعضاء.</li>
+<li><strong>معرّفات الأدوار، لا أسماؤها.</strong> احصل عليها من Discord: <strong>User Settings → Advanced → Developer Mode ON</strong>، ثم انقر بزر الفأرة الأيمن على أي دور → <strong>Copy Role ID</strong>.</li>
+<li><strong>السلوك الاحتياطي في الرسائل المباشرة.</strong> في الرسائل المباشرة، يفحص التحقق من الأدوار الخوادم المشتركة؛ فالمستخدم الذي يحمل دورًا مسموحًا به في أي خادم مشترك يُفوَّض في الرسائل المباشرة أيضًا.</li>
+</ul>
+<p>هذا هو النمط المفضّل عندما يتغيّر أعضاء فريق الإشراف باستمرار — إذ يحصل المشرفون الجدد على الوصول لحظة منحهم الدور، دون تعديل <code>.env</code> أو إعادة تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mention-control">التحكم في الإشارات</h3>
+<p>افتراضيًا، يمنع Hermes البوت من تنبيه <code>@everyone</code> و <code>@here</code> وإشارات الأدوار، حتى لو احتوى رده على هذه الرموز. يمنع ذلك أي prompt سيئ الصياغة أو محتوى مستخدم مُعاد ترديده من إغراق الخادم بأكمله بالتنبيهات. وتظل تنبيهات <code>@user</code> الفردية وتنبيهات الإشارة إلى الرسالة الأصلية عند الرد (الشارة الصغيرة &quot;replying to…&quot;) مفعّلة كي تستمر المحادثة العادية في العمل.</p>
+<p>يمكنك تخفيف هذه القيود الافتراضية عبر متغيرات البيئة أو <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="45"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>أبقِ <code>everyone</code> و <code>roles</code> على <code>false</code> ما لم تكن تعرف بالضبط سبب حاجتك إليهما. فمن السهل جدًا أن يُنتج LLM السلسلة <code>@everyone</code> داخل رد يبدو عاديًا؛ ومن دون هذه الحماية، سيؤدي ذلك إلى تنبيه كل عضو في خادمك.</p></div></div>
+<p>لمزيد من المعلومات حول تأمين عملية نشر Hermes Agent، راجع <a href="/docs/user-guide/security">دليل الأمان</a>.</p>

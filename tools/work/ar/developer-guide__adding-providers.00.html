@@ -1,0 +1,348 @@
+<header><h1>إضافة مزوّدين</h1></header>
+<p>يستطيع Hermes بالفعل التواصل مع أي endpoint متوافق مع OpenAI عبر مسار المزوّد المخصّص (custom provider). لا تُضِف مزوّدًا مدمجًا إلا إذا أردت تجربة استخدام من الدرجة الأولى لتلك الخدمة، مثل:</p>
+<ul>
+<li>مصادقة خاصة بالمزوّد أو تحديث الـ token</li>
+<li>كتالوج نماذج منتقى بعناية</li>
+<li>عناصر في قائمة الإعداد / قائمة <code>hermes model</code></li>
+<li>أسماء مستعارة (aliases) للمزوّد لصيغة <code>provider:model</code></li>
+<li>واجهة API بشكل غير متوافق مع OpenAI تحتاج إلى adapter</li>
+</ul>
+<p>إذا كان المزوّد مجرد &quot;base URL آخر متوافق مع OpenAI مع مفتاح API&quot;، فقد يكفي مزوّد مخصّص مُسمّى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-mental-model">النموذج الذهني</h2>
+<p>يجب أن يتّسق المزوّد المدمج عبر عدة طبقات:</p>
+<ol>
+<li>يحدّد <code>hermes_cli/auth.py</code> كيفية العثور على بيانات الاعتماد.</li>
+<li>يحوّل <code>hermes_cli/runtime_provider.py</code> ذلك إلى بيانات وقت التشغيل:
+<ul>
+<li><code>provider</code></li>
+<li><code>api_mode</code></li>
+<li><code>base_url</code></li>
+<li><code>api_key</code></li>
+<li><code>source</code></li>
+</ul>
+</li>
+<li>يستخدم <code>run_agent.py</code> قيمة <code>api_mode</code> لتحديد كيفية بناء الطلبات وإرسالها.</li>
+<li>يجعل <code>hermes_cli/models.py</code> و <code>hermes_cli/main.py</code> المزوّد يظهر في CLI. (يفوّض <code>hermes_cli/setup.py</code> العمل إلى <code>main.py</code> تلقائيًا — فلا حاجة إلى أي تغييرات هناك.)</li>
+<li>يحافظ <code>agent/auxiliary_client.py</code> و <code>agent/model_metadata.py</code> على عمل المهام الجانبية وحساب ميزانية الـ tokens.</li>
+</ol>
+<p>التجريد الأهم هنا هو <code>api_mode</code>.</p>
+<ul>
+<li>تستخدم معظم المزوّدين <code>chat_completions</code>.</li>
+<li>يستخدم Codex و Meta Model API (<code>api.meta.ai</code> — Muse Spark) الوضع <code>codex_responses</code> (يُرسل تلقائيًا <code>prompt_cache_retention: 24h</code> للتخزين المؤقت للـ prompt؛ ولا يحقّق <code>api.meta.ai</code> نسب إصابة cache بين 93 و99% إلا على <code>/v1/responses</code>).</li>
+<li>يستخدم Ramp Router (<code>api.router.com</code>) أيضًا <code>codex_responses</code> — فـ Responses هو بروتوكول النقل الأصلي لـ Router (أما <code>/v1/chat/completions</code> فهو مجرد طبقة توافق بسيطة)، ويتحقّق من <code>reasoning.effort</code> لكل نموذج على حدة، وهو ما يعالجه profile الخاص بـ router بالتصريح بالقيم المقبولة لكل نموذج انطلاقًا من الكتالوج الحي (<code>ProviderProfile.supported_reasoning_efforts</code>).</li>
+<li>يستخدم Anthropic الوضع <code>anthropic_messages</code>.</li>
+<li>يعني البروتوكول الجديد غير المتوافق مع OpenAI عادةً إضافة adapter جديد وفرع <code>api_mode</code> جديد.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-call-wire-format">صيغة النقل لاستدعاءات الأدوات</h3>
+<p>يخزّن Hermes سجل المحادثة داخليًا بشكل OpenAI chat-completions، لذا فإن ناقل <code>chat_completions</code> تكاد دالتاه <code>convert_messages</code> / <code>convert_tools</code> (<code>agent/transports/chat_completions.py</code>) لا تُجريان أي تحويل، بينما يحوّل كل ناقل آخر <em>من</em> هذا الشكل إلى بروتوكوله الأصلي. المرجع المعتمد لهذا الشكل — تعريفات <code>tools</code> مع <code>parameters</code> بصيغة JSON-schema، وعناصر <code>tool_calls</code> الخاصة بالمساعد مع <code>function.arguments</code> مُحوّلة إلى نص، ورسائل النتائج <code>role: &quot;tool&quot;</code> المرتبطة بـ <code>tool_call_id</code> — هو <a href="https://platform.openai.com/docs/api-reference/chat/create" data-ext>مرجع OpenAI chat completions API</a>. عند كتابة adapter أصلي، تحدّد تلك الصفحة جانب المدخلات في عملية التحويل، بينما تحدّد وثائق المزوّد جانب المخرجات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="choose-the-implementation-path-first">اختر مسار التنفيذ أولًا</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-a--openai-compatible-provider">المسار A — مزوّد متوافق مع OpenAI</h3>
+<p>استخدم هذا المسار عندما يقبل المزوّد طلبات قياسية بأسلوب chat-completions.</p>
+<p>العمل المعتاد:</p>
+<ul>
+<li>إضافة البيانات الوصفية للمصادقة</li>
+<li>إضافة كتالوج النماذج / الأسماء المستعارة</li>
+<li>إضافة التحديد وقت التشغيل (runtime resolution)</li>
+<li>إضافة ربط قائمة CLI</li>
+<li>إضافة القيم الافتراضية للنماذج المساعدة (aux)</li>
+<li>إضافة الاختبارات ووثائق المستخدم</li>
+</ul>
+<p>لا تحتاج عادةً إلى adapter جديد أو <code>api_mode</code> جديد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-b--native-provider">المسار B — مزوّد أصلي (Native)</h3>
+<p>استخدم هذا المسار عندما لا يتصرّف المزوّد مثل OpenAI chat completions.</p>
+<p>أمثلة موجودة في الشيفرة حاليًا:</p>
+<ul>
+<li><code>codex_responses</code> (OpenAI Codex و xAI Grok و Meta Muse Spark عبر <code>api.meta.ai</code> — والأخير يُرسل تلقائيًا <code>prompt_cache_retention: 24h</code> — و Ramp Router عبر <code>api.router.com</code>)</li>
+<li><code>anthropic_messages</code></li>
+</ul>
+<p>يتضمّن هذا المسار كل ما في المسار A، إضافةً إلى:</p>
+<ul>
+<li>adapter للمزوّد داخل <code>agent/</code></li>
+<li>فروع في <code>run_agent.py</code> لبناء الطلبات وإرسالها واستخراج بيانات الاستخدام ومعالجة المقاطعة وتوحيد شكل الاستجابات</li>
+<li>اختبارات الـ adapter</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-checklist">قائمة التحقق من الملفات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-for-every-built-in-provider">مطلوبة لكل مزوّد مدمج</h3>
+<ol>
+<li><code>hermes_cli/auth.py</code></li>
+<li><code>hermes_cli/models.py</code></li>
+<li><code>hermes_cli/runtime_provider.py</code></li>
+<li><code>hermes_cli/main.py</code></li>
+<li><code>agent/auxiliary_client.py</code></li>
+<li><code>agent/model_metadata.py</code></li>
+<li>الاختبارات</li>
+<li>الوثائق الموجّهة للمستخدم ضمن <code>website/docs/</code></li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لا يحتاج <code>hermes_cli/setup.py</code> إلى <strong>أي</strong> تغييرات. يفوّض معالج الإعداد اختيار المزوّد/النموذج إلى <code>select_provider_and_model()</code> في <code>main.py</code> — وأي مزوّد يُضاف هناك يصبح متاحًا تلقائيًا في <code>hermes setup</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="additional-for-native--non-openai-providers">إضافية للمزوّدين الأصليين / غير المتوافقين مع OpenAI</h3>
+<ol start="10">
+<li><code>agent/&lt;provider&gt;_adapter.py</code></li>
+<li><code>run_agent.py</code></li>
+<li><code>pyproject.toml</code> إذا كان المزوّد يتطلّب SDK</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="fast-path-simple-api-key-providers">المسار السريع: مزوّدون بمفتاح API بسيط</h2>
+<p>إذا كان مزوّدك مجرد endpoint متوافق مع OpenAI يصادق بمفتاح API واحد، فلا حاجة إلى تعديل <code>auth.py</code> أو <code>runtime_provider.py</code> أو <code>main.py</code> أو أي من الملفات الأخرى في قائمة التحقق الكاملة أدناه.</p>
+<p>كل ما تحتاجه هو:</p>
+<ol>
+<li>مجلد إضافة (plugin) ضمن <code>plugins/model-providers/&lt;your-provider&gt;/</code> يحتوي على:
+<ul>
+<li><code>__init__.py</code> — يستدعي <code>register_provider(profile)</code> على مستوى الوحدة</li>
+<li><code>plugin.yaml</code> — ملف التعريف (manifest) (name، kind: model-provider، version، description)</li>
+</ul>
+</li>
+<li>هذا كل شيء. تُحمَّل إضافات المزوّدين تلقائيًا في أول مرة يستدعي فيها أي جزء <code>get_provider_profile()</code> أو <code>list_providers()</code> — ويُلتقط كلٌّ من الإضافات المضمّنة (في هذا المستودع) وإضافات المستخدم الموجودة في <code>$HERMES_HOME/plugins/model-providers/</code>.</li>
+</ol>
+<p>عند إضافة إضافة تستدعي <code>register_provider()</code>، يُربط ما يلي تلقائيًا:</p>
+<ol>
+<li>عنصر <code>PROVIDER_REGISTRY</code> في <code>auth.py</code> (تحديد بيانات الاعتماد والبحث في متغيرات البيئة)</li>
+<li>ضبط <code>api_mode</code> على <code>chat_completions</code></li>
+<li>أخذ <code>base_url</code> من الإعدادات أو من متغير البيئة المُصرَّح به</li>
+<li>فحص <code>env_vars</code> حسب ترتيب الأولوية للعثور على مفتاح API</li>
+<li>تسجيل قائمة <code>fallback_models</code> للمزوّد</li>
+<li>قبول الخيار <code>--provider</code> في CLI لمعرّف المزوّد</li>
+<li>تضمين المزوّد في قائمة <code>hermes model</code></li>
+<li>تفويض معالج <code>hermes setup</code> إلى <code>main.py</code> تلقائيًا</li>
+<li>عمل صيغة الاسم المستعار <code>provider:model</code></li>
+<li>إرجاع أداة التحديد وقت التشغيل للقيم الصحيحة لـ <code>base_url</code> و <code>api_key</code></li>
+<li>قبول الخيار <code>--provider &lt;name&gt;</code> في CLI لمعرّف المزوّد</li>
+<li>قدرة تفعيل النموذج الاحتياطي على التبديل إلى المزوّد بسلاسة</li>
+</ol>
+<p>تتجاوز إضافات المستخدم الموجودة في <code>$HERMES_HOME/plugins/model-providers/&lt;name&gt;/</code> الإضافات المضمّنة التي تحمل الاسم نفسه (آخر من يكتب يفوز في <code>register_provider()</code>) — وبذلك يستطيع الطرف الثالث تعديل أي profile مدمج أو استبداله دون تحرير المستودع.</p>
+<p>راجع <code>plugins/model-providers/nvidia/</code> أو <code>plugins/model-providers/gmi/</code> كقالب، و<a href="/docs/developer-guide/model-provider-plugin">دليل Model Provider Plugin الكامل</a> لمرجع الحقول وأنماط استخدام الـ hooks وأمثلة متكاملة من البداية إلى النهاية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-path-oauth-and-complex-providers">المسار الكامل: OAuth والمزوّدون المعقّدون</h2>
+<p>استخدم قائمة التحقق الكاملة أدناه عندما يحتاج مزوّدك إلى أيٍّ مما يلي:</p>
+<ul>
+<li>OAuth أو تحديث الـ token (Nous Portal، Codex، Qwen Portal، Copilot)</li>
+<li>واجهة API بشكل غير متوافق مع OpenAI تتطلّب adapter جديدًا (Anthropic Messages، Codex Responses)</li>
+<li>اكتشاف مخصّص للـ endpoint أو فحص عدة مناطق (z.ai، Kimi)</li>
+<li>كتالوج نماذج ثابت منتقى أو جلب حي عبر <code>/models</code></li>
+<li>عناصر خاصة بالمزوّد في قائمة <code>hermes model</code> مع مسارات مصادقة مخصّصة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-pick-one-canonical-provider-id">الخطوة 1: اختر معرّفًا موحّدًا واحدًا للمزوّد</h2>
+<p>اختر معرّفًا واحدًا للمزوّد واستخدمه في كل مكان.</p>
+<p>أمثلة من المستودع:</p>
+<ul>
+<li><code>openai-codex</code></li>
+<li><code>kimi-coding</code></li>
+<li><code>minimax-cn</code></li>
+</ul>
+<p>يجب أن يظهر المعرّف نفسه في:</p>
+<ul>
+<li><code>PROVIDER_REGISTRY</code> في <code>hermes_cli/auth.py</code></li>
+<li><code>_PROVIDER_LABELS</code> في <code>hermes_cli/models_catalog_static.py</code> (يعيد <code>hermes_cli/models.py</code> تصديره)</li>
+<li><code>_PROVIDER_ALIASES</code> في كلٍّ من <code>hermes_cli/auth.py</code> و <code>hermes_cli/models_catalog_static.py</code></li>
+<li>خيارات <code>--provider</code> في CLI داخل <code>hermes_cli/main.py</code></li>
+<li>فروع الإعداد / اختيار النموذج</li>
+<li>القيم الافتراضية للنماذج المساعدة</li>
+<li>الاختبارات</li>
+</ul>
+<p>إذا اختلف المعرّف بين هذه الملفات، فسيبدو المزوّد نصف مربوط: قد تعمل المصادقة بينما يتجاهله <code>/model</code> أو الإعداد أو التحديد وقت التشغيل دون أي إشعار.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-add-auth-metadata-in-hermes_cliauthpy">الخطوة 2: أضف البيانات الوصفية للمصادقة في <code>hermes_cli/auth.py</code></h2>
+<p>بالنسبة إلى المزوّدين الذين يعتمدون على مفتاح API، أضف عنصر <code>ProviderConfig</code> إلى <code>PROVIDER_REGISTRY</code> يتضمّن:</p>
+<ul>
+<li><code>id</code></li>
+<li><code>name</code></li>
+<li><code>auth_type=&quot;api_key&quot;</code></li>
+<li><code>inference_base_url</code></li>
+<li><code>api_key_env_vars</code></li>
+<li><code>base_url_env_var</code> اختياريًا</li>
+</ul>
+<p>أضف أيضًا الأسماء المستعارة إلى <code>_PROVIDER_ALIASES</code>.</p>
+<p>استخدم المزوّدين الحاليين كقوالب:</p>
+<ul>
+<li>مسار مفتاح API البسيط: Z.AI، MiniMax</li>
+<li>مسار مفتاح API مع اكتشاف الـ endpoint: Kimi، Z.AI</li>
+<li>تحديد الـ token الأصلي: Anthropic</li>
+<li>مسار OAuth / مخزن المصادقة: Nous، OpenAI Codex</li>
+</ul>
+<p>أسئلة يجب الإجابة عنها هنا:</p>
+<ul>
+<li>ما متغيرات البيئة التي يجب أن يفحصها Hermes، وبأي ترتيب أولوية؟</li>
+<li>هل يحتاج المزوّد إلى تجاوزات لـ base URL؟</li>
+<li>هل يحتاج إلى فحص الـ endpoint أو تحديث الـ token؟</li>
+<li>ماذا يجب أن تقول رسالة خطأ المصادقة عند غياب بيانات الاعتماد؟</li>
+</ul>
+<p>إذا كان المزوّد يحتاج إلى أكثر من &quot;البحث عن مفتاح API&quot;، فأضف أداة مخصّصة لتحديد بيانات الاعتماد بدلًا من حشر المنطق في فروع لا علاقة لها به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-add-model-catalog-and-aliases-in-hermes_climodelspy">الخطوة 3: أضف كتالوج النماذج والأسماء المستعارة في <code>hermes_cli/models.py</code></h2>
+<p>حدّث كتالوج المزوّدين حتى يعمل المزوّد في القوائم وفي صيغة <code>provider:model</code>.</p>
+<p>التعديلات المعتادة:</p>
+<ul>
+<li><code>_PROVIDER_MODELS</code></li>
+<li><code>_PROVIDER_LABELS</code></li>
+<li><code>_PROVIDER_ALIASES</code></li>
+<li>ترتيب عرض المزوّدين داخل <code>list_available_providers()</code></li>
+<li><code>provider_model_ids()</code> إذا كان المزوّد يدعم الجلب الحي عبر <code>/models</code></li>
+</ul>
+<p>إذا كان المزوّد يوفّر قائمة نماذج حية، فقدّمها أولًا وأبقِ <code>_PROVIDER_MODELS</code> كبديل احتياطي ثابت.</p>
+<p>هذا الملف أيضًا هو ما يجعل مدخلات كهذه تعمل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا كانت الأسماء المستعارة مفقودة هنا، فقد تنجح مصادقة المزوّد لكنه يفشل رغم ذلك عند تحليل <code>/model</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-resolve-runtime-data-in-hermes_cliruntime_providerpy">الخطوة 4: حدّد بيانات وقت التشغيل في <code>hermes_cli/runtime_provider.py</code></h2>
+<p>الدالة <code>resolve_runtime_provider()</code> هي المسار المشترك الذي تستخدمه CLI و gateway و cron و ACP والعملاء المساعدون.</p>
+<p>أضف فرعًا يُرجع dict يحتوي على الأقل على:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>إذا كان المزوّد متوافقًا مع OpenAI، فيجب أن تبقى قيمة <code>api_mode</code> عادةً <code>chat_completions</code>.</p>
+<p>انتبه إلى أولوية مفاتيح API. يحتوي Hermes بالفعل على منطق يمنع تسريب مفتاح OpenRouter إلى endpoints لا علاقة لها به، ويجب أن يكون المزوّد الجديد صريحًا بالقدر نفسه بشأن أي مفتاح يذهب إلى أي base URL.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-wire-the-cli-in-hermes_climainpy">الخطوة 5: اربط CLI في <code>hermes_cli/main.py</code></h2>
+<p>لا يمكن اكتشاف المزوّد حتى يظهر في مسار <code>hermes model</code> التفاعلي.</p>
+<p>حدّث ما يلي في <code>hermes_cli/main.py</code>:</p>
+<ul>
+<li>القاموس <code>provider_labels</code></li>
+<li>القائمة <code>providers</code> في <code>select_provider_and_model()</code></li>
+<li>توجيه المزوّد (<code>if selected_provider == ...</code>)</li>
+<li>خيارات الوسيط <code>--provider</code></li>
+<li>خيارات تسجيل الدخول/الخروج إذا كان المزوّد يدعم هذه المسارات</li>
+<li>دالة <code>_model_flow_&lt;provider&gt;()</code>، أو أعد استخدام <code>_model_flow_api_key_provider()</code> إن كانت مناسبة</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لا يحتاج <code>hermes_cli/setup.py</code> إلى تغييرات — فهو يستدعي <code>select_provider_and_model()</code> من <code>main.py</code>، لذا يظهر مزوّدك الجديد تلقائيًا في كلٍّ من <code>hermes model</code> و <code>hermes setup</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-keep-auxiliary-calls-working">الخطوة 6: حافظ على عمل الاستدعاءات المساعدة</h2>
+<p>هناك ملفان مهمان هنا:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agentauxiliary_clientpy"><code>agent/auxiliary_client.py</code></h3>
+<p>أضف نموذجًا مساعدًا افتراضيًا رخيصًا / سريعًا إلى <code>_API_KEY_PROVIDER_AUX_MODELS</code> إذا كان هذا مزوّدًا مباشرًا بمفتاح API.</p>
+<p>تشمل المهام المساعدة أمورًا مثل:</p>
+<ul>
+<li>تلخيص الرؤية (vision)</li>
+<li>تلخيص المحتوى المستخرج من الويب</li>
+<li>ملخصات ضغط السياق</li>
+<li>ملخصات البحث في الجلسات</li>
+<li>تفريغ الذاكرة (memory flushes)</li>
+</ul>
+<p>إذا لم يكن للمزوّد نموذج مساعد افتراضي معقول، فقد تلجأ المهام الجانبية إلى بديل احتياطي سيئ أو تستخدم نموذجًا رئيسيًا مكلفًا على نحو غير متوقع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agentmodel_metadatapy"><code>agent/model_metadata.py</code></h3>
+<p>أضف أطوال السياق لنماذج المزوّد حتى تبقى ميزانية الـ tokens وعتبات الضغط والحدود منطقية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-if-the-provider-is-native-add-an-adapter-and-run_agentpy-support">الخطوة 7: إذا كان المزوّد أصليًا، أضف adapter ودعمًا في <code>run_agent.py</code></h2>
+<p>إذا لم يكن المزوّد chat completions عاديًا، فاعزل المنطق الخاص بالمزوّد في <code>agent/&lt;provider&gt;_adapter.py</code>.</p>
+<p>أبقِ <code>run_agent.py</code> مركّزًا على التنسيق (orchestration)؛ إذ يجب أن يستدعي الدوال المساعدة في الـ adapter، لا أن يبني حمولات المزوّد يدويًا ومباشرةً في مواضع متفرقة من الملف.</p>
+<p>يحتاج المزوّد الأصلي عادةً إلى عمل في هذه المواضع:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="new-adapter-file">ملف adapter جديد</h3>
+<p>المسؤوليات المعتادة:</p>
+<ul>
+<li>بناء عميل SDK / HTTP</li>
+<li>تحديد الـ tokens</li>
+<li>تحويل رسائل المحادثة بأسلوب OpenAI إلى صيغة طلبات المزوّد</li>
+<li>تحويل مخططات الأدوات (tool schemas) عند الحاجة</li>
+<li>توحيد استجابات المزوّد وإعادتها إلى الشكل الذي يتوقعه <code>run_agent.py</code></li>
+<li>استخراج بيانات الاستخدام وسبب الانتهاء (finish-reason)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run_agentpy"><code>run_agent.py</code></h3>
+<p>ابحث عن <code>api_mode</code> وراجع كل نقطة تبديل. تحقّق على الأقل من أن:</p>
+<ul>
+<li><code>__init__</code> يختار <code>api_mode</code> الجديد</li>
+<li>بناء العميل يعمل مع المزوّد</li>
+<li><code>_build_api_kwargs()</code> تعرف كيفية تنسيق الطلبات</li>
+<li><code>_interruptible_api_call()</code> توجّه الطلب إلى استدعاء العميل الصحيح</li>
+<li>مسارات المقاطعة / إعادة بناء العميل تعمل</li>
+<li>التحقق من الاستجابة يقبل شكل استجابة المزوّد</li>
+<li>استخراج سبب الانتهاء صحيح</li>
+<li>استخراج استهلاك الـ tokens صحيح</li>
+<li>تفعيل النموذج الاحتياطي يستطيع التبديل إلى المزوّد الجديد بسلاسة</li>
+<li>مسارات توليد الملخصات وتفريغ الذاكرة لا تزال تعمل</li>
+</ul>
+<p>ابحث أيضًا في <code>run_agent.py</code> عن <code>self.client.</code>. فأي مسار في الشيفرة يفترض وجود عميل OpenAI القياسي قد يتعطّل عندما يستخدم مزوّد أصلي كائن عميل مختلفًا أو <code>self.client = None</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching-and-provider-specific-request-fields">التخزين المؤقت للـ prompt وحقول الطلب الخاصة بالمزوّد</h3>
+<p>من السهل أن يتراجع (regress) التخزين المؤقت للـ prompt وإعدادات الضبط الخاصة بالمزوّد.</p>
+<p>أمثلة موجودة بالفعل في الشيفرة:</p>
+<ul>
+<li>لدى Anthropic مسار أصلي للتخزين المؤقت للـ prompt</li>
+<li>يحصل OpenRouter على حقول توجيه المزوّدين (provider routing)</li>
+<li>لا ينبغي أن يتلقى كل مزوّد كل خيار من خيارات الطلب</li>
+</ul>
+<p>عند إضافة مزوّد أصلي، تأكّد جيدًا من أن Hermes لا يُرسل إلا الحقول التي يفهمها ذلك المزوّد فعلًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-8-tests">الخطوة 8: الاختبارات</h2>
+<p>عدّل على الأقل الاختبارات التي تحمي ربط المزوّد.</p>
+<p>المواضع الشائعة:</p>
+<ul>
+<li><code>tests/hermes_cli/test_runtime_provider_resolution.py</code></li>
+<li><code>tests/cli/test_cli_provider_resolution.py</code></li>
+<li><code>tests/hermes_cli/test_model_switch_custom_providers.py</code> (والملفات المجاورة <code>tests/hermes_cli/test_model_switch_*.py</code>)</li>
+<li><code>tests/hermes_cli/test_setup_model_provider.py</code></li>
+<li><code>tests/run_agent/test_provider_parity.py</code></li>
+<li><code>tests/run_agent/test_run_agent.py</code></li>
+<li><code>tests/test_&lt;provider&gt;_adapter.py</code> للمزوّد الأصلي</li>
+</ul>
+<p>بالنسبة إلى الأمثلة الخاصة بالوثائق فقط، قد تختلف مجموعة الملفات الدقيقة. المهم هو تغطية:</p>
+<ul>
+<li>تحديد المصادقة</li>
+<li>قائمة CLI / اختيار المزوّد</li>
+<li>تحديد المزوّد وقت التشغيل</li>
+<li>مسار تنفيذ الوكيل</li>
+<li>تحليل provider:model</li>
+<li>أي تحويل للرسائل خاص بالـ adapter</li>
+</ul>
+<p>شغّل الاختبارات المستهدفة (أو استخدم <code>scripts/run_tests.sh</code>، الذي يشغّل كل ملف في عملية فرعية مستقلة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>للتغييرات الأعمق، شغّل مجموعة الاختبارات كاملةً قبل الدفع (push):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-9-live-verification">الخطوة 9: التحقق الحي</h2>
+<p>بعد الاختبارات، شغّل اختبار دخان (smoke test) حقيقيًا.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>اختبر أيضًا المسارات التفاعلية إذا غيّرت القوائم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>بالنسبة إلى المزوّدين الأصليين، تحقّق كذلك من استدعاء أداة واحد على الأقل، لا من استجابة نصية عادية فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-10-update-user-facing-docs">الخطوة 10: حدّث الوثائق الموجّهة للمستخدم</h2>
+<p>إذا كان المزوّد مُعدًّا ليُطرح كخيار من الدرجة الأولى، فحدّث وثائق المستخدم أيضًا:</p>
+<ul>
+<li><code>website/docs/getting-started/quickstart.md</code></li>
+<li><code>website/docs/user-guide/configuration.md</code></li>
+<li><code>website/docs/reference/environment-variables.md</code></li>
+</ul>
+<p>قد يربط المطوّر المزوّد ربطًا مثاليًا، ومع ذلك يترك المستخدمين عاجزين عن اكتشاف متغيرات البيئة المطلوبة أو مسار الإعداد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-compatible-provider-checklist">قائمة التحقق للمزوّد المتوافق مع OpenAI</h2>
+<p>استخدم هذه القائمة إذا كان المزوّد يعتمد chat completions القياسي.</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="8"></x-keep> إضافة <code>ProviderConfig</code> في <code>hermes_cli/auth.py</code></li>
+<li class="task-list-item"><x-keep id="9"></x-keep> إضافة الأسماء المستعارة في <code>hermes_cli/auth.py</code> و <code>hermes_cli/models.py</code></li>
+<li class="task-list-item"><x-keep id="10"></x-keep> إضافة كتالوج النماذج في <code>hermes_cli/models.py</code></li>
+<li class="task-list-item"><x-keep id="11"></x-keep> إضافة فرع وقت التشغيل في <code>hermes_cli/runtime_provider.py</code></li>
+<li class="task-list-item"><x-keep id="12"></x-keep> إضافة ربط CLI في <code>hermes_cli/main.py</code> (يرث setup.py ذلك تلقائيًا)</li>
+<li class="task-list-item"><x-keep id="13"></x-keep> إضافة النموذج المساعد في <code>agent/auxiliary_client.py</code></li>
+<li class="task-list-item"><x-keep id="14"></x-keep> إضافة أطوال السياق في <code>agent/model_metadata.py</code></li>
+<li class="task-list-item"><x-keep id="15"></x-keep> تحديث اختبارات وقت التشغيل / CLI</li>
+<li class="task-list-item"><x-keep id="16"></x-keep> تحديث وثائق المستخدم</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-provider-checklist">قائمة التحقق للمزوّد الأصلي</h2>
+<p>استخدم هذه القائمة عندما يحتاج المزوّد إلى مسار بروتوكول جديد.</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="17"></x-keep> كل ما في قائمة التحقق للمزوّد المتوافق مع OpenAI</li>
+<li class="task-list-item"><x-keep id="18"></x-keep> إضافة الـ adapter في <code>agent/&lt;provider&gt;_adapter.py</code></li>
+<li class="task-list-item"><x-keep id="19"></x-keep> دعم <code>api_mode</code> الجديد في <code>run_agent.py</code></li>
+<li class="task-list-item"><x-keep id="20"></x-keep> مسار المقاطعة / إعادة البناء يعمل</li>
+<li class="task-list-item"><x-keep id="21"></x-keep> استخراج بيانات الاستخدام وسبب الانتهاء يعمل</li>
+<li class="task-list-item"><x-keep id="22"></x-keep> المسار الاحتياطي (fallback) يعمل</li>
+<li class="task-list-item"><x-keep id="23"></x-keep> إضافة اختبارات الـ adapter</li>
+<li class="task-list-item"><x-keep id="24"></x-keep> نجاح اختبار الدخان الحي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">أخطاء شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-adding-the-provider-to-auth-but-not-to-model-parsing">1. إضافة المزوّد إلى المصادقة دون إضافته إلى تحليل النماذج</h3>
+<p>يؤدي ذلك إلى تحديد بيانات الاعتماد بشكل صحيح، بينما تفشل مدخلات <code>/model</code> و <code>provider:model</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-forgetting-that-configmodel-can-be-a-string-or-a-dict">2. نسيان أن <code>config[&quot;model&quot;]</code> قد يكون نصًا أو dict</h3>
+<p>يجب على كثير من شيفرة اختيار المزوّد توحيد الشكلين كليهما.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-assuming-a-built-in-provider-is-required">3. افتراض أن المزوّد المدمج ضروري</h3>
+<p>إذا كانت الخدمة مجرد خدمة متوافقة مع OpenAI، فقد يحلّ المزوّد المخصّص مشكلة المستخدم بالفعل بتكلفة صيانة أقل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-forgetting-auxiliary-paths">4. نسيان المسارات المساعدة</h3>
+<p>قد يعمل مسار المحادثة الرئيسي بينما يفشل التلخيص أو تفريغ الذاكرة أو أدوات الرؤية المساعدة لأن توجيه النماذج المساعدة لم يُحدَّث قط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-native-provider-branches-hiding-in-run_agentpy">5. فروع المزوّد الأصلي المختبئة في <code>run_agent.py</code></h3>
+<p>ابحث عن <code>api_mode</code> و <code>self.client.</code>. ولا تفترض أن مسار الطلب الواضح هو المسار الوحيد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-sending-openrouter-only-knobs-to-other-providers">6. إرسال إعدادات خاصة بـ OpenRouter فقط إلى مزوّدين آخرين</h3>
+<p>الحقول مثل توجيه المزوّدين مكانها فقط لدى المزوّدين الذين يدعمونها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-updating-hermes-model-but-not-hermes-setup">7. تحديث <code>hermes model</code> دون <code>hermes setup</code></h3>
+<p>يحتاج كلا المسارين إلى معرفة المزوّد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="good-search-targets-while-implementing">أهداف بحث مفيدة أثناء التنفيذ</h2>
+<p>إذا كنت تتعقّب كل المواضع التي يمسّها المزوّد، فابحث عن هذه الرموز:</p>
+<ul>
+<li><code>PROVIDER_REGISTRY</code></li>
+<li><code>_PROVIDER_ALIASES</code></li>
+<li><code>_PROVIDER_MODELS</code></li>
+<li><code>resolve_runtime_provider</code></li>
+<li><code>_model_flow_</code></li>
+<li><code>select_provider_and_model</code></li>
+<li><code>api_mode</code></li>
+<li><code>_API_KEY_PROVIDER_AUX_MODELS</code></li>
+<li><code>self.client.</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل (Provider Runtime Resolution)</a></li>
+<li><a href="/docs/developer-guide/architecture">البنية المعمارية (Architecture)</a></li>
+<li><a href="/docs/developer-guide/contributing">المساهمة</a></li>
+</ul>

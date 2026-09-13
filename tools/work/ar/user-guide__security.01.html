@@ -1,0 +1,130 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-write-safety">أمان كتابة الملفات</h2>
+<p>قبل أن يلمس <code>write_file</code> أو <code>patch</code> القرص، يتحقق Hermes من المسار المستهدف مقابل قائمة حظر وsandbox اختياري. الكتابات المحجوبة تُعيد خطأً إلى الوكيل فورًا — <strong>لا توجد مطالبة موافقة</strong> ولا طريقة لتجاوزها من واجهة المحادثة. قد يدّعي النموذج مع ذلك أن التعديل نجح؛ فعندما يكون <code>display.file_mutation_verifier</code> مفعّلًا (الافتراضي)، ثق بـ<a href="/docs/user-guide/configuration#file-mutation-verifier">تذييل مُتحقِّق تعديل الملفات</a> أكثر من الملخص الختامي للمساعد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="protected-paths-always-blocked">المسارات المحمية (محجوبة دائمًا)</h3>
+<p>تُرفض هذه الفئات دائمًا، حتى عندما يكون <code>HERMES_WRITE_SAFE_ROOT</code> غير مضبوط:</p>
+<table><thead><tr><th>الفئة</th><th>أمثلة</th></tr></thead><tbody><tr><td>مخازن بيانات اعتماد نظام التشغيل</td><td><code>~/.ssh/</code> (المفاتيح، <code>authorized_keys</code>)، <code>~/.aws/</code>، <code>~/.kube/</code>، <code>/etc/sudoers</code>، <code>~/.netrc</code></td></tr><tr><td>مخازن بيانات اعتماد Hermes</td><td><code>auth.json</code>، <code>.env</code>، <code>.anthropic_oauth.json</code>، <code>mcp-tokens/</code>، <code>pairing/</code> تحت HERMES_HOME (الـ profile النشط والجذر العام)</td></tr><tr><td>ملفات أسرار المشروع</td><td><code>.env</code>، <code>.env.local</code>، <code>.env.production</code>، <code>.envrc</code> في أي مكان على القرص</td></tr></tbody></table>
+<p>المسارات الحساسة داخل الجذر الآمن تبقى محجوبة — توجيه <code>HERMES_WRITE_SAFE_ROOT</code> إلى <code>$HOME</code> لا يسمح بالكتابة إلى <code>~/.ssh/id_rsa</code>.</p>
+<p>انتهاكات الجذر الآمن تُعيد <code>Write denied: &#x27;…&#x27; is outside HERMES_WRITE_SAFE_ROOT (…)</code>. أما حجوبات مسار بيانات الاعتماد فتستخدم <code>Write denied: &#x27;…&#x27; is a protected system/credential file.</code></p>
+<p><strong>استثناء — <code>~/.ssh/config</code> خاضع للموافقة، وليس محجوبًا بشكل صارم.</strong> <em>إعدادات
+عميل</em> SSH لا تحمل أي مادة مفتاح خاص، وتحريرها (أسماء مستعارة للمضيف،
+<code>ProxyJump</code>، أهداف VS Code Remote-SSH) مهمة روتينية، لذا يوجّه <code>write_file</code> /
+<code>patch</code> هذا الملف عبر مطالبة الموافقة الواحدة/للجلسة/الدائمة نفسها التي تستخدمها
+أداة الـ terminal بالفعل لكتابات <code>~/.ssh</code> — بدلًا من الرفض التام
+الذي كان مُطبَّقًا سابقًا. لا يزال بإمكانه حمل توجيهات <code>ProxyCommand</code> / <code>Match exec</code>
+التي تُشغِّل أوامر، لذا فالكتابة ليست صامتة أبدًا. المستدعون غير التفاعليين (جسر
+ملفات ACP، المهام الخلفية بلا قناة بشرية) يفشلون بشكل مغلق (fail closed). المفاتيح الخاصة،
+و<code>authorized_keys</code>، وكل ما عدا ذلك تحت <code>~/.ssh/</code> يبقى محجوبًا بشكل صارم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes_write_safe_root-optional-sandbox">HERMES_WRITE_SAFE_ROOT (sandbox اختياري)</h3>
+<p>عند ضبطه، لا يمكن لـ <code>write_file</code> و<code>patch</code> استهداف سوى المسارات داخل بادئة (بادئات) الدليل المُدرَجة. أي شيء خارجها <strong>محجوب بشكل صارم</strong> — لا يُوجَّه عبر الموافقة على الأوامر الخطرة.</p>
+<ul>
+<li>يُضبط تلقائيًا في <a href="https://github.com/NousResearch/hermes-agent" data-ext>صورة Docker الرسمية</a> (<code>HERMES_WRITE_SAFE_ROOT=/opt/data</code>)</li>
+<li>يدعم عدة جذور مفصولة بـ <code>:</code> على Unix أو <code>;</code> على Windows</li>
+<li><strong>لا تُضِفه إلى <code>~/.hermes/.env</code> ببساطة.</strong> إذا ضبطته على دليل مشروع، لن يستطيع الوكيل الكتابة إلى <code>~/.hermes/cron/jobs.json</code>، أو مهارات الـ profile، أو أي حالة Hermes أخرى خارج تلك البادئة</li>
+</ul>
+<p>للسماح بكل من مساحة عمل وHermes home معًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ألغِ ضبط المتغير لاستعادة الكتابة غير المقيّدة (رهنًا بقائمة حظر المسارات المحمية). المرجع الكامل: <a href="/docs/reference/environment-variables#hermes_write_safe_root">HERMES_WRITE_SAFE_ROOT</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-and-other-hermes-state">Cron وحالة Hermes الأخرى</h3>
+<p>لا تطلب من الوكيل تنفيذ <code>patch</code> على <code>~/.hermes/cron/jobs.json</code> مباشرة. استخدم أداة <code>cronjob</code>، أو <a href="/docs/user-guide/features/cron"><code>hermes cron</code></a>، أو <code>/cron</code> — فهي تُحدِّث مخزن المهام عبر الواجهة البرمجية المدعومة. ينطبق الأمر نفسه على ملفات تحكم Hermes الأخرى عندما يحجب أمان الكتابة التعديلات المباشرة.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="37"></x-keep></span>دفاع متعدد الطبقات، وليس حدًّا صارمًا</div><div class="admonitionContent_BuS1"><p>حماية الكتابة تنطبق على <code>write_file</code> و<code>patch</code> فقط. أداة <code>terminal</code> تعمل بنفس مستخدم نظام التشغيل ويمكنها مع ذلك تنفيذ <code>cat</code> أو الكتابة فوق المسارات المحجوبة عبر أوامر shell. قائمة الحظر تقلل من الضرر العرضي وتمنح النماذج إشارة توقف واضحة؛ لكنها لا تعزل وكيلًا معاديًا أو مُخترَقًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-authorization-gateway">تفويض المستخدم (Gateway)</h2>
+<p>عند تشغيل gateway المراسلة، يتحكم Hermes في من يمكنه التفاعل مع البوت عبر نظام تفويض متعدد الطبقات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization-check-order">ترتيب التحقق من التفويض</h3>
+<p>تتحقق دالة <code>_is_user_authorized()</code> بهذا الترتيب:</p>
+<ol>
+<li><strong>علم السماح للجميع لكل منصة</strong> (مثل <code>DISCORD_ALLOW_ALL_USERS=true</code>)</li>
+<li><strong>قائمة الموافَق عليهم عبر اقتران DM</strong> (المستخدمون الموافَق عليهم عبر أكواد الاقتران)</li>
+<li><strong>قوائم السماح الخاصة بالمنصة</strong> (مثل <code>TELEGRAM_ALLOWED_USERS=12345,67890</code>)</li>
+<li><strong>قائمة السماح العامة</strong> (<code>GATEWAY_ALLOWED_USERS=12345,67890</code>)</li>
+<li><strong>السماح للجميع عالميًا</strong> (<code>GATEWAY_ALLOW_ALL_USERS=true</code>)</li>
+<li><strong>الافتراضي: رفض</strong></li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-allowlists">قوائم السماح الخاصة بالمنصة</h3>
+<p>اضبط معرّفات المستخدمين المسموح بهم كقيم مفصولة بفاصلة في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="38"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>إذا <strong>لم تُضبط أي قوائم سماح</strong> ولم يُضبط <code>GATEWAY_ALLOW_ALL_USERS</code>، فسيُرفض <strong>جميع المستخدمين</strong>. يسجّل الـ gateway تحذيرًا عند بدء التشغيل:</p><div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-pairing-system">نظام اقتران DM</h3>
+<p>لتفويض أكثر مرونة، يتضمن Hermes نظام اقتران قائمًا على الأكواد. فبدلًا من طلب معرّفات المستخدمين مسبقًا، يتلقى المستخدمون غير المعروفين كودَ اقتران لمرة واحدة يوافق عليه مالك البوت عبر CLI.</p>
+<p><strong>كيف يعمل:</strong></p>
+<ol>
+<li>يرسل مستخدم غير معروف رسالة مباشرة (DM) إلى البوت</li>
+<li>يردّ البوت بكود اقتران من 8 أحرف</li>
+<li>يشغّل مالك البوت <code>hermes pairing approve &lt;platform&gt; &lt;code&gt;</code> على CLI</li>
+<li>يصبح المستخدم موافَقًا عليه بشكل دائم لتلك المنصة</li>
+</ol>
+<p>تحكّم في كيفية معالجة الرسائل المباشرة غير المُصرَّح بها في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<ul>
+<li><code>pair</code> هو الافتراضي لمنصات DM الشبيهة بالمحادثة. الرسائل المباشرة غير المُصرَّح بها تحصل على رد بكود اقتران.</li>
+<li><code>ignore</code> يُسقط الرسائل المباشرة غير المُصرَّح بها بصمت.</li>
+<li>يكون البريد الإلكتروني افتراضيًا على <code>ignore</code> ما لم يُضبط <code>platforms.email.unauthorized_dm_behavior: pair</code>، لأن صناديق البريد قد تحتوي رسائل غير مقروءة وغير ذات صلة.</li>
+<li>أقسام المنصة تتجاوز الافتراضي العام، لذا يمكنك إبقاء الاقتران مفعّلًا على Telegram مع إبقاء WhatsApp صامتًا.</li>
+</ul>
+<p><strong>ميزات الأمان</strong> (بالاستناد إلى إرشادات OWASP + NIST SP 800-63-4):</p>
+<table><thead><tr><th>الميزة</th><th>التفاصيل</th></tr></thead><tbody><tr><td>صيغة الكود</td><td>8 أحرف من أبجدية غير غامضة من 32 حرفًا (بدون 0/O/1/I)</td></tr><tr><td>العشوائية</td><td>تشفيرية (<code>secrets.choice()</code>)</td></tr><tr><td>مدة صلاحية الكود</td><td>ينتهي بعد ساعة</td></tr><tr><td>حدّ المعدل</td><td>طلب واحد لكل مستخدم كل 10 دقائق</td></tr><tr><td>حدّ المعلَّق</td><td>حد أقصى 3 أكواد معلَّقة لكل منصة</td></tr><tr><td>الحظر المؤقت</td><td>5 محاولات موافقة فاشلة ← حظر مؤقت لمدة ساعة</td></tr><tr><td>أمان الملفات</td><td><code>chmod 0600</code> على جميع ملفات بيانات الاقتران</td></tr><tr><td>التسجيل</td><td>الأكواد لا تُسجَّل أبدًا إلى stdout</td></tr></tbody></table>
+<p><strong>أوامر CLI للاقتران:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="39"></x-keep></span>مستخدمو Docker: شغّلوا أوامر الاقتران كمستخدم <code>hermes</code></div><div class="admonitionContent_BuS1"><p>تشغّل صورة Docker الرسمية الـ gateway كمستخدم <code>hermes</code> غير المُميَّز
+(uid 10000) عبر <code>gosu</code>، لكن <code>docker exec</code> يستخدم root افتراضيًا. ملفات الموافقة
+التي ينشئها root تُكتب بالوضع <code>0600 root:root</code> ولا يستطيع الـ
+gateway قراءتها — تُتجاهل الموافقة بصمت (<a href="https://github.com/NousResearch/hermes-agent/issues/10270" data-ext>#10270</a>).</p><p>مرّر دائمًا <code>-u hermes</code>:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div><p>إذا سبق أن نفّذت الأمر كـ root ولا يزال المستخدم غير مُصرَّح له،
+أعد تشغيل الحاوية — سيصلح نقطة الدخول (entrypoint) الملكية عند بدء التشغيل التالي.</p></div></div>
+<p><strong>التخزين:</strong> تُخزَّن بيانات الاقتران في <code>~/.hermes/pairing/</code> بملفات JSON لكل منصة:</p>
+<ul>
+<li><code>{platform}-pending.json</code> — طلبات الاقتران المعلَّقة</li>
+<li><code>{platform}-approved.json</code> — المستخدمون الموافَق عليهم</li>
+<li><code>_rate_limits.json</code> — تتبع حدّ المعدل والحظر المؤقت</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="container-isolation">عزل الحاوية</h2>
+<p>عند استخدام terminal backend من نوع <code>docker</code>، يطبّق Hermes تحصينًا أمنيًا صارمًا على كل حاوية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-security-flags">أعلام أمان Docker</h3>
+<p>تعمل كل حاوية بهذه الأعلام (مُعرَّفة في <code>tools/environments/docker.py</code>):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><code>SETUID</code>/<code>SETGID</code> <strong>غير</strong> مدرجَين في القائمة الأساسية — يُضافان شرطيًا عندما تبدأ الحاوية بصلاحيات root ويحتاج init/entrypoint إلى إسقاط الصلاحيات (مسار s6 لإسقاط الصلاحيات). يُتخطَّيان عندما تعمل الحاوية أصلًا بمستخدم <code>--user</code> غير root. كذلك يُفصَل tmpfs الخاص بـ <code>/run</code> عن القائمة الأساسية ويُركَّب لكل صورة على حدة (مُحصَّن بـ <code>noexec</code> افتراضيًا، و<code>exec</code> فقط لصور s6-overlay التي تُنفِّذ من <code>/run</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resource-limits">حدود الموارد</h3>
+<p>موارد الحاوية قابلة للضبط في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filesystem-persistence">استمرارية نظام الملفات</h3>
+<ul>
+<li><strong>الوضع الدائم</strong> (<code>container_persistent: true</code>): يُركِّب <code>/workspace</code> و<code>/root</code> عبر bind mount من <code>~/.hermes/sandboxes/docker/&lt;task_id&gt;/</code></li>
+<li><strong>الوضع العابر</strong> (<code>container_persistent: false</code>): يستخدم tmpfs لمساحة العمل — يُفقَد كل شيء عند التنظيف</li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="40"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لنشر الـ gateway في بيئة إنتاج، استخدم backend من نوع <code>docker</code> أو <code>modal</code> أو <code>daytona</code> أو <code>vercel_sandbox</code> لعزل أوامر الوكيل عن نظامك المضيف. هذا يُلغي الحاجة إلى الموافقة على الأوامر الخطرة تمامًا.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="41"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>إذا أضفت أسماء إلى <code>terminal.docker_forward_env</code>، فإن هذه المتغيرات تُحقَن عمدًا داخل الحاوية لأوامر terminal. هذا مفيد لبيانات اعتماد خاصة بمهمة ما مثل <code>GITHUB_TOKEN</code>، لكنه يعني أيضًا أن الكود العامل داخل الحاوية يمكنه قراءتها وتسريبها.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminal-backend-security-comparison">مقارنة أمان terminal backends</h2>
+<table><thead><tr><th>Backend</th><th>العزل</th><th>فحص الأوامر الخطرة</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><strong>local</strong></td><td>لا شيء — يعمل على المضيف</td><td>✅ نعم</td><td>التطوير، المستخدمون الموثوقون</td></tr><tr><td><strong>ssh</strong></td><td>جهاز بعيد</td><td>✅ نعم</td><td>التشغيل على خادم منفصل</td></tr><tr><td><strong>docker</strong></td><td>حاوية</td><td>❌ متخطّى (الحاوية هي الحدّ)</td><td>gateway الإنتاج</td></tr><tr><td><strong>singularity</strong></td><td>حاوية</td><td>❌ متخطّى</td><td>بيئات HPC</td></tr><tr><td><strong>modal</strong></td><td>sandbox سحابي</td><td>❌ متخطّى</td><td>عزل سحابي قابل للتوسع</td></tr><tr><td><strong>daytona</strong></td><td>sandbox سحابي</td><td>❌ متخطّى</td><td>مساحات عمل سحابية دائمة</td></tr><tr><td><strong>vercel_sandbox</strong></td><td>microVM سحابي</td><td>❌ متخطّى</td><td>تنفيذ سحابي مع استمرارية اللقطات (snapshot)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-passthrough">تمرير متغيرات البيئة</h2>
+<p>يزيل كل من <code>execute_code</code> و<code>terminal</code> متغيرات البيئة الحساسة من العمليات الفرعية لمنع تسريب بيانات الاعتماد عبر كود مولَّد بواسطة LLM. مع ذلك، فإن المهارات التي تُعلن <code>required_environment_variables</code> تحتاج فعلًا الوصول إلى تلك المتغيرات.</p>
+<p>بيانات اعتماد المنصة من الطرف الأول — متغيرات <code>BUZZ_*</code> التي تستخدمها منصة مراسلة Buzz — تُمرَّر إلى العمليات الفرعية لـ <code>terminal</code> (الأمامية وأيضًا عمليات الخلفية/PTY) <strong>فقط عندما تعمل الجلسة فعليًا كوكيل Buzz</strong>: أي أن العملية وكيل مُدار عبر Buzz-ACP (<code>BUZZ_MANAGED_AGENT</code> يضبطه مُشغِّل Buzz Desktop) أو منصة جلسة الـ gateway الحيّة هي <code>buzz</code>. هذا يسمح لوكيل منصة Buzz باستدعاء CLI الخاص بمنصته الإلزامي (مثل <code>buzz</code>) من أداة terminal، بينما تبقى جلسات Telegram/CLI/cron على المضيف نفسه محرومة من هذه المتغيرات. ولأن <code>_sanitize_subprocess_env</code> تُغذّي أيضًا عمال البحث (مثل عملية بحث ddgs الفرعية على الويب)، وثنائي مُشغِّل computer-use، ومُشغِّلي سكربتات المستخدم (أوامر <code>!</code>، والأوامر السريعة، وسكربتات cron، وسكربتات مُرشِّح webhook)، فإن هذه العمليات الفرعية تتلقى المتغيرات أيضًا عند تشغيلها من جلسة Buzz. هذا الاستثناء <strong>خاص بـ terminal فقط</strong>: لا ينطبق على <code>execute_code</code>، أو عمليات تشغيل المتصفح/TUI-host الفرعية (<code>hermes_subprocess_env</code>)، أو العمليات الفرعية لـ Docker/Modal، أو تسجيل <code>env_passthrough</code>، والتي تبقى محكمة الإغلاق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
+<p>هناك آليتان تسمحان بمرور متغيرات محددة عبر مرشِّحات الـ sandbox:</p>
+<p><strong>1. تمرير مُقيَّد بالمهارة (تلقائي)</strong></p>
+<p>عند تحميل مهارة (عبر <code>skill_view</code> أو أمر <code>/skill</code>) وإعلانها <code>required_environment_variables</code>، أي متغير منها فعلًا مضبوط في البيئة يُسجَّل تلقائيًا كتمرير مسموح. المتغيرات المفقودة (لا تزال في حالة تحتاج إعدادًا) <strong>لا</strong> تُسجَّل.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>بعد تحميل هذه المهارة، يمرّ <code>TENOR_API_KEY</code> إلى <code>execute_code</code>، و<code>terminal</code> (المحلي)، <strong>والـ backends البعيدة (Docker، Modal)</strong> — دون الحاجة لأي إعداد يدوي.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="42"></x-keep></span>Docker وModal</div><div class="admonitionContent_BuS1"><p>قبل الإصدار v0.5.1، كان <code>forward_env</code> الخاص بـ Docker نظامًا منفصلًا عن تمرير المهارة. الآن دُمجا معًا — متغيرات البيئة المُعلَنة من قبل المهارة تُمرَّر تلقائيًا إلى حاويات Docker وsandboxes Modal دون الحاجة لإضافتها يدويًا إلى <code>docker_forward_env</code>.</p></div></div>
+<p><strong>2. تمرير قائم على الإعدادات (يدوي)</strong></p>
+<p>بالنسبة لمتغيرات البيئة غير المُعلَنة من أي مهارة، أضفها إلى <code>terminal.env_passthrough</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-file-passthrough">تمرير ملفات بيانات الاعتماد (رموز OAuth، إلخ)</h3>
+<p>تحتاج بعض المهارات إلى <strong>ملفات</strong> (وليس مجرد متغيرات بيئة) في الـ sandbox — على سبيل المثال، تُخزِّن Google Workspace رموز OAuth كملف <code>google_token.json</code> تحت <code>HERMES_HOME</code> الخاص بالـ profile النشط. تُعلن المهارات هذا في الـ frontmatter:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>عند التحميل، يتحقق Hermes مما إذا كانت هذه الملفات موجودة في <code>HERMES_HOME</code> الخاص بالـ profile النشط ويُسجّلها للتركيب (mounting):</p>
+<ul>
+<li><strong>Docker</strong>: تركيبات bind للقراءة فقط (<code>-v host:container:ro</code>)</li>
+<li><strong>Modal</strong>: تُركَّب عند إنشاء الـ sandbox + تُزامَن قبل كل أمر (يتعامل مع إعداد OAuth في منتصف الجلسة)</li>
+<li><strong>Local</strong>: لا حاجة لأي إجراء (الملفات متاحة بالفعل)</li>
+</ul>
+<p>يمكنك أيضًا إدراج ملفات بيانات الاعتماد يدويًا في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>المسارات نسبية إلى <code>~/.hermes/</code>. تُركَّب الملفات في <code>/root/.hermes/</code> داخل الحاوية. تُقرأ هذه القائمة من قِبل <code>tools/credential_files.py</code> (<code>terminal.credential_files</code>) — وتقع تحت كتلة <code>terminal:</code> لكنها تُحمَّل من قِبل وحدة ملفات بيانات الاعتماد، وليس backend الـ terminal الأساسي، لذا فهي ليست جزءًا من لقطة <code>DEFAULT_CONFIG</code> المُضمَّنة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-each-sandbox-filters">ما الذي يُرشِّحه كل sandbox</h3>
+<table><thead><tr><th>Sandbox</th><th>المُرشِّح الافتراضي</th><th>تجاوز التمرير</th></tr></thead><tbody><tr><td><strong>execute_code</strong></td><td>يحجب المتغيرات التي تحتوي أسماؤها على <code>KEY</code>، أو <code>TOKEN</code>، أو <code>SECRET</code>، أو <code>PASSWORD</code>، أو <code>CREDENTIAL</code>، أو <code>PASSWD</code>، أو <code>AUTH</code>؛ ولا يسمح إلا بمرور المتغيرات ذات البادئة الآمنة</td><td>✅ متغيرات التمرير تتجاوز كلا الفحصين</td></tr><tr><td><strong>terminal</strong> (المحلي)</td><td>يحجب متغيرات بنية Hermes التحتية الصريحة (مفاتيح المزوّد، رموز gateway، مفاتيح API الخاصة بالأدوات)</td><td>✅ متغيرات التمرير تتجاوز قائمة الحظر</td></tr><tr><td><strong>terminal</strong> (Docker)</td><td>لا متغيرات بيئة من المضيف افتراضيًا</td><td>✅ متغيرات التمرير + <code>docker_forward_env</code> تُمرَّر عبر <code>-e</code></td></tr><tr><td><strong>terminal</strong> (SSH)</td><td>لا متغيرات بيئة من المضيف افتراضيًا</td><td>✅ متغيرات التمرير تُمرَّر عبر <code>SendEnv</code>؛ ويحتاج <code>sshd_config</code> البعيد إلى <code>AcceptEnv</code> مطابق (انظر <a href="/docs/user-guide/configuration#ssh-backend">SSH backend</a>)</td></tr><tr><td><strong>terminal</strong> (Modal)</td><td>لا متغيرات بيئة/ملفات من المضيف افتراضيًا</td><td>✅ تُركَّب ملفات بيانات الاعتماد؛ ويتم تمرير البيئة عبر المزامنة</td></tr><tr><td><strong>MCP</strong></td><td>يحجب كل شيء ما عدا متغيرات النظام الآمنة و<code>env</code> المُهيَّأ صراحة</td><td>❌ لا يتأثر بالتمرير (استخدم إعدادات <code>env</code> الخاصة بـ MCP بدلًا من ذلك)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-considerations">اعتبارات أمنية</h3>
+<ul>
+<li>التمرير لا يؤثر إلا على المتغيرات التي تُعلنها أنت أو مهاراتك صراحة — الوضع الأمني الافتراضي يبقى دون تغيير للكود العشوائي المولَّد بواسطة LLM</li>
+<li>تُركَّب ملفات بيانات الاعتماد <strong>للقراءة فقط</strong> داخل حاويات Docker</li>
+<li>يفحص Skills Guard محتوى المهارة بحثًا عن أنماط وصول مشبوهة للبيئة قبل التثبيت</li>
+<li>المتغيرات المفقودة/غير المضبوطة لا تُسجَّل أبدًا (لا يمكنك تسريب ما لا وجود له)</li>
+<li>لا يجب إضافة أسرار بنية Hermes التحتية (مفاتيح API الخاصة بالمزوّد، رموز gateway) إلى <code>env_passthrough</code> أبدًا — فلها آليات مخصصة</li>
+</ul>

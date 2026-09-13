@@ -1,0 +1,120 @@
+<header><h1>الوضع الصوتي (Voice Mode)</h1></header>
+<p>يدعم Hermes Agent التفاعل الصوتي الكامل عبر CLI ومنصات المراسلة. تحدّث إلى الوكيل باستخدام الميكروفون، واستمع إلى ردوده المنطوقة، وأجرِ محادثات صوتية مباشرة في القنوات الصوتية على Discord.</p>
+<p>إذا كنت تريد شرحًا عمليًا للإعداد مع إعدادات موصى بها وأنماط استخدام حقيقية، فراجع <a href="/docs/guides/use-voice-mode-with-hermes">استخدام Voice Mode مع Hermes</a>.</p>
+<p>لبدء جلسة دون استخدام اليدين — أي أن تقول &quot;hey hermes&quot; (أو أي عبارة أخرى) لفتح جلسة صوتية جديدة في CLI أو TUI أو تطبيق سطح المكتب — راجع <a href="/docs/user-guide/features/wake-word">كلمة التنبيه (Wake Word)</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>قبل استخدام الميزات الصوتية، تأكد من توفر ما يلي:</p>
+<ol>
+<li><strong>تثبيت Hermes Agent</strong> — عبر سكربت التثبيت (راجع <a href="/docs/getting-started/installation">التثبيت</a>)</li>
+<li><strong>إعداد مزوّد LLM</strong> — نفّذ <code>hermes model</code> أو اضبط بيانات اعتماد المزوّد المفضّل لديك في <code>~/.hermes/.env</code></li>
+<li><strong>إعداد أساسي يعمل</strong> — نفّذ <code>hermes</code> للتحقق من أن الوكيل يستجيب للنصوص قبل تفعيل الصوت</li>
+</ol>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُنشأ المجلد <code>~/.hermes/</code> والملف الافتراضي <code>config.yaml</code> تلقائيًا في أول مرة تشغّل فيها <code>hermes</code>. ولا تحتاج إلى إنشاء <code>~/.hermes/.env</code> يدويًا إلا لمفاتيح API.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>Nous Portal يغطي الأمرين</div><div class="admonitionContent_BuS1"><p>يوفّر اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> المدفوع الـ LLM (الخطوة 2) <strong>و</strong> OpenAI TTS عبر Tool Gateway — دون الحاجة إلى مفتاح OpenAI منفصل. وفي التثبيت الجديد، يربط <code>hermes setup --portal</code> الاثنين معًا دفعة واحدة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<table><thead><tr><th>الميزة</th><th>المنصة</th><th>الوصف</th></tr></thead><tbody><tr><td><strong>الصوت التفاعلي (Interactive Voice)</strong></td><td>CLI</td><td>اضغط Ctrl+B لبدء التسجيل، فيكتشف الوكيل الصمت تلقائيًا ويردّ</td></tr><tr><td><strong>الرد الصوتي التلقائي (Auto Voice Reply)</strong></td><td>Telegram، Discord</td><td>يرسل الوكيل صوتًا منطوقًا إلى جانب الردود النصية</td></tr><tr><td><strong>القناة الصوتية (Voice Channel)</strong></td><td>Discord</td><td>ينضم البوت إلى القناة الصوتية (VC)، ويستمع إلى المستخدمين المتحدثين، ثم ينطق الردود</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="requirements">المتطلبات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-packages">حزم Python</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<table><thead><tr><th>الإضافة (extra)</th><th>الحزم</th><th>مطلوبة لـ</th></tr></thead><tbody><tr><td><code>voice</code></td><td><code>sounddevice</code>، <code>numpy</code></td><td>الوضع الصوتي في CLI</td></tr><tr><td><code>messaging</code></td><td><code>discord.py[voice]</code>، <code>python-telegram-bot</code>، <code>aiohttp</code></td><td>بوتات Discord و Telegram</td></tr><tr><td><code>tts-premium</code></td><td><code>elevenlabs</code></td><td>مزوّد ElevenLabs TTS</td></tr></tbody></table>
+<p>مزوّد TTS محلي اختياري: ثبّت <code>neutts</code> بشكل منفصل باستخدام <code>python -m pip install -U neutts[all]</code>. وعند أول استخدام، يُنزّل النموذج تلقائيًا.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>يثبّت <code>discord.py[voice]</code> كلًّا من <strong>PyNaCl</strong> (لتشفير الصوت) و<strong>opus bindings</strong> تلقائيًا. وهذا مطلوب لدعم القنوات الصوتية في Discord.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="system-dependencies">اعتماديات النظام</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<table><thead><tr><th>الاعتمادية</th><th>الغرض</th><th>مطلوبة لـ</th></tr></thead><tbody><tr><td><strong>PortAudio</strong></td><td>إدخال الميكروفون وتشغيل الصوت</td><td>الوضع الصوتي في CLI</td></tr><tr><td><strong>ffmpeg</strong></td><td>تحويل صيغ الصوت (MP3 → Opus، PCM → WAV)</td><td>جميع المنصات</td></tr><tr><td><strong>Opus</strong></td><td>ترميز الصوت (codec) في Discord</td><td>القنوات الصوتية في Discord</td></tr><tr><td><strong>espeak-ng</strong></td><td>backend لتحويل النص إلى وحدات صوتية (phonemizer)</td><td>مزوّد NeuTTS المحلي</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-keys">مفاتيح API</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا كان <code>faster-whisper</code> مثبّتًا، فإن الوضع الصوتي يعمل <strong>دون أي مفاتيح API</strong> لخدمة STT. ويُنزَّل النموذج (نحو 150 MB للنموذج <code>base</code>) تلقائيًا عند أول استخدام.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-voice-mode">الوضع الصوتي في CLI</h2>
+<p>الوضع الصوتي متاح في كلٍّ من <strong>CLI الكلاسيكية</strong> (<code>hermes chat</code>) و<strong>TUI</strong> (<code>hermes --tui</code>). والسلوك مطابق في الاثنين — نفس الـ slash commands، ونفس اكتشاف الصمت عبر VAD، ونفس TTS المتدفق، ونفس مرشّح الهلوسة. وتُمرّر TUI إضافةً إلى ذلك سجلات تحليل الأعطال إلى <code>~/.hermes/logs/</code>، بحيث يمكن الإبلاغ عن إخفاقات الضغط للتحدث (push-to-talk) على الـ backends الصوتية غير المألوفة مع تتبّع كامل للمكدّس (stack trace) بدلًا من أن تختفي بصمت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h3>
+<p>شغّل CLI وفعّل الوضع الصوتي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثم استخدم هذه الأوامر داخل CLI:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<ol>
+<li>شغّل CLI باستخدام <code>hermes</code> وفعّل الوضع الصوتي باستخدام <code>/voice on</code></li>
+<li><strong>اضغط Ctrl+B</strong> — تُسمع نغمة (880Hz) ويبدأ التسجيل</li>
+<li><strong>تحدّث</strong> — يعرض شريط مباشر لمستوى الصوت ما تُدخله: <code>● [▁▂▃▅▇▇▅▂] ❯</code></li>
+<li><strong>توقّف عن الكلام</strong> — بعد 3 ثوانٍ من الصمت، يتوقف التسجيل تلقائيًا</li>
+<li><strong>نغمتان</strong> تُسمعان (660Hz) لتأكيد انتهاء التسجيل</li>
+<li>يُفرَّغ الصوت إلى نص عبر Whisper ويُرسل إلى الوكيل</li>
+<li>إذا كان TTS مفعّلًا، يُنطق ردّ الوكيل بصوت مسموع</li>
+<li>يُعاد التسجيل <strong>تلقائيًا</strong> — تحدّث مجددًا دون الضغط على أي مفتاح</li>
+</ol>
+<p>تستمر هذه الحلقة حتى تضغط <strong>Ctrl+B</strong> أثناء التسجيل (للخروج من الوضع المستمر) أو حتى لا يُكتشف أي كلام في 3 تسجيلات متتالية.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكن تخصيص مفتاح التسجيل عبر <code>voice.record_key</code> في <code>~/.hermes/config.yaml</code> (الافتراضي: <code>ctrl+b</code>).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="silence-detection">اكتشاف الصمت</h3>
+<p>تكتشف خوارزمية من مرحلتين متى انتهيت من الكلام:</p>
+<ol>
+<li><strong>تأكيد الكلام</strong> — تنتظر صوتًا يتجاوز عتبة RMS (200) لمدة 0.3s على الأقل، مع التسامح مع الانخفاضات القصيرة بين المقاطع</li>
+<li><strong>اكتشاف النهاية</strong> — بعد تأكيد الكلام، تُفعَّل عقب 3.0 ثوانٍ من الصمت المتواصل</li>
+</ol>
+<p>إذا لم يُكتشف أي كلام على الإطلاق لمدة 15 ثانية، يتوقف التسجيل تلقائيًا.</p>
+<p>يمكن ضبط كلٍّ من <code>silence_threshold</code> و <code>silence_duration</code> في <code>config.yaml</code>. ويمكنك أيضًا تعطيل نغمات بدء التسجيل وإيقافه باستخدام <code>voice.beep_enabled: false</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ending-a-voice-chat-by-voice">إنهاء المحادثة الصوتية بالصوت</h3>
+<p>قل <strong>&quot;stop&quot;</strong> — ولا شيء غيرها — لإنهاء المحادثة الصوتية دون استخدام اليدين. والمطابقة صارمة عمدًا: يجب أن يساوي الكلام المنطوق بأكمله (دون تمييز حالة الأحرف، ومع تجاهل علامات الترقيم المحيطة) إحدى العبارات المُعدّة، لذا فإن عبارة مثل &quot;stop doing that and try X instead&quot; تصل إلى الوكيل بشكل طبيعي. خصّص قائمة العبارات باستخدام <code>voice.stop_phrases</code> في <code>config.yaml</code> (مثل <code>[&quot;stop&quot;, &quot;goodbye hermes&quot;]</code>)، أو اضبطها على <code>[]</code> لتعطيلها. كما تنتهي المحادثة الصوتية من تلقاء نفسها بعد ثلاث دورات صامتة متتالية (لم يُكتشف فيها أي كلام).</p>
+<p><strong>كتابة</strong> عبارة إيقاف مجردة أثناء نشاط محادثة صوتية تعمل بالطريقة نفسها على كل الواجهات (CLI و TUI وسطح المكتب): إذ تُنهي الرسالةُ المحادثةَ الصوتية بدلًا من إرسالها إلى الوكيل. أما خارج المحادثة الصوتية، فإن كتابة &quot;stop&quot; مجرد رسالة عادية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="streaming-tts">TTS المتدفق (Streaming TTS)</h3>
+<p>عندما يكون TTS مفعّلًا، ينطق الوكيل ردّه <strong>جملةً بجملة</strong> أثناء توليده للنص — فلا تنتظر اكتمال الرد بأكمله. ويعمل ذلك مع <strong>جميع مزوّدي TTS</strong>:</p>
+<ol>
+<li>يجمع أجزاء النص المتدفقة (deltas) في جمل كاملة (20 حرفًا كحد أدنى)</li>
+<li>يزيل تنسيق markdown والرموز التعبيرية (emoji) وكتل <code>&lt;think&gt;</code></li>
+<li>يشغّل الصوت لكل جملة في الوقت الفعلي — فالمزوّدون الذين يوفّرون PCM API مجزّأة (ElevenLabs و OpenAI) يبثّون الصوت الخام لتحقيق أقل زمن حتى الكلمة الأولى؛ أما بقية المزوّدين (بما فيهم Edge الافتراضي) فيولّدون كل جملة ويشغّلونها فور اكتمالها</li>
+</ol>
+<p>يعمل الـ pipeline نفسه في CLI الكلاسيكية و TUI وتطبيق سطح المكتب. وفي المحادثة الصوتية على سطح المكتب، يُمرَّر نص الرد <strong>مباشرةً</strong> إلى WebSocket خاص بالكلام لكل رد بينما يولّده النموذج، بحيث يتداخل النطق مع التوليد — مقبس (socket) واحد وساعة صوت واحدة لكل رد، دون فجوات اتصال بين الجمل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-remote-client-direct-voice-lowest-hop-path">سطح المكتب البعيد: الصوت المباشر من العميل (المسار الأقل قفزات)</h3>
+<p>عندما يكون Hermes Desktop متصلًا بـ <strong>gateway بعيد</strong>، لا حاجة إلى تمرير الصوت عبر الـ gateway على الإطلاق. فعند بدء الجلسة الصوتية، يجلب تطبيق سطح المكتب إعدادات STT/TTS المُحدَّدة للـ profile النشط (المزوّد، والنموذج، واللغة/الصوت، وبيانات الاعتماد) من الـ gateway عبر قناة REST المُصادَق عليها (<code>GET /api/audio/voice-config</code>)، ثم يستدعي المزوّدين <strong>مباشرةً</strong>:</p>
+<ul>
+<li><strong>الإملاء / الإدخال الصوتي:</strong> ينتقل تسجيل الميكروفون مباشرةً من جهازك إلى مزوّد STT الخاص بالـ profile؛ ولا يُرسل إلى الـ gateway سوى <em>النص</em> الناتج بوصفه الـ prompt.</li>
+<li><strong>الردود المنطوقة:</strong> نص الرد يتدفق أصلًا إلى تطبيق سطح المكتب عبر مقبس المحادثة، لذا يولّده التطبيق صوتيًا محليًا باستخدام مزوّد TTS الخاص بالـ profile ويشغّله — ولا ينقل اتصال الـ gateway أي صوت إطلاقًا.</li>
+</ul>
+<p>لا يوجد ما تحتاج إلى إعداده على العميل: فالـ profile الذي تتحدث إليه هو المصدر الوحيد المعتمد للمزوّدين والمفاتيح، تمامًا كما لو كان الـ gateway قد أنجز العمل بنفسه. وتُحفظ المفاتيح في ذاكرة تطبيق سطح المكتب طوال الجلسة فقط — ولا تُكتب أبدًا على قرص العميل.</p>
+<p>المزوّدون الذين لا يعملون إلا على مضيف الـ gateway (whisper المحلي، و TTS من نوع <code>edge</code>، ومزوّدو الأوامر، والإضافات) يعودون تلقائيًا إلى مسار التمرير (<code>/api/audio/transcribe</code> و WebSocket الكلام)، وكذلك الحال مع أي backend أقدم لا يتضمن هذا الـ endpoint. ولفرض التمرير لجميع المزوّدين، اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>المزوّدون المدعومون في الاتصال المباشر من العميل: OpenAI (بما في ذلك الصوت المُدار من Nous)، و Groq و Mistral و DeepInfra عبر الصيغ المتوافقة مع OpenAI، و xAI Grok STT، و ElevenLabs STT + TTS. أما xAI المُعدّ عبر OAuth فيبقى على مسار التمرير (إذ يُجدَّد bearer الخاص بـ OAuth على جانب الخادم).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-gpt-live-voice-chat-mode-full-duplex-delegates-to-hermes">سطح المكتب: وضع المحادثة الصوتية GPT-Live (ثنائي الاتجاه الكامل، يفوّض إلى Hermes)</h3>
+<p>الحلقة المتسلسلة الموضّحة أعلاه هي أحد وضعين للمحادثة الصوتية في تطبيق سطح المكتب. أما الوضع الآخر فيستبدل سلسلة STT → دور → TTS بأكملها بـ <strong>نموذج صوتي واحد ثنائي الاتجاه الكامل (full-duplex)</strong>، هو <code>gpt-live-1</code> من OpenAI: فهو يستمع أثناء حديثه، ويتعامل بنفسه مع المقاطعات والتفاعلات القصيرة (backchannels) وضوضاء الخلفية، و<strong>لا يملك أي أدوات خاصة به</strong>. وكلما طلبت عملًا حقيقيًا فإنه <em>يفوّضه</em> إلى Hermes، الذي يجيب كالمعتاد — بأي نموذج ومزوّد اختارتهما الجلسة، ومع الـ toolset الكامل والذاكرة والموافقات — ثم يعيد الصوت صياغة الإجابة بصوت مسموع.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>المتطلبات: مفتاح OpenAI API (<code>OPENAI_API_KEY</code> أو <code>VOICE_TOOLS_OPENAI_KEY</code> أو <code>voice.gpt_live.api_key</code>). تُحتسب تكلفة الطبقة الصوتية من OpenAI بواقع <strong>$0.05 لكل دقيقة من وقت الجلسة</strong> (ويُحتسب وقت الخمول أيضًا)؛ أما دور Hermes فيُحتسب على مزوّده الخاص كالمعتاد. ويتوفر هذا الوضع أيضًا في Settings → Voice → <em>Voice Chat Mode</em>.</p>
+<p>آلية العمل: يؤدي الضغط على زر الصوت إلى فتح جلسة WebRTC من تطبيق سطح المكتب إلى GPT-Live؛ ولا يتلقى التطبيق سوى معرّف الجلسة وإجابة SDP — ويبقى المفتاح على مضيف الـ gateway الذي يتولى إنشاء الجلسة (<code>POST /api/audio/voice-live/session</code>). ويتحول كل حدث <code>session.delegation.created</code> إلى دور عادي في المحادثة المفتوحة (تعرض الفقاعة ما قلته؛ ويُرفق التبادل المنطوق الأخير بمدخلات النموذج كملاحظة خاصة بكل دور، وليس في الـ system prompt أبدًا، حتى يكون الرد نثرًا قابلًا للنطق). ويُمرَّر نشاط الأدوات إلى الصوت كسياق هادئ (&quot;Hermes is working: terminal&quot;) ليتمكن من إخبارك بما يجري إن سألت؛ ثم تُبثّ الإجابة النهائية جملةً بجملة. ويؤدي نطق عبارة الإيقاف إلى إنهاء المحادثة. وإذا كان <code>gpt-live</code> محددًا لكن تعذّر العثور على مفتاح، يعود الزر إلى الوضع المتسلسل مع عرض إشعار.</p>
+<p>غير مدعوم في هذا الوضع: وكيل الصوت (proxy) المُدار من Nous (المفتاح المباشر فقط)، و CLI/TUI (يحتفظ <code>/voice</code> بالحلقة المتسلسلة)، والأداة <code>tts</code> (تواصل استخدام <code>tts.provider</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="barge-in">المقاطعة (Barge-in)</h3>
+<p>يمكنك مقاطعة الوكيل في أي لحظة من دوره — إذ يبقى الميكروفون نشطًا من لحظة انتهائك من الكلام حتى يُشغَّل الرد بالكامل (ثنائي الاتجاه الكامل):</p>
+<ul>
+<li><strong>قاطعه أثناء التفكير</strong> — في الوضع الصوتي المستمر، يؤدي الكلام أثناء توليد LLM (قبل تشغيل أي صوت) إلى مقاطعة الدور الجاري، وتصبح مداخلتك الرسالة التالية، تمامًا كالكتابة فوق دور قيد التشغيل.</li>
+<li><strong>تحدّث فوقه</strong> — الكلام أثناء تشغيل ردّ الوكيل يقطع التشغيل لحظة بدئك الحديث ويُرسل ما قلته. ويعاير الكاشف مستوى الضوضاء الأساسي لديه وفق <em>الغرفة الهادئة</em> عند بدء الدور (وليس وفق الصوت المُشغَّل نفسه أبدًا)، لذا لا يمكن لتسرّب صوت السماعات أن يُصمّه، ويُفعّله الكلام العادي بشكل موثوق.</li>
+<li><strong>اكتب أو اضغط مفتاح التسجيل</strong> — إرسال رسالة جديدة أو الضغط على مفتاح push-to-talk يوقف التشغيل فورًا على كل الواجهات.</li>
+<li><strong>قل &quot;stop&quot;</strong> — تعمل عبارة الإيقاف في المرحلتين: أثناء التوليد تقاطع الدور وتُنهي المحادثة الصوتية معًا؛ وأثناء التشغيل تقطع الكلام وتُنهي المحادثة.</li>
+</ul>
+<p>الضبط الدقيق (config.yaml): يعطّل <code>voice.barge_in: false</code> الميزة؛ ويضاعف <code>voice.barge_in_threshold_multiplier</code> (الافتراضي <code>3.0</code>) عتبة تفعيل الكلام فوق مستوى الغرفة الهادئة؛ ويمنع <code>voice.barge_in_grace_seconds</code> (الافتراضي <code>0.5</code>) التفعيل مباشرةً بعد بدء التشغيل. اضبط <code>HERMES_VOICE_DEBUG=1</code> لبث تشخيصات VAD لكل كتلة (المستوى الأساسي المُعايَر، و RMS، وقرارات التفعيل) إلى stderr للضبط المباشر.</p>
+<p>الوكيل <strong>يعلم</strong> أنه قوطع: إذ تحمل الرسالة التالية ملاحظة قصيرة تُخبر النموذج بأن ردّه المنطوق قد قُطع، ليتمكن من التفاعل بشكل طبيعي (&quot;rude!&quot;) أو المتابعة من حيث توقف بدلًا من أن يبقى غافلًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hallucination-filter">مرشّح الهلوسة</h3>
+<p>يولّد Whisper أحيانًا نصًا وهميًا من الصمت أو ضوضاء الخلفية (&quot;Thank you for watching&quot; و &quot;Subscribe&quot; وغيرها). ويستبعد الوكيل هذه النصوص باستخدام مجموعة من 26 عبارة هلوسة معروفة بلغات متعددة، إضافةً إلى نمط regex يلتقط التنويعات المتكررة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-voice-reply-telegram--discord">الرد الصوتي عبر Gateway (Telegram و Discord)</h2>
+<p>إذا لم تكن قد أعددت بوتات المراسلة بعد، فراجع الأدلة الخاصة بكل منصة:</p>
+<ul>
+<li><a href="/docs/user-guide/messaging/telegram">دليل إعداد Telegram</a></li>
+<li><a href="/docs/user-guide/messaging/discord">دليل إعداد Discord</a></li>
+</ul>
+<p>شغّل الـ gateway للاتصال بمنصات المراسلة الخاصة بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="discord-channels-vs-dms">Discord: القنوات مقابل الرسائل المباشرة</h3>
+<p>يدعم البوت وضعين للتفاعل على Discord:</p>
+<table><thead><tr><th>الوضع</th><th>طريقة التحدث</th><th>الإشارة مطلوبة</th><th>الإعداد</th></tr></thead><tbody><tr><td><strong>الرسائل المباشرة (DM)</strong></td><td>افتح الملف الشخصي للبوت → &quot;Message&quot;</td><td>لا</td><td>يعمل فورًا</td></tr><tr><td><strong>قناة الخادم</strong></td><td>اكتب في قناة نصية يوجد فيها البوت</td><td>نعم (<code>@botname</code>)</td><td>يجب دعوة البوت إلى الخادم</td></tr></tbody></table>
+<p><strong>الرسائل المباشرة (موصى بها للاستخدام الشخصي):</strong> افتح رسالة مباشرة مع البوت واكتب فحسب — دون الحاجة إلى @mention. تعمل الردود الصوتية وجميع الأوامر كما تعمل في القنوات.</p>
+<p><strong>قنوات الخادم:</strong> لا يستجيب البوت إلا عندما تشير إليه بـ @mention (مثل <code>@hermesbyt4 hello</code>). وتأكد من اختيار <strong>مستخدم البوت</strong> من قائمة الإشارة المنبثقة، لا الدور (role) الذي يحمل الاسم نفسه.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لتعطيل اشتراط الإشارة في قنوات الخادم، أضف ما يلي إلى <code>~/.hermes/.env</code>:</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div><p>أو اضبط قنوات محددة لتكون حرّة الاستجابة (دون الحاجة إلى إشارة):</p><div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands">الأوامر</h3>
+<p>تعمل هذه الأوامر في كلٍّ من Telegram و Discord (الرسائل المباشرة والقنوات النصية):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="modes">الأوضاع</h3>
+<table><thead><tr><th>الوضع</th><th>الأمر</th><th>السلوك</th></tr></thead><tbody><tr><td><code>off</code></td><td><code>/voice off</code></td><td>نص فقط (الافتراضي)</td></tr><tr><td><code>voice_only</code></td><td><code>/voice on</code></td><td>ينطق الرد فقط عندما ترسل رسالة صوتية</td></tr><tr><td><code>all</code></td><td><code>/voice tts</code></td><td>ينطق الرد على كل رسالة</td></tr></tbody></table>
+<p>يُحفظ إعداد الوضع الصوتي عبر عمليات إعادة تشغيل الـ gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-delivery">التسليم حسب المنصة</h3>
+<table><thead><tr><th>المنصة</th><th>الصيغة</th><th>ملاحظات</th></tr></thead><tbody><tr><td><strong>Telegram</strong></td><td>فقاعة صوتية (Opus/OGG)</td><td>تُشغَّل مضمّنة داخل المحادثة. يحوّل ffmpeg صيغة MP3 → Opus عند الحاجة</td></tr><tr><td><strong>Discord</strong></td><td>فقاعة صوتية أصلية (Opus/OGG)</td><td>تُشغَّل مضمّنة كرسالة صوتية من مستخدم. وتعود إلى إرفاق ملف إذا فشلت API الخاصة بالفقاعة الصوتية</td></tr></tbody></table>
+<hr>

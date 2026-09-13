@@ -1,0 +1,94 @@
+
+<header><h1>مصادقة GitHub</h1></header>
+<p>إعداد مصادقة GitHub: tokens عبر HTTPS، مفاتيح SSH، تسجيل الدخول عبر gh CLI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>مضمّنة (مثبّتة افتراضيًا)</td></tr><tr><td>المسار</td><td><code>skills/github/github-auth</code></td></tr><tr><td>الإصدار</td><td><code>1.1.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>GitHub</code>, <code>Authentication</code>, <code>Git</code>, <code>gh-cli</code>, <code>SSH</code>, <code>Setup</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/github/github-github-pr-workflow"><code>github-pr-workflow</code></a>, <a href="/docs/user-guide/skills/bundled/github/github-github-code-review"><code>github-code-review</code></a>, <a href="/docs/user-guide/skills/bundled/github/github-github-issues"><code>github-issues</code></a>, <a href="/docs/user-guide/skills/bundled/github/github-github-repo-management"><code>github-repo-management</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>إعداد مصادقة GitHub</h1>
+<p>تُعِدّ هذه المهارة المصادقة كي يتمكّن الوكيل من العمل مع مستودعات GitHub وطلبات pull request والمشكلات (issues) والتكامل المستمر (CI). وهي تغطّي مسارين:</p>
+<ul>
+<li><strong><code>git</code> (متاح دائمًا)</strong> — يستخدم personal access tokens عبر HTTPS أو مفاتيح SSH</li>
+<li><strong><code>gh</code> CLI (إن كان مثبّتًا)</strong> — وصول أغنى إلى API الخاص بـ GitHub مع مسار مصادقة أبسط</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="detection-flow">مسار الاكتشاف</h2>
+<p>عندما يطلب منك المستخدم العمل مع GitHub، نفّذ هذا التحقق أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>شجرة القرار:</strong></p>
+<ol>
+<li>إذا أظهر <code>gh auth status</code> أنّك مصادَق عليك ← أنت جاهز، استخدم <code>gh</code> لكل شيء</li>
+<li>إذا كان <code>gh</code> مثبّتًا لكن غير مصادَق عليه ← استخدم طريقة "gh auth" أدناه</li>
+<li>إذا لم يكن <code>gh</code> مثبّتًا ← استخدم طريقة "git فقط" أدناه (لا حاجة إلى sudo)</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-1-git-only-authentication-no-gh-no-sudo">الطريقة 1: المصادقة باستخدام git فقط (بدون gh، بدون sudo)</h2>
+<p>تعمل هذه الطريقة على أي جهاز مثبّت عليه <code>git</code>. لا حاجة لصلاحيات الجذر (root).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-https-with-personal-access-token-recommended">الخيار أ: HTTPS مع Personal Access Token (موصى به)</h3>
+<p>هذه هي الطريقة الأكثر قابلية للنقل — تعمل في كل مكان، ولا تحتاج إلى إعداد SSH.</p>
+<p><strong>الخطوة 1: إنشاء personal access token</strong></p>
+<p>اطلب من المستخدم الانتقال إلى: <strong><a href="https://github.com/settings/tokens" data-ext>https://github.com/settings/tokens</a></strong></p>
+<ul>
+<li>اضغط "Generate new token (classic)"</li>
+<li>أعطه اسمًا مثل "hermes-agent"</li>
+<li>اختر النطاقات (scopes):
+<ul>
+<li><code>repo</code> (وصول كامل إلى المستودع — قراءة، كتابة، push، PRs)</li>
+<li><code>workflow</code> (تشغيل وإدارة GitHub Actions)</li>
+<li><code>read:org</code> (عند العمل مع مستودعات مؤسسة)</li>
+</ul>
+</li>
+<li>اضبط تاريخ انتهاء الصلاحية (90 يومًا خيار افتراضي جيد)</li>
+<li>انسخ الـ token — لن يظهر مجددًا</li>
+</ul>
+<p><strong>الخطوة 2: إعداد git لتخزين الـ token</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بعد إدخال بيانات الاعتماد مرة واحدة، تُحفظ ويُعاد استخدامها في كل العمليات اللاحقة.</p>
+<p><strong>بديل: مساعد التخزين المؤقت (cache) (تنتهي صلاحية بيانات الاعتماد من الذاكرة)</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>بديل: ضبط الـ token مباشرة في عنوان الـ remote (لكل مستودع)</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الخطوة 3: إعداد هوية git</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>الخطوة 4: التحقق</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-ssh-key-authentication">الخيار ب: المصادقة بمفتاح SSH</h3>
+<p>مناسب للمستخدمين الذين يفضّلون SSH أو لديهم مفاتيح مُعدّة مسبقًا.</p>
+<p><strong>الخطوة 1: التحقق من وجود مفاتيح SSH</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>الخطوة 2: توليد مفتاح عند الحاجة</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>اطلب من المستخدم إضافة المفتاح العام في: <strong><a href="https://github.com/settings/keys" data-ext>https://github.com/settings/keys</a></strong></p>
+<ul>
+<li>اضغط "New SSH key"</li>
+<li>الصق محتوى المفتاح العام</li>
+<li>أعطه عنوانًا مثل "hermes-agent-&lt;machine-name&gt;"</li>
+</ul>
+<p><strong>الخطوة 3: اختبار الاتصال</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>الخطوة 4: إعداد git لاستخدام SSH مع GitHub</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>الخطوة 5: إعداد هوية git</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-2-gh-cli-authentication">الطريقة 2: المصادقة عبر gh CLI</h2>
+<p>إذا كان <code>gh</code> مثبّتًا، فهو يتولّى الوصول إلى API وبيانات اعتماد git في خطوة واحدة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-browser-login-desktop">تسجيل الدخول التفاعلي عبر المتصفح (Desktop)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-based-login-headless--ssh-servers">تسجيل الدخول عبر Token (خوادم بلا واجهة / SSH)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify">التحقق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-the-github-api-without-gh">استخدام API الخاص بـ GitHub بدون gh</h2>
+<p>عندما لا يكون <code>gh</code> متوفرًا، لا يزال بإمكانك الوصول إلى كامل API الخاص بـ GitHub باستخدام <code>curl</code> مع personal access token. هكذا تنفّذ مهارات GitHub الأخرى طرقها الاحتياطية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="setting-the-token-for-api-calls">ضبط الـ token لاستدعاءات API</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="extracting-the-token-from-git-credentials">استخراج الـ token من بيانات اعتماد git</h3>
+<p>إذا كانت بيانات اعتماد git مُعدّة مسبقًا (عبر credential.helper store)، يمكن استخراج الـ token:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="helper-detect-auth-method">مساعد: اكتشاف طريقة المصادقة</h3>
+<p>استخدم هذا النمط في بداية أي سير عمل يخص GitHub:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td><code>git push</code> يطلب كلمة مرور</td><td>عطّل GitHub المصادقة بكلمة المرور. استخدم personal access token ككلمة المرور، أو انتقل إلى SSH</td></tr><tr><td><code>remote: Permission to X denied</code></td><td>قد يفتقر الـ token إلى نطاق <code>repo</code> — أعد توليده بالنطاقات الصحيحة</td></tr><tr><td><code>fatal: Authentication failed</code></td><td>قد تكون بيانات الاعتماد المخزّنة مؤقتًا قديمة — نفّذ <code>git credential reject</code> ثم أعد المصادقة</td></tr><tr><td><code>ssh: connect to host github.com port 22: Connection refused</code></td><td>جرّب SSH عبر منفذ HTTPS: أضف <code>Host github.com</code> مع <code>Port 443</code> و<code>Hostname ssh.github.com</code> إلى <code>~/.ssh/config</code></td></tr><tr><td>بيانات الاعتماد لا تُحفظ بشكل دائم</td><td>تحقّق من <code>git config --global credential.helper</code> — يجب أن تكون <code>store</code> أو <code>cache</code></td></tr><tr><td>حسابات GitHub متعددة</td><td>استخدم SSH بمفاتيح مختلفة لكل اسم مستعار مضيف (host alias) في <code>~/.ssh/config</code>، أو عناوين اعتماد لكل مستودع</td></tr><tr><td><code>gh: command not found</code> + بدون sudo</td><td>استخدم الطريقة 1 (git فقط) أعلاه — لا حاجة للتثبيت</td></tr></tbody></table>

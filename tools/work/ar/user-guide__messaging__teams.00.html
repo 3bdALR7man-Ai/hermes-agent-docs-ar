@@ -1,0 +1,96 @@
+<header><h1>إعداد Microsoft Teams</h1></header>
+<p>اربط Hermes Agent بـ Microsoft Teams كبوت. بخلاف Socket Mode في Slack، يسلّم Teams الرسائل عبر استدعاء <strong>webhook عام يعمل بـ HTTPS</strong>، لذا تحتاج نسختك إلى endpoint يمكن الوصول إليه علنًا — إما نفق تطوير (dev tunnel) للتطوير المحلي، أو نطاق حقيقي لبيئة الإنتاج.</p>
+<p>هل تحتاج إلى ملخّصات الاجتماعات المستندة إلى أحداث Microsoft Graph بدلًا من محادثات البوت العادية؟ استخدم صفحة الإعداد المخصّصة: <a href="/docs/user-guide/messaging/teams-meetings">اجتماعات Teams</a>.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>Microsoft Teams</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-the-bot-responds">كيف يستجيب البوت</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>المحادثة الشخصية (DM)</strong></td><td>يردّ البوت على كل رسالة، دون الحاجة إلى @mention.</td></tr><tr><td><strong>المحادثة الجماعية</strong></td><td>يردّ البوت فقط عند الإشارة إليه بـ @mention.</td></tr><tr><td><strong>القناة</strong></td><td>يردّ البوت فقط عند الإشارة إليه بـ @mention.</td></tr></tbody></table>
+<p>يسلّم Teams الإشارات (@mentions) كرسائل عادية تحتوي على وسوم <code>&lt;at&gt;BotName&lt;/at&gt;</code>، ويزيلها Hermes تلقائيًا قبل المعالجة.</p>
+<hr>
+<p>في التثبيت من المصدر أو التثبيت المحلي، ضمّن الإضافة (extra) الخاصة بـ Teams حتى يتمكن المحوّل (adapter) المضمّن
+من استيراد Microsoft Teams SDK:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-install-the-teams-cli">الخطوة 1: ثبّت Teams CLI</h2>
+<p>تؤتمت أداة <code>@microsoft/teams.cli</code> تسجيل البوت — دون الحاجة إلى بوابة Azure.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>للتحقق من تسجيل دخولك ومعرفة AAD object ID الخاص بك (المطلوب لـ <code>TEAMS_ALLOWED_USERS</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-expose-the-webhook-port">الخطوة 2: أتِح منفذ Webhook</h2>
+<p>لا يستطيع Teams تسليم الرسائل إلى <code>localhost</code>. في التطوير المحلي، استخدم أي أداة نفق (tunnel) للحصول على عنوان URL عام يعمل بـ HTTPS. المنفذ الافتراضي هو <code>3978</code> — ويمكنك تغييره عبر <code>TEAMS_PORT</code> عند الحاجة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>انسخ عنوان <code>https://</code> من المخرجات — ستستخدمه في الخطوة التالية. أبقِ النفق قيد التشغيل أثناء التطوير.</p>
+<p>يستخدم عنوان URL العام للنفق بروتوكول HTTPS، أما مستمع webhook المحلي في Hermes فيستخدم HTTP عاديًا. ينهي النفق اتصال TLS ويمرّر طلبات HTTP إلى المنفذ <code>3978</code>؛ لذا لا تضبط منفذ النفق المحلي على HTTPS.</p>
+<p>في بيئة الإنتاج، وجّه endpoint البوت إلى النطاق العام لخادمك بدلًا من ذلك (راجع <a href="#production-deployment">النشر في بيئة الإنتاج</a>).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-create-the-bot">الخطوة 3: أنشئ البوت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تعرض CLI قيم <code>CLIENT_ID</code> و <code>CLIENT_SECRET</code> و <code>TENANT_ID</code>، إضافةً إلى رابط تثبيت ستستخدمه في الخطوة 6. احفظ client secret — فلن يُعرض مرة أخرى.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-configure-environment-variables">الخطوة 4: اضبط متغيرات البيئة</h2>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-start-the-gateway">الخطوة 5: شغّل Gateway</h2>
+<p><strong>Docker</strong> (يجب التشغيل من المجلد الذي يحتوي على <code>docker-compose.yml</code> — وهو عادةً مستودع <code>hermes-agent</code> الذي نسخته، لا <code>~</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>التثبيت الأصلي / عبر systemd</strong> (المُثبّت المعتاد لـ <code>hermes</code> بسطر واحد، ضمن <code>~/.hermes/hermes-agent</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>إن Teams SDK اختياري؛ فعند تفعيل Teams، يثبّته gateway عند الطلب (lazy-install) داخل الـ venv الخاص بـ Hermes عند أول تشغيل (<strong>لا</strong> تستخدم <code>pip install</code> الخاص بالنظام على Ubuntu 24.04 — إذ يصطدم ذلك بخطأ PEP 668 <code>externally-managed-environment</code>). للتثبيت يدويًا داخل venv الخاص بـ Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>منفذ webhook الافتراضي هو <code>3978</code> (يمكن تغييره عبر <code>TEAMS_PORT</code>). تحقّق من أنه يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>ابحث عن:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-install-the-app-in-teams">الخطوة 6: ثبّت التطبيق في Teams</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>افتح الرابط المطبوع في متصفحك — وسيُفتح مباشرةً في عميل Teams. بعد التثبيت، أرسل رسالة مباشرة إلى البوت — وسيكون جاهزًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة</h3>
+<table><thead><tr><th>المتغير</th><th>الوصف</th></tr></thead><tbody><tr><td><code>TEAMS_CLIENT_ID</code></td><td>معرّف التطبيق (client ID) في Azure AD</td></tr><tr><td><code>TEAMS_CLIENT_SECRET</code></td><td>client secret الخاص بـ Azure AD</td></tr><tr><td><code>TEAMS_TENANT_ID</code></td><td>معرّف المستأجر (tenant ID) في Azure AD</td></tr><tr><td><code>TEAMS_ALLOWED_USERS</code></td><td>معرّفات AAD object IDs المسموح لها باستخدام البوت، مفصولة بفواصل</td></tr><tr><td><code>TEAMS_ALLOW_ALL_USERS</code></td><td>اضبطه على <code>true</code> لتخطّي قائمة السماح والسماح لأي شخص</td></tr><tr><td><code>TEAMS_HOME_CHANNEL</code></td><td>معرّف المحادثة (Conversation ID) لتسليم رسائل cron والرسائل الاستباقية</td></tr><tr><td><code>TEAMS_HOME_CHANNEL_NAME</code></td><td>الاسم المعروض للقناة الرئيسية (home channel)</td></tr><tr><td><code>TEAMS_PORT</code></td><td>منفذ webhook (الافتراضي: <code>3978</code>)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configyaml">config.yaml</h3>
+<p>بدلًا من ذلك، يمكنك الضبط عبر <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="features">الميزات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-approval-cards">بطاقات الموافقة التفاعلية</h3>
+<p>عندما يحتاج الوكيل إلى تنفيذ أمر قد يكون خطيرًا، يرسل Adaptive Card تحتوي على أربعة أزرار بدلًا من أن يطلب منك كتابة <code>/approve</code>:</p>
+<ul>
+<li><strong>Allow Once</strong> — الموافقة على هذا الأمر تحديدًا</li>
+<li><strong>Allow Session</strong> — الموافقة على هذا النمط لبقية الجلسة</li>
+<li><strong>Always Allow</strong> — الموافقة الدائمة على هذا النمط</li>
+<li><strong>Deny</strong> — رفض الأمر</li>
+</ul>
+<p>يؤدي النقر على أحد الأزرار إلى حسم الموافقة مباشرةً واستبدال البطاقة بالقرار المتخذ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="meeting-summary-delivery-teams-meeting-pipeline">تسليم ملخّصات الاجتماعات (Teams Meeting Pipeline)</h3>
+<p>عند تفعيل <a href="/docs/user-guide/messaging/msgraph-webhook">إضافة Teams meeting pipeline</a>، يتولى هذا المحوّل أيضًا التسليم الصادر لملخّصات الاجتماعات — أي واجهة تكامل واحدة مع Teams لا اثنتين. بعد تلخيص نص الاجتماع (transcript)، ينشر الكاتب (writer) الملخّص في وجهة Teams التي اخترتها.</p>
+<p>يُضبط تسليم ملخّصات pipeline ضمن مدخل المنصة <code>teams</code> إلى جانب إعدادات البوت:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<table><thead><tr><th>الوضع</th><th>متى تستخدمه</th><th>المقايضة</th></tr></thead><tbody><tr><td><code>incoming_webhook</code></td><td>حالة بسيطة من نوع &quot;انشر ملخّصًا في هذه القناة&quot; باستخدام عنوان URL ثابت يولّده Teams.</td><td>لا يدعم سلاسل الردود ولا التفاعلات (reactions)، ويظهر بالهوية المضبوطة لـ webhook.</td></tr><tr><td><code>graph</code></td><td>منشورات القنوات ضمن سلاسل، أو منشورات المحادثات الفردية/الجماعية بهوية البوت عبر Microsoft Graph.</td><td>يتطلب <a href="/docs/guides/microsoft-graph-app-registration">تسجيل تطبيق Graph</a> مع صلاحيات التطبيق <code>ChannelMessage.Send</code> (للقنوات) أو <code>Chat.ReadWrite.All</code> (للمحادثات).</td></tr></tbody></table>
+<p>إذا كانت الإضافة <code>teams_pipeline</code> <strong>غير</strong> مفعّلة، فلا أثر لهذه الإعدادات — إذ لا تُربط إلا عندما يرتبط وقت تشغيل pipeline بمدخل webhook الخاص بـ Graph.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="production-deployment">النشر في بيئة الإنتاج</h2>
+<p>على خادم دائم، أنهِ اتصال TLS عند reverse proxy ومرّر الطلبات إلى مستمع HTTP العادي في Hermes، وهو عادةً <code>http://127.0.0.1:3978</code>. سجّل endpoint الـ HTTPS العام للـ proxy لدى Teams:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>إذا كنت قد أنشأت البوت بالفعل وتحتاج فقط إلى تحديث endpoint:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>تأكد من أن endpoint الـ HTTPS العام يمكن الوصول إليه من الإنترنت ويستخدم شهادة TLS صالحة، إذ يرفض Teams الشهادات الموقّعة ذاتيًا. أبقِ مستمع Hermes خلف الـ proxy؛ فالمنفذ <code>3978</code> لا يقدّم HTTPS بنفسه.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td>ظهور <code>Can&#x27;t find a suitable configuration file</code> من <code>docker compose</code></td><td>أنت لست داخل المستودع الذي يحتوي على <code>docker-compose.yml</code>، أو أنك تستخدم تثبيتًا أصليًا — استخدم <code>hermes gateway restart</code> بدلًا من ذلك، أو انتقل أولًا بـ <code>cd</code> إلى النسخة المستنسخة</td></tr><tr><td><code>requirements not met</code> / <code>Teams SDK missing</code> / <code>No adapter available for teams</code></td><td>أعد تشغيل gateway ليتمكن التثبيت عند الطلب من العمل، أو ثبّت الحزم داخل <strong>venv الخاص بـ Hermes</strong>: <code>~/.hermes/hermes-agent/venv/bin/pip install microsoft-teams-apps aiohttp</code>. يفشل <code>pip</code> الخاص بالنظام على Ubuntu 24.04 (PEP 668)، ولن يؤثر في الخدمة على أي حال</td></tr><tr><td>endpoint <code>health</code> يعمل لكن البوت لا يستجيب</td><td>تحقّق من أن النفق لا يزال قيد التشغيل وأن messaging endpoint الخاص بالبوت يطابق عنوان URL للنفق</td></tr><tr><td>تُظهر السجلات <code>&quot;UNKNOWN / HTTP/1.0&quot; 400</code> عندما يرسل Teams رسالة</td><td>النفق أو reverse proxy يمرّر HTTPS إلى مستمع HTTP العادي في Hermes. أنهِ TLS عند الـ proxy ومرّر HTTP إلى المنفذ <code>3978</code></td></tr><tr><td>ظهور <code>KeyError: &#x27;teams&#x27;</code> في السجلات</td><td>أعد تشغيل الحاوية — فقد أُصلحت هذه المشكلة في الإصدار الحالي</td></tr><tr><td>يردّ البوت بأخطاء مصادقة</td><td>تحقّق من ضبط <code>TEAMS_CLIENT_ID</code> و <code>TEAMS_CLIENT_SECRET</code> و <code>TEAMS_TENANT_ID</code> جميعها بشكل صحيح</td></tr><tr><td><code>No inference provider configured</code></td><td>تحقّق من ضبط <code>ANTHROPIC_API_KEY</code> (أو مفتاح مزوّد آخر) في <code>~/.hermes/.env</code></td></tr><tr><td>يستقبل البوت الرسائل لكنه يتجاهلها</td><td>قد لا يكون AAD object ID الخاص بك مُدرجًا في <code>TEAMS_ALLOWED_USERS</code>. نفّذ <code>teams status --verbose</code> لمعرفته</td></tr><tr><td>يتغيّر عنوان URL للنفق عند إعادة التشغيل</td><td>تبقى عناوين devtunnel ثابتة إذا استخدمت نفقًا مُسمّى (<code>devtunnel create hermes-bot</code>). أما ngrok و cloudflared فيولّدان عنوان URL جديدًا في كل تشغيل ما لم تكن لديك خطة مدفوعة — حدّث endpoint البوت باستخدام <code>teams app update</code> عند تغيّره</td></tr><tr><td>يعرض Teams الرسالة &quot;This bot is not responding&quot;</td><td>أعاد webhook خطأً. راجع <code>docker logs hermes</code> / <code>hermes gateway status -l</code> بحثًا عن traceback</td></tr><tr><td>ظهور <code>[teams] Failed to connect</code> في السجلات</td><td>فشل SDK في المصادقة. تحقّق جيدًا من بيانات الاعتماد، ومن أن tenant ID يطابق الحساب الذي استخدمته في <code>teams login</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>اضبط دائمًا <code>TEAMS_ALLOWED_USERS</code></strong> بمعرّفات AAD object IDs الخاصة بالمستخدمين المصرّح لهم. بدون ذلك، يستطيع أي شخص يعثر على البوت أو يثبّته التفاعل معه.</p><p>تعامل مع <code>TEAMS_CLIENT_SECRET</code> ككلمة مرور — وغيّره دوريًا عبر بوابة Azure أو Teams CLI.</p></div></div>
+<ul>
+<li>خزّن بيانات الاعتماد في <code>~/.hermes/.env</code> بصلاحيات <code>600</code> (<code>chmod 600 ~/.hermes/.env</code>)</li>
+<li>لا يقبل البوت الرسائل إلا من المستخدمين المُدرجين في <code>TEAMS_ALLOWED_USERS</code>؛ وتُسقَط الرسائل غير المصرّح بها بصمت</li>
+<li>تتم مصادقة endpoint العام (<code>/api/messages</code>) بواسطة Teams Bot Framework — وتُرفض الطلبات التي لا تحمل JWT صالحًا</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/messaging/teams-meetings">اجتماعات Teams</a></li>
+<li><a href="/docs/guides/operate-teams-meeting-pipeline">تشغيل Teams Meeting Pipeline</a></li>
+</ul>

@@ -1,0 +1,96 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sessions-api-session-control-over-rest">Sessions API (التحكم في الجلسات عبر REST)</h2>
+<p>يمكن للواجهات الخارجية إدارة جلسات Hermes عبر REST دون الحاجة إلى تشغيل لوحة التحكم. جميع الـ endpoints محمية بـ <code>API_SERVER_KEY</code> وتقع تحت <code>/api/sessions/*</code>.</p>
+<table><thead><tr><th>الطريقة</th><th>المسار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>GET</code></td><td><code>/api/sessions</code></td><td>يسرد الجلسات (مع ترقيم الصفحات — <code>limit</code>، <code>offset</code>، <code>source</code>، <code>include_children</code>)</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions</code></td><td>ينشئ جلسة فارغة</td></tr><tr><td><code>GET</code></td><td><code>/api/sessions/{id}</code></td><td>يقرأ البيانات الوصفية للجلسة</td></tr><tr><td><code>PATCH</code></td><td><code>/api/sessions/{id}</code></td><td>يحدّث العنوان أو <code>end_reason</code></td></tr><tr><td><code>DELETE</code></td><td><code>/api/sessions/{id}</code></td><td>يحذف جلسة</td></tr><tr><td><code>GET</code></td><td><code>/api/sessions/{id}/messages</code></td><td>سجل رسائل الجلسة</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/fork</code></td><td>يتفرّع من الجلسة عبر سلسلة النَّسب في <code>SessionDB</code> (بنفس دلالات الأمر <code>/branch</code> في CLI)</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/chat</code></td><td>يشغّل دورًا واحدًا متزامنًا للوكيل</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/chat/stream</code></td><td>wrapper بتقنية SSE حول دور واحد — يُصدر الأحداث <code>assistant.delta</code> و <code>tool.started</code> و <code>tool.completed</code> و <code>run.completed</code></td></tr></tbody></table>
+<p>يُعلن <code>/v1/capabilities</code> عن الواجهة الكاملة عبر علامات الميزات <code>session_*</code> ومُدخلات <code>endpoints.session_*</code>، لكي تتمكن الواجهات الخارجية من اكتشاف الدعم والرجوع إلى بديل بأمان. وتُدعم الصور المضمّنة في حمولات <code>chat</code> و <code>chat/stream</code> (عبر مسار يدعم الوسائط المتعددة).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skills-and-toolsets-discovery">اكتشاف المهارات و toolsets</h2>
+<p>يتيح <code>GET /v1/skills</code> و <code>GET /v1/toolsets</code> للعملاء الخارجيين سرد قدرات الوكيل بشكل حتمي عبر REST بدلًا من سؤال النموذج. كلاهما للقراءة فقط ومحميّ بـ <code>API_SERVER_KEY</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>يُرجع <code>/v1/skills</code> البيانات الوصفية نفسها التي يستخدمها Skills Hub داخليًا. ويُرجع <code>/v1/toolsets</code> مجموعات toolsets كما تُحلّ لمنصة <code>api_server</code>، مع قائمة <code>tools</code> الفعلية التي تتوسع إليها كل منها. ويُعلَن عن كليهما تحت <code>endpoints.*</code> في <code>/v1/capabilities</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-term-memory-scoping-x-hermes-session-key">تحديد نطاق الذاكرة طويلة المدى (<code>X-Hermes-Session-Key</code>)</h2>
+<p>تحتاج الواجهات الأمامية متعددة المستخدمين مثل Open WebUI إلى معرّف ثابت لكل قناة من أجل الذاكرة طويلة المدى (Honcho وغيرها)، يكون <strong>مستقلًا</strong> عن <code>X-Hermes-Session-Id</code> المرتبط بنطاق النص الكامل للمحادثة (والذي يتغيّر عند <code>/new</code>). مرّر <code>X-Hermes-Session-Key</code> على <code>/v1/chat/completions</code> أو <code>/v1/responses</code> أو <code>/v1/runs</code>، وسيمرّره Hermes حتى <code>AIAgent(gateway_session_key=...)</code>، حيث يستخدمه مزوّد ذاكرة Honcho لاشتقاق نطاق ثابت.</p>
+<div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>القواعد: الحد الأقصى 256 حرفًا، وتُرفض محارف التحكم (<code>\r</code>، <code>\n</code>، <code>\x00</code>)، وتُعاد القيمة في الاستجابات (JSON و SSE). ويُعلن <code>/v1/capabilities</code> عن الدعم عبر <code>&quot;session_key_header&quot;: &quot;X-Hermes-Session-Key&quot;</code>. وبدون المفتاح، تُنتج استراتيجية <code>per-session</code> في Honcho نطاقًا مختلفًا لكل <code>session_id</code> — وهو تمامًا السلوك الذي كان عليه Hermes سابقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="system-prompt-handling">التعامل مع System Prompt</h2>
+<p>عندما ترسل واجهة أمامية رسالة <code>system</code> (في Chat Completions) أو حقل <code>instructions</code> (في Responses API)، فإن hermes-agent <strong>يضيفها كطبقة فوق</strong> الـ system prompt الأساسي الخاص به. يحتفظ وكيلك بجميع أدواته وذاكرته ومهاراته — ويضيف الـ system prompt الخاص بالواجهة الأمامية تعليمات إضافية فقط.</p>
+<p>هذا يعني أنه يمكنك تخصيص السلوك لكل واجهة أمامية دون فقدان أي قدرات:</p>
+<ul>
+<li>الـ system prompt في Open WebUI: &quot;أنت خبير في Python. أضف دائمًا تلميحات الأنواع (type hints).&quot;</li>
+<li>يظل لدى الوكيل الطرفية، وأدوات الملفات، والبحث في الويب، والذاكرة، وغيرها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authentication">المصادقة</h2>
+<p>مصادقة Bearer token عبر الترويسة <code>Authorization</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>اضبط المفتاح عبر متغير البيئة <code>API_SERVER_KEY</code>. وإذا كنت تحتاج إلى أن يستدعي متصفحٌ Hermes مباشرةً، فاضبط أيضًا <code>API_SERVER_CORS_ORIGINS</code> على قائمة سماح صريحة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-profile-routing-pprofile">التوجيه متعدد الـ profiles (<code>/p/&lt;profile&gt;/…</code>)</h3>
+<p>عند تفعيل <a href="/docs/user-guide/multi-profile-gateways">توجيه gateway متعدد الـ profiles</a>
+(<code>gateway.multiplex_profiles</code>)، يخدم المستمع المشترك كل
+profile عبر بادئة URL بالشكل <code>/p/&lt;profile&gt;/</code> — و<strong>ترتبط المصادقة
+بالـ profile الموجَّه إليه</strong>:</p>
+<ul>
+<li>يجب أن تقدّم الطلبات الموجّهة إلى <code>/p/&lt;profile&gt;/v1/...</code> المفتاح الخاص بذلك الـ profile نفسه
+<code>API_SERVER_KEY</code> (من <code>~/.hermes/profiles/&lt;profile&gt;/.env</code>). ويُرفض مفتاح
+المستمع الافتراضي على بادئات الـ profiles المسمّاة.</li>
+<li>تواصل المسارات بلا بادئة و <code>/p/default/...</code> استخدام مفتاح الـ profile الافتراضي.</li>
+<li>الـ profile المسمّى الذي ليس له <code>API_SERVER_KEY</code> خاص به يفشل بشكل مغلق — إذ تبقى
+بادئته غير قابلة للوصول حتى تضبط مفتاحًا له.</li>
+<li>نطاق عمليات التشغيل خاص بكل profile: فالمسار <code>/v1/runs/{run_id}</code> ومساراته <code>events</code> و <code>stop</code> و
+<code>steer</code> و <code>approval</code> لا تستجيب إلا للـ profile الذي أنشأ
+التشغيل (بما في ذلك عمليات التشغيل التي بدأت عبر <code>/api/sessions/{id}/chat/stream</code>)؛
+أما معرّف تشغيل يخص profile آخر فيُرجع <code>404</code>، وليس <code>403</code> أبدًا.</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>تغيير كاسر للتوافق (يوليو 2026)</div><div class="admonitionContent_BuS1"><p>قبل هذا الإصلاح، كان مفتاح الـ profile الافتراضي الصالح مقبولًا على أي بادئة
+<code>/p/&lt;profile&gt;/</code>. إذا كنت تعتمد على مفتاح واحد مشترك عبر بادئات
+الـ profiles، فاضبط <code>API_SERVER_KEY</code> مختلفًا في ملف <code>.env</code> لكل profile — إذ أصبحت المفاتيح
+الافتراضية المُعاد استخدامها على البادئات المسمّاة تُرجع الآن <code>401</code>.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>الأمان</div><div class="admonitionContent_BuS1"><p>يمنح خادم API وصولًا كاملًا إلى مجموعة أدوات hermes-agent، <strong>بما في ذلك أوامر الطرفية</strong>. والمفتاح <code>API_SERVER_KEY</code> <strong>مطلوب في كل عملية نشر</strong>، بما في ذلك الربط الافتراضي بعنوان loopback على <code>127.0.0.1</code>. أبقِ <code>API_SERVER_CORS_ORIGINS</code> ضيق النطاق للتحكم في وصول المتصفحات عندما تسمح صراحةً بالاستدعاء من المتصفح.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة (Environment Variables)</h3>
+<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>API_SERVER_ENABLED</code></td><td><code>false</code></td><td>يفعّل خادم API</td></tr><tr><td><code>API_SERVER_PORT</code></td><td><code>8642</code></td><td>منفذ خادم HTTP</td></tr><tr><td><code>API_SERVER_HOST</code></td><td><code>127.0.0.1</code></td><td>عنوان الربط (localhost فقط افتراضيًا)</td></tr><tr><td><code>API_SERVER_KEY</code></td><td><em>(مطلوب)</em></td><td>Bearer token للمصادقة</td></tr><tr><td><code>API_SERVER_CORS_ORIGINS</code></td><td><em>(لا شيء)</em></td><td>مصادر المتصفح المسموح بها، مفصولة بفواصل</td></tr><tr><td><code>API_SERVER_MODEL_NAME</code></td><td><em>(اسم الـ profile)</em></td><td>اسم النموذج على <code>/v1/models</code>. القيمة الافتراضية هي اسم الـ profile، أو <code>hermes-agent</code> للـ profile الافتراضي.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configyaml">config.yaml</h3>
+<p>يمكن وضع الإعدادات نفسها في <code>~/.hermes/config.yaml</code> ضمن قسم متداخل <code>gateway.api_server:</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>تُنقل الخيارات <code>port</code> و <code>key</code> و <code>host</code> و <code>cors_origins</code> و <code>model_name</code> تلقائيًا إلى إعدادات <code>extra</code> الخاصة بالمنصة، لذا تتصرف تمامًا مثل نظيراتها من متغيرات البيئة <code>API_SERVER_*</code>. ولمتغيرات البيئة الأولوية على قيم <code>config.yaml</code>. كما تُقبل هذه الكتلة أيضًا تحت <code>gateway.platforms.api_server:</code> أو ضمن قسم <code>platforms.api_server:</code> في المستوى الأعلى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="concurrent-run-cap">حدّ عمليات التشغيل المتزامنة</h3>
+<p>يحدّ خادم API عدد عمليات تشغيل الوكيل التي يمكن تنفيذها في الوقت نفسه عبر endpoints المتوافقة مع OpenAI و endpoints الخاصة بـ Runs. يُقرأ الحد من <code>gateway.api_server.max_concurrent_runs</code> (القيمة الافتراضية <strong>10</strong>؛ والقيمة <code>0</code> تعطّل الحد، والقيم السالبة تُقيَّد إلى 0). وعند بلوغ الحد، تُرفض الطلبات الجديدة التي تبدأ عمليات تشغيل مع <strong>HTTP 429</strong> <code>Too many concurrent runs (max N)</code> — وينبغي للعملاء التراجع ثم إعادة المحاولة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-headers">ترويسات الأمان</h2>
+<p>تتضمن جميع الاستجابات ترويسات أمان:</p>
+<ul>
+<li><code>X-Content-Type-Options: nosniff</code> — تمنع تخمين نوع MIME (MIME sniffing)</li>
+<li><code>Referrer-Policy: no-referrer</code> — تمنع تسريب المُحيل (referrer)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cors">CORS</h2>
+<p>خادم API <strong>لا</strong> يفعّل CORS للمتصفحات افتراضيًا.</p>
+<p>للوصول المباشر من المتصفح، اضبط قائمة سماح صريحة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>عند تفعيل CORS:</p>
+<ul>
+<li><strong>استجابات Preflight</strong> تتضمن <code>Access-Control-Max-Age: 600</code> (تخزين مؤقت لمدة 10 دقائق)</li>
+<li><strong>استجابات البث عبر SSE</strong> تتضمن ترويسات CORS لكي تعمل عملاء EventSource في المتصفح بشكل صحيح</li>
+<li><strong><code>X-Hermes-Session-Id</code></strong> ترويسة طلب مسموح بها، لذا يمكن للمتصفحات على مصدر مُدرج في قائمة السماح طلب استئناف الجلسة.</li>
+<li><strong><code>Idempotency-Key</code></strong> ترويسة طلب مسموح بها — ويمكن للعملاء إرسالها لمنع التكرار (تُخزَّن الاستجابات مؤقتًا حسب المفتاح لمدة 5 دقائق)</li>
+</ul>
+<p>معظم الواجهات الأمامية الموثّقة مثل Open WebUI تتصل من خادم إلى خادم ولا تحتاج إلى CORS إطلاقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compatible-frontends">الواجهات الأمامية المتوافقة</h2>
+<p>تعمل أي واجهة أمامية تدعم صيغة OpenAI API. التكاملات المختبرة/الموثّقة:</p>
+<table><thead><tr><th>الواجهة الأمامية</th><th>النجوم</th><th>طريقة الاتصال</th></tr></thead><tbody><tr><td><a href="/docs/user-guide/messaging/open-webui">Open WebUI</a></td><td>126k</td><td>يتوفر دليل كامل</td></tr><tr><td>LobeChat</td><td>73k</td><td>endpoint مزوّد مخصص</td></tr><tr><td>LibreChat</td><td>34k</td><td>endpoint مخصص في librechat.yaml</td></tr><tr><td>AnythingLLM</td><td>56k</td><td>مزوّد OpenAI عام (Generic)</td></tr><tr><td>NextChat</td><td>87k</td><td>متغير البيئة BASE_URL</td></tr><tr><td>ChatBox</td><td>39k</td><td>إعداد API Host</td></tr><tr><td>Jan</td><td>26k</td><td>إعدادات النموذج البعيد</td></tr><tr><td>HF Chat-UI</td><td>8k</td><td>OPENAI_BASE_URL</td></tr><tr><td>big-AGI</td><td>7k</td><td>endpoint مخصص</td></tr><tr><td>OpenAI Python SDK</td><td>—</td><td><code>OpenAI(base_url=&quot;http://localhost:8642/v1&quot;)</code></td></tr><tr><td>curl</td><td>—</td><td>طلبات HTTP مباشرة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-user-setup-with-profiles">إعداد متعدد المستخدمين باستخدام Profiles</h2>
+<p>لمنح عدة مستخدمين نسخة Hermes معزولة خاصة بكل منهم (إعدادات وذاكرة ومهارات منفصلة)، استخدم <a href="/docs/user-guide/profiles">الـ profiles</a>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>يُعلن خادم API الخاص بكل profile تلقائيًا عن اسم الـ profile بوصفه معرّف النموذج:</p>
+<ul>
+<li><code>http://localhost:8643/v1/models</code> → النموذج <code>alice</code></li>
+<li><code>http://localhost:8644/v1/models</code> → النموذج <code>bob</code></li>
+</ul>
+<p>في Open WebUI، أضف كلًّا منها كاتصال منفصل. ستعرض القائمة المنسدلة للنماذج <code>alice</code> و <code>bob</code> كنموذجين مختلفين، يعتمد كلٌّ منهما على نسخة Hermes معزولة تمامًا. راجع <a href="/docs/user-guide/messaging/open-webui#multi-user-setup-with-profiles">دليل Open WebUI</a> لمزيد من التفاصيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>تخزين الاستجابات</strong> — تُحفظ الاستجابات المخزّنة (الخاصة بـ <code>previous_response_id</code>) في SQLite وتبقى بعد إعادة تشغيل gateway. الحد الأقصى 100 استجابة مخزّنة (مع الإزالة وفق LRU).</li>
+<li><strong>لا يوجد رفع للملفات</strong> — الصور المضمّنة مدعومة على كلٍّ من <code>/v1/chat/completions</code> و <code>/v1/responses</code>، لكن الملفات المرفوعة (<code>file</code>، <code>input_file</code>، <code>file_id</code>) ومدخلات المستندات غير المصوّرة غير مدعومة عبر API.</li>
+<li><strong>عملاء OpenAI البسيطة ما زالت ترى اسمًا مستعارًا</strong> — يُعلن <code>/v1/models</code> عن
+الاسم المستعار الثابت لـ Hermes (<code>hermes-agent</code> أو اسم الـ profile النشط). أما العملاء
+الأغنى بالميزات فيمكنها إرسال تجاوزات صريحة لـ <code>provider</code> / <code>model_options</code> في الطلبات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="proxy-mode">Proxy Mode</h2>
+<p>يعمل خادم API أيضًا كـ backend لوضع <strong>gateway proxy mode</strong>. فعندما تُضبط نسخة Hermes gateway أخرى بـ <code>GATEWAY_PROXY_URL</code> يشير إلى خادم API هذا، فإنها تُعيد توجيه جميع الرسائل إليه بدلًا من تشغيل وكيلها الخاص. وهذا يتيح عمليات نشر مقسّمة — مثل حاوية Docker تتولى Matrix E2EE وتمرّر الرسائل إلى وكيل يعمل على الجهاز المضيف.</p>
+<p>راجع <a href="/docs/user-guide/messaging/matrix#proxy-mode-e2ee-on-macos">Proxy Mode في Matrix</a> للاطلاع على دليل الإعداد الكامل.</p>

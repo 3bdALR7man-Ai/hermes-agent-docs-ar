@@ -1,0 +1,115 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflows--patterns">سير العمل والأنماط</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-different-models-for-different-tasks-multi-model-workflows">استخدام نماذج مختلفة لمهام مختلفة (سير عمل متعدد النماذج)</h3>
+<p><strong>السيناريو:</strong> تستخدم GPT-5.4 كنموذجك اليومي، لكن Gemini أو Grok يكتب محتوى أفضل لوسائل التواصل الاجتماعي. التبديل اليدوي بين النماذج في كل مرة أمر مُتعب.</p>
+<p><strong>الحل: إعدادات التفويض (Delegation config).</strong> يمكن لـ Hermes توجيه subagents إلى نموذج مختلف تلقائيًا. اضبط هذا في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>الآن عندما تخبر Hermes «اكتب لي خيطًا على Twitter عن X» ويُنشئ subagent عبر <code>delegate_task</code>، يعمل ذلك الـ subagent على Gemini بدلًا من نموذجك الرئيسي. تبقى محادثتك الأساسية على GPT-5.4.</p>
+<p>يمكنك أيضًا أن تكون صريحًا في موجّهك: <em>«فوّض مهمة لكتابة منشورات لوسائل التواصل الاجتماعي عن إطلاق منتجنا. استخدم subagent الخاص بك للكتابة الفعلية.»</em> سيستخدم الوكيل <code>delegate_task</code>، والتي تلتقط تلقائيًا إعدادات التفويض.</p>
+<p>للتبديل لمرة واحدة بين النماذج بدون تفويض، استخدم <code>/model</code> في CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="50"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>يعيد كل تبديل عبر <code>/model</code> ضبط ذاكرة الـ prompt المؤقتة (prompt cache) — إذ يتضمن مفتاح التخزين المؤقت النموذجَ نفسه، لذا تعيد أول رسالة بعد كل تبديل قراءة المحادثة كاملة بسعر الإدخال الكامل. في الجلسات الطويلة، يُفضَّل استخدام التفويض (تحصل subagents على سياق جديد خاص بها) أو جلسة جديدة بدلًا من التبديل المتكرر ذهابًا وإيابًا.</p></div></div>
+<p>راجع <a href="/docs/user-guide/features/delegation">تفويض المهام إلى Subagents</a> لمزيد حول آلية عمل التفويض.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-multiple-agents-on-one-whatsapp-number-per-chat-binding">تشغيل عدة وكلاء على رقم WhatsApp واحد (ربط حسب المحادثة)</h3>
+<p><strong>السيناريو:</strong> في OpenClaw، كان لديك عدة وكلاء مستقلين مرتبطين بمحادثات WhatsApp محددة — واحد لمجموعة قائمة تسوق العائلة، وآخر لمحادثتك الخاصة. هل يستطيع Hermes فعل ذلك؟</p>
+<p><strong>القيد الحالي:</strong> يحتاج كل profile من profiles Hermes إلى رقم/جلسة WhatsApp خاصة به. لا يمكنك ربط عدة profiles بمحادثات مختلفة على نفس رقم WhatsApp — إذ يستخدم جسر WhatsApp (Baileys) جلسة مصادَق عليها واحدة لكل رقم.</p>
+<p><strong>الحلول البديلة:</strong></p>
+<ol>
+<li>
+<p><strong>استخدم profile واحد مع تبديل الشخصية.</strong> أنشئ ملفات سياق <code>AGENTS.md</code> مختلفة أو استخدم أمر <code>/personality</code> لتغيير السلوك حسب المحادثة. يرى الوكيل في أي محادثة هو ويمكنه التكيّف.</p>
+</li>
+<li>
+<p><strong>استخدم مهام cron للمهام المتخصصة.</strong> بالنسبة لمتتبّع قائمة تسوق، أنشئ مهمة cron تراقب محادثة محددة وتدير القائمة — بلا حاجة لوكيل منفصل.</p>
+</li>
+<li>
+<p><strong>استخدم أرقامًا منفصلة.</strong> إذا احتجت وكلاء مستقلين حقًا، اربط كل profile برقم WhatsApp خاص به. تعمل الأرقام الافتراضية من خدمات مثل Google Voice لهذا الغرض.</p>
+</li>
+<li>
+<p><strong>استخدم Telegram أو Discord بدلًا من ذلك.</strong> تدعم هاتان المنصتان الربط حسب المحادثة بشكل أكثر طبيعية — تحصل كل مجموعة Telegram أو قناة Discord على جلستها الخاصة، ويمكنك تشغيل عدة رموز بوت (واحد لكل profile) على نفس الحساب.</p>
+</li>
+</ol>
+<p>راجع <a href="/docs/user-guide/profiles">Profiles</a> و<a href="/docs/user-guide/messaging/whatsapp">إعداد WhatsApp</a> لمزيد من التفاصيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="controlling-what-shows-up-in-telegram-hiding-logs-and-reasoning">التحكم فيما يظهر على Telegram (إخفاء السجلات والتفكير)</h3>
+<p><strong>السيناريو:</strong> ترى سجلات تنفيذ الـ gateway، وتفكير Hermes، وتفاصيل استدعاءات الأدوات على Telegram بدلًا من المخرجات النهائية فقط.</p>
+<p><strong>الحل:</strong> يتحكم إعداد <code>display.tool_progress</code> في <code>config.yaml</code> في مقدار نشاط الأدوات المعروض:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<ul>
+<li><strong><code>off</code></strong> — الاستجابة النهائية فقط. بلا استدعاءات أدوات، ولا تفكير، ولا سجلات.</li>
+<li><strong><code>new</code></strong> — يعرض استدعاءات الأدوات الجديدة أثناء حدوثها (أسطر موجزة).</li>
+<li><strong><code>all</code></strong> — يعرض كل نشاط الأدوات بما في ذلك النتائج.</li>
+<li><strong><code>verbose</code></strong> — تفاصيل كاملة تشمل معاملات الأدوات ومخرجاتها.</li>
+</ul>
+<p>لمنصات المراسلة، عادة ما تريد <code>off</code> أو <code>new</code>. بعد تحرير <code>config.yaml</code>، أعد تشغيل الـ gateway ليسري التغيير.</p>
+<p>يمكنك أيضًا تبديل هذا لكل جلسة عبر أمر <code>/verbose</code> (إن كان مفعّلًا):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-skills-on-telegram-slash-command-limit">إدارة المهارات على Telegram (حدّ slash commands)</h3>
+<p><strong>السيناريو:</strong> يفرض Telegram حدًا أقصى قدره 100 slash command، ومهاراتك تتجاوز هذا الحد. تريد تعطيل المهارات التي لا تحتاجها على Telegram، لكن إعدادات <code>hermes skills config</code> لا يبدو أنها تسري.</p>
+<p><strong>الحل:</strong> استخدم <code>hermes skills config</code> لتعطيل المهارات لكل منصة على حدة. يكتب هذا إلى <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>بعد تغيير هذا، <strong>أعد تشغيل الـ gateway</strong> (<code>hermes gateway restart</code> أو أوقفه وأعد تشغيله). تُعاد بناء قائمة أوامر بوت Telegram عند بدء التشغيل.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="51"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يتم اقتطاع المهارات ذات الأوصاف الطويلة جدًا إلى 40 حرفًا في قائمة Telegram للبقاء ضمن حدود حجم الحمولة. إذا لم تظهر المهارات، فقد تكون المشكلة في إجمالي حجم الحمولة أكثر منها في حدّ عدد الأوامر 100 — تعطيل المهارات غير المستخدَمة يساعد في كلتا الحالتين.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shared-thread-sessions-multiple-users-one-conversation">جلسات محادثات مشتركة (عدة مستخدمين، محادثة واحدة)</h3>
+<p><strong>السيناريو:</strong> لديك محادثة (thread) على Telegram أو Discord يذكر فيها عدة أشخاص البوت. تريد أن تكون كل الإشارات في تلك المحادثة جزءًا من محادثة واحدة مشتركة، وليس جلسات منفصلة لكل مستخدم.</p>
+<p><strong>السلوك الحالي:</strong> ينشئ Hermes جلسات مرتبطة بمعرّف المستخدم في معظم المنصات، بحيث يحصل كل شخص على سياق محادثة خاص به. هذا مقصود من أجل الخصوصية وعزل السياق.</p>
+<p><strong>الحلول البديلة:</strong></p>
+<ol>
+<li>
+<p><strong>استخدم Slack.</strong> ترتبط جلسات Slack بالمحادثة (thread) وليس بالمستخدم. يشارك عدة مستخدمين في نفس المحادثة سياقًا واحدًا — وهو بالضبط السلوك الذي تصفه. هذا هو الأنسب طبيعيًا.</p>
+</li>
+<li>
+<p><strong>استخدم محادثة جماعية مع مستخدم واحد.</strong> إذا كان شخص واحد هو «المشغّل» المعيَّن الذي يُوصِل الأسئلة، تبقى الجلسة موحّدة. يمكن للآخرين المتابعة قراءةً.</p>
+</li>
+<li>
+<p><strong>استخدم قناة Discord.</strong> ترتبط جلسات Discord بالقناة، بحيث يشارك كل المستخدمين في نفس القناة السياق. استخدم قناة مخصصة للمحادثة المشتركة.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exporting-hermes-to-another-machine">تصدير Hermes إلى جهاز آخر</h3>
+<p><strong>السيناريو:</strong> بنيتَ مهارات، ومهام cron، وذكريات على جهاز واحد وتريد نقل كل شيء إلى جهاز Linux جديد مخصص.</p>
+<p><strong>الحل:</strong></p>
+<ol>
+<li>
+<p>ثبّت Hermes Agent على الجهاز الجديد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+</li>
+<li>
+<p>على <strong>الجهاز المصدر</strong>، أنشئ نسخة احتياطية كاملة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>ينشئ هذا ملف zip لمجلد <code>~/.hermes/</code> بأكمله — الإعدادات، ومفاتيح API، والذكريات، والمهارات، والجلسات، والـ profiles — مُحفوظًا في مجلدك الرئيسي باسم <code>~/hermes-backup-&lt;timestamp&gt;.zip</code>.</p>
+</li>
+<li>
+<p>انسخ ملف zip إلى الجهاز الجديد واستورده:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+</li>
+<li>
+<p>على الجهاز الجديد، شغّل <code>hermes setup</code> للتحقق من عمل مفاتيح API وإعدادات المزوّد.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="moving-a-single-profile-to-another-machine">نقل profile واحد إلى جهاز آخر</h3>
+<p><strong>السيناريو:</strong> تريد نقل أو مشاركة profile واحد محدد — وليس تثبيتك الكامل.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>سيحتوي الـ profile المستورَد على كل الإعدادات والذكريات والجلسات والمهارات من التصدير. قد تحتاج لتحديث المسارات أو إعادة المصادقة مع المزوّدين إذا كان للجهاز الجديد إعداد مختلف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-backup-vs-hermes-profile-export"><code>hermes backup</code> مقابل <code>hermes profile export</code></h3>
+<table><thead><tr><th style="text-align:left">الميزة</th><th style="text-align:left"><code>hermes backup</code></th><th style="text-align:left"><code>hermes profile export</code></th></tr></thead><tbody><tr><td style="text-align:left"><strong>حالة الاستخدام</strong></td><td style="text-align:left"><strong>ترحيل الجهاز بالكامل</strong></td><td style="text-align:left"><strong>نقل/مشاركة profile محدد</strong></td></tr><tr><td style="text-align:left"><strong>النطاق</strong></td><td style="text-align:left">عام (مجلد <code>~/.hermes</code> بأكمله)</td><td style="text-align:left">محلي (مجلد profile واحد)</td></tr><tr><td style="text-align:left"><strong>يشمل</strong></td><td style="text-align:left">كل الـ profiles، والإعدادات العامة، ومفاتيح API، والجلسات</td><td style="text-align:left">profile واحد: SOUL.md، والذكريات، والجلسات، والمهارات</td></tr><tr><td style="text-align:left"><strong>بيانات الاعتماد</strong></td><td style="text-align:left"><strong>مشمولة</strong> (<code>.env</code> و<code>auth.json</code>)</td><td style="text-align:left"><strong>مُستبعدة</strong> (محذوفة للمشاركة الآمنة)</td></tr><tr><td style="text-align:left"><strong>الصيغة</strong></td><td style="text-align:left"><code>.zip</code></td><td style="text-align:left"><code>.tar.gz</code></td></tr></tbody></table>
+<p><strong>الحل البديل اليدوي (rsync):</strong> إذا فضّلت نسخ الملفات مباشرة، استبعد مستودع الكود:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="52"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>ينتج <code>hermes backup</code> لقطة متسقة حتى أثناء تشغيل Hermes فعليًا. يستبعد الأرشيف المُستعاد الملفات التشغيلية الخاصة بالجهاز مثل <code>gateway.pid</code> و<code>cron.pid</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-denied-when-reloading-shell-after-install">رفض الإذن عند إعادة تحميل الـ shell بعد التثبيت</h3>
+<p><strong>السيناريو:</strong> بعد تشغيل مثبّت Hermes، يعطي أمر <code>source ~/.zshrc</code> خطأ رفض الإذن.</p>
+<p><strong>السبب:</strong> يحدث هذا عادة عندما يكون لملف <code>~/.zshrc</code> (أو <code>~/.bashrc</code>) صلاحيات ملف غير صحيحة، أو عندما لم يستطع المثبّت الكتابة إليه بسلاسة. إنها ليست مشكلة خاصة بـ Hermes — بل مشكلة صلاحيات في إعدادات الـ shell.</p>
+<p><strong>الحل:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>إذا أضاف المثبّت سطر PATH لكن الصلاحيات خاطئة، يمكنك إضافته يدويًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="error-400-on-first-agent-run">خطأ 400 عند أول تشغيل للوكيل</h3>
+<p><strong>السيناريو:</strong> يكتمل الإعداد بلا مشاكل، لكن أول محاولة محادثة تفشل بخطأ HTTP 400.</p>
+<p><strong>السبب:</strong> عادة ما يكون عدم تطابق اسم النموذج — النموذج المضبوط غير موجود لدى مزوّدك، أو لا يملك مفتاح API صلاحية الوصول إليه.</p>
+<p><strong>الحل:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<p>إذا كنت تستخدم OpenRouter، تأكد من أن مفتاح API لديك يحتوي على رصيد. غالبًا ما يعني خطأ 400 من OpenRouter أن النموذج يتطلب خطة مدفوعة أو أن معرّف النموذج يحتوي على خطأ إملائي.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="still-stuck">ما زلت عالقًا؟</h2>
+<p>إذا لم تكن مشكلتك مذكورة هنا:</p>
+<ol>
+<li><strong>ابحث في المشكلات الحالية:</strong> <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>GitHub Issues</a></li>
+<li><strong>اسأل المجتمع:</strong> <a href="https://discord.gg/nousresearch" data-ext>Nous Research Discord</a></li>
+<li><strong>أرسل تقرير خلل:</strong> أرفق نظام التشغيل، وإصدار Python (<code>python3 --version</code>)، وإصدار Hermes (<code>hermes --version</code>)، ورسالة الخطأ الكاملة</li>
+</ol>

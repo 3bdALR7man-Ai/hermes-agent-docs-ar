@@ -1,0 +1,95 @@
+<header><h1>صيغة Trajectory</h1></header>
+<p>يحفظ Hermes Agent مسارات المحادثة (trajectories) بصيغة JSONL متوافقة مع ShareGPT
+لاستخدامها كبيانات تدريب، ومُخرَجات لتصحيح الأخطاء، ومجموعات بيانات للتعلّم المعزَّز (reinforcement learning).</p>
+<p>ملفات المصدر: <code>agent/trajectory.py</code>، و <code>agent/session_persistence.py</code> (ابحث عن <code>_save_trajectory</code>)، و <code>batch_runner.py</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-naming-convention">قاعدة تسمية الملفات</h2>
+<p>تُكتب مسارات المحادثة (trajectories) إلى ملفات في مجلد العمل الحالي:</p>
+<table><thead><tr><th>الملف</th><th>متى</th></tr></thead><tbody><tr><td><code>trajectory_samples.jsonl</code></td><td>المحادثات التي اكتملت بنجاح (<code>completed=True</code>)</td></tr><tr><td><code>failed_trajectories.jsonl</code></td><td>المحادثات التي فشلت أو انقطعت (<code>completed=False</code>)</td></tr></tbody></table>
+<p>يكتب مُشغّل الدُفعات (batch runner) (<code>batch_runner.py</code>) إلى ملف مُخرَج مخصّص لكل دُفعة
+(مثال: <code>batch_001_output.jsonl</code>) مع حقول بيانات وصفية إضافية.</p>
+<p>يمكنك تجاوز اسم الملف عبر المعامل <code>filename</code> في <code>save_trajectory()</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jsonl-entry-format">صيغة مُدخل JSONL</h2>
+<p>كل سطر في الملف هو كائن JSON قائم بذاته. هناك صيغتان:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cliinteractive-format-from-_save_trajectory">صيغة CLI/التفاعلية (من <code>_save_trajectory</code>)</h3>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-runner-format-from-batch_runnerpy">صيغة Batch Runner (من <code>batch_runner.py</code>)</h3>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يتم تطبيع (normalize) قواميس <code>tool_stats</code> و <code>tool_error_counts</code> لتشمل
+جميع الأدوات الممكنة (من <code>model_tools.TOOL_TO_TOOLSET_MAP</code>) بقيم افتراضية صفرية،
+بما يضمن مخططًا متسقًا عبر المُدخلات عند تحميل مجموعات بيانات HuggingFace.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="conversations-array-sharegpt-format">مصفوفة المحادثات (صيغة ShareGPT)</h2>
+<p>تستخدم مصفوفة <code>conversations</code> اصطلاحات الأدوار الخاصة بـ ShareGPT:</p>
+<table><thead><tr><th>دور API</th><th><code>from</code> في ShareGPT</th></tr></thead><tbody><tr><td>system</td><td><code>&quot;system&quot;</code></td></tr><tr><td>user</td><td><code>&quot;human&quot;</code></td></tr><tr><td>assistant</td><td><code>&quot;gpt&quot;</code></td></tr><tr><td>tool</td><td><code>&quot;tool&quot;</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="complete-example">مثال كامل</h3>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="normalization-rules">قواعد التطبيع (Normalization)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reasoning-content-markup">وسم محتوى الاستدلال (Reasoning)</h3>
+<p>يُطبّع محوّل مسار المحادثة (trajectory converter) كل الاستدلال (reasoning) إلى وسوم <code>&lt;think&gt;</code>، بصرف النظر
+عن الطريقة التي أنتج بها النموذج ذلك أصلًا:</p>
+<ol>
+<li>
+<p><strong>tokens الاستدلال الأصلية (native)</strong> (حقل <code>msg[&quot;reasoning&quot;]</code> من مزوّدين مثل
+Anthropic، وسلسلة OpenAI o): تُغلَّف بالشكل <code>&lt;think&gt;\n{reasoning}\n&lt;/think&gt;\n</code>
+وتُضاف قبل المحتوى.</p>
+</li>
+<li>
+<p><strong>REASONING_SCRATCHPAD بصيغة XML</strong> (عندما يكون الاستدلال الأصلي مُعطَّلًا ويستدل النموذج
+عبر XML موجَّه من system prompt): تُحوَّل وسوم <code>&lt;REASONING_SCRATCHPAD&gt;</code>
+إلى <code>&lt;think&gt;</code> عبر <code>convert_scratchpad_to_think()</code>.</p>
+</li>
+<li>
+<p><strong>كتل think فارغة</strong>: كل دور من نوع <code>gpt</code> مضمون أن يحتوي على كتلة
+<code>&lt;think&gt;</code>. إن لم يُنتَج أي استدلال، تُدرَج كتلة فارغة:
+<code>&lt;think&gt;\n&lt;/think&gt;\n</code> — وهذا يضمن صيغة متسقة لبيانات التدريب.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-call-normalization">تطبيع استدعاء الأدوات</h3>
+<p>تُحوَّل استدعاءات الأدوات من صيغة API (التي تتضمّن <code>tool_call_id</code>، واسم الدالة، والمعاملات كسلسلة
+JSON) إلى JSON مُغلَّف بـ XML:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<ul>
+<li>تُحلَّل المعاملات من سلاسل JSON إلى كائنات (دون ترميز مزدوج)</li>
+<li>إذا فشل تحليل JSON (وهذا لا ينبغي أن يحدث — إذ يُتحقَّق منه أثناء المحادثة)،
+تُستخدم قيمة فارغة <code>{}</code> مع تسجيل تحذير</li>
+<li>استدعاءات الأدوات المتعددة في دور واحد للمساعد تُنتج كتل <code>&lt;tool_call&gt;</code> متعددة
+في رسالة <code>gpt</code> واحدة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-response-normalization">تطبيع استجابة الأدوات</h3>
+<p>تُجمَّع كل نتائج الأدوات التي تلي رسالة المساعد في دور <code>tool</code> واحد
+مع استجابات JSON مُغلَّفة بـ XML:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<ul>
+<li>إذا بدا محتوى الأداة على شكل JSON (يبدأ بـ <code>{</code> أو <code>[</code>)، يُحلَّل بحيث يحتوي
+حقل المحتوى على كائن/مصفوفة JSON بدلًا من سلسلة نصية</li>
+<li>تُدمَج نتائج الأدوات المتعددة بأسطر جديدة في رسالة واحدة</li>
+<li>تُطابَق أسماء الأدوات حسب الموقع مقابل مصفوفة <code>tool_calls</code> الخاصة
+برسالة المساعد الأصلية</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="system-message">رسالة System</h3>
+<p>تُنشَأ رسالة System عند وقت الحفظ (وليست مأخوذة من المحادثة).
+وهي تتبع قالب prompt الخاص باستدعاء الدوال في Hermes، وتتضمّن:</p>
+<ul>
+<li>مقدّمة تشرح بروتوكول استدعاء الدوال</li>
+<li>كتلة XML من نوع <code>&lt;tools&gt;</code> تحتوي على تعريفات أدوات JSON</li>
+<li>مرجع المخطط لكائنات <code>FunctionCall</code></li>
+<li>مثال <code>&lt;tool_call&gt;</code></li>
+</ul>
+<p>تتضمّن تعريفات الأدوات <code>name</code> و <code>description</code> و <code>parameters</code> و <code>required</code>
+(تُضبَط على <code>null</code> لمطابقة الصيغة القياسية).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="loading-trajectories">تحميل مسارات المحادثة (Trajectories)</h2>
+<p>مسارات المحادثة هي ملفات JSONL قياسية — حمّلها بأي أداة قراءة لصيغة JSON-lines:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="loading-for-huggingface-datasets">التحميل لمجموعات بيانات HuggingFace</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يضمن مخطط <code>tool_stats</code> المُطبَّع أن تحتوي كل المُدخلات على الأعمدة نفسها،
+مما يمنع أخطاء عدم تطابق مخطط Arrow أثناء تحميل مجموعة البيانات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="controlling-trajectory-saving">التحكّم في حفظ مسار المحادثة (Trajectory)</h2>
+<p>حفظ مسار المحادثة (Trajectory) هو مفتاح تبديل على مستوى <code>run_agent.py</code> / المكتبة — لا تعرض واجهة CLI
+الخاصة بـ <code>hermes</code> مفتاح إعداد أو علامة (flag) لذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أو برمجيًا: <code>AIAgent(..., save_trajectories=True)</code> /
+<code>initialize_agent(..., save_trajectories=True)</code>. عند التفعيل، يُستدعى التابع
+<code>_save_trajectory()</code> في نهاية كل دور من أدوار المحادثة.</p>
+<p>يحفظ مُشغّل الدُفعات (batch runner) مسارات المحادثة دائمًا (فهذا هو غرضه الأساسي).</p>
+<p>العيّنات (samples) التي لا تحتوي على أي استدلال عبر كل الأدوار تُستبعَد تلقائيًا بواسطة
+مُشغّل الدُفعات لتجنّب تلويث بيانات التدريب بأمثلة بلا استدلال.</p>

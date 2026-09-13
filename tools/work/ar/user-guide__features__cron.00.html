@@ -1,0 +1,143 @@
+<header><h1>المهام المجدولة (Cron)</h1></header>
+<p>جدوِل مهامًا لتعمل تلقائيًا بلغة طبيعية أو بتعبيرات cron. يعرض Hermes إدارة cron عبر أداة <code>cronjob</code> واحدة بعمليات على شكل أفعال بدلًا من أدوات جدولة/سرد/إزالة منفصلة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-cron-can-do-now">ما يمكن لـ cron فعله الآن</h2>
+<p>يمكن لمهام cron أن:</p>
+<ul>
+<li>تجدول مهامًا لمرة واحدة أو متكررة</li>
+<li>توقف، وتستأنف، وتُحرَّر، وتُشغَّل، وتُزال</li>
+<li>ترفق صفر، أو مهارة واحدة، أو عدة مهارات بمهمة</li>
+<li>تسلّم النتائج إلى المحادثة الأصلية، أو ملفات محلية، أو أهداف منصة مُعدَّة</li>
+<li>تعمل في جلسات وكيل جديدة بقائمة الأدوات الثابتة العادية</li>
+<li>تعمل في <strong>وضع بلا وكيل</strong> — سكربت على جدول، يُسلَّم مخرجه القياسي (stdout) حرفيًا، دون أي تدخّل من LLM (راجع قسم <a href="#no-agent-mode-script-only-jobs">وضع بلا وكيل</a> أدناه)</li>
+</ul>
+<p>كل هذا متاح لـ Hermes نفسه عبر أداة <code>cronjob</code>، فيمكنك إنشاء المهام وإيقافها وتحريرها وإزالتها بمجرد الطلب بلغة عادية — دون الحاجة إلى CLI.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="59"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p><strong>على أي نموذج تعمل مهمة cron؟</strong> الحل عند وقت التشغيل هو: تثبيت خاص بالمهمة ← <code>cron.model</code> في <code>config.yaml</code> ← الافتراضي العام من <code>hermes model</code>.</p><ul>
+<li><strong>تثبيت خاص بالمهمة</strong> — يضبطه <em>أنت</em> عبر لوحة التحكم، أو <code>hermes cron create/edit --model … --provider …</code>، أو بتحرير <code>~/.hermes/cron/jobs.json</code>. بمجرد ضبطه، يبقى ثابتًا حتى تغيّره. لا تستطيع أداة <code>cronjob</code> الخاصة بالوكيل ضبط أو تغيير نماذج مثبَّتة لكل مهمة — تثبيتات الاستدلال (inference) يملكها المستخدم.</li>
+<li><strong><code>cron.model</code> / <code>cron.model_provider</code></strong> — افتراضي لأسطول cron بأكمله: كل مهمة غير مثبَّتة تعمل على هذا النموذج، بمعزل عن نموذج محادثتك. اضبطه مرة واحدة (<code>hermes config set cron.model &lt;name&gt;</code>)، وتبديل نموذج محادثتك عبر <code>hermes model</code> أو <code>/model</code> لن يمسّ أسطول cron أبدًا.</li>
+<li><strong>الافتراضي العام</strong> — فقط عندما لا يُضبَط أي من السابقين تتبع المهمة <code>hermes model</code>. يأخذ Hermes <strong>لقطة</strong> للمزوّد والنموذج عند الإنشاء، وتلك اللقطة هي التثبيت الفعلي للمهمة: إذا بدّلت لاحقًا الافتراضي العام (<code>hermes model</code>، أو <code>/model</code>، أو <code>hermes config set model.default …</code>)، تظل المهمة <strong>تعمل على النموذج والمزوّد اللذين أُنشئت تحتهما</strong> وتسجّل سطر INFO واحدًا لكل تشغيل يذكر الفرق. تغيير النموذج العام لا يوقف مهمة مجدولة أبدًا، ومهمة غير مُشرَف عليها لا ترث بصمت أبدًا تبديلًا إلى مزوّد/نموذج مدفوع (#44585). لنقل مهمة إلى الافتراضي الجديد، <strong>أعد اللقطة (resnap)</strong> (<code>hermes cron resnap &lt;job_id&gt;</code>، أو <code>--all</code> لكل مهمة غير مثبَّتة) بحيث تتبنّى الافتراضي الحالي مع بقائها غير مثبَّتة، أو ثبّتها (<code>hermes cron edit &lt;job_id&gt; --provider &lt;provider&gt; --model &lt;model&gt;</code>)، أو اضبط <code>cron.model</code> لنقل الأسطول كله دفعة واحدة. المهام المُنشأة قبل وجود اللقطات تظل تتبع الافتراضي العام الحي.</li>
+</ul><p>أيًّا كان المزوّد الذي تُحلّ إليه المهمة، فإن إعدادات طلبه الخاصة بالمزوّد (مثل <code>request_overrides</code> كـ <code>extra_body</code>/<code>extra_headers</code> للمزوّدين المخصصين) تنتقل إلى التشغيل المجدوَل تمامًا كما في جلسة تفاعلية.</p><p><code>hermes setup --portal</code> هو الخيار الأقل احتكاكًا للتشغيلات غير المُشرَف عليها لأن تجديد OAuth تلقائي. راجع <a href="/docs/integrations/nous-portal">Nous Portal</a>.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="60"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p><strong>جهد الاستدلال (reasoning effort) الخاص بكل مهمة.</strong> يمكن لمهمة تثبيت مستوى تفكيرها الخاص، بمعزل عن تثبيت النموذج: واحد من <code>none</code>، <code>minimal</code>، <code>low</code>، <code>medium</code>، <code>high</code>، <code>xhigh</code>، <code>max</code>، <code>ultra</code>. عند ضبطه، يتجاوز كلًّا من <code>agent.reasoning_effort</code> العام و<code>agent.reasoning_overrides</code> الخاص بكل نموذج لتشغيلات تلك المهمة (<code>none</code> يعطّل التفكير). اضبطه عبر <code>hermes cron create/edit --reasoning-effort high</code>؛ مرّر نصًا فارغًا عند التحرير لمسح التثبيت والعودة لاتّباع الإعدادات. (لم يُعرَض عمدًا في أداة <code>cronjob</code> الخاصة بالوكيل — إعداد النموذج يبقى قرار المستخدم.) المستويات التي لا يدعمها نموذج ما تُقيَّد أو تُهمَل من قِبل المزوّد وقت الطلب — تثبيت <code>xhigh</code> على نموذج سقفه <code>high</code> يشغّله عند <code>high</code>. لا أثر للتثبيت على مهام <code>no_agent</code> (لا يوجد استدعاء LLM لضبطه). استخدمه لتشغيل تحليلات مجدولة ثقيلة عند <code>high</code> بينما تعمل المهام المتكررة الرخيصة عند <code>minimal</code>، دون المساس بافتراضيك العام.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="61"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>جلسات تشغيل cron لا يمكنها إنشاء مزيد من مهام cron بشكل تكراري. يعطّل Hermes أدوات إدارة cron داخل تنفيذات cron لمنع حلقات جدولة متسلسلة بلا توقف.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-scheduled-tasks">إنشاء مهام مجدولة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="in-chat-with-cron">في المحادثة باستخدام <code>/cron</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-the-standalone-cli">من الـ CLI المستقل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="through-natural-conversation">عبر محادثة طبيعية</h3>
+<p>اطلب من Hermes بشكل عادي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>سيستخدم Hermes أداة <code>cronjob</code> الموحَّدة داخليًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pre-dispatch-configuration-validation">التحقق من الإعداد قبل الإرسال</h2>
+<p>قبل بناء أي آلية وكيل لتشغيل مجدوَل، يتحقق المجدوِل
+من أن إعداد المهمة يستطيع فعلًا إنتاج تشغيل ناجح:</p>
+<ul>
+<li>يُحلّ مفتاح API الخاص بالمزوّد (يُتخطى عند إعداد سلسلة <code>fallback_providers</code>، لأن مسار الاحتياط قد ينقذ مفتاحًا أساسيًا مفقودًا)،</li>
+<li>المهارات المرفقة جاهزة (لا متغيرات بيئة، أو أوامر، أو ملفات بيانات اعتماد مطلوبة مفقودة)،</li>
+<li>أهداف منصة التسليم معروفة ولها بيانات اعتماد gateway مُعدَّة
+(أهداف <code>local</code>/<code>origin</code> لا تُفحَص أبدًا).</li>
+</ul>
+<p>عندما يفشل التحقق، تصبح <code>last_status</code> الخاصة بالمهمة <code>blocked_config</code>، ويُسلَّم تنبيه
+واحد (لا يتكرر كل نبضة)، و<strong>لا يُجرى أي استدعاء LLM</strong> — مهمة سيئة الإعداد
+لا تنفق tokens أبدًا. أول تشغيل سليم يمسح الحالة المحظورة بحيث ينبّه
+عطل إعداد مستقبلي مجددًا.</p>
+<p>لتعطيل التحقق واستعادة السلوك القديم (يستمر التشغيل
+ويفشل أثناء التنفيذ):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>أو: <code>hermes config set cron.preflight false</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="moving-unpinned-jobs-to-a-new-global-default">نقل المهام غير المثبَّتة إلى افتراضي عام جديد</h2>
+<p>تبقى المهمة غير المثبَّتة على المزوّد/النموذج الذي أُنشئت تحته، فتغيير نموذج محادثتك
+لا يغيّر أسطول cron الخاص بك (ولا يوقفه) أبدًا. عندما <em>تريد</em> فعلًا نقل المهام المجدولة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يعرض <code>hermes config set model.default …</code> وقائمة اختيار النموذج في Desktop المهام غير المثبَّتة التي
+ستحتفظ بنموذجها الأصلي بحيث تقرّر عن وعي. تُحدَّث اللقطات المخزَّنة كلما
+حرّرت مزوّد مهمة، أو نموذجها، أو رابط قاعدتها الأساسي.</p>
+<p>إعادة اللقطة (resnapping) تحدّث اللقطة المخزَّنة لمهمة غير مثبَّتة إلى الحل العام الحالي دون
+تثبيتها، بحيث تظل تتبع التغييرات المستقبلية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تقبل أداة <code>cronjob</code> الخاصة بالوكيل نفس الفعل (<code>action=resnap job_id=&lt;id&gt;</code> أو
+<code>action=resnap all=true</code>). المحاور المثبَّتة ومهام السكربت <code>no_agent</code> تُترَك دون تعديل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-backed-cron-jobs">مهام cron المدعومة بمهارات</h2>
+<p>يمكن لمهمة cron تحميل مهارة واحدة أو أكثر قبل تشغيل الـ prompt.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-skill">مهارة واحدة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-skills">مهارات متعددة</h3>
+<p>تُحمَّل المهارات بالترتيب. يصبح الـ prompt تعليمة المهمة المُضافة فوق تلك المهارات.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>هذا مفيد عندما تريد لوكيل مجدوَل أن يرث سير عمل قابل لإعادة الاستخدام دون حشو نص المهارة الكامل في prompt الـ cron نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-a-job-inside-a-project-directory">تشغيل مهمة داخل مجلد مشروع</h2>
+<p>مهام cron تعمل افتراضيًا منفصلة عن أي مستودع — لا يُحمَّل <code>AGENTS.md</code>، ولا <code>CLAUDE.md</code>، ولا <code>.cursorrules</code>، وتعمل أدوات terminal / الملفات / تنفيذ الكود من أي مجلد عمل بدأ فيه gateway. مرّر <code>--workdir</code> (في CLI) أو <code>workdir=</code> (في استدعاء الأداة) لتغيير ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>عند ضبط <code>workdir</code>:</p>
+<ul>
+<li><code>AGENTS.md</code>، و<code>CLAUDE.md</code>، و<code>.cursorrules</code> من ذلك المجلد تُحقَن في الـ system prompt (بنفس ترتيب الاكتشاف المستخدَم في CLI التفاعلي)</li>
+<li><code>terminal</code>، و<code>read_file</code>، و<code>write_file</code>، و<code>patch</code>، و<code>search_files</code>، و<code>execute_code</code> تستخدم جميعها ذلك المجلد كمجلد عملها</li>
+<li>يجب أن يكون المسار مجلدًا مطلقًا موجودًا فعلًا — تُرفَض المسارات النسبية والمجلدات المفقودة عند الإنشاء / التحديث</li>
+<li>مرّر <code>--workdir &quot;&quot;</code> (أو <code>workdir=&quot;&quot;</code> عبر الأداة) عند التحرير لمسحه واستعادة السلوك القديم</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="62"></x-keep></span>العزل</div><div class="admonitionContent_BuS1"><p>كل تشغيل وكيل يربط <code>workdir</code> بهوية مهمة ذلك التشغيل الفريدة. لذا تستخدم مهام workdir التجمّع المتوازي العادي دون تعديل حالة الطرفية العامة للعملية أو تسريب مسارات بين تشغيلات متزامنة. اضبط <code>cron.max_parallel_jobs</code> إذا أردت تقييد إجمالي تزامن cron.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-jobs">تحرير المهام</h2>
+<p>لست بحاجة لحذف المهام وإعادة إنشائها فقط لتغييرها.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="63"></x-keep></span>مرجع المهمة</div><div class="admonitionContent_BuS1"><p>يقبل العنصر النائب <code>&lt;job_id&gt;</code> أدناه (وفي <a href="#lifecycle-actions">إجراءات دورة الحياة</a>) أيضًا اسم المهمة (بغضّ النظر عن حالة الأحرف) — مفيد عندما تتذكّر <code>morning-digest</code> لكن ليس المعرّف السداسي عشري. معرّف مهمة دقيق يسبق تطابقات الأسماء في الأولوية؛ إذا لم يكن المرجع معرّفًا وطابق اسم أكثر من مهمة، يرفض الأمر ويطبع المعرّفات المرشَّحة لتتمكن من التمييز.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat">المحادثة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="standalone-cli">الـ CLI المستقل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>تكرار <code>--skill</code> يستبدل قائمة المهارات المرفقة بالمهمة</li>
+<li><code>--add-skill</code> يُلحِق بالقائمة الحالية دون استبدالها</li>
+<li><code>--remove-skill</code> يزيل مهارات مرفقة محددة</li>
+<li><code>--clear-skills</code> يزيل كل المهارات المرفقة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifecycle-actions">إجراءات دورة الحياة</h2>
+<p>مهام cron لديها الآن دورة حياة أكمل من مجرد الإنشاء/الإزالة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-1">المحادثة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="standalone-cli-1">الـ CLI المستقل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>ما تفعله:</p>
+<ul>
+<li><code>pause</code> — إبقاء المهمة مع وقف جدولتها</li>
+<li><code>resume</code> — إعادة تفعيل المهمة وحساب التشغيل المستقبلي التالي</li>
+<li><code>run</code> — تشغيل المهمة في نبضة المجدوِل التالية</li>
+<li><code>remove</code> — حذفها بالكامل</li>
+<li><code>edit</code> — تعديل الجدول، أو الـ prompt، أو التسليم، إلخ</li>
+</ul>
+<p><strong>البحث بالاسم.</strong> الأفعال الأربعة المُغيِّرة (<code>pause</code>، و<code>resume</code>، و<code>run</code>، و<code>remove</code>، و<code>edit</code>) بالإضافة إلى أداة <code>cronjob</code> الخاصة بالوكيل، جميعها تقبل الآن <strong>اسم</strong> المهمة (بغضّ النظر عن حالة الأحرف) بدلًا من المعرّف السداسي عشري. يفضّل الوكيل وCLI كلاهما تطابقًا دقيقًا للمعرّف إن وُجد؛ تطابقات الأسماء الغامضة (عدة مهام تشترك في نفس الاسم) تُرفَض مع قائمة كاملة بالمعرّفات المرشَّحة لتتمكن من الاختيار صراحةً. الأسماء غير فريدة، لذا هذا الضمان جوهري — يمنع تعديل المهمة الخطأ بصمت عندما تشترك مهمتان في نفس الاسم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="creating-a-job-paused-safe-canary">إنشاء مهمة موقوفة (اختبار canary آمن)</h3>
+<p>أنشئ مهمة canary دون سباق جدولة إنشاء-ثم-إيقاف:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><code>--paused</code> يخزّن <code>enabled: false</code>، و<code>state: paused</code>، و<code>next_run_at: null</code>، وطابعًا زمنيًا
+للإيقاف وسببًا قابلًا للتدقيق في أول كتابة مقفَلة، دون تسجيل
+مشغِّل. أغفل السبب لتخزين &quot;Created paused; awaiting operator approval.&quot;
+أغفل <code>--paused</code> للاحتفاظ بالإنشاء المفعَّل العادي. <code>--paused-reason</code> يتطلب
+<code>--paused</code>؛ تُرفَض القيم غير الصالحة قبل الحفظ.</p>
+<p>نفس المنطق المنطقي <code>paused</code> والنص الاختياري <code>paused_reason</code> مقبولان من
+<code>cron.jobs.create_job</code>، وفعل <code>create</code> في أداة إدارة cron، وواجهة gateway
+<code>POST /api/jobs</code>، ولوحة التحكم <code>POST /api/cron/jobs</code>. يجدول الاستئناف التشغيل
+المستقبلي التالي. الإيقاف يمنع الإطلاق التلقائي، لا تجاوزات المشغّل: يبقى سلوك
+<strong>التشغيل الآن</strong> الصريح / التشغيل القسري السابق متاحًا ويمكنه استئناف المهمة وتشغيلها.
+ليس حدًا أمنيًا ضد مشغّل يستطيع تشغيل المهام.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-managed-scheduling-cron-jobs-that-manage-cron-jobs">الجدولة المُدارة بالوكيل (مهام cron تدير مهام cron)</h2>
+<p>افتراضيًا، الوكلاء المُطلَقون <em>عبر</em> المجدوِل لا يستطيعون استخدام أداة <code>cronjob</code> —
+لا يمكن لمهمة مجدولة إنشاء، أو تحرير، أو إزالة مهام أخرى. فعّلها اختياريًا عبر
+<code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>عند التفعيل، يمكن لوكيل مجدوَل إدارة جدول cron مثل أي جلسة
+محادثة: جدولة مهام تالية لمرة واحدة من داخل عمل مجدوَل، أو ضبط
+وتيرته الخاصة، أو تشغيل مهمة &quot;أمين مكتبة cron&quot; تراجع الجدول بأكمله
+(سرد، ثم تحديث/إزالة/إنشاء حسب الحاجة). خاصيتان تبقيان هذا معقولًا:</p>
+<ul>
+<li><strong>جدول واحد مسطَّح، مملوك للمستخدم.</strong> المهام المُنشأة من تشغيل cron تحطّ في
+نفس <code>jobs.json</code> مع كل مهمة أخرى دون ملكية خاصة — يمكنك
+سردها، أو تحريرها، أو إزالتها تمامًا كما لو أنشأتها بنفسك.</li>
+<li><strong>لا تسليم معلَّق.</strong> تشغيل cron عابر، لذا <code>deliver: origin</code>
+من داخل واحد يُحلّ <strong>عند وقت الإنشاء</strong> إلى هدف المهمة المُنشِئة
+الفعلي (<code>platform:chat_id[:thread_id]</code>، أو <code>local</code> إذا كانت المهمة المُنشِئة
+لا تسلّم إلى أي مكان). المهمة المُنشأة من قِبل وكيل مجدوَل لا يمكنها أبدًا توجيه
+مخرجها إلى جلسة لم تعد موجودة. الأهداف الصريحة
+(<code>local</code>، <code>all</code>، <code>telegram:&lt;chat_id&gt;</code>) تُحترَم حرفيًا.</li>
+</ul>
+<p>فضّل الـ prompts التي تحدّث مهامًا موجودة (سرد أولًا، ثم تحديث بالمعرّف)
+على تلك التي تُنشئ مهامًا جديدة في كل تشغيل.</p>

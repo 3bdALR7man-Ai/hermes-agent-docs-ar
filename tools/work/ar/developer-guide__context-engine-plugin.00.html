@@ -1,0 +1,99 @@
+<header><h1>بناء إضافة Context Engine</h1></header>
+<p>تستبدل إضافات محرك السياق (context engine) المكوّن المدمج <code>ContextCompressor</code> باستراتيجية بديلة لإدارة سياق المحادثة. ومن أمثلة ذلك محرك Lossless Context Management (LCM) الذي يبني DAG معرفيًا بدلًا من التلخيص الذي يفقد جزءًا من المعلومات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>تقوم إدارة السياق لدى الوكيل على الفئة المجردة (ABC) <code>ContextEngine</code> ‏(<code>agent/context_engine.py</code>). والمكوّن المدمج <code>ContextCompressor</code> هو التطبيق الافتراضي لها، ويجب على المحركات المقدَّمة عبر الإضافات أن تطبّق الواجهة نفسها.</p>
+<p>لا يمكن تفعيل أكثر من محرك سياق <strong>واحد</strong> في الوقت نفسه، ويتحدد الاختيار عبر الإعدادات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>لا تُفعَّل المحركات المقدَّمة عبر الإضافات <strong>تلقائيًا أبدًا</strong> — إذ يجب على المستخدم ضبط <code>context.engine</code> صراحةً على اسم الإضافة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية المجلدات</h2>
+<p>يوجد كل محرك سياق في <code>plugins/context_engine/&lt;name&gt;/</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-contextengine-abc">الفئة المجردة ContextEngine</h2>
+<p>يجب أن يطبّق محركك هذه الدوال <strong>الإلزامية</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="class-attributes-your-engine-must-maintain">خصائص الفئة التي يجب أن يحافظ عليها محركك</h3>
+<p>يقرأ الوكيل هذه الخصائص مباشرةً لأغراض العرض والتسجيل:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-methods">الدوال الاختيارية</h3>
+<p>لهذه الدوال قيم افتراضية معقولة في الفئة المجردة، فأعد تعريفها (override) حسب الحاجة:</p>
+<table><thead><tr><th>الدالة</th><th>السلوك الافتراضي</th><th>متى تعيد تعريفها</th></tr></thead><tbody><tr><td><code>on_session_start(session_id, **kwargs)</code></td><td>لا تفعل شيئًا (No-op)</td><td>عندما تحتاج إلى تحميل حالة محفوظة (DAG، قاعدة بيانات)</td></tr><tr><td><code>on_session_end(session_id, messages)</code></td><td>لا تفعل شيئًا</td><td>عندما تحتاج إلى حفظ الحالة وإغلاق الاتصالات</td></tr><tr><td><code>on_session_reset()</code></td><td>تعيد ضبط عدّادات الـ token</td><td>عندما تكون لديك حالة خاصة بكل جلسة تحتاج إلى مسحها</td></tr><tr><td><code>update_model(model, context_length, ...)</code></td><td>تحدّث context_length والعتبة (threshold)</td><td>عندما تحتاج إلى إعادة حساب الميزانيات عند تبديل النموذج</td></tr><tr><td><code>get_tool_schemas()</code></td><td>تُرجع <code>[]</code></td><td>عندما يوفّر محركك أدوات يستدعيها الوكيل (مثل <code>lcm_grep</code>)</td></tr><tr><td><code>handle_tool_call(name, args, **kwargs)</code></td><td>تُرجع JSON يحمل خطأ</td><td>عندما تطبّق معالجات الأدوات</td></tr><tr><td><code>should_compress_preflight(messages)</code></td><td>تُرجع <code>False</code></td><td>عندما يمكنك إجراء تقدير منخفض التكلفة قبل استدعاء API</td></tr><tr><td><code>get_status()</code></td><td>قاموس قياسي للـ token والعتبة</td><td>عندما تكون لديك مقاييس مخصصة تريد إتاحتها</td></tr><tr><td><code>select_context(request_messages, *, conversation_messages, incoming_message, budget_tokens)</code></td><td>تُرجع <code>None</code> (لا تفعل شيئًا)</td><td>عندما تختار أو توجّه السياق الذي يدخل في <strong>هذا</strong> الطلب (الاسترجاع، التوجيه حسب الموضوع) — انظر أدناه</td></tr><tr><td><code>on_turn_complete(messages, usage=None, **kwargs)</code></td><td>لا تفعل شيئًا</td><td>عندما تستوعب الدور المكتمل أو تفهرسه أو تراقبه — انظر أدناه</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-turn-context-selection-and-observation">اختيار السياق ومراقبته في كل دور</h2>
+<p>تجيب <code>compress()</code> عن حالة &quot;السياق طويل جدًا ← اجعله أقصر&quot;. أما المحور المستقل الخاص بـ<em>الاختيار / المراقبة</em> فيغطيه اثنان من الـ hooks الاختيارية
+التي لا تفعل شيئًا افتراضيًا، فلم يعد المحرك مضطرًا إلى إجبار <code>should_compress()</code> على إرجاع <code>True</code> وإساءة استخدام
+<code>compress()</code> كـ callback يُستدعى في كل دور:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>العقد:</p>
+<ul>
+<li><strong>لا تفعل شيئًا افتراضيًا، وتفشل بشكل مفتوح (fail-open).</strong> تنفّذ كلتاهما افتراضيًا <code>return None</code>. وغياب الـ hook أو حدوث استثناء أو إرجاع قيمة غير صالحة يترك الطلب دون تغيير — فلا يكون المحرك الفاشل أسوأ أبدًا من عدم تثبيت أي محرك. كما يتحقق المضيف من هوية الدالة للتعرّف على التطبيق الافتراضي الموروث من الفئة المجردة ويتخطاه كليًا، فلا تتحمل المحركات التي لا تطبّقها (بما فيها الضاغط المدمج) أي عمل إضافي في كل طلب.</li>
+<li><strong><code>select_context()</code> تقتصر على الطلب.</strong> تستبدل القائمة المُرجَعة الرسائل في استدعاء واحد للمزوّد، ولا يُكتب أي شيء في السجل المحفوظ أبدًا. وإرجاع <code>None</code> أو <code>[]</code> أو قيمة ليست قائمة أو قائمة تحتوي على عناصر ليست قواميس يؤدي كله إلى الفشل المفتوح وإرسال الطلب دون تعديل.</li>
+<li><strong>الترتيب / استقرار التخزين المؤقت (cache).</strong> يعمل الـ hook <strong>قبل</strong> ضبط التخزين المؤقت للـ prompt وقبل كل أدوات تنقية الطلب، وبذلك (أ) يمر البديل بالتحقق نفسه الذي يمر به أي طلب، و(ب) يترك السلوك الافتراضي الطلب مطابقًا بايتًا ببايت — فلا يتغير سلوك التخزين المؤقت للـ prompt في المحركات التي لا تطبّقه. والمحرك الذي يستبدل القائمة لا يغيّر إلا بادئة التخزين المؤقت الخاصة به. ويُقيَّم الـ hook مع كل طلب إلى المزوّد (ويُعاد تشغيله عند إعادة المحاولة).</li>
+<li><strong><code>on_turn_complete()</code></strong> مخصصة لمراقبة ما بعد الدور فقط؛ فتعامل مع <code>messages</code> على أنها للقراءة فقط. <strong>التغطية بأفضل جهد:</strong> إذ تُطلَق من نقطة إنهاء الدور القياسية. وبعض مسارات الإرجاع المبكر غير الاعتيادية في الحلقة (مثل الحظر بسبب سياسة المحتوى أو فشل نهائي لدى المزوّد) تحفظ النتيجة وتعود دون المرور بمرحلة الإنهاء، فلا تُطلق هذا الـ hook حاليًا — لذا تعامل معه على أنه مراقبة بأفضل جهد للأدوار المكتملة، لا callback مضمون عند كل خروج مبكر. أما توحيد جميع المسارات النهائية خلف نقطة إنهاء واحدة فهو عمل لاحق منفصل.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-these-hooks--and-when-not-to">متى تستخدم هذه الـ hooks — ومتى لا تستخدمها</h3>
+<ul>
+<li><strong>لا تطبّق <code>select_context()</code> إلا عندما يتعين على محركك أن <em>يستبدل</em>
+السياق الخاص بكل طلب</strong> — كالاختيار المعزز بالاسترجاع، أو التوجيه حسب الموضوع أو الفرع،
+أو تبديل الأدوار. فهي الوسيلة الوحيدة التي يمكنها تبديل الرسائل التي تدخل في
+الطلب: أما الـ hook الخاص بالإضافات <code>pre_llm_call</code> فيقتصر على الحقن بحكم تصميمه الموثّق
+(إذ يُلحق المحتوى برسالة المستخدم ولا يعيد كتابة القائمة أبدًا، حفاظًا على
+بادئة التخزين المؤقت للـ prompt). وإن لم تكن بحاجة إلى الاستبدال، فلا تطبّقها.</li>
+<li><strong>إذا كانت إضافتك تحتاج فقط إلى مراقبة ما بعد الدور أو استيعابه</strong> (الفهرسة،
+مزامنة الذاكرة، التحليلات)، فطبّق <strong>مزوّد ذاكرة</strong> (<code>sync_turn()</code> —
+راجع <a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a>) بدلًا من
+محرك سياق. فمحرك السياق يتولى سياسة الضغط (compaction)
+الخاصة بالجلسة، بينما يراقب مزوّد الذاكرة الأدوار دون أن يتولى أي شيء.
+وتوجد <code>on_turn_complete()</code> بوصفها نظير المراقبة للمحركات التي
+<em>تحتاج أصلًا</em> إلى <code>select_context()</code> — كي يتعلم المكوّن نفسه من
+الدور الذي وجّهه للتو — لا بوصفها callback عامة الغرض لكل دور.</li>
+<li><strong>أثر <code>select_context()</code> الفعلية على التخزين المؤقت للـ prompt.</strong> الاختيار الذي يغيّر شيئًا فعلًا
+يغيّر بطبيعة الحال بادئة التخزين المؤقت للـ prompt في الأدوار التي يتغير فيها
+الاختيار — إذ لم تعد بادئة ذلك الطلب مطابقة للبادئة المخزنة لدى المزوّد،
+فتعيد تلك الأدوار كتابة الـ cache بدلًا من القراءة منه. لذا ينبغي للمحركات
+أن تُرجع <strong>اختيارات ثابتة عندما لا يتغير شيء</strong> (الكائن نفسه أو
+قائمة مساوية)، وألا تعيد تشكيل السياق إلا عندما يختلف قرار التوجيه
+فعلًا؛ فالاختيار الذي يتبدل عشوائيًا في كل دور يُضيّع بصمت فرصة إعادة استخدام الـ cache
+في كل دور.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="engine-tools">أدوات المحرك</h2>
+<p>يمكن لمحركات السياق إتاحة أدوات يستدعيها الوكيل مباشرةً. أرجِع المخططات (schemas) من <code>get_tool_schemas()</code> وعالج الاستدعاءات في <code>handle_tool_call()</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تُحقن أدوات المحرك في قائمة أدوات الوكيل عند بدء التشغيل وتُوجَّه استدعاءاتها تلقائيًا — دون حاجة إلى تسجيلها في السجل (registry).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="registration">التسجيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-directory-recommended">عبر المجلد (موصى به)</h3>
+<p>ضع محركك في <code>plugins/context_engine/&lt;name&gt;/</code>. يجب أن يصدّر الملف <code>__init__.py</code> فئة فرعية من <code>ContextEngine</code>، وسيعثر عليها نظام الاكتشاف وينشئ نسخة منها تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="via-general-plugin-system">عبر نظام الإضافات العام</h3>
+<p>يمكن لإضافة عامة أيضًا أن تسجّل محرك سياق:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>لا يمكن تسجيل أكثر من محرك واحد، وتُرفض أي محاولة تسجيل من إضافة ثانية مع إصدار تحذير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifecycle">دورة الحياة</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>تُستدعى <code>on_session_reset()</code> عند تنفيذ <code>/new</code> أو <code>/reset</code> لمسح الحالة الخاصة بالجلسة دون إيقاف كامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>يختار المستخدمون محركك عبر <code>hermes plugins</code> → Provider Plugins → Context Engine، أو بتعديل <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>كتلة الإعدادات <code>compression</code> ‏(<code>compression.threshold</code> و<code>compression.protect_last_n</code> وغيرها) خاصة بالمكوّن المدمج <code>ContextCompressor</code>، مع استثناء صريح واحد: <code>compression.model_thresholds</code> (تجاوزات العتبة لكل نموذج) جزء من عقد محرك السياق. إذ يُسند المضيف الخريطة المحسومة إلى <code>engine.model_thresholds</code> <em>قبل</em> الاستدعاء الأول لـ <code>update_model()</code>، وتطبّقها <code>update_model()</code> في الفئة الأساسية (بأطول تطابق لسلسلة فرعية، مع الرجوع إلى العتبة المضبوطة للمحرك احتياطيًا). أما المحركات التي تعيد تعريف <code>update_model()</code> فتتولى سياسة الضغط الخاصة بها، ولها أن تلتزم بالخريطة أو تتجاهلها — استخدم <code>from agent.context_compressor import resolve_model_threshold</code> لإعادة استخدام منطق الحسم نفسه. وفي كل ما عدا ذلك، ينبغي لمحركك أن يعرّف صيغة إعدادات خاصة به عند الحاجة، ويقرأها من <code>config.yaml</code> أثناء التهيئة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>راجع <code>tests/agent/test_context_engine.py</code> للاطلاع على مجموعة الاختبارات الكاملة لعقد الفئة المجردة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="thread-safety">الأمان مع تعدد الخيوط (Thread safety)</h2>
+<p>عندما يكون <code>compression.context_timeout_seconds &gt; 0</code> (وهو الافتراضي)، يشغّل Hermes
+عملية الضغط بأكملها — بما فيها <code>compress()</code> الخاصة بمحركك وعمليات الـ callback
+عند الحدود، وأي <code>on_pre_compress</code> /
+<code>on_session_switch</code> لدى مزوّد الذاكرة — على خيط daemon من مجمّع (pool) مع مهلة زمنية يفرضها المضيف.
+لذا يجب أن يفترض محركك ما يلي:</p>
+<ul>
+<li>قد تصل الاستدعاءات على أي خيط عشوائي من المجمّع. فلا تعتمد على الارتباط
+بخيط معين أو على حالة <code>threading.local</code> المشتركة مع خيط المحادثة.</li>
+<li>قائمة الرسائل التي تتلقاها لقطة (snapshot) عميقة خاصة؛ ويُسمح بتعديلها
+مباشرةً (وفق العقد القديم)، لكن التعديل لا يظهر
+إلا إذا اعتُمدت العملية. وبعد انتهاء المهلة لدى المضيف، يُتجاهل عملك الذي لا يزال قيد التشغيل
+— فلا تنشر أبدًا إلى حالة خارجية أو دائمة خارج مرحلة الاعتماد.</li>
+<li>يمكن أن تعمل عمليات الجلسات <em>المختلفة</em> بالتزامن على خيوط شقيقة في المجمّع؛ لذا
+يجب أن تكون أي نسخة واحدة من المحرك أو المزوّد مشتركة بين الجلسات آمنة مع تعدد الخيوط.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق والتخزين المؤقت (Caching)</a> — كيف يعمل الضاغط المدمج</li>
+<li><a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a> — نظام إضافات مماثل للذاكرة يُختار فيه مزوّد واحد</li>
+<li><a href="/docs/user-guide/features/plugins">الإضافات (Plugins)</a> — نظرة عامة على نظام الإضافات العام</li>
+</ul>

@@ -1,0 +1,73 @@
+<header><h1>كتالوج الإضافات</h1></header>
+<p>كتالوج الإضافات دليل منتقى يراجعه البشر لإضافات Hermes التي يمكنك تثبيتها بالاسم عبر أمر واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تصفّحه بصريًا على <strong><a href="/docs/plugins">/docs/plugins</a></strong> — مع البحث، ومرشحات المستوى
+(Official / Community)، وشارات القدرات، وأوامر تثبيت قابلة للنسخ لكل إدخال.</p>
+<p>يُكمّل الكتالوج
+<a href="/docs/user-guide/features/plugins">نظام الإضافات</a> الحالي — ولا يحل محله. فكل ما يمكنك تثبيته من الكتالوج هو في جوهره إضافة عادية؛ وكل ما يضيفه الكتالوج هو طبقة للاكتشاف وأخرى للمراجعة فوقها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-in-an-entry">محتويات الإدخال</h2>
+<p>كل إدخال في الكتالوج ملف YAML صغير داخل مجلد
+<a href="https://github.com/NousResearch/hermes-agent/tree/main/plugin-catalog" data-ext><code>plugin-catalog/</code></a>
+في مستودع hermes-agent، ويصرّح بما يلي:</p>
+<table><thead><tr><th>الحقل</th><th>المعنى</th></tr></thead><tbody><tr><td><code>name</code></td><td>مفتاح الكتالوج الذي تمرّره إلى <code>hermes plugins install</code></td></tr><tr><td><code>repo</code></td><td>مستودع git العام الخاص بالإضافة</td></tr><tr><td><code>sha</code></td><td><strong>الـ commit الدقيق المؤلف من 40 رمزًا ست عشريًا</strong> الذي خضع للمراجعة — تسحب عمليات التثبيت هذا الإصدار المثبّت، لا آخر commit في branch</td></tr><tr><td><code>tier</code></td><td><code>official</code> (تصونه NousResearch) أو <code>community</code></td></tr><tr><td><code>maintainer</code></td><td>مالك الإضافة</td></tr><tr><td><code>capabilities</code></td><td>الأدوات والـ hooks والـ middleware المصرّح بها، ومتغيرات البيئة المطلوبة</td></tr><tr><td><code>requires_hermes</code></td><td>الحد الأدنى لإصدار Hermes، مثل <code>&gt;=0.19</code> (اختياري)</td></tr><tr><td><code>platforms</code></td><td>قيود نظام التشغيل، والقيمة الفارغة = الكل (اختياري)</td></tr><tr><td><code>docs_url</code></td><td>رابط توثيق خارجي (اختياري)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trust-model">نموذج الثقة</h2>
+<p>صُمّم الكتالوج بحيث تعرف بالضبط ما الذي تثبّته:</p>
+<ul>
+<li><strong>قبول يدمجه البشر.</strong> يصل كل إدخال (وكل تحديث لإصدار مثبّت) عبر pull request يراجعه أحد المشرفين على المشروع. ولا يدخل أي شيء إلى الكتالوج تلقائيًا.</li>
+<li><strong>تثبيت على SHA دقيق.</strong> تثبّت الإدخالات commit محددًا، لا branch. فعندما يدفع مؤلف الإضافة كودًا جديدًا إلى مستودعه، <strong>لا</strong> يتغير ما يثبّته الكتالوج — إذ يتطلب تحديث الإصدار المثبّت PR آخر يخضع للمراجعة.</li>
+<li><strong>التصريح بالقدرات.</strong> تذكر الإدخالات مسبقًا الأدوات والـ hooks والـ middleware التي توفرها الإضافة، ومتغيرات البيئة (مفاتيح API وغيرها) التي تحتاج إليها، لتتمكن من تقدير نطاق تأثيرها المحتمل قبل التثبيت.</li>
+<li><strong>قائمة الإضافات المسحوبة.</strong> تُدرج الإضافات التي تُسحب من الكتالوج (مثلًا بعد حادث أمني) في <code>plugin-catalog/removed.yaml</code> مع السبب والتاريخ. ويرفض المُثبّت تثبيت أي شيء مدرج في هذه القائمة.</li>
+<li><strong>التثبيت ≠ التفعيل.</strong> يضع تثبيت إضافة من الكتالوج ملفاتها على القرص؛ وكأي إضافة، يجب تفعيلها قبل أن تُحمَّل. راجع
+<a href="/docs/user-guide/features/plugins">Plugins → Enabling and disabling</a>.</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="4"></x-keep></span>مراجعة الكتالوج مراجعة في لحظة زمنية محددة</div><div class="admonitionContent_BuS1"><p>يعني وجود إدخال في الكتالوج أن شخصًا اطّلع على الـ commit المثبّت، وأن تصريحات القدرات فُحصت، وأن المستودع استوفى معايير التقديم. وهذا ليس تدقيقًا أمنيًا، ولا يقول شيئًا عن أي commits أخرى في المستودع نفسه. راجع كود أي شيء تمنحه بيانات اعتماد.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installing-from-the-catalog">التثبيت من الكتالوج</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تعرض رسالة التثبيت ملخص قدرات الإدخال — الأدوات والـ hooks المصرّح بها ومتغيرات البيئة المطلوبة — قبل استنساخ أي شيء.</p>
+<p>قد يختلف اسم الإدخال في الكتالوج عن الاسم الوارد في manifest الإضافة نفسها؛ يطبع <code>hermes plugins install</code> الاسم الذي ثُبّتت به الإضافة، وهو الاسم الذي يأخذه <code>enable</code>. فعلى سبيل المثال، يُثبَّت الإدخال <code>touchdesigner</code> (وهو حزمة Agent Plugins v1 محمولة تضم خادم twozero MCP مع المهارة <code>touchdesigner-mcp</code>) باسم
+<code>td</code>، وقد اختير قصيرًا كي تبقى أسماء أدوات MCP المولَّدة منه ضمن حدود أسماء الدوال لدى المزوّدين:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يمكن للحزم المحمولة أيضًا أن تحمل خادم MCP يعمل عبر stdio. يثبّت الإدخال <code>snyk</code> إصدارًا محددًا من
+Snyk CLI ‏(<code>npx -y snyk@&lt;version&gt; mcp</code>) ويضم المهارة <code>snyk-security-scan</code>،
+بحيث يمنح تثبيت واحد Hermes القدرة على فحص الكود والاعتماديات والحاويات و IaC، إضافةً إلى سير العمل اللازم لاستخدامها؛ ويتطابق هنا اسم الكتالوج مع اسم الـ manifest:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-a-catalog-install">تحديث إضافة مثبّتة من الكتالوج</h3>
+<p>لا ينفّذ <code>hermes plugins update &lt;name&gt;</code> الأمر <code>git pull</code> أبدًا مع الإضافات المثبّتة من الكتالوج —
+بل يقارن الإصدار المثبّت لديك بالإصدار المثبّت حاليًا في الكتالوج، وعندما يتغير الكتالوج (عبر PR خضع للمراجعة)، يعيد التثبيت قسرًا على قيمة SHA الجديدة. وتُحفظ حالة التفعيل أو التعطيل لديك. يعرض <code>hermes plugins list</code> الإضافات المثبّتة من الكتالوج بالشكل <code>catalog:&lt;tier&gt;@&lt;sha&gt;</code> كي ترى مصدرها بنظرة سريعة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="names-not-in-the-catalog">الأسماء غير الموجودة في الكتالوج</h3>
+<p>يُعدّ استخدام اسم مجرد لا يقابله إدخال في الكتالوج خطأً: إذ لا يوجد فهرس أسماء ثانٍ غير مُراجَع. ثبّت مثل هذه الإضافات بدلًا من ذلك عبر <code>owner/repo</code> أو رابط Git
+(مصدر مخصص، انظر أدناه)، أو قدّمها إلى الكتالوج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="live-refresh">التحديث المباشر</h3>
+<p>تنشر عملية بناء التوثيق الكتالوج كمستند JSON واحد
+(<code>https://hermes-agent.nousresearch.com/docs/api/plugin-catalog.json</code>).
+تجلبه الأوامر <code>search</code>/<code>install</code>/<code>update</code> مرة كل ست ساعات على الأكثر وتخزّنه مؤقتًا تحت
+<code>~/.hermes/cache/</code>، بحيث تصل الإدخالات الجديدة وعمليات الإزالة إلى العملاء المثبّتين دون الحاجة إلى تحديث Hermes. وفي وضع عدم الاتصال، تُستخدم النسخة المرفقة مع النسخة المسحوبة (checkout) لديك. وتُطبَّق دائمًا عمليات الإزالة الواردة في القائمة الموجودة داخل المستودع وفي القائمة المباشرة معًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-git-urls-are-different">روابط git المخصصة مختلفة</h3>
+<p>لا يزال <code>hermes plugins install &lt;git-url&gt;</code> يعمل مع أي مستودع، لكنه
+يتجاوز الكتالوج كليًا:</p>
+<ul>
+<li><strong>لا مراجعة</strong> — تحصل على ما هو موجود في آخر commit على الـ branch، لا على إصدار مثبّت خضع للمراجعة.</li>
+<li><strong>يُعرض شريط تحذير</strong> للتوضيح بأن الكود لم يخضع للتدقيق.</li>
+<li>تظل قائمة الإضافات المسحوبة تُراجَع (فيُرفض المستودع المعروف بخطورته استنادًا إلى رابطه).</li>
+</ul>
+<p>استخدم مسار رابط git لإضافاتك الخاصة وللمستودعات التي تثق بها أصلًا؛ واستخدم الكتالوج للاكتشاف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="submitting-a-plugin-to-the-catalog">تقديم إضافة إلى الكتالوج</h2>
+<p>تكون طلبات التقديم على شكل pull requests تضيف ملفًا واحدًا <code>plugin-catalog/&lt;name&gt;.yaml</code>.
+توجد قائمة التحقق الكاملة في
+<a href="https://github.com/NousResearch/hermes-agent/tree/main/plugin-catalog" data-ext>ملف README الخاص بـ plugin-catalog</a>؛
+وباختصار، يجب أن يكون الإدخال:</p>
+<ol>
+<li><strong>مقدَّمًا من المالك</strong> — أي أن مؤلف الـ PR يملك مستودع الإضافة أو يصونه.</li>
+<li><strong>مستودعًا عامًا</strong> — أي أن رابط <code>repo</code> قابل للاستنساخ علنًا.</li>
+<li><strong>مُصدَرًا</strong> — أي أن للمستودع إصدارات أو وسومًا (tags) فعلية، لا مجرد branch افتراضي.</li>
+<li><strong>ناجحًا في التحقق</strong> — أي أن GitHub Action الخاص بالتحقق من الكتالوج يظهر باللون الأخضر على الـ PR (المخطط، وصيغة SHA، وإمكانية الوصول).</li>
+<li><strong>مثبّتًا على كود مستقر</strong> — أي أن عمر الـ SHA المثبّت لا يقل عن <strong>أسبوعين</strong>، كي لا يشير الكتالوج أبدًا إلى كود دُفع قبل المراجعة بلحظات.</li>
+</ol>
+<p>تتبع تحديثات الإصدارات المثبّتة (رفع قيمة <code>sha</code> إلى commit أحدث) عملية الـ PR والمراجعة نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><a href="/docs/user-guide/features/plugins">الإضافات (Plugins)</a> — نظام الإضافات نفسه: صيغة الـ manifest، والتفعيل، والإعدادات</li>
+<li><a href="/docs/user-guide/features/built-in-plugins">الإضافات المدمجة</a> — الإضافات التي تأتي مع Hermes</li>
+<li><a href="/docs/developer-guide/plugins">بناء إضافة لـ Hermes</a> — اكتب إضافتك الخاصة</li>
+<li><a href="/docs/plugins">صفحة كتالوج الإضافات</a> — الكتالوج القابل للتصفح</li>
+</ul>

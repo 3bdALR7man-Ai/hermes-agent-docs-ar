@@ -1,0 +1,204 @@
+<header><h1>دليل Windows (WSL2)</h1></header>
+<p>يدعم Hermes Agent الآن <strong>كلًا من</strong> Windows الأصلي و WSL2. تتناول هذه الصفحة مسار WSL2؛ أما للتثبيت الأصلي عبر PowerShell فراجع <strong><a href="/docs/user-guide/windows-native">دليل Windows (التشغيل الأصلي)</a></strong> المخصص لذلك.</p>
+<p><strong>متى تختار WSL2 بدلًا من التثبيت الأصلي:</strong></p>
+<ul>
+<li>عندما تريد استخدام الطرفية المضمّنة في لوحة التحكم (تبويب <code>/chat</code>) — فهذه اللوحة تتطلب POSIX PTY وهي متاحة في WSL2 فقط.</li>
+<li>عندما تعمل على تطوير يعتمد بكثافة على POSIX وتريد أن تتشارك جلسات Hermes نظام الملفات والمسارات نفسها مع أدوات التطوير لديك.</li>
+<li>عندما تكون لديك بيئة WSL2 بالفعل ولا تريد صيانة تثبيت ثانٍ.</li>
+</ul>
+<p><strong>متى يكون التثبيت الأصلي كافيًا (أو أفضل):</strong></p>
+<ul>
+<li>المحادثة التفاعلية، والـ gateway (Telegram/Discord/إلخ)، ومُجدول cron، وأداة المتصفح، وخوادم MCP، ومعظم ميزات Hermes تعمل جميعها أصليًا على Windows.</li>
+<li>عندما لا تريد التفكير في عبور الحد الفاصل WSL↔Windows في كل مرة تشير فيها إلى ملف أو تفتح URL.</li>
+</ul>
+<p>في WSL2 هناك فعليًا جهازا كمبيوتر في الصورة: مضيف Windows لديك، وآلة Linux افتراضية (VM) يديرها WSL. ينشأ معظم الالتباس من عدم التأكد من أيهما تعمل عليه في لحظة ما.</p>
+<p>يغطي هذا الدليل جوانب هذا الانقسام التي تؤثر في Hermes تحديدًا: تثبيت WSL2، ونقل الملفات ذهابًا وإيابًا بين Windows و Linux، والشبكات في كلا الاتجاهين، والمآزق التي يقع فيها المستخدمون فعلًا.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>简体中文</div><div class="admonitionContent_BuS1"><p>يتوفر شرح باللغة الصينية لمسار التثبيت بالحد الأدنى في هذه الصفحة نفسها — بدّل اللغة عبر قائمة <strong>language</strong> (أعلى اليمين) واختر <strong>简体中文</strong>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-wsl2-vs-native-windows">لماذا WSL2 (مقارنةً بـ Windows الأصلي)</h2>
+<p>يعمل التثبيت الأصلي على Windows مباشرةً: طرفية Windows لديك (PowerShell، أو Windows Terminal، وما إلى ذلك)، ومسارات نظام ملفات Windows (<code>C:\Users\…</code>)، وعمليات Windows. يستخدم Hermes برنامج Git Bash لتنفيذ أوامر الـ shell، وهي الطريقة التي يتعامل بها Claude Code ووكلاء آخرون مع Windows اليوم — إذ تتفادى الفجوة بين POSIX و Windows دون إعادة كتابة كاملة.</p>
+<p>يشغّل WSL2 نواة Linux حقيقية داخل آلة افتراضية خفيفة، لذا فإن تشغيل Hermes داخلها مطابق فعليًا لتشغيله على Ubuntu. وهذا مفيد عندما تريد بيئة POSIX حقيقية: <code>fork</code>، و <code>/tmp</code>، و UNIX sockets، ودلالات الإشارات (signals)، والطرفيات المدعومة بـ PTY، وأنواع shell مثل <code>bash</code>/<code>zsh</code>، وأدوات مثل <code>rg</code> و <code>git</code> و <code>ffmpeg</code> تتصرف كما تتصرف على Linux.</p>
+<p>العواقب العملية لاستخدام WSL2:</p>
+<ul>
+<li>يعيش كل من Hermes CLI، والـ gateway، والجلسات، والذاكرة، والمهارات، وبيئات تشغيل الأدوات داخل آلة Linux الافتراضية.</li>
+<li>أما برامج Windows (المتصفحات، والتطبيقات الأصلية، و Chrome مع profile الذي سجّلت الدخول به) فتعيش خارجها.</li>
+<li>في كل مرة تريد فيها أن يتواصل الطرفان — مشاركة الملفات، أو فتح عناوين URL، أو التحكم في Chrome، أو الوصول إلى خادم نماذج محلي، أو إتاحة Hermes gateway لهاتفك — فإنك تعبر حدًا فاصلًا. وهذه الحدود الفاصلة هي موضوع هذا الدليل.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-wsl2">تثبيت WSL2</h2>
+<p>من <strong>PowerShell بصلاحيات المسؤول (Admin)</strong> أو من Windows Terminal:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>على جهاز جديد يعمل بنظام Windows 10 22H2 أو أحدث أو Windows 11، يثبّت هذا الأمر نواة WSL2، وميزة Virtual Machine Platform، وتوزيعة Ubuntu افتراضية. أعد التشغيل عندما يُطلب منك ذلك. بعد إعادة التشغيل سيفتح Ubuntu ويطلب اسم مستخدم وكلمة مرور لـ Linux — وهذا <strong>مستخدم Linux جديد</strong>، لا علاقة له بحساب Windows الخاص بك.</p>
+<p>تحقق من أنك تعمل فعلًا على WSL2 (وليس WSL1 القديم):</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُفترض أن ترى <code>VERSION  2</code>. إذا ظهرت توزيعة بالقيمة <code>VERSION  1</code>، فحوّلها:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لا يعمل Hermes بشكل موثوق على WSL1 — إذ يترجم WSL1 استدعاءات نظام Linux أثناء التشغيل، وبعض السلوكيات (procfs، والإشارات، والشبكة) تختلف عن Linux الحقيقي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distro-choice">اختيار التوزيعة</h3>
+<p>نختبر على Ubuntu (LTS). وتعمل Debian أيضًا. كما تعمل Arch و NixOS لمن يريدهما، لكن المُثبّت ذا السطر الواحد يفترض نظامًا مشتقًا من Debian يستخدم <code>apt</code> — راجع <a href="/docs/getting-started/nix-setup">دليل إعداد Nix</a> لذلك المسار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enable-systemd-recommended">تفعيل systemd (موصى به)</h3>
+<p>تسهل إدارة hermes gateway (وأي شيء آخر تريد إبقاءه قيد التشغيل) باستخدام systemd. في إصدارات WSL الحديثة، فعّله مرة واحدة داخل توزيعتك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>ثم من PowerShell:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>أعد فتح طرفية WSL. يُفترض أن يطبع <code>ps -p 1 -o comm=</code> القيمة <code>systemd</code>.</p>
+<p>خيار الربط (mount) <code>metadata</code> أعلاه مهم — فمن دونه لا تستطيع الملفات الموجودة على <code>/mnt/c/...</code> تخزين بتات صلاحيات Linux الحقيقية، ما يُعطّل أمورًا مثل <code>chmod +x</code> على السكربتات الموجودة ضمن مسارات Windows.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-hermes-inside-wsl">تثبيت Hermes داخل WSL</h3>
+<p>بعد أن تفتح shell في WSL2:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يتعامل المُثبّت مع WSL2 على أنه Linux عادي — لا حاجة إلى أي شيء خاص بـ WSL. راجع <a href="/docs/getting-started/installation">التثبيت</a> للاطلاع على البنية الكاملة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="filesystem-crossing-the-windows--wsl2-boundary">نظام الملفات: عبور الحد الفاصل Windows ↔ WSL2</h2>
+<p>هذا هو الجزء الذي يتعثر فيه أكبر عدد من الناس. هناك <strong>نظاما ملفات</strong>، ومكان وضع ملفاتك مهم — من حيث الأداء، والصحة، وما تستطيع الأدوات رؤيته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-two-directions">الاتجاهان</h3>
+<table><thead><tr><th>الاتجاه</th><th>المسار الأصلي</th><th>المسار الذي تستخدمه</th></tr></thead><tbody><tr><td>قرص Windows، كما يُرى من WSL</td><td><code>C:\Users\you\Documents</code></td><td><code>/mnt/c/Users/you/Documents</code></td></tr><tr><td>قرص WSL، كما يُرى من Windows</td><td><code>/home/you/code</code></td><td><code>\\wsl$\Ubuntu\home\you\code</code> (أو <code>\\wsl.localhost\Ubuntu\...</code> في الإصدارات الأحدث)</td></tr></tbody></table>
+<p>كلاهما حقيقي، وكلاهما يعمل، لكنهما <strong>ليسا نظام الملفات نفسه</strong> — إذ يربط بينهما في الخلفية بروتوكول الشبكة 9P. ولذلك عواقب حقيقية على الأداء والسلوك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-put-hermes-and-your-projects">أين تضع Hermes ومشاريعك</h3>
+<p><strong>القاعدة العامة: أبقِ كل ما هو ذو طابع Linux داخل نظام ملفات Linux.</strong></p>
+<ul>
+<li>تثبيت Hermes الخاص بك (<code>~/.hermes/</code>) — على جانب Linux. يفعل المُثبّت ذلك بالفعل.</li>
+<li>مستودعات git التي تعمل عليها من WSL — على جانب Linux (<code>~/code/...</code>، <code>~/projects/...</code>).</li>
+<li>النماذج، ومجموعات البيانات، والبيئات الافتراضية (venvs) — على جانب Linux.</li>
+</ul>
+<p>ما تحصل عليه باتباع هذه القاعدة:</p>
+<ul>
+<li><strong>إدخال/إخراج سريع.</strong> تمر العمليات على <code>/mnt/c/...</code> عبر 9P وهي أبطأ بمقدار 10 إلى 100 مرة من ext4 الأصلي. قد يستغرق <code>git status</code> على مستودع يضم 10 آلاف ملف، والذي يبدو فوريًا ضمن <code>~/code</code>، أكثر من 15 ثانية ضمن <code>/mnt/c</code>.</li>
+<li><strong>صلاحيات صحيحة.</strong> بتات صلاحيات Linux على <code>/mnt/c</code> مجرد محاكاة بأفضل جهد. ومن الشائع أن يرفض <code>ssh</code> مفتاحًا بسبب &quot;bad permissions&quot; أو أن يفشل <code>chmod +x</code> بصمت.</li>
+<li><strong>مراقبة ملفات موثوقة.</strong> inotify عبر 9P غير مستقر — إذ تفوّت أدوات مراقبة الملفات (خوادم التطوير، ومشغّلات الاختبارات) التغييرات على <code>/mnt/c</code> بشكل متكرر.</li>
+<li><strong>لا مفاجآت في حساسية حالة الأحرف.</strong> مسارات Windows غير حساسة لحالة الأحرف افتراضيًا؛ بينما Linux حساس لها. فالمشاريع التي تحتوي على <code>Readme.md</code> و <code>README.md</code> معًا تتصرف بشكل مختلف بحسب الجانب الذي تعمل عليه.</li>
+</ul>
+<p>لا تضع الأشياء على <code>/mnt/c</code> إلا عندما <strong>تحتاج</strong> إلى أن يكون الملف على جانب Windows — مثلًا عندما تريد فتحه من تطبيق رسومي على Windows، أو عندما يحتاج DevTools MCP الخاص بـ Chrome على Windows إلى أن يكون المجلد الحالي مسارًا يمكن لـ Windows الوصول إليه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="getting-files-back-and-forth">نقل الملفات ذهابًا وإيابًا</h3>
+<p><strong>من Windows → إلى WSL:</strong> أسهل طريقة هي فتح Explorer وكتابة <code>\\wsl.localhost\Ubuntu</code> في شريط العنوان. بعد ذلك يمكنك السحب والإفلات إلى <code>\home\&lt;you&gt;\...</code>. أو من PowerShell:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>من WSL → إلى Windows:</strong> انسخ إلى <code>/mnt/c/Users/&lt;you&gt;/...</code> وسيظهر الملف في Windows Explorer فورًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>فتح ملف من WSL في تطبيق Windows</strong> (محرر رسومي، أو متصفح، وما إلى ذلك): استخدم <code>explorer.exe</code> أو <code>wslview</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>تحويل المسارات بين العالمين:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="line-endings-boms-and-git">نهايات الأسطر، وعلامات BOM، و git</h3>
+<p>إذا عدّلت ملفات على جانب Windows باستخدام محرر من Windows، فقد تحصل على نهايات أسطر <code>CRLF</code>. وعندما يقرؤها <code>bash</code> أو Python على جانب Linux، تتعطل سكربتات الـ shell مع الخطأ <code>bad interpreter: /bin/bash^M</code>، وقد يفشل Python مع ملفات <code>.env</code> التي تحتوي على BOM.</p>
+<p>الحل هو ضبط إعدادات git معقولة داخل WSL (وليس على Windows):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>للملفات التي تحتوي على CRLF بالفعل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clone-inside-wsl-or-on-mntc">&quot;الاستنساخ داخل WSL أم على <code>/mnt/c</code>؟&quot;</h3>
+<p>استنسخ داخل WSL. دائمًا، ما لم يكن لديك سبب محدد لغير ذلك. سيكون سير العمل المعتاد في Hermes (<code>hermes chat</code>، واستدعاءات الأدوات التي تبحث في المستودع عبر <code>rg</code>/<code>ripgrep</code>، وأدوات مراقبة الملفات، والـ gateway العامل في الخلفية) أسرع وأكثر موثوقية بشكل كبير على <code>~/code/myrepo</code> مقارنةً بـ <code>/mnt/c/Users/you/myrepo</code>.</p>
+<p>استثناء واحد: <strong>جسور MCP التي تشغّل ملفات Windows تنفيذية.</strong> إذا كنت تستخدم <code>chrome-devtools-mcp</code> عبر <code>cmd.exe</code> (راجع <a href="/docs/guides/use-mcp-with-hermes#wsl2-bridge-hermes-in-wsl-to-windows-chrome">دليل MCP: WSL → Chrome على Windows</a>)، فقد يعرض Windows تحذير <code>UNC</code> إذا كان مجلد العمل الحالي لـ Hermes هو <code>~</code>. في هذه الحالة، شغّل Hermes من مكان ما ضمن <code>/mnt/c/</code> كي يكون مجلد العمل الحالي (cwd) لعملية Windows مسارًا بحرف محرك أقراص.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="networking-wsl--windows">الشبكات: WSL ↔ Windows</h2>
+<p>يعمل WSL2 داخل آلة افتراضية خفيفة لها مكدس شبكة خاص بها. هذا يعني أن <code>localhost</code> داخل WSL <strong>ليس هو نفسه</strong> <code>localhost</code> على Windows — فهما مضيفان منفصلان من وجهة نظر الشبكة. عليك أن تحدد، لكل خدمة، اتجاه تدفق حركة المرور وأن تختار الجسر المناسب.</p>
+<p>هناك حالتان تتكرران باستمرار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="case-1--hermes-in-wsl-talks-to-a-service-on-windows">الحالة 1 — Hermes داخل WSL يتصل بخدمة على Windows</h3>
+<p>الحالة الأكثر شيوعًا: أنت تشغّل <strong>Ollama أو LM Studio أو llama-server على Windows</strong>، ويحتاج Hermes (داخل WSL) إلى الوصول إليه.</p>
+<p>يوجد الشرح المرجعي لهذا في دليل المزوّدين: <strong><a href="/docs/integrations/providers#wsl2-networking-windows-users">شبكات WSL2 للنماذج المحلية →</a></strong></p>
+<p>باختصار:</p>
+<ul>
+<li><strong>Windows 11 22H2 أو أحدث:</strong> فعّل وضع الشبكات المنعكسة (mirrored) (<code>networkingMode=mirrored</code> في <code>%USERPROFILE%\.wslconfig</code>، ثم <code>wsl --shutdown</code>). بعدها يعمل <code>localhost</code> في كلا الاتجاهين.</li>
+<li><strong>Windows 10 أو الإصدارات الأقدم:</strong> استخدم عنوان IP لمضيف Windows (البوابة الافتراضية لشبكة WSL الافتراضية)، وتأكد من أن الخادم على Windows مرتبط بـ <code>0.0.0.0</code>، وليس فقط بـ <code>127.0.0.1</code>. وعادةً ما يحتاج Windows Firewall أيضًا إلى قاعدة للمنفذ.</li>
+</ul>
+<p>للاطلاع على الجدول الكامل (عناوين الربط لـ Ollama / LM Studio / vLLM / SGLang، وأوامر قواعد الجدار الناري ذات السطر الواحد، وأدوات مساعدة لعناوين IP الديناميكية، وحل التفافي لجدار Hyper-V الناري)، اتبع الرابط أعلاه — ولا تكرره.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="case-2--something-on-windows-or-your-lan-talks-to-hermes-in-wsl">الحالة 2 — شيء ما على Windows (أو على شبكتك المحلية LAN) يتصل بـ Hermes داخل WSL</h3>
+<p>هذا هو الاتجاه المعاكس، وهو أقل توثيقًا في أماكن أخرى، لكنه ما تحتاج إليه من أجل:</p>
+<ul>
+<li>استخدام <strong>لوحة تحكم Hermes على الويب</strong> من متصفح على Windows.</li>
+<li>استخدام <strong>خادم API المتوافق مع OpenAI</strong> (الذي يتيحه <code>hermes gateway</code> عندما تكون <code>API_SERVER_ENABLED=true</code>) من أداة على جانب Windows. راجع <a href="/docs/user-guide/features/api-server">صفحة ميزة خادم API</a>.</li>
+<li>اختبار <strong>messaging gateway</strong> (Telegram، و Discord، وما إلى ذلك) حيث تستدعي المنصة URL لـ webhook محلي — وعادةً ما تستخدم <code>cloudflared</code>/<code>ngrok</code> بدلًا من إعادة توجيه المنافذ المباشرة.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="subcase-2a-from-the-windows-host-itself">الحالة الفرعية 2a: من مضيف Windows نفسه</h4>
+<p>على <strong>Windows 11 22H2 أو أحدث مع تفعيل الوضع المنعكس (mirrored)</strong>، لا شيء عليك فعله. فالعملية داخل WSL المرتبطة بـ <code>0.0.0.0:8080</code> (أو حتى <code>127.0.0.1:8080</code>) يمكن الوصول إليها من متصفح على Windows عبر <code>http://localhost:8080</code>. إذ ينشر WSL الربط إلى المضيف تلقائيًا.</p>
+<p>في <strong>وضع NAT</strong> (Windows 10 / إصدارات Windows 11 الأقدم)، تعيد ميزة &quot;localhost forwarding&quot; الافتراضية في WSL2 عمومًا توجيه عمليات الربط على <code>127.0.0.1</code> في جانب Linux إلى <code>localhost</code> في Windows، لذا يمكن عادةً الوصول إلى خدمة Hermes التي بدأت باستخدام <code>--host 127.0.0.1</code> عبر <code>http://localhost:PORT</code> من Windows. إذا لم يكن ذلك ممكنًا:</p>
+<ul>
+<li>اربط صراحةً بـ <code>0.0.0.0</code> داخل WSL.</li>
+<li>اعثر على عنوان IP للآلة الافتراضية لـ WSL باستخدام <code>ip -4 addr show eth0 | grep inet</code> واتصل به من Windows.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="subcase-2b-from-another-device-on-your-lan-phone-tablet-another-pc">الحالة الفرعية 2b: من جهاز آخر على شبكتك المحلية (هاتف، أو جهاز لوحي، أو كمبيوتر آخر)</h4>
+<p>هنا تكمن الصعوبة الحقيقية. تتدفق حركة المرور على النحو <strong>جهاز LAN → مضيف Windows → WSL VM</strong>، وعليك إعداد كلتا القفزتين:</p>
+<ol>
+<li>
+<p><strong>اربط على جميع الواجهات داخل WSL.</strong> لا يمكن أبدًا الوصول من خارج الآلة الافتراضية إلى عملية تستمع على <code>127.0.0.1</code>. استخدم <code>0.0.0.0</code>.</p>
+</li>
+<li>
+<p><strong>أعد توجيه المنفذ من Windows → WSL VM.</strong> في الوضع المنعكس يحدث هذا تلقائيًا. أما في وضع NAT فعليك فعله بنفسك، لكل منفذ، من PowerShell بصلاحيات المسؤول:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>أزل القاعدة لاحقًا باستخدام <code>netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=8080</code>.</p>
+</li>
+<li>
+<p><strong>وجّه جهاز LAN إلى <code>http://&lt;windows-lan-ip&gt;:8080</code>.</strong></p>
+</li>
+</ol>
+<p>بما أن عنوان IP للآلة الافتراضية لـ WSL يتغير مع كل إعادة تشغيل في وضع NAT، فإن القاعدة التي تُضبط مرة واحدة لا تصمد إلا حتى تنفيذ <code>wsl --shutdown</code> التالي. ولأي إعداد دائم، إما أن تستخدم الوضع المنعكس أو تضع خطوة port-proxy في سكربت يعمل عند تسجيل الدخول إلى Windows.</p>
+<p>بالنسبة إلى webhooks القادمة من مزوّدي المراسلة السحابيين (<code>setWebhook</code> في Telegram، وأحداث Slack، وما إلى ذلك)، لا تصارع إعادة توجيه المنافذ — استخدم أنفاق <code>cloudflared</code>. راجع <a href="/docs/user-guide/messaging/webhooks">دليل webhooks</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-hermes-services-long-term-on-windows">تشغيل خدمات Hermes لفترات طويلة على Windows</h2>
+<p>إن <a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a> الخاص بـ Hermes وخادم API عمليتان طويلتا الأمد. وفي WSL2 لديك عدة خيارات لإبقائهما قيد التشغيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-shortcut-for-opening-hermes-quickly">اختصار على سطح المكتب لفتح Hermes بسرعة</h3>
+<p>إذا كنت تريد فقط مُشغِّلًا يعمل بالنقر المزدوج لجلسة Hermes تفاعلية، فأنشئه
+على جانب Windows واجعله ينقلك إلى WSL:</p>
+<ol>
+<li>
+<p>انقر بزر الماوس الأيمن على سطح مكتب Windows واختر <strong>New -&gt; Shortcut</strong>.</p>
+</li>
+<li>
+<p>في خانة الهدف، استخدم اسم توزيعتك (استبدل <code>Ubuntu</code> إذا لزم الأمر):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+</li>
+<li>
+<p>امنحه اسمًا واضحًا مثل <code>Hermes</code>.</p>
+</li>
+</ol>
+<p>يفتح ذلك Windows Terminal، ويبدأ توزيعة WSL، وينقلك إلى مجلد المنزل (home) في
+Linux، ثم يشغّل Hermes. إذا لم يكن <code>hermes</code> موجودًا في PATH بعد، فافتح WSL
+مرة واحدة يدويًا ونفّذ <code>source ~/.bashrc</code>، أو استبدل الأمر بـ
+<code>uv run hermes</code> داخل النسخة المسحوبة (checkout) من مشروعك.</p>
+<p>تحسينات اختيارية:</p>
+<ul>
+<li><strong>أيقونة مخصصة:</strong> افتح <strong>Properties -&gt; Change Icon</strong> ووجّهها إلى ملف <code>.ico</code>
+مثل أيقونة Hermes (favicon) الموجودة في المستودع.</li>
+<li><strong>مُشغِّل مثبّت:</strong> بعد أن يعمل الاختصار، ثبّته في قائمة Start أو في شريط المهام (Taskbar)
+كي لا تضطر إلى البحث عنه مجددًا.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inside-wsl-with-systemd-recommended">داخل WSL باستخدام systemd (موصى به)</h3>
+<p>إذا فعّلت systemd وفق قسم الإعداد أعلاه، فإن <code>hermes gateway</code> وخادم API يعملان كما يعملان على أي جهاز Linux. استخدم معالج إعداد الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>سيعرض عليك تثبيت وحدة systemd على مستوى المستخدم (user unit) كي يبدأ الـ gateway تلقائيًا عند بدء تشغيل WSL.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="making-wsl-itself-start-on-windows-login">جعل WSL نفسه يبدأ عند تسجيل الدخول إلى Windows</h3>
+<p>لا تبقى الآلة الافتراضية لـ WSL قيد التشغيل إلا ما دام هناك شيء يستخدمها. لإبقاء الـ gateway قابلًا للوصول دون نافذة طرفية مفتوحة، شغّل عملية WSL عند تسجيل الدخول إلى Windows عبر Task Scheduler:</p>
+<ul>
+<li><strong>المشغّل (Trigger):</strong> At log on (لمستخدمك).</li>
+<li><strong>الإجراء (Action):</strong> Start a program
+<ul>
+<li>البرنامج (Program): <code>C:\Windows\System32\wsl.exe</code></li>
+<li>الوسائط (Arguments): <code>-d Ubuntu --exec /bin/sh -c &quot;sleep infinity&quot;</code></li>
+</ul>
+</li>
+</ul>
+<p>يُبقي ذلك الآلة الافتراضية حية كي يظل الـ gateway الذي يديره systemd قيد التشغيل. على Windows 11، تعمل أيضًا الطرق الأحدث مثل <code>wsl --install --no-launch</code> + التشغيل التلقائي؛ أما حيلة <code>sleep infinity</code> فهي النسخة القابلة للنقل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gpu-passthrough-local-models">تمرير GPU (النماذج المحلية)</h2>
+<p>يدعم WSL2 وحدات GPU من <strong>NVIDIA</strong> أصليًا منذ نواة WSL 5.10.43 وما بعدها — ثبّت برنامج تشغيل NVIDIA القياسي على Windows (<strong>لا</strong> تثبّت برنامج تشغيل NVIDIA لـ Linux داخل WSL)، وسيرى <code>nvidia-smi</code> داخل WSL وحدة GPU. ومن هناك، تُبنى أدوات CUDA و <code>torch</code> و <code>vllm</code> و <code>sglang</code> و <code>llama-server</code> على وحدة GPU الحقيقية كالمعتاد.</p>
+<p>لا يزال دعم AMD ROCm و Intel Arc داخل WSL2 قيد التطور، وهو خارج مصفوفة اختبارات Hermes — قد يعمل مع برامج التشغيل الحالية، لكن ليست لدينا وصفة نوصي بها.</p>
+<p>إذا كنت تشغّل خادم نماذج محليًا <strong>أصليًا على Windows</strong> (Ollama لـ Windows، أو LM Studio) يستخدم GPU لديك بالفعل عبر برامج تشغيل Windows، فلا حاجة إطلاقًا إلى تمرير GPU في WSL — فقط اتبع الحالة 1 أعلاه واتصل به عبر الشبكة من WSL.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">مآزق شائعة</h2>
+<p><strong>&quot;Connection refused&quot; عند الاتصال بـ Ollama / LM Studio المستضاف على Windows.</strong>
+راجع <a href="/docs/integrations/providers#wsl2-networking-windows-users">شبكات WSL2</a>. في تسعين بالمئة من الحالات يكون الخادم مرتبطًا بـ <code>127.0.0.1</code> ويحتاج إلى <code>0.0.0.0</code> (في Ollama: <code>OLLAMA_HOST=0.0.0.0</code>)، أو تكون قاعدة الجدار الناري مفقودة.</p>
+<p><strong>بطء شديد في <code>git status</code> / <code>hermes chat</code> داخل مستودع.</strong>
+على الأرجح أنك تعمل ضمن <code>/mnt/c/...</code>. انقل المستودع إلى <code>~/code/...</code> (جانب Linux). وستحصل على سرعة أكبر بعدة مراتب.</p>
+<p><strong>ظهور <code>bad interpreter: /bin/bash^M</code> في السكربتات.</strong>
+نهايات أسطر CRLF من محرر على Windows. نفّذ <code>dos2unix script.sh</code>، واضبط <code>core.autocrlf input</code> في إعدادات git داخل WSL.</p>
+<p><strong>تحذير &quot;UNC paths are not supported&quot; من ملفات Windows التنفيذية التي تُشغَّل عبر MCP.</strong>
+مجلد العمل الحالي (cwd) لـ Hermes موجود داخل نظام ملفات Linux، ولا يعرف <code>cmd.exe</code> في Windows كيف يتعامل معه. شغّل Hermes من <code>/mnt/c/...</code> في تلك الجلسة، أو استخدم wrapper ينفّذ <code>cd</code> إلى مسار يمكن لـ Windows الوصول إليه قبل استدعاء الملف التنفيذي لـ Windows.</p>
+<p><strong>انحراف الساعة بعد السكون/الإسبات.</strong>
+قد تتأخر ساعة WSL2 عدة دقائق بعد استئناف المضيف من السكون، ما يُعطّل أي شيء يعتمد على الشهادات (OAuth، وواجهات HTTPS APIs). أصلحها عند الحاجة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>أو ثبّت <code>ntpdate</code> وشغّله عند تسجيل الدخول.</p>
+<p><strong>توقف DNS عن العمل بعد تفعيل الوضع المنعكس، أو عند الاتصال بشبكة VPN.</strong>
+ينقل الوضع المنعكس إعدادات شبكة المضيف إلى WSL — فإذا كان DNS في Windows يتصرف بغرابة (split-tunnel في VPN، أو محلّل أسماء خاص بالشركة)، فسيرث WSL ذلك. الحل الالتفافي: تجاوز <code>resolv.conf</code> يدويًا (اضبط <code>generateResolvConf=false</code> في <code>/etc/wsl.conf</code>، ثم اكتب ملف <code>/etc/resolv.conf</code> خاصًا بك يحتوي على <code>1.1.1.1</code> أو DNS الخاص بشبكة VPN لديك).</p>
+<p><strong>عدم العثور على <code>hermes</code> بعد تشغيل المُثبّت.</strong>
+يضيف المُثبّت <code>~/.local/bin</code> إلى PATH الخاص بالـ shell عبر <code>~/.bashrc</code>. تحتاج إلى تنفيذ <code>source ~/.bashrc</code> (أو فتح طرفية جديدة) كي يسري التغيير في الجلسة الحالية.</p>
+<p><strong>بطء Windows Defender مع ملفات WSL.</strong>
+يفحص Defender الملفات عبر جسر 9P عند الوصول إليها من Windows، ما يضاعف بطء الوصول عبر الحدود على غرار <code>/mnt/c</code>. إذا كنت لا تتعامل مع ملفات WSL إلا من داخل WSL، فلا أهمية لذلك. أما إذا كنت تستخدم أدوات Windows على <code>\\wsl$\...</code> بشكل متكرر، ففكّر في استثناء مسار توزيعة WSL من الفحص الفوري.</p>
+<p><strong>نفاد مساحة القرص.</strong>
+يخزّن WSL2 قرص آلته الافتراضية كملف VHDX متناثر (sparse) ضمن <code>%LOCALAPPDATA%\Packages\...</code>. يكبر هذا الملف لكنه لا يتقلص تلقائيًا عند حذف الملفات. لاستعادة المساحة: نفّذ <code>wsl --shutdown</code>، ثم من PowerShell بصلاحيات المسؤول نفّذ <code>Optimize-VHD -Path &lt;path-to-ext4.vhdx&gt; -Mode Full</code> (يتطلب أدوات Hyper-V) — أو اتبع مسار <code>diskpart</code> الأبسط الموثّق في وثائق WSL.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-go-next">إلى أين بعد ذلك</h2>
+<ul>
+<li><strong><a href="/docs/getting-started/installation">التثبيت</a></strong> — خطوات التثبيت الفعلية (يستخدم Linux و WSL2 و Termux جميعها المُثبّت نفسه).</li>
+<li><strong><a href="/docs/integrations/providers#wsl2-networking-windows-users">التكاملات → المزوّدون → شبكات WSL2</a></strong> — الشرح المرجعي المفصّل للشبكات الخاص بخوادم النماذج المحلية.</li>
+<li><strong><a href="/docs/guides/use-mcp-with-hermes#wsl2-bridge-hermes-in-wsl-to-windows-chrome">دليل MCP → WSL → Chrome على Windows</a></strong> — التحكم في Chrome على Windows الذي سجّلت الدخول فيه من Hermes داخل WSL.</li>
+<li><strong><a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a></strong> و <strong><a href="/docs/user-guide/features/web-dashboard">لوحة التحكم على الويب</a></strong> — الخدمات طويلة الأمد التي ستحتاج في الغالب إلى إتاحتها من WSL لبقية شبكتك.</li>
+</ul>

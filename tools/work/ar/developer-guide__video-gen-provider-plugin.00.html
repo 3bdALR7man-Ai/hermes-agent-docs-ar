@@ -1,0 +1,50 @@
+<header><h1>بناء إضافة مزوّد توليد الفيديو</h1></header>
+<p>تسجّل إضافات مزوّد توليد الفيديو (video-gen provider plugins) backend يخدم كل استدعاء لأداة <code>video_generate</code>. تُشحَن المزوّدات المدمجة (xAI وFAL وOpenRouter وDeepInfra) كإضافات. أضف مزوّدًا جديدًا، أو تجاوز واحدًا مضمّنًا، بوضع مجلد في <code>plugins/video_gen/&lt;name&gt;/</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="4"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>video-gen يعكس <a href="/docs/developer-guide/image-gen-provider-plugin">إضافات مزوّدي توليد الصور</a> شبه سطر بسطر — إن كنت قد بنيت backend لتوليد الصور، فأنت تعرف الشكل بالفعل. الاختلافات الرئيسية: طريقة <code>capabilities()</code> التي تعلن الأنماط (modalities)/نسب العرض إلى الارتفاع/المُدد، واصطلاح توجيه (routing) — مرّر <code>image_url</code> لاستخدام تحويل الصورة إلى فيديو، أو احذفه لاستخدام تحويل النص إلى فيديو (يختار المزوّد الـ endpoint الصحيح داخليًا).</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-unified-surface-one-tool-two-modalities">الواجهة الموحّدة (أداة واحدة، نمطان)</h2>
+<p>تعرض أداة <code>video_generate</code> نمطين عبر معامل واحد:</p>
+<ul>
+<li><strong>تحويل النص إلى فيديو</strong> — استدعِ الأداة بـ<code>prompt</code> فقط. يوجّه المزوّد إلى endpoint تحويل النص إلى فيديو.</li>
+<li><strong>تحويل الصورة إلى فيديو</strong> — استدعِ الأداة بـ<code>prompt</code> + <code>image_url</code>. يوجّه المزوّد إلى endpoint تحويل الصورة إلى فيديو.</li>
+</ul>
+<p>عمليتا التعديل والتوسيع (edit وextend) خارج النطاق عمدًا. لا يدعمهما معظم الـ backends، وسيفرض عدم الاتساق نصًا خاصًا بكل backend داخل وصف أداة الوكيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-discovery-works">كيف يعمل الاكتشاف</h2>
+<p>يفحص Hermes ثلاثة أماكن بحثًا عن backends لتوليد الفيديو:</p>
+<ol>
+<li><strong>المضمّنة (Bundled)</strong> — <code>&lt;repo&gt;/plugins/video_gen/&lt;name&gt;/</code> (تُحمَّل تلقائيًا بـ<code>kind: backend</code>)</li>
+<li><strong>مستخدم (User)</strong> — <code>~/.hermes/plugins/video_gen/&lt;name&gt;/</code> (بالاشتراك عبر <code>plugins.enabled</code>)</li>
+<li><strong>Pip</strong> — حزم تعلن نقطة دخول <code>hermes_agent.plugins</code></li>
+</ol>
+<p>تستدعي دالة <code>register(ctx)</code> الخاصة بكل إضافة <code>ctx.register_video_gen_provider(...)</code>. يُختار المزوّد النشط عبر <code>video_gen.provider</code> في <code>config.yaml</code>؛ ويرشد <code>hermes tools</code> ← Video Generation المستخدمين خلال الاختيار. وعلى خلاف <code>image_generate</code>، لا يوجد backend قديم (legacy) ضمن الشجرة — فكل مزوّد هو إضافة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">بنية المجلدات</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-videogenprovider-abc">فئة VideoGenProvider المجرّدة (ABC)</h2>
+<p>اشتقّ فئة فرعية من <code>agent.video_gen_provider.VideoGenProvider</code>. المطلوب: خاصية <code>name</code> وطريقة <code>generate()</code>.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-plugin-manifest">بيان الإضافة (manifest)</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-video_generate-schema">مخطط <code>video_generate</code></h2>
+<p>تعرض الأداة مخططًا واحدًا عبر كل backend. تتجاهل المزوّدات المعاملات التي لا تدعمها.</p>
+<table><thead><tr><th>المعامل</th><th>ما تفعله</th></tr></thead><tbody><tr><td><code>prompt</code></td><td>تعليمة نصية (مطلوبة)</td></tr><tr><td><code>image_url</code></td><td>عند ضبطها ← تحويل الصورة إلى فيديو؛ عند حذفها ← تحويل النص إلى فيديو</td></tr><tr><td><code>reference_image_urls</code></td><td>مراجع النمط/الشخصية (حسب المزوّد)</td></tr><tr><td><code>duration</code></td><td>ثوانٍ — يحصرها المزوّد ضمن حدوده</td></tr><tr><td><code>aspect_ratio</code></td><td><code>&quot;16:9&quot;</code>، <code>&quot;9:16&quot;</code>، <code>&quot;1:1&quot;</code>، ... — يحصرها المزوّد ضمن حدوده</td></tr><tr><td><code>resolution</code></td><td><code>&quot;480p&quot;</code> / <code>&quot;540p&quot;</code> / <code>&quot;720p&quot;</code> / <code>&quot;1080p&quot;</code> — يحصرها المزوّد ضمن حدوده</td></tr><tr><td><code>negative_prompt</code></td><td>محتوى يُتجنَّب (Pixverse/Kling فقط)</td></tr><tr><td><code>audio</code></td><td>صوت أصلي (فئة تسعير Veo3 / Pixverse)</td></tr><tr><td><code>seed</code></td><td>قابلية إعادة الإنتاج</td></tr><tr><td><code>model</code></td><td>تجاوز النموذج/العائلة النشطة</td></tr></tbody></table>
+<p>تعلن <code>capabilities()</code> الخاصة بالمزوّد أي من هذه المعاملات مدعوم. يرى الوكيل قدرات الـ backend النشط في وصف الأداة، ويُعاد بناؤها ديناميكيًا عندما يغيّر المستخدم الـ backend عبر <code>hermes tools</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-families-and-endpoint-routing-the-fal-pattern">عائلات النماذج وتوجيه الـ endpoint (نمط FAL)</h2>
+<p>عندما يملك backend الخاص بك عدة endpoints لكل &quot;نموذج&quot; — كما في FAL، حيث تملك كل عائلة (Veo 3.1 وPixverse v6 وKling O3) رابط <code>/text-to-video</code> ورابط <code>/image-to-video</code> معًا — مثّل كل <strong>عائلة</strong> كإدخال واحد في الكتالوج. تختار دالة <code>generate()</code> الخاصة بك الـ endpoint الصحيح بناءً على ما إذا كان <code>image_url</code> قد مُرِّر:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يختار المستخدم <code>veo3.1</code> مرة واحدة في <code>hermes tools</code>. لا يفكر الوكيل أبدًا في الـ endpoints — فهو فقط يمرّر (أو لا يمرّر) <code>image_url</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="selection-precedence">أولوية الاختيار</h2>
+<p>بالنسبة لإعدادات النموذج الخاصة بكل نسخة (راجع <code>plugins/video_gen/fal/__init__.py</code>):</p>
+<ol>
+<li>الكلمة المفتاحية <code>model=</code> من استدعاء الأداة</li>
+<li>متغير البيئة <code>&lt;PROVIDER&gt;_VIDEO_MODEL</code></li>
+<li><code>video_gen.&lt;provider&gt;.model</code> في <code>config.yaml</code></li>
+<li><code>video_gen.model</code> في <code>config.yaml</code> (عندما يكون أحد معرّفاتك)</li>
+<li><code>default_model()</code> الخاصة بالمزوّد</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-shape">شكل الاستجابة</h2>
+<p>تنتج <code>success_response()</code> و<code>error_response()</code> شكل القاموس (dict) الذي يعيده كل backend. استخدمهما — لا تبنِ القاموس يدويًا.</p>
+<p>مفاتيح النجاح: <code>success</code>، <code>video</code> (رابط أو مسار مطلق)، <code>model</code>، <code>prompt</code>، <code>modality</code> (<code>&quot;text&quot;</code> أو <code>&quot;image&quot;</code>)، <code>aspect_ratio</code>، <code>duration</code>، <code>provider</code>، إضافة إلى <code>extra</code>.</p>
+<p>مفاتيح الخطأ: <code>success</code>، <code>video</code> (None)، <code>error</code>، <code>error_type</code>، <code>model</code>، <code>prompt</code>، <code>aspect_ratio</code>، <code>provider</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-save-artifacts">أين تُحفظ المخرجات (artifacts)</h2>
+<p>إذا كان backend الخاص بك يعيد base64، استخدم <code>save_b64_video()</code> للكتابة تحت <code>$HERMES_HOME/cache/videos/</code>. أما للبايتات الخام من جلب HTTP لاحق، فاستخدم <code>save_bytes_video()</code>. وإلا، أعد الرابط الأصلي مباشرة — يحل gateway الروابط البعيدة عند التسليم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<p>ضع اختبار دخان (smoke test) تحت <code>tests/plugins/video_gen/test_&lt;name&gt;_plugin.py</code>. تُظهر اختبارات xAI وFAL النمط — سجّل، تحقّق من الكتالوج، مارس التوجيه مع <code>image_url</code> وبدونه، وتأكد من استجابات خطأ نظيفة عند غياب المصادقة.</p>

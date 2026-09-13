@@ -1,0 +1,85 @@
+
+<header><h1>نشر Cloudflare المؤقت</h1></header>
+<p>انشر Worker مباشرًا دون حساب، عبر wrangler --temporary.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/web-development/cloudflare-temporary-deploy</code></td></tr><tr><td>المسار</td><td><code>optional-skills/web-development/cloudflare-temporary-deploy</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>cloudflare</code>, <code>workers</code>, <code>wrangler</code>, <code>deploy</code>, <code>temporary</code>, <code>agent</code>, <code>serverless</code>, <code>web-development</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة نشر Cloudflare المؤقت</h1>
+<p>انشر Cloudflare Worker إلى رابط <code>workers.dev</code> مباشر دون أي إعداد حساب، باستخدام <code>wrangler deploy --temporary</code>. يوفّر Cloudflare حسابًا مؤقتًا قابلًا للإهمال، وينشر، ويطبع رابط مطالبة (claim URL) صالحًا لمدة 60 دقيقة؛ والحسابات غير المُطالَب بها تُحذف تلقائيًا. هذا يمنح الوكيل حلقة كتابة ← نشر ← تحقّق سريعة دون أي OAuth أو تسجيل أو نسخ ولصق للرموز (tokens).</p>
+<p>لا تغطّي هذه المهارة عمليات النشر إلى الإنتاج (استخدم <code>wrangler login</code> مع حساب دائم لذلك)، ولا منتجات Cloudflare غير Worker خارج حدود الحساب المؤقت أدناه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<p>حمّل هذه المهارة عندما يريد المستخدم:</p>
+<ul>
+<li><strong>شحن كود كتبه الوكيل إلى رابط مباشر</strong> دون إنشاء حساب Cloudflare أولًا — &quot;انشر هذا وأعطني رابطًا&quot;</li>
+<li><strong>التكرار ضمن جلسة تعمل في الخلفية/بشكل مستقل</strong> حيث تكون خطوة OAuth عبر المتصفح توقفًا صعبًا</li>
+<li><strong>بناء نموذج أوّلي أو تقييم Workers</strong> بسرعة باستخدام هدف مؤقت قابل للمطالبة</li>
+<li><strong>بناء حلقة نشر ذاتية التحقّق</strong> — انشر، استخدم <code>curl</code> على الرابط المباشر، تأكّد من تطابق الناتج مع الكود، أعد النشر</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-not-to-use">متى لا تُستخدم</h2>
+<ul>
+<li><strong>الإنتاج أو CI/CD</strong> ← استخدم حسابًا دائمًا (<code>wrangler login</code> أو <code>CLOUDFLARE_API_TOKEN</code>). يفشل <code>--temporary</code> إذا كانت أي بيانات اعتماد موجودة.</li>
+<li><strong>Wrangler مصادَق عليه بالفعل</strong> ← يُعيد <code>--temporary</code> خطأً بشكل مقصود. شغّل <code>wrangler logout</code> أولًا فقط إذا أراد المستخدم صراحةً نشرًا مؤقتًا قابلًا للإهمال.</li>
+<li><strong>الاستضافة طويلة الأمد</strong> ← تُحذف عمليات النشر المؤقتة بعد 60 دقيقة ما لم تتم المطالبة بها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>Wrangler 4.102.0 أو أحدث.</strong> هذا هو الإصدار الذي أضاف <code>--temporary</code>. الإصدارات الأقدم لا تملكه. تحقّق بـ <code>npx wrangler@latest --version</code>.</li>
+<li><strong>Node 18 أو أحدث / npm</strong> (أو <code>npx</code>، <code>yarn</code>، <code>pnpm</code>). لا حاجة إلى تثبيت عام — <code>npx wrangler@latest</code> يعمل مباشرة.</li>
+<li><strong>عدم وجود بيانات اعتماد Cloudflare.</strong> يعمل <code>--temporary</code> فقط عندما لا يكون Wrangler مصادَقًا عليه: لا تسجيل دخول عبر OAuth، ولا متغير بيئة <code>CLOUDFLARE_API_TOKEN</code> / <code>CLOUDFLARE_API_KEY</code>، ولا OAuth مخزّن مؤقتًا في <code>~/.wrangler</code> / <code>~/.config/.wrangler</code>. استخدم بيئة أداة <code>terminal</code> كما هي؛ لا تضبط هذه المتغيرات.</li>
+<li>اتصال شبكي صادر إلى <code>cloudflare.com</code> و<code>workers.dev</code>.</li>
+<li>استخدام <code>--temporary</code> يعني الموافقة على شروط خدمة Cloudflare وسياسة الخصوصية.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">طريقة التشغيل</h2>
+<p>استخدم أداة <code>terminal</code> لكل خطوة. ثبّت الإصدار دائمًا (<code>wrangler@latest</code> أو <code>wrangler@4.102.0</code> أو أحدث) حتى لا تُشغّل عن طريق الخطأ نسخة wrangler عامة قديمة تفتقر إلى هذا الخيار.</p>
+<ol>
+<li>
+<p><strong>أنشئ Worker بسيطًا</strong> (تخطَّ هذه الخطوة إذا كان المشروع موجودًا بالفعل). يحتاج Worker إلى ملف <code>wrangler.toml</code> (أو <code>wrangler.jsonc</code>) وسكربت نقطة دخول. مثال بسيط بلغة TypeScript — اكتب هذه الملفات باستخدام <code>write_file</code>:</p>
+<p><code>wrangler.jsonc</code>:</p>
+<div class="language-jsonc codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>src/index.ts</code>:</p>
+<div class="language-typescript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+</li>
+<li>
+<p><strong>انشر باستخدام <code>--temporary</code></strong> من دليل المشروع:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يضيف فحص إثبات العمل (proof-of-work) تأخيرًا تلقائيًا قصيرًا. عند النجاح يطبع Wrangler سطر <code>Account: &lt;name&gt; (created)</code> (أو <code>(reused)</code>)، ورابط <code>Claim URL</code>، والرابط المباشر <code>https://&lt;worker&gt;.&lt;account&gt;.workers.dev</code>.</p>
+</li>
+<li>
+<p><strong>حلّل الروابط</strong> من ذلك الناتج. شغّل الأداة المساعدة لاستخراجها بموثوقية بدلًا من قراءتها بالعين:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>(حلّ مسار <code>scripts/parse_deploy_output.py</code> إلى المسار المطلق لهذه المهارة.) يطبع JSON: <code>{&quot;live_url&quot;, &quot;claim_url&quot;, &quot;account&quot;, &quot;account_state&quot;, &quot;expires_minutes&quot;, &quot;deployed&quot;}</code>.</p>
+</li>
+<li>
+<p><strong>تحقّق من أن النشر فعّال بالفعل</strong> — لا تثق بسجل النشر وحده. استخدم <code>curl</code> على الرابط المباشر وتأكّد من تطابق النص المُعاد مع ما يُعيده الكود:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+</li>
+<li>
+<p><strong>كرّر العملية.</strong> عدّل الكود، وأعد النشر بنفس الأمر <code>npx wrangler@latest deploy --temporary</code>. ضمن نافذة الـ60 دقيقة، يعيد Wrangler استخدام الحساب المؤقت المخزَّن مؤقتًا (<code>Account: &lt;name&gt; (reused)</code>)، لذا يبقى الرابط ثابتًا. استخدم <code>curl</code> مجددًا للتأكّد من التغيير.</p>
+</li>
+<li>
+<p><strong>سلّم رابط المطالبة للمستخدم.</strong> أخبره: افتحه خلال 60 دقيقة للاحتفاظ بالنشر وأي موارد؛ وإن لم يطالب به، يُحذف كل شيء تلقائيًا. عامل رابط المطالبة كسرّ — فهو يمنح ملكية الحساب.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>الخطوة</th><th>الأمر</th></tr></thead><tbody><tr><td>تحقّق من الإصدار (يلزم 4.102.0 أو أحدث)</td><td><code>npx wrangler@latest --version</code></td></tr><tr><td>النشر (دون حساب)</td><td><code>npx wrangler@latest deploy --temporary</code></td></tr><tr><td>النشر + تحليل الروابط</td><td><code>npx wrangler@latest deploy --temporary 2&gt;&amp;1 | python scripts/parse_deploy_output.py</code></td></tr><tr><td>التحقّق من أنه مباشر</td><td><code>curl -sS &lt;live_url&gt;</code></td></tr><tr><td>مسح الحساب المؤقت المخزَّن</td><td><code>npx wrangler@latest logout</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="temporary-account-product-limits">حدود منتجات الحساب المؤقت</h3>
+<table><thead><tr><th>المنتج</th><th>الحد في حساب مؤقت</th></tr></thead><tbody><tr><td>Workers</td><td>النشر إلى <code>workers.dev</code></td></tr><tr><td>Static Assets</td><td>حتى 1000 ملف، 5 ميبيبايت لكل ملف</td></tr><tr><td>KV</td><td>مسموح</td></tr><tr><td>D1</td><td>قاعدة بيانات واحدة، 100 ميغابايت لكل قاعدة بيانات / 100 ميغابايت إجمالًا</td></tr><tr><td>Durable Objects</td><td>مسموح</td></tr><tr><td>Hyperdrive</td><td>إعدادان (configs)، 10 اتصالات</td></tr><tr><td>Queues</td><td>حتى 10</td></tr><tr><td>شهادات SSL/TLS</td><td>مسموح</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong><code>--temporary</code> غير مذكور في <code>wrangler deploy --help</code> وليس خيارًا (flag) عامًا.</strong> إنه مخفي عمدًا ويظهر ديناميكيًا: عندما يفشل <code>wrangler deploy</code> غير المصادَق عليه، يطبع Wrangler &quot;rerun with <code>--temporary</code>&quot;. لا تستنتج أن الخيار غير موجود لمجرد أن <code>--help</code> لا يذكره — تحقّق من الإصدار بدلًا من ذلك.</li>
+<li><strong>نسخة wrangler عامة قديمة.</strong> نسخة <code>wrangler</code> مثبَّتة عامةً وقديمة (<code>&lt; 4.102.0</code>) تفتقر إلى هذا الخيار بصمت. استدعِ دائمًا <code>npx wrangler@latest</code> (أو نسخة مثبَّتة <code>&gt;=4.102.0</code>) حتى تتحكّم في الإصدار.</li>
+<li><strong>وجود مصادقة ← خطأ حتمي.</strong> إذا شُغِّل <code>wrangler login</code> في أي وقت، أو كان <code>CLOUDFLARE_API_TOKEN</code>/<code>CLOUDFLARE_API_KEY</code> مضبوطًا، يُعيد <code>--temporary</code> خطأً. إمّا ألغِ ضبط المتغير لهذا الـ shell أو نفّذ <code>wrangler logout</code>. لا تحذف بيانات اعتماد المستخدم الحقيقية أبدًا دون إخباره.</li>
+<li><strong>حدّ المعدل (rate limiting).</strong> إنشاء حسابات مؤقتة بسرعة كبيرة يفشل. أعد استخدام الحساب المخزَّن مؤقتًا (فقط أعد النشر) ضمن نافذة الـ60 دقيقة بدلًا من فرض حساب جديد؛ وإن واجهت حدّ المعدل، انتظر أو استخدم حسابًا دائمًا.</li>
+<li><strong>انتهاء صلاحية حتمي بعد 60 دقيقة، غير قابل للتمديد.</strong> إذا احتاج النشر للبقاء أكثر من ساعة، يجب على المستخدم المطالبة به. وضّح ذلك بجلاء.</li>
+<li><strong>قد يعرض <code>curl</code> النص القديم لوقت قصير بعد إعادة النشر.</strong> يملك <code>workers.dev</code> ذاكرة تخزين مؤقتة طرفية قصيرة الأمد؛ سطر <code>(reused)</code> مع <code>Current Version ID</code> جديد يؤكّدان نجاح النشر حتى لو أظهر <code>curl</code> محتوى قديمًا لبضع ثوانٍ. أعد تشغيل curl، أو أضف سلسلة استعلام لكسر التخزين المؤقت، قبل أن تستنتج فشل إعادة النشر.</li>
+<li><strong>لا تُدرج رابط المطالبة في محادثات مشتركة باعتباره &quot;مجرد رابط&quot;.</strong> فهو يعادل بيانات اعتماد.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li>يُعيد <code>npx wrangler@latest --version</code> قيمة <code>&gt;= 4.102.0</code>.</li>
+<li>يطبع <code>npx wrangler@latest deploy --temporary</code> رابطًا مباشرًا من <code>workers.dev</code> ورابط مطالبة <code>claim-preview?claimToken=</code>.</li>
+<li>يُعيد <code>curl -sS &lt;live_url&gt;</code> النص الدقيق الذي يُنتجه كود Worker.</li>
+<li>تُظهر عملية نشر ثانية <code>Account: &lt;name&gt; (reused)</code> ويبقى الرابط المباشر دون تغيير.</li>
+<li>ينجح الاختبار الذاتي لسكربت التحليل: <code>python scripts/parse_deploy_output.py --selftest</code>.</li>
+</ul>

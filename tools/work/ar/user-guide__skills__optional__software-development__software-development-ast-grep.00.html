@@ -1,0 +1,150 @@
+
+<header><h1>Ast Grep</h1></header>
+<p>بحث وإعادة كتابة بنيوية للكود واعية بشجرة AST عبر ast-grep.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/software-development/ast-grep</code></td></tr><tr><td>المسار</td><td><code>optional-skills/software-development/ast-grep</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Yeongyu Kim (code-yeongyu)، اقتبسها Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>ast</code>، <code>codemod</code>، <code>refactoring</code>، <code>structural-search</code>، <code>code-search</code>، <code>rewrite</code>، <code>tree-sitter</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/software-development/software-development-simplify-code"><code>simplify-code</code></a>، <a href="/docs/user-guide/skills/bundled/software-development/software-development-systematic-debugging"><code>systematic-debugging</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>ast-grep</h1>
+<p><code>ast-grep</code> (يُسمى الملف التنفيذي أيضًا <code>sg</code>) هي <strong>أداة بحث وإعادة كتابة واعية بشجرة AST</strong> عبر 25 لغة. تعامل نمطك ككود، وتحلّله بالطريقة نفسها التي تحلّل بها مشروعك، وتطابقه بنيويًا. إنها الأداة الصحيحة كلما اعتمد سؤالك على <strong>شكل الكود</strong> لا على بايتات النص.</p>
+<p>تأتي هذه المهارة مع مُغلِّف Python في <code>scripts/ast_grep_helper.py</code> وسكربتات تثبيت لكل منصة في <code>install.sh</code> (POSIX) و<code>install.ps1</code> (Windows). يضيف المساعد التحقق دون اتصال من صحة النمط، وحيلة الكتابة على مرحلتين، والتحديد التلقائي للملف التنفيذي. استخدمه كنقطة الدخول الافتراضية لديك.</p>
+<p>المصدر الأصلي: مأخوذ من <a href="https://github.com/code-yeongyu/ast-grep-skill" data-ext>code-yeongyu/ast-grep-skill</a> (MIT)، كما وُرِّد في حزمة shared-skills الخاصة بـ oh-my-openagent.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this-skill">متى تُستخدم هذه المهارة</h2>
+<p>استخدمها كلما كان السؤال عن <strong>بنية الكود</strong>، لا عن البايتات:</p>
+<ul>
+<li>&quot;اعثر على كل دالة تأخذ معاملًا من نوع <code>Request</code>.&quot;</li>
+<li>&quot;أعد كتابة كل <code>console.log(x)</code> إلى <code>logger.info(x)</code>.&quot;</li>
+<li>&quot;احذف كل تحويل <code>as any</code>.&quot;</li>
+<li>&quot;استبدل <code>require(...)</code> بـ <code>import</code> عبر المستودع.&quot;</li>
+<li>&quot;اعثر على كتل catch الفارغة.&quot;</li>
+<li>&quot;هاجر <code>Optional[X]</code> إلى <code>X | None</code>.&quot;</li>
+<li>&quot;طبّق هذا الـ codemod عبر هذه الـ200 ملف.&quot;</li>
+<li>&quot;شغّل قواعد YAML lint الخاصة بنا وأظهر المخالفات.&quot;</li>
+</ul>
+<p>انتقل إلى <code>search_files</code> (أو <code>rg</code> العادية) عندما يكون السؤال نصي الشكل (محتويات سلسلة نصية حرفية، تعليقات، ترويسات ترخيص، أسماء ملفات، تعبير نمطي (regex) عابر للغات). عند الشك، اسأل: &quot;هل تعتمد الإجابة على شجرة صياغة اللغة، أم فقط على بايتات الملف؟&quot; إذا كانت الأولى، استخدم ast-grep. وإذا كانت الثانية، استخدم search_files.</p>
+<p>ملاحظات تكامل Hermes:</p>
+<ul>
+<li>شغّل المساعد و<code>sg</code> عبر أداة <code>terminal</code>. ضع كل نمط بين علامتي اقتباس مفردة كي لا يوسِّع الـ shell أبدًا <code>$VAR</code>.</li>
+<li>لسلاسل البحث ثم القراءة حول المطابقات، استخدم <code>--json-out</code> وعالجها عبر <code>execute_code</code> بدلًا من التمرير عبر مفسِّرات.</li>
+<li>هذه المهارة تكمّل (لا تستبدل) أداة <code>patch</code> في Hermes: <code>patch</code> مخصَّصة للتعديلات المحدَّدة التي تكتبها بنفسك؛ وast-grep مخصَّصة لإعادة الكتابة الدفعية المدفوعة بنمط عبر مواضع كثيرة.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="three-things-the-agent-must-internalize">ثلاثة أمور يجب أن يستوعبها الوكيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-ast-grep-is-not-regex">1. ast-grep ليست تعبيرات نمطية (regex)</h3>
+<p>البدائل (wildcards) هي <code>$VAR</code> (عقدة AST واحدة) و<code>$$$</code> (صفر عقدة أو أكثر). تفشل صياغة regex بصمت:</p>
+<table><thead><tr><th>ما كتبته</th><th>ما رأته ast-grep</th><th>ما أردته</th></tr></thead><tbody><tr><td><code>foo|bar</code></td><td>OR بتّي (bitwise) لـ <code>foo</code> و<code>bar</code></td><td>شغّل بحثين منفصلين</td></tr><tr><td><code>.*foo</code></td><td>غير قابل للتحليل</td><td><code>$$$ foo</code> (إذا كانت <code>$$$</code> قائمة عقد) أو استخدم rg</td></tr><tr><td><code>\w+</code></td><td>غير قابل للتحليل</td><td><code>$VAR</code> لالتقاط أي معرِّف</td></tr><tr><td><code>[a-z]</code></td><td>فئة أحرف، غير قابلة للتحليل</td><td>انتقل إلى rg</td></tr></tbody></table>
+<p>جدول الأنماط المضادة الكامل موجود في <code>references/pitfalls.md</code> §1. أداة المساعد الفرعية <code>validate</code> تكتشف هذه الحالات آليًا — استدعِها قبل تصحيح خطأ &quot;لا مطابقات&quot; يدويًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-patterns-must-be-valid-code">2. يجب أن تكون الأنماط كودًا صالحًا</h3>
+<p>يجب أن يُحلَّل النمط نفسه بنجاح. يفشل <code>def $FN($$$):</code> لأن <code>:</code> اللاحقة تجعله غير مكتمل؛ استخدم <code>def $FN($$$)</code>. يفشل <code>function $NAME</code> دون معاملات/جسم؛ استخدم <code>function $NAME($$$) { $$$ }</code>. الجدول الكامل لكل لغة في <code>references/pitfalls.md</code> §2.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3---update-all-and---json-are-mutually-exclusive-silently">3. <code>--update-all</code> و<code>--json</code> متنافيتان (بصمت)</h3>
+<p>هذه أكبر مصيدة عند كتابة السكربتات. يعيد <code>sg run -p P -r R --json --update-all</code> بيانات JSON لكنه <strong>لا يعدِّل الملفات</strong>. للمعاينة والتطبيق معًا، شغّل <strong>مرحلتين</strong>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يقوم المساعد بذلك تلقائيًا عند استدعاء <code>replace --apply</code>. راجع <code>references/pitfalls.md</code> §9.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-helper-script--scriptsast_grep_helperpy">السكربت المساعد — <code>scripts/ast_grep_helper.py</code></h2>
+<p>مُغلِّف Python 3 من ملف واحد يعتمد على المكتبة القياسية فقط. متماثل على كل نظام تشغيل. نقطة الدخول الافتراضية للوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search--find-all-matches-of-a-pattern"><code>search</code> — العثور على كل مطابقات نمط</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يتحقق من صحة النمط أولًا دون اتصال. إذا بدا النمط أشبه بتعبير نمطي (<code>\w</code>، <code>.*</code>، <code>|</code>، إلخ)، يخرج المساعد مع تلميح ولا يستدعي <code>sg</code> أبدًا — ما يوفر جولة استدعاء. مرّر <code>--force</code> لتخطي التحقق.</p>
+<p>الخيارات (flags):</p>
+<ul>
+<li><code>--lang ts</code> (أو أي من اللغات الـ25؛ الأسماء المستعارة مثل <code>js</code>، <code>py</code>، <code>rs</code>، <code>kt</code> مقبولة)</li>
+<li><code>--globs &#x27;!**/*.test.ts&#x27;</code> (قابل للتكرار؛ البادئة <code>!</code> للاستثناء)</li>
+<li><code>-C 3</code> (أسطر سياق)</li>
+<li><code>--json-out</code> (JSON خام بدل الصيغة المقروءة للبشر)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="replace--rewrite-by-pattern-dry-run-by-default"><code>replace</code> — إعادة كتابة حسب النمط، تجربة جافة (dry-run) افتراضيًا</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يقوم المساعد بما يلي:</p>
+<ol>
+<li>يتحقق من صحة كل من <code>pattern</code> و<code>rewrite</code> بحثًا عن أخطاء قابلة للاكتشاف بتلميح.</li>
+<li>يشغّل المرحلة الأولى بـ <code>--json=compact</code> لجمع المطابقات وعرض معاينة.</li>
+<li>إذا ضُبط <code>--apply</code>، يشغّل المرحلة الثانية بـ <code>--update-all</code> لتعديل الملفات.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scan--run-yaml-rules"><code>scan</code> — تشغيل قواعد YAML</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="validate--offline-pattern-check-no-sg-call"><code>validate</code> — فحص النمط دون اتصال (بلا استدعاء لـ <code>sg</code>)</h3>
+<p>مفيدة لفحوصات lint في CI، وربط pre-commit، وفحوصات سريعة للسلامة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="langs--doctor--install"><code>langs</code> / <code>doctor</code> / <code>install</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تُمرِّر الأمران الفرعيان <code>new</code> و<code>test</code> مباشرة إلى <code>sg new</code> و<code>sg test</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="direct-sg-use-when-the-helper-isnt-enough">استخدام <code>sg</code> مباشرة (عندما لا يكفي المساعد)</h2>
+<p>المساعد له أسلوب محدَّد. للتحكم الكامل، انزل إلى <code>sg</code>. تأتي هذه المهارة مع ورقة غش (cheat sheet) لواجهة CLI في <code>references/cli.md</code>. الأنماط الأدنى:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>عند استخدام <code>sg</code> مباشرة في shell، <strong>ضع الأنماط دائمًا بين علامتي اقتباس مفردة</strong> كي لا يوسِّع الـ shell قيمة <code>$VAR</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decision-tree--what-to-use-when">شجرة القرار — ماذا تستخدم، ومتى</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>إذا قال المستخدم &quot;اعثر على كل&quot; أو &quot;كل&quot;، فاختر افتراضيًا ast-grep عندما تكون الغاية ذات شكل بنيوي (دالة، صنف، استدعاء، استيراد، عبارة). واختر افتراضيًا search_files عندما تكون الغاية نصية (محتوى سلسلة، تعليق، ترويسة ترخيص، اسم ملف، جزء من معرِّف).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="always-run-dry-run-first-when-rewriting">شغّل التجربة الجافة (dry-run) دائمًا أولًا عند إعادة الكتابة</h2>
+<p>يمكن لنمط سيئ أن يعيد كتابة الشيء الخاطئ بصمت. لهذا السبب يكون الوضع الافتراضي لأمر <code>replace</code> في المساعد هو التجربة الجافة. سير العمل هو:</p>
+<ol>
+<li>ابحث للتأكد من المطابقات: <code>helper search &#x27;&lt;pattern&gt;&#x27; --lang X .</code></li>
+<li>أعد الكتابة كتجربة جافة: <code>helper replace &#x27;&lt;pattern&gt;&#x27; &#x27;&lt;rewrite&gt;&#x27; --lang X .</code> (دون <code>--apply</code>)</li>
+<li>افحص ملخص التجربة الجافة: عدد المطابقات، والملفات المتأثرة، ومعاينة كل موضع.</li>
+<li>إذا كانت النتيجة خاطئة: نقّح النمط، وعد إلى الخطوة 1.</li>
+<li>إذا كانت صحيحة: <code>helper replace &#x27;&lt;pattern&gt;&#x27; &#x27;&lt;rewrite&gt;&#x27; --lang X . --apply</code>.</li>
+</ol>
+<p>لا تطبّق أبدًا إعادة كتابة لم تجرِّبها جافة أولًا. بعد <code>--apply</code> في مستودع git، راجع بـ <code>git diff --stat</code> قبل الالتزام (commit).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-sg-returns-0-matches-but-you-know-the-code-is-there">عندما تعيد <code>sg</code> صفر مطابقات لكنك تعلم أن الكود موجود</h2>
+<p>بترتيب الأولوية:</p>
+<ol>
+<li><strong>شغّل <code>helper validate &#x27;&lt;pattern&gt;&#x27; --lang &lt;lang&gt;</code></strong> — يكتشف سوء استخدام regex، والأجسام الدالية المفقودة، والنقطتين اللاحقتين في Python.</li>
+<li><strong>تحقق من <code>--lang</code></strong> — تستنتج <code>sg</code> اللغة من الامتداد؛ فإذا مررت ملف <code>.tsx</code> مع <code>--lang ts</code> (وليس <code>tsx</code>)، لن يتم تحليل JSX.</li>
+<li><strong>افحص النمط بعد تحليله</strong>: <code>sg run -p &#x27;&lt;pattern&gt;&#x27; --lang &lt;lang&gt; --debug-query=ast --stdin &lt;&lt;&lt; &#x27;&lt;sample&gt;&#x27;</code>. إذا ظهرت عقد <code>ERROR</code>، فالنمط غير صحيح البنية.</li>
+<li><strong>افحص شجرة AST الخاصة بالملف الهدف</strong>: <code>sg run -p &#x27;$_&#x27; --lang &lt;lang&gt; --debug-query=cst path/to/file | head -40</code> — ابحث عن <code>kind</code> الذي تحاول مطابقته.</li>
+<li><strong>جرّب ساحة اللعب (playground)</strong>: &lt;<a href="https://ast-grep.github.io/playground.html%3E" data-ext>https://ast-grep.github.io/playground.html&gt;</a> — الصق الكود والنمط، وانظر ما يحدث.</li>
+</ol>
+<p>لا تعد المحاولة عشوائيًا بتنويعات مختلفة. لكل فشل سبب؛ أظهره.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-yaml-rules-vs-inline--p-patterns">متى تستخدم قواعد YAML مقابل أنماط <code>-p</code> المضمَّنة</h2>
+<p><strong>استخدم <code>-p</code> المضمَّنة</strong> عندما:</p>
+<ul>
+<li>الاستعلام لمرة واحدة وعابر.</li>
+<li>النمط بسيط (بلا قيود، بلا قالب إصلاح).</li>
+<li>أنت في طور الاستكشاف.</li>
+</ul>
+<p><strong>استخدم قواعد YAML</strong> (ملف تحت <code>rules/</code>، يُشغَّل عبر <code>sg scan</code>) عندما:</p>
+<ul>
+<li>النمط يُعاد استخدامه (قاعدة lint، أو codemod يعمل في CI).</li>
+<li>تحتاج إلى <code>constraints</code>، أو <code>transform</code>، أو <code>inside</code>/<code>has</code> معقدة، أو منطق مركَّب.</li>
+<li>تريد إصلاحًا تلقائيًا (حقل <code>fix:</code>).</li>
+<li>تريد اختبار القاعدة (اختبارات لقطة عبر <code>sg test</code>).</li>
+</ul>
+<p>مخطط قواعد YAML الكامل في <code>references/yaml-rules.md</code>. إعداد المشروع (<code>sgconfig.yml</code>، <code>ruleDirs</code>، <code>utilDirs</code>) في <code>references/sgconfig.md</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-discipline">انضباط المخرجات</h2>
+<ul>
+<li>ينتج <code>sg run --json=compact</code> مصفوفة من كائنات المطابقة: <code>{ file, range: {start, end}, text, replacement?, lines, language, ... }</code>.</li>
+<li>دون <code>--json</code>، تنتج <code>sg</code> مخرجات مقروءة وملوَّنة مناسبة للطرفيات (terminals).</li>
+<li>المخرجات الافتراضية للمساعد مقروءة للبشر (ملف:سطر:عمود + معاينة المطابقة). مرّر <code>--json-out</code> للحصول على JSON خام.</li>
+<li>يلخّص أمر <code>replace</code> في المساعد دائمًا: عدد المطابقات، وعدد الملفات، ومعاينة كل موضع.</li>
+</ul>
+<p>عند التلخيص للمستخدم، <strong>ضمِّن دائمًا عدد الملفات المتأثرة</strong>، لا عدد المطابقات فقط. يهتم المستخدمون بنطاق التأثير.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-reading-in-order-of-priority">القراءة المطلوبة (بترتيب الأولوية)</h2>
+<ol>
+<li><code>references/patterns.md</code> — المتغيرات الوصفية (meta-variables)، وقواعد التسمية، ومستويات الصرامة. اقرأه عندما لا تكون متأكدًا لماذا لا يطابق نمط ما.</li>
+<li><code>references/pitfalls.md</code> — دليل ميداني لأنماط الفشل. اقرأه عندما تفاجئك نتيجة صفر مطابقات.</li>
+<li><code>references/recipes.md</code> — أنماط جاهزة للنسخ حسب اللغة. اقرأه أولًا عند بدء مهمة جديدة.</li>
+<li><code>references/cli.md</code> — <code>sg run</code>، و<code>sg scan</code>، و<code>sg test</code>، و<code>sg new</code>، و<code>sg lsp</code>. اقرأه عندما لا يكفي المساعد.</li>
+<li><code>references/yaml-rules.md</code> — مخطط قاعدة YAML. اقرأه عندما تتجاوز حاجتك الأنماط المضمَّنة.</li>
+<li><code>references/sgconfig.md</code> — الإعدادات على مستوى المشروع. اقرأه عند إعداد <code>sg scan</code> لمشروع حقيقي.</li>
+<li><code>references/install.md</code> — طرق التثبيت لكل نظام تشغيل. اقرأه فقط إذا فشل <code>install.sh</code> / <code>install.ps1</code>.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="invariants-do-not-break">ثوابت (لا تكسرها)</h2>
+<ul>
+<li><strong>تحقق من الصحة قبل البحث.</strong> عند توليد نمط برمجيًا، استدعِ <code>helper validate</code> أولًا. فهو يكتشف فئة أخطاء سوء استخدام regex التي تمثل نحو 70% من جلسات تصحيح &quot;صفر مطابقات&quot;.</li>
+<li><strong>جرّب جافًا قبل التطبيق.</strong> لا تشغّل أبدًا <code>sg run -r ... --update-all</code> دون فحص المطابقات أولًا. يفرض أمر <code>replace</code> في المساعد هذا افتراضيًا.</li>
+<li><strong>كتابة على مرحلتين.</strong> عند استخدام <code>sg</code> مباشرة للمعاينة والتطبيق معًا، شغّل استدعاءين — <code>--json</code> يتجاهل <code>--update-all</code>.</li>
+<li><strong>ضع الأنماط بين علامتي اقتباس مفردة في الـ shell.</strong> <code>&#x27;$VAR&#x27;</code> وليس <code>&quot;$VAR&quot;</code>. يوسِّع الـ shell قيمة <code>$VAR</code> إلى سلسلة فارغة داخل علامتي الاقتباس المزدوجتين، ما يكسر النمط.</li>
+<li><strong>النمط كود، وليس تعبيرًا نمطيًا (regex).</strong> عندما يحتاج النمط إلى <code>|</code>، أو <code>.*</code>، أو <code>\w</code>، أو <code>[a-z]</code>، انتقل إلى search_files بدلًا من ذلك. لا تحاول إجبار ast-grep على شكل regex.</li>
+<li><strong><code>--lang</code> مطلوب لـ stdin.</strong> عند التمرير عبر <code>--stdin</code>، اضبط <code>--lang</code> صراحةً؛ فلا يمكن لـ <code>sg</code> الاستنتاج من الامتداد.</li>
+<li><strong>Linux: فضِّل <code>ast-grep</code> على <code>sg</code></strong> لأن <code>sg</code> يتعارض مع <code>setgroups</code> من <code>util-linux</code>. يتولى المساعد هذا الأمر؛ فإذا استدعيت <code>sg</code> مباشرة، اجعل له اسمًا مستعارًا: <code>alias sg=ast-grep</code>.</li>
+</ul>

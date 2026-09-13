@@ -1,0 +1,69 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="building-from-source">البناء من المصدر</h2>
+<p>إذا أردت العمل على تطوير التطبيق نفسه، فثبّت اعتماديات مساحة العمل من جذر المستودع مرة واحدة، ثم شغّل خادم التطوير من <code>apps/desktop</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>وجّه التطبيق إلى نسخة مسحوبة (checkout) محددة، أو اعزله في sandbox بعيدًا عن إعداداتك الحقيقية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>بناء المُثبّتات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يُنفَّذ التوقيع والتوثيق (notarization) على macOS/Windows تلقائيًا عند وجود بيانات الاعتماد المطلوبة في البيئة (<code>CSC_LINK</code> / <code>CSC_KEY_PASSWORD</code> / <code>APPLE_*</code> لـ macOS، و<code>WIN_CSC_*</code> لـ Windows).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos-permissions-and-local-rebuilds-tcc">صلاحيات macOS وإعادة البناء المحلية (TCC)</h3>
+<p><strong>أوقف جميع طلبات إذن المجلدات بمفتاح واحد.</strong> يطلب macOS الإذن لكل فئة على حدة
+(Desktop، ثم Downloads، ثم Documents، ...) كلما وصل Hermes إلى مجلد منها.
+ويغطي منح إذن <strong>Full Disk Access</strong> واحد جميع هذه المجلدات بشكل دائم — ومع
+هويات التوقيع الثابتة في Hermes يبقى الإذن ساريًا بعد كل تحديث:</p>
+<ol>
+<li>System Settings → <strong>Privacy &amp; Security → Full Disk Access</strong> (أو نفّذ
+<code>open &quot;x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles&quot;</code>)</li>
+<li>فعّل تطبيق الطرفية الذي تستخدمه — وكذلك <strong>Hermes.app</strong> إذا كنت تستخدم Desktop.</li>
+<li>أغلقها تمامًا ثم أعد تشغيلها مرة واحدة.</li>
+</ol>
+<p>يُبلغ <code>hermes doctor</code> عمّا إذا كان سياق الطرفية الحالي يملك هذا الإذن بالفعل،
+ويعرض <code>hermes setup</code> هذه النصيحة على macOS عندما لا يملكه.</p>
+<p>يحفظ macOS الأذونات الممنوحة (Full Disk Access، و Desktop/Downloads/Documents،
+و Accessibility، و Automation، والميكروفون) مرتبطةً بـ<em>هوية توقيع الكود</em> الخاصة بالتطبيق،
+لا بمساره. وتُوقَّع التطبيقات المبنية محليًا والمحدَّثة ذاتيًا بتوقيع ad-hoc ثابت
+مرتبط بالمعرّف، لذا تبقى الأذونات سارية عبر التحديثات.</p>
+<p>ملاحظة لمرة واحدة: الأذونات الممنوحة لإصدارات بُنيت <em>قبل</em> إصلاح التوقيع المرتبط
+بالمعرّف (PR #73681) تحمل الشرط القديم المرتبط بـ cdhash. يستمر macOS في عرض
+المفتاح بحالة ON لتلك الأذونات القديمة لكنه يعيد طلب الإذن، لأن الإذن المخزّن
+لم يعد يطابق الملف التنفيذي المُعاد بناؤه — ولا يحتوي طلب الإذن الحديث على زر Allow،
+فيبدو كأنه لا يوجد ما يمكن إعادة تفعيله. إذا حدث ذلك، فأعد ضبط
+الإذن القديم مرة واحدة وامنحه من جديد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>ثم فعّل المُدخل الجديد (ON) في System Settings، وأغلق Hermes تمامًا وأعد تشغيله.
+وتبقى الأذونات ثابتة من ذلك الحين.</p>
+<p>للحصول على أقوى ضمان — هوية مرتبطة بشهادة، وهي الآلية نفسها
+التي يعتمد عليها مستخدمو yabai/skhd — أنشئ شهادة توقيع كود موقّعة ذاتيًا
+مرة واحدة واطلب من Hermes استخدامها. يتولى الأمر الواحد
+كل شيء (ينشئ الشهادة في login keychain، ويمنح <code>codesign</code>
+حق الوصول، ويكتب الإعدادات، ويعيد توقيع التطبيق المحزوم):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>أو نفّذ ذلك يدويًا:</p>
+<ol>
+<li>Keychain Access → Certificate Assistant → <strong>Create a Certificate…</strong></li>
+<li>الاسم (Name): <code>Hermes Local Signing</code>، ونوع الهوية (Identity Type): <em>Self-Signed Root</em>،
+ونوع الشهادة (Certificate Type): <strong>Code Signing</strong>.</li>
+<li>في Keychain Access، انقر نقرًا مزدوجًا على الشهادة الجديدة → <strong>Trust</strong> → واضبط
+<strong>Code Signing</strong> على <em>Always Trust</em> (فالشهادة الموقّعة ذاتيًا المستوردة
+لا تُعد هوية توقيع صالحة إلى أن تُمنح الثقة لتوقيع الكود —
+ويجب أن يُدرجها <code>security find-identity -v -p codesigning</code> بعد ذلك).</li>
+<li><code>hermes config set desktop.macos_signing_identity &quot;Hermes Local Signing&quot;</code></li>
+</ol>
+<p>استخدم <code>--identity &lt;name&gt;</code> مع الأمر لإنشاء/استخدام شهادة باسم
+مختلف (الافتراضي: <code>Hermes Local Signing</code>). والأمر idempotent (تكرار تنفيذه لا يغيّر النتيجة) —
+أعد تشغيله بعد التحديثات لإعادة توجيه الإعدادات وإعادة توقيع التطبيق المُعاد بناؤه.</p>
+<p>يعيد التحديث التالي توقيع التطبيق المُعاد بناؤه بتلك الشهادة؛ فتبقى كل أذونات TCC
+سارية. لا حاجة إلى حساب Apple Developer. وتُكتشف إصدارات الإصدار الرسمية الموثّقة
+(notarized) ولا يُعاد توقيعها أبدًا.</p>
+<p>ملاحظة لمرة واحدة: تغيير هوية التوقيع (بما في ذلك أول تحديث بعد
+هذا الإصلاح) يغيّر هوية التطبيق مرة واحدة، لذا سيطلب macOS الإذن مرة أخيرة.
+وتبقى الأذونات ثابتة من ذلك الحين. إذا علِق إذن ما، فأعد ضبطه باستخدام
+<code>tccutil reset All com.nousresearch.hermes</code> ثم امنحه من جديد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><a href="/docs/user-guide/cli">دليل CLI</a> — الواجهة الطرفية</li>
+<li><a href="/docs/user-guide/tui">TUI</a> — واجهة المستخدم الطرفية الحديثة التي يستخدمها <code>hermes --tui</code> وتبويب المحادثة في لوحة التحكم</li>
+<li><a href="/docs/user-guide/features/web-dashboard">لوحة تحكم الويب</a> — لوحة إدارة في المتصفح مع تبويب محادثة مضمّن</li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a> — الإعدادات التي يقرؤها تطبيق سطح المكتب ويكتبها</li>
+<li><a href="/docs/user-guide/windows-native">Windows (أصلي)</a> — مسار التثبيت الأصلي على Windows</li>
+</ul>

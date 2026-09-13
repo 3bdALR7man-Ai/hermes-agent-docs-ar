@@ -1,0 +1,98 @@
+
+<header><h1>Evm</h1></header>
+<p>عميل EVM للقراءة فقط: المحافظ والعملات (tokens) والغاز عبر 8 سلاسل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/blockchain/evm</code></td></tr><tr><td>المسار</td><td><code>optional-skills/blockchain/evm</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Mibayy (@Mibayy), youssefea (@youssefea), ethernet8023 (@ethernet8023), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>EVM</code>, <code>Ethereum</code>, <code>BNB</code>, <code>BSC</code>, <code>Base</code>, <code>Arbitrum</code>, <code>Polygon</code>, <code>Optimism</code>, <code>Avalanche</code>, <code>zkSync</code>, <code>Blockchain</code>, <code>Crypto</code>, <code>Web3</code>, <code>DeFi</code>, <code>NFT</code>, <code>ENS</code>, <code>Whale</code>, <code>Security</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/blockchain/blockchain-solana"><code>solana</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة EVM Blockchain</h1>
+<p>استعلم عن بيانات سلاسل EVM المتوافقة عبر 8 سلاسل مع تسعير بالدولار الأمريكي.
+14 أمرًا: portfolio المحفظة، معلومات العملة (token)، المعاملات، النشاط، متتبّع الغاز،
+إحصاءات الشبكة، البحث عن السعر، الفحص عبر عدة سلاسل، رصد الحيتان (whale detection)، تحليل ENS،
+فحص allowance، فاحص العقود، ومفكّك المعاملات.</p>
+<p>يدعم 8 سلاسل: Ethereum و BNB Chain (BSC) و Base و Arbitrum One و Polygon
+و Optimism و Avalanche (C-Chain) و zkSync Era.</p>
+<p>لا حاجة إلى مفتاح API. اعتماديات خارجية صفرية — مكتبة Python القياسية فقط
+(urllib، json، argparse، threading).</p>
+<blockquote>
+<p><strong>يحلّ محل مهارة <code>base</code> المستقلة.</strong> عملات Base الخاصة (AERO، DEGEN،
+TOSHI، BRETT، WELL، cbETH، cbBTC، wstETH، rETH) وكل وظائف Base RPC التي
+كانت سابقًا ضمن <code>optional-skills/blockchain/base/</code> باتت مدمجة
+في هذه المهارة. مرّر <code>--chain base</code> إلى أي أمر لتغطية Base.</p>
+</blockquote>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم رصيد محفظة أو portfolio على أي سلسلة EVM</li>
+<li>يريد المستخدم فحص نفس المحفظة على جميع السلاسل في وقت واحد</li>
+<li>يريد المستخدم فحص معاملة عبر hash الخاص بها (أو فك تشفير ما فعلته)</li>
+<li>يريد المستخدم بيانات وصفية أو سعرًا أو المعروض أو القيمة السوقية لعملة ERC-20</li>
+<li>يريد المستخدم سجل المعاملات الأخيرة لعنوان معيّن</li>
+<li>يريد المستخدم أسعار الغاز الحالية أو مقارنة الرسوم بين السلاسل</li>
+<li>يريد المستخدم العثور على تحويلات حيتان (whale) كبيرة في الكتل الأخيرة</li>
+<li>يطلب المستخدم تحليل اسم ENS (مثل vitalik.eth) أو البحث العكسي عن عنوان</li>
+<li>يريد المستخدم التحقق مما إذا كان لعقد ما موافقات (approvals) خطرة على عملات معيّنة</li>
+<li>يريد المستخدم فحص عقد ذكي (هل هو proxy؟ ERC-20؟ ERC-721؟ ما حجم الـ bytecode؟)</li>
+<li>يريد المستخدم مقارنة تكاليف الغاز بين السلاسل قبل تنفيذ معاملة</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<p>مكتبة Python 3.8+ القياسية فقط. لا حاجة إلى تثبيت أي حزم عبر pip.
+التسعير: واجهة CoinGecko المجانية (بحدّ معدل، ~10-30 طلبًا في الدقيقة).
+ENS: واجهة ensideas.com العامة.
+فك تشفير المعاملات: واجهة 4byte.directory العامة.</p>
+<p>تجاوز endpoint الخاص بـ RPC: <code>export EVM_RPC_URL=https://your-rpc.com</code></p>
+<p>مسار السكربت المساعد: <code>~/.hermes/skills/blockchain/evm/scripts/evm_client.py</code></p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="0-setup-check">0. التحقق من الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-wallet-portfolio">1. Portfolio المحفظة</h3>
+<p>الرصيد الأصلي (native) + عملات ERC-20 المعروفة، مرتّبة حسب القيمة بالدولار.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-multi-chain-scan">2. الفحص عبر عدة سلاسل</h3>
+<p>يفحص جميع السلاسل الـ 8 في وقت واحد لنفس العنوان باستخدام threads.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>المخرجات: الرصيد الأصلي لكل سلسلة + العملات المملوكة + الإجمالي الكلي بالدولار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-compare-gas--prices">3. المقارنة (الغاز + الأسعار)</h3>
+<p>يُستعلم عن جميع السلاسل الـ 8 بالتوازي. يُظهر السلسلة الأرخص والأغلى.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-transaction-details--decode">4. تفاصيل المعاملة وفك تشفيرها</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يستخدم فك التشفير 4byte.directory لترجمة 0xa9059cbb -&gt; transfer(address,uint256).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-ens-resolution">5. تحليل ENS</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-allowance-checker-security">6. فاحص Allowance (الأمان)</h3>
+<p>يفحص موافقات ERC-20 الممنوحة لعقود DEX/جسور (bridges) معروفة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يضع علامة على الموافقات غير المحدودة (UNLIMITED) كخطر مرتفع (HIGH).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-contract-inspector">7. فاحص العقود</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يكتشف: proxy (EIP-1967/EIP-1167)، ERC-20، ERC-721، ERC-165. يُظهر حجم الـ bytecode وعنوان implementation في حالة الـ proxy.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-whale-detection">8. رصد الحيتان</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-gas-tracker">9. متتبّع الغاز</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يُظهر سعر gwei + التكلفة بالدولار لكل من: التحويل، تحويل ERC-20، الموافقة (approve)، المبادلة (swap)، سكّ NFT، ونقل NFT.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-chains">السلاسل المدعومة</h2>
+<table><thead><tr><th>المفتاح</th><th>الاسم</th><th>العملة الأصلية</th><th>معرّف السلسلة</th></tr></thead><tbody><tr><td>ethereum</td><td>Ethereum</td><td>ETH</td><td>1</td></tr><tr><td>bsc</td><td>BNB Chain</td><td>BNB</td><td>56</td></tr><tr><td>base</td><td>Base</td><td>ETH</td><td>8453</td></tr><tr><td>arbitrum</td><td>Arbitrum One</td><td>ETH</td><td>42161</td></tr><tr><td>polygon</td><td>Polygon</td><td>POL</td><td>137</td></tr><tr><td>optimism</td><td>Optimism</td><td>ETH</td><td>10</td></tr><tr><td>avalanche</td><td>Avalanche C</td><td>AVAX</td><td>43114</td></tr><tr><td>zksync</td><td>zkSync Era</td><td>ETH</td><td>324</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>الفئة المجانية من CoinGecko: ~10-30 طلبًا في الدقيقة. استخدم <code>--no-prices</code> لفحص أسرع للمحفظة.</li>
+<li>قد تحدّ خوادم RPC العامة من معدل الطلبات. اضبط EVM_RPC_URL على endpoint خاص للاستخدام الإنتاجي.</li>
+<li>يفحص كل من <code>wallet</code> و<code>allowance</code> قائمة عملات معروفة فقط (~30 عملة لكل سلسلة). استخدم مستكشف كتل (block explorer) لاكتشاف كامل للعملات.</li>
+<li>يفحص <code>activity</code> الكتل الأخيرة فقط (بحد أقصى 200). للسجل الكامل، استخدم Etherscan API.</li>
+<li>يشغّل <code>multichain</code> 8 threads بالتوازي — قد يؤدي ذلك إلى بلوغ حدود المعدل على خوادم RPC العامة.</li>
+<li>يعتمد تحليل ENS على endpoint عام واحد (ensideas.com / ens.vitalik.ca) بلا بديل احتياطي. إذا تعطّل ذلك الـ endpoint، سيفشل <code>ens</code> — أعد المحاولة لاحقًا أو استخدم مستكشف كتل.</li>
+<li>يعتمد فك تشفير المعاملات على endpoint عام واحد (4byte.directory) بلا بديل احتياطي. المحدّدات (selectors) غير الموجودة في قاعدة بياناتهم تظهر كـ <code>unknown</code>.</li>
+<li><strong>تقديرات غاز L2 تخص تنفيذ L2 فقط.</strong> على شبكات rollup مثل Base وArbitrum وOptimism وzkSync، تشمل التكلفة الفعلية للمعاملة أيضًا رسوم نشر البيانات على L1 والتي تعتمد على حجم calldata وأسعار غاز L1 الحالية. لا يقدّر أمر <code>gas</code> هذا المكوّن الخاص بـ L1. بالنسبة إلى Base تحديدًا، راجع oracle رسوم L1 الخاص بالشبكة (العقد <code>0x420000000000000000000000000000000000000F</code>).</li>
+<li>يتم التحقق من مدخلات العنوان / hash المعاملة من حيث بادئة 0x والطول الصحيح وكونها hex، لكن حالة الأحرف الخاصة بـ checksum في EIP-55 <strong>لا</strong> يتم فرضها (تقبل نقاط RPC أي حالة أحرف للـ hex).</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>

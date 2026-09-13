@@ -1,0 +1,189 @@
+<header><h1>آلية عمل Cron من الداخل</h1></header>
+<p>يوفّر النظام الفرعي cron تنفيذ المهام المجدولة — بدءًا من التأخيرات البسيطة لمرة واحدة وصولًا إلى المهام المتكررة بتعبيرات cron مع حقن المهارات والتسليم عبر المنصات المختلفة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-files">الملفات الرئيسية</h2>
+<table><thead><tr><th>الملف</th><th>الغرض</th></tr></thead><tbody><tr><td><code>cron/jobs.py</code></td><td>نموذج المهمة، والتخزين، والقراءة والكتابة الذرية (atomic) في <code>jobs.json</code></td></tr><tr><td><code>cron/scheduler.py</code></td><td>حلقة المجدول — كشف المهام المستحقة، والتنفيذ، وتتبّع التكرار</td></tr><tr><td><code>tools/cronjob_tools.py</code></td><td>تسجيل أداة <code>cronjob</code> الموجّهة للنموذج ومعالجها</td></tr><tr><td><code>gateway/run.py</code></td><td>التكامل مع الـ gateway — نبضات cron داخل الحلقة طويلة الأمد</td></tr><tr><td><code>hermes_cli/cron.py</code></td><td>الأوامر الفرعية <code>hermes cron</code> في CLI</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scheduling-model">نموذج الجدولة</h2>
+<p>تُدعم أربع صيغ للجدولة:</p>
+<table><thead><tr><th>الصيغة</th><th>مثال</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>تأخير نسبي</strong></td><td><code>30m</code>، <code>2h</code>، <code>1d</code></td><td>لمرة واحدة، تُطلق بعد انقضاء المدة المحددة</td></tr><tr><td><strong>فاصل زمني</strong></td><td><code>every 2h</code>، <code>every 30m</code></td><td>متكررة، تُطلق على فترات منتظمة</td></tr><tr><td><strong>تعبير Cron</strong></td><td><code>0 9 * * *</code></td><td>صيغة cron القياسية ذات الحقول الخمسة (الدقيقة، الساعة، اليوم، الشهر، يوم الأسبوع)</td></tr><tr><td><strong>طابع زمني ISO</strong></td><td><code>2025-01-15T09:00:00</code></td><td>لمرة واحدة، تُطلق في الوقت المحدد تمامًا</td></tr></tbody></table>
+<p>الواجهة الموجّهة للنموذج أداة <code>cronjob</code> واحدة بعمليات على نمط الإجراءات: <code>create</code>، <code>list</code>، <code>update</code>، <code>pause</code>، <code>resume</code>، <code>run</code>، <code>remove</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="job-storage">تخزين المهام</h2>
+<p>تُخزَّن المهام في <code>~/.hermes/cron/jobs.json</code> بدلالات كتابة ذرية (الكتابة في ملف مؤقت، ثم إعادة تسميته). يحتوي سجل كل مهمة على:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="last_status-literals">القيم الحرفية لـ <code>last_status</code></h3>
+<p><code>last_status</code> مجموعة مغلقة من القيم لا يكتبها إلا <code>cron.jobs.mark_job_run</code>. ويعيّن كل
+عارض (<code>hermes cron list</code>/<code>doctor</code>، وأداة <code>cronjob</code>، وشارة لوحة التحكم
+على الويب، ومفتّش الـ routines في Desktop) كل قيمة حرفية صراحةً — ولا يجوز لأي مستهلك
+أبدًا أن يختبر <code>== &quot;ok&quot;</code> للدلالة على أن &quot;المستخدم حصل على نتيجته&quot;:</p>
+<table><thead><tr><th>القيمة الحرفية</th><th>المعنى</th><th>حقل التفاصيل</th></tr></thead><tbody><tr><td><code>ok</code></td><td>نجح تشغيل الوكيل وتأكّد التسليم (إن كان هناك هدف)</td><td>—</td></tr><tr><td><code>error</code></td><td>فشل تشغيل الوكيل</td><td><code>last_error</code></td></tr><tr><td><code>delivery_failed</code></td><td>نجح تشغيل الوكيل، لكن المخرجات لم تصل إلى هدفها قط</td><td><code>last_delivery_error</code> (وقيمة <code>last_error</code> هي <code>null</code>)</td></tr><tr><td><code>blocked_config</code></td><td>رفض التحقق السابق للتوزيع استهلاك تشغيل</td><td><code>last_error</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="job-lifecycle-states">حالات دورة حياة المهمة</h3>
+<table><thead><tr><th>الحالة</th><th>المعنى</th></tr></thead><tbody><tr><td><code>scheduled</code></td><td>نشطة، وستُطلق في الموعد المجدول التالي</td></tr><tr><td><code>paused</code></td><td>معلّقة — لن تُطلق حتى تُستأنف</td></tr><tr><td><code>completed</code></td><td>استُنفد عدد التكرارات، أو مهمة لمرة واحدة سبق إطلاقها</td></tr><tr><td><code>running</code></td><td>قيد التنفيذ حاليًا (حالة عابرة)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="backward-compatibility">التوافق مع الإصدارات السابقة</h3>
+<p>قد تحتوي المهام الأقدم على حقل <code>skill</code> مفرد بدلًا من المصفوفة <code>skills</code>. يوحّد المجدول ذلك عند التحميل — إذ يُرقّى الحقل المفرد <code>skill</code> إلى <code>skills: [skill]</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scheduler-runtime">المجدول وقت التشغيل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tick-cycle">دورة النبضات (Tick)</h3>
+<p>يعمل المجدول وفق نبضة دورية (الافتراضي: كل 60 ثانية):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="missed-occurrence-contract-restart-gaps">عقد المواعيد الفائتة (فجوات إعادة التشغيل)</h3>
+<p>تُنفَّذ المهام المتكررة <strong>مرة واحدة على الأكثر لكل موعد، ويُحتسب كل موعد
+دون استثناء</strong>: فإما أن يُشغَّل (بصف تنفيذ واحد يحمل
+<code>scheduled_instant</code> الخاص به)، وإما أن يُسجَّل تخطّيه مع ذكر السبب. لا يُسقَط أي موعد
+بصمت أبدًا. وفيما يلي الآليات، بالترتيب الذي يطبّقها به فحص المهام المستحقة
+(<code>cron/jobs.py::_evaluate_due_job</code>):</p>
+<ol>
+<li><strong>التقديم قبل التوزيع مؤقت.</strong> تُقدِّم <code>tick()</code> قيمة <code>next_run_at</code> إلى ما بعد
+الموعد المستحق <em>قبل</em> التوزيع، كي لا يؤدي تعطّل في منتصف التشغيل إلى إطلاقه مجددًا مع
+كل إعادة تشغيل. ولأن ذلك يترك نافذة زمنية — قُدِّم الموعد لكن لم يُسجَّل بعد أي ادعاء بالإطلاق
+(المفسّر ينهي عمله، أو المنفّذ يرفض العمل، أو <code>SIGKILL</code>) — يختم فحص المهام المستحقة
+السجلَّ بـ <code>pending_slot = {scheduled_at, at, by}</code> في عملية الحفظ
+نفسها. وتمسح هذا الختم كلٌّ من <code>claim_job_for_fire</code> (النقطة التي قد توجد بعدها آثار جانبية)
+و <code>mark_job_run</code>؛ كما تُسقطه أي إعادة كتابة صريحة لـ <code>schedule</code> / <code>next_run_at</code> /
+<code>enabled</code> / <code>state</code> (التعديل، أو الإيقاف المؤقت، أو الاستئناف، أو التشغيل الفوري).</li>
+<li><strong>الاستعادة مرة واحدة.</strong> إذا عثر فحص لاحق على <code>pending_slot</code> ثبت أن مالكه
+لم يعد موجودًا (العملية الحالية والمهمة ليست ضمن مجموعة المهام الجارية لديها؛ أو عملية
+أخرى تجاوزت مهلة عقد ادعاء الإطلاق البالغة 300 s أو يكون الـ pid الخاص بها ميتًا)، فإنه يعيد
+<code>scheduled_at</code> ليصبح قيمة <code>next_run_at</code>، ويُسقط الختم، ويسجّل تحذيرًا WARNING
+(<code>cron/occurrences.py::unclaimed_pending_slot</code>). يحدث هذا مرة واحدة على الأكثر
+لكل موعد مفقود — ثم تخضع اللحظة المستعادة للقواعد المعتادة
+أدناه مثل أي موعد متأخر آخر، لذا لا تُعاد أبدًا N من المواعيد.</li>
+<li><strong>أُطلق مسبقًا → لا يُطلق مرتين أبدًا.</strong> تراجع <code>completed_occurrence()</code>
+سجل عمليات التنفيذ بحثًا عن صف <code>completed</code> يحمل <code>scheduled_instant</code> ذاته تمامًا
+قبل اعتبار أي شيء مستحقًا؛ فالموعد الذي شُغِّل قبل إعادة التشغيل يُقدَّم دون
+إطلاق. ولا تُحتسب الصفوف <code>failed</code> / <code>unknown</code> اكتمالًا.</li>
+<li><strong>متأخر ضمن مهلة السماح → يُطلق متأخرًا.</strong> مهلة السماح = نصف الفترة، محصورةً ضمن
+<code>[120 s, 2 h]</code> (<code>_compute_grace_seconds</code>)؛ ويُختم التوزيع بـ
+<code>last_dispatch.kind = late</code>.</li>
+<li><strong>تجاوز مهلة السماح → دمج المتراكم، والإطلاق مرة واحدة</strong> (<code>kind = catch_up</code>)، أو التخطّي
+مع تسجيل السبب إذا ضبط المشغّل <code>cron.catch_up_missed: false</code>
+(توقف مخطط له). أما المهام لمرة واحدة التي تجاوزت مهلة السماح البالغة 120 s فتُحال إلى التقاعد مع
+رسالة تشخيصية، ولا تُحيا من جديد أبدًا.</li>
+<li><strong>المهام الموقوفة مؤقتًا / المعطّلة / المنتهية لا تُعوَّض أبدًا</strong>؛ إذ يُسقطها فحص المهام المستحقة
+قبل أيٍّ مما سبق، ويمسح الإيقاف المؤقت والاستئناف أي موعد معلّق.</li>
+</ol>
+<p>تحكم حقول التخزين نفسها كل الطوبولوجيات: فكلٌّ من <code>hermes -p X gateway run</code> المستقل، والـ profile الذي يخدمه المُجمِّع (multiplexer) الافتراضي (إذ تُطلق <code>_start_multiplex</code> نبضات
+كل مجلد رئيسي ضمن <code>_profile_cron_scope</code>)، يقيّمان السجل ذاته.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-integration">التكامل مع Gateway</h3>
+<p>في وضع gateway، تُختار <strong>آلية الإطلاق</strong> (trigger) في cron (الجزء الذي يقرّر <em>متى</em> تُطلق مهمة
+مستحقة — &quot;Axis B&quot;) عبر مزوّد <code>CronScheduler</code> قابل للاستبدال. يستدعي
+الـ gateway الدالة <code>resolve_cron_scheduler()</code> (<code>cron/scheduler_provider.py</code>) ويشغّل
+<code>start()</code> الخاصة بالمزوّد المحدَّد في خيط خلفية مخصّص، إلى جانب
+خيط منفصل لأعمال الصيانة الداخلية في الـ gateway.</p>
+<p>يُختار المزوّد النشط عبر مفتاح الإعدادات <code>cron.provider</code>:</p>
+<ul>
+<li><strong>فارغ (الافتراضي)</strong> → المزوّد المدمج <code>InProcessCronScheduler</code>، الذي يشغّل
+الحلقة التاريخية داخل العملية مستدعيًا <code>scheduler.tick()</code> كل 60 ثانية. وهذا
+مطابق بايتًا ببايت للسلوك السابق لظهور المزوّدين.</li>
+<li><strong>مزوّد مسمّى</strong> (مثل <code>chronos</code>، وهو مزوّد cron مُدار لعمليات
+النشر القابلة للتقليص إلى الصفر) → يُكتشف من <code>plugins/cron_providers/&lt;name&gt;/</code> أو
+<code>$HERMES_HOME/plugins/&lt;name&gt;/</code>.</li>
+</ul>
+<p>إذا كان المزوّد المسمّى غير موجود، أو فشل تحميله، أو أبلغ عن <code>is_available() == False</code>، يعود المحلِّل إلى المزوّد المدمج مع تحذير — <strong>فلا يُترك cron
+أبدًا دون آلية إطلاق.</strong> يوجد المزوّد المدمج في النواة
+(<code>cron/scheduler_provider.py</code>)، لا في <code>plugins/</code>، كي لا يمكن
+إزالة البديل الاحتياطي عن طريق الخطأ.</p>
+<p>أما &quot;الإطلاق&quot; وما <em>يعنيه</em> (تنفيذ المهمة + التسليم) فلم يتغيّر، وهو مشترك بين جميع
+المزوّدين — ويبقى في <code>scheduler.run_job()</code> / <code>scheduler._deliver_result()</code>.
+فالمزوّد يتحكم في آلية الإطلاق فقط، لا في التنفيذ أبدًا.</p>
+<p>في وضع CLI، لا تُطلق مهام cron إلا عند تنفيذ أوامر <code>hermes cron</code> أو أثناء جلسات CLI النشطة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managed-cron-chronos-for-scale-to-zero">cron المُدار (Chronos) للتقليص إلى الصفر</h3>
+<p>يمكن للـ gateways المستضافة تشغيل المزوّد <strong>Chronos</strong> (<code>cron.provider: chronos</code>)
+بدلًا من المؤقّت المدمج. يتيح Chronos للـ gateway الخامل <strong>التقليص إلى الصفر (scale to zero)</strong>
+مع الاستمرار في إطلاق مهام cron: فبدلًا من حلقة داخل العملية كل 60 ثانية (والتي كانت
+ستُبقي العملية مستيقظة)، يطلب من بنية Nous التحتية أن تجهّز <strong>مهمة مُدارة واحدة
+لمرة واحدة لكل مهمة في موعد إطلاقها التالي الفعلي</strong> تحديدًا. وعند موعد الإطلاق، تستدعي Nous
+الـ gateway عبر webhook موثَّق (<code>POST /api/cron/fire</code>)؛
+فيشغّل الـ gateway المهمة عبر المسار <code>run_one_job</code> نفسه الذي يستخدمه المزوّد المدمج،
+ثم يجهّز المهمة التالية لمرة واحدة. وبين عمليات الإطلاق يمكن إيقاف العملية تمامًا —
+فهي لا تستيقظ إلا عند إطلاق حقيقي، ولا تستيقظ أبدًا بمؤقّت دوري.</p>
+<p>المسار (توفّر Nous المجدول المُدار؛ ولا يحتفظ الوكيل بأي
+بيانات اعتماد للمجدول):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>الإعدادات (كلها غير سرية؛ وفي الوكلاء المستضافين تضبطها Nous عند التجهيز):</p>
+<table><thead><tr><th>المفتاح</th><th>المعنى</th></tr></thead><tbody><tr><td><code>cron.provider</code></td><td><code>chronos</code> للتفعيل (القيمة الفارغة = المؤقّت المدمج)</td></tr><tr><td><code>cron.chronos.portal_url</code></td><td>عنوان URL الأساسي لـ Nous (للتجهيز + جهة إصدار fire-token)</td></tr><tr><td><code>cron.chronos.callback_url</code></td><td>عنوان URL الأساسي العام الخاص بالـ gateway نفسه لاستقبال عمليات الإطلاق الواردة</td></tr><tr><td><code>cron.chronos.expected_audience</code></td><td>الجمهور (audience) المتوقَّع في fire-token الخاص بهذا الوكيل</td></tr><tr><td><code>cron.chronos.nas_jwks_url</code></td><td>مجموعة المفاتيح المستخدمة للتحقق من fire-token الوارد</td></tr></tbody></table>
+<p>إذا كانت إعدادات Chronos خاطئة أو لم يكن الوكيل مسجّل الدخول إلى Nous،
+تعود <code>resolve_cron_scheduler()</code> إلى المؤقّت المدمج (مع تسجيل تحذير) —
+فلا يفقد cron آلية إطلاقه أبدًا. تُعيد المهام المتكررة التجهيز بعد كل إطلاق؛ وتتوقف مهام <code>repeat</code>-N
+بسلاسة عند استنفاد العدد (دون مهمة يتيمة لمرة واحدة). ويوجد عقد الاتصال الكامل
+بين الوكيل و Nous في <code>docs/chronos-managed-cron-contract.md</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fresh-session-isolation">العزل بجلسة جديدة</h3>
+<p>تعمل كل مهمة cron في جلسة وكيل جديدة كليًا:</p>
+<ul>
+<li>لا يوجد سجل محادثة من عمليات التشغيل السابقة</li>
+<li>لا توجد ذاكرة لعمليات تنفيذ cron السابقة (أما الذاكرة الدائمة — MEMORY.md /
+USER.md — فتُحمَّل كما في أي تشغيل آخر للوكيل، لذا تنتقل التفضيلات والحقائق
+الدائمة؛ بينما لا ينتقل سياق المحادثة الخاص بكل تشغيل)</li>
+<li>يجب أن يكون الـ prompt مكتفيًا بذاته — إذ لا تستطيع مهام cron طرح أسئلة استيضاحية</li>
+<li>تكون toolset <code>cronjob</code> معطّلة (للحماية من التعاود)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-backed-jobs">المهام المدعومة بالمهارات</h2>
+<p>يمكن لمهمة cron إرفاق مهارة واحدة أو أكثر عبر الحقل <code>skills</code>. وعند التنفيذ:</p>
+<ol>
+<li>تُحمَّل المهارات بالترتيب المحدد</li>
+<li>يُحقن محتوى SKILL.md لكل مهارة كسياق</li>
+<li>يُلحق الـ prompt الخاص بالمهمة بوصفه تعليمات المهمة</li>
+<li>يعالج الوكيل سياق المهارات مجتمعًا مع الـ prompt</li>
+</ol>
+<p>يتيح هذا سير عمل قابلًا لإعادة الاستخدام ومُختبرًا دون لصق التعليمات الكاملة في prompts مهام cron. على سبيل المثال:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="script-backed-jobs">المهام المدعومة بالسكربتات</h3>
+<p>يمكن للمهام أيضًا إرفاق سكربت Python عبر الحقل <code>script</code>. يُشغَّل السكربت <em>قبل</em> كل دور للوكيل، ويُحقن stdout الخاص به في الـ prompt كسياق. يتيح هذا أنماط جمع البيانات وكشف التغييرات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>مهلة السكربت الافتراضية 3600 ثانية (ساعة واحدة). تحدّد <code>_get_script_timeout()</code> الحد عبر سلسلة من ثلاث طبقات:</p>
+<ol>
+<li><strong>تجاوز على مستوى الوحدة</strong> — <code>_SCRIPT_TIMEOUT</code> (للاختبارات والـ monkeypatching). لا يُستخدم إلا إذا اختلف عن القيمة الافتراضية.</li>
+<li><strong>متغير البيئة</strong> — <code>HERMES_CRON_SCRIPT_TIMEOUT</code></li>
+<li><strong>الإعدادات</strong> — <code>cron.script_timeout_seconds</code> في <code>config.yaml</code> (يُقرأ عبر <code>load_config()</code>)</li>
+<li><strong>الافتراضي</strong> — 3600 ثانية (ساعة واحدة)</li>
+</ol>
+<p>تحدّ هذه المهلة <strong>السكربت السابق للتشغيل فقط</strong>، لا الوكيل. فالمهام المعتمدة على المهارات أو التي يقودها LLM تعمل وفق ميزانية منفصلة قائمة على <em>عدم النشاط</em> (<code>HERMES_CRON_TIMEOUT</code>، والافتراضي 600s من الخمول، و <code>0</code> = بلا حد) — ويمكنها العمل لساعات ما دامت تستدعي الأدوات أو تبثّ tokens، ولا تُنهى إلا بعد انقضاء فترة الخمول المضبوطة دون أي نشاط. تُوزَّع السكربتات على مجمّع خيوط دائم (لا تُحتجز تحت قفل النبضة)، لذا لا يمنع سكربت طويل التشغيل إطلاقَ المهام المستحقة الأخرى.</p>
+<p>عند انقضاء المهلة أو إلغاء الملكية، يستخدم <code>cron.scheduler_script</code> مسار الإنهاء القسري المشترك
+<code>agent.deadline.kill_process_tree</code>. وعلى أنظمة POSIX، يوقف الشجرة الحية لفترة وجيزة
+ويعيد فحصها قبل إرسال الإشارات إلى العمليات المتفرعة وأصلها، بما في ذلك
+العمليات الفرعية في جلسات منفصلة بلا أنابيب مخرجات موروثة. يسدّ هذا
+حالة التسابق الناتجة عن fork بعد التقاط اللقطة. انتظار الإيقاف محدود المدة؛ وعند فشل الاكتشاف أو
+الصلاحيات يُستخدم تنظيف المجموعة بأفضل جهد، وليس ذلك ضمانًا بمستوى sandbox. وأي هدف
+أوقفته عملية التنظيف يُستأنف إذا فشل الإنهاء؛ أما الأهداف الموقوفة مسبقًا فتحتفظ
+بحالتها الأصلية. ولا تعلّق الإشارات الصريحة للإنهاء اللطيف العمليات التي تتلقاها.
+ويواصل Windows استخدام <code>taskkill /F /T</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-recovery">استعادة المزوّد</h3>
+<p>تمرّر <code>run_job()</code> المزوّدين الاحتياطيين ومجمّع بيانات الاعتماد اللذين ضبطهما المستخدم إلى نسخة <code>AIAgent</code>:</p>
+<ul>
+<li><strong>المزوّدون الاحتياطيون</strong> — يقرأ <code>fallback_providers</code> (قائمة) أو <code>fallback_model</code> (قاموس قديم) من <code>config.yaml</code>، على غرار نمط <code>_load_fallback_model()</code> في الـ gateway. ويُمرَّر بوصفه <code>fallback_model=</code> إلى <code>AIAgent.__init__</code>، التي توحّد الصيغتين في سلسلة احتياطية.</li>
+<li><strong>مجمّع بيانات الاعتماد</strong> — يُحمَّل عبر <code>load_pool(provider)</code> من <code>agent.credential_pool</code> باستخدام اسم مزوّد وقت التشغيل المحدَّد. ولا يُمرَّر إلا إذا كان المجمّع يحتوي على بيانات اعتماد (<code>pool.has_credentials()</code>). ويتيح تدوير المفاتيح ضمن المزوّد نفسه عند أخطاء 429 أو حدّ المعدل (rate limit).</li>
+</ul>
+<p>يحاكي هذا سلوك الـ gateway — فمن دونه، ستفشل وكلاء cron عند بلوغ حدود المعدل دون محاولة الاستعادة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-model">نموذج التسليم</h2>
+<p>يمكن تسليم نتائج مهام cron إلى أي منصة مدعومة.</p>
+<p>يسلّم اسم المنصة المجرّد (<code>slack</code>، <code>telegram</code>، …) النتائج إلى <strong>القناة الرئيسية (home channel)</strong> المضبوطة لتلك المنصة. ولاستهداف وجهة <strong>محددة</strong> بدلًا من ذلك، ألحِق هدفًا بعد نقطتين: <code>platform:&lt;target&gt;</code>. يُحدَّد الهدف عند موعد الإطلاق (لا عند إنشاء المهمة)، لذا يمكن لمهمة أن تسمّي وجهة على منصة غير متصلة بعد، ثم تبدأ التسليم إليها بمجرد اتصالها.</p>
+<p>تقبل معظم المنصات أيضًا thread أو topic اختياريًا كمقطع ثالث: <code>platform:&lt;chat_id&gt;:&lt;thread_id&gt;</code>.</p>
+<table><thead><tr><th>الهدف</th><th>الصيغة</th><th>مثال</th></tr></thead><tbody><tr><td>المحادثة الأصلية</td><td><code>origin</code></td><td>التسليم إلى المحادثة التي أُنشئت فيها المهمة</td></tr><tr><td>ملف محلي</td><td><code>local</code></td><td>الحفظ في <code>~/.hermes/cron/output/</code></td></tr><tr><td>Telegram</td><td><code>telegram</code>، <code>telegram:&lt;chat_id&gt;</code>، <code>telegram:&lt;chat_id&gt;:&lt;thread_id&gt;</code>، <code>telegram:@username</code></td><td><code>telegram:-1001234567890:17585</code></td></tr><tr><td>Discord</td><td><code>discord</code>، <code>discord:#channel</code>، <code>discord:&lt;channel_id&gt;</code>، <code>discord:&lt;channel_id&gt;:&lt;thread_id&gt;</code></td><td><code>discord:#engineering</code></td></tr><tr><td>Slack</td><td><code>slack</code>، <code>slack:#channel</code>، <code>slack:&lt;channel_id&gt;</code>، <code>slack:&lt;channel_id&gt;:&lt;thread_ts&gt;</code></td><td><code>slack:#engineering</code></td></tr><tr><td>Matrix</td><td><code>matrix</code>، <code>matrix:&lt;!room_id:server&gt;</code>، <code>matrix:&lt;@user:server&gt;</code></td><td><code>matrix:!abc123:example.org</code></td></tr><tr><td>Feishu</td><td><code>feishu</code>، <code>feishu:&lt;chat_id&gt;</code>، <code>feishu:&lt;chat_id&gt;:&lt;thread_id&gt;</code></td><td><code>feishu:oc_abc123def</code></td></tr><tr><td>WhatsApp</td><td><code>whatsapp</code>، <code>whatsapp:&lt;jid&gt;</code>، <code>whatsapp:+&lt;E.164&gt;</code></td><td><code>whatsapp:123456@g.us</code></td></tr><tr><td>Signal</td><td><code>signal</code>، <code>signal:group:&lt;id&gt;</code>، <code>signal:+&lt;E.164&gt;</code></td><td><code>signal:group:aBcD==</code></td></tr><tr><td>SMS</td><td><code>sms</code>، <code>sms:+&lt;E.164&gt;</code></td><td><code>sms:+&lt;E.164 number&gt;</code></td></tr><tr><td>Email</td><td><code>email</code>، <code>email:&lt;address&gt;</code></td><td><code>email:alerts@example.com</code></td></tr><tr><td>Weixin</td><td><code>weixin</code>، <code>weixin:&lt;wxid&gt;</code></td><td><code>weixin:wxid_abc123</code></td></tr><tr><td>Mattermost</td><td><code>mattermost</code> أو <code>mattermost:&lt;channel_id&gt;</code></td><td>الاسم المجرّد يسلّم إلى القناة الرئيسية في Mattermost</td></tr><tr><td>Home Assistant</td><td><code>homeassistant</code> أو <code>homeassistant:&lt;conversation&gt;</code></td><td>الاسم المجرّد يسلّم إلى محادثة HA</td></tr><tr><td>DingTalk</td><td><code>dingtalk</code> أو <code>dingtalk:&lt;chat_id&gt;</code></td><td>الاسم المجرّد يسلّم إلى DingTalk</td></tr><tr><td>WeCom</td><td><code>wecom</code> أو <code>wecom:&lt;chat_id&gt;</code></td><td>الاسم المجرّد يسلّم إلى WeCom</td></tr><tr><td>BlueBubbles</td><td><code>bluebubbles</code> أو <code>bluebubbles:&lt;chat_guid&gt;</code></td><td>الاسم المجرّد يسلّم إلى iMessage عبر BlueBubbles</td></tr><tr><td>QQ Bot</td><td><code>qqbot</code> أو <code>qqbot:&lt;chat_id&gt;</code></td><td>الاسم المجرّد يسلّم إلى QQ (Tencent) عبر Official API v2</td></tr><tr><td>Bot Chat</td><td><code>bot-chat</code> أو <code>bot-chat:&lt;profile&gt;</code></td><td>الحقن في Bot Chat المعتمدة لـ profile محلي (ويستجيب البوت)</td></tr></tbody></table>
+<p>تمتلك منصات المجموعة الأولى صيغة أهداف صريحة ومُتحقَّق منها — قنوات مسمّاة (<code>#channel</code>)، أو topics/threads، أو معرّفات غرف/مستخدمين، أو معرّفات مجموعات، أو أرقام هواتف. أما بقية المنصات فتقبل الصيغة العامة <code>platform:&lt;chat_id&gt;</code> (إذ تُستخدم القيمة الواقعة بعد النقطتين حرفيًا بوصفها معرّف الوجهة)؛ ويسلّم اسم المنصة المجرّد دائمًا إلى القناة الرئيسية.</p>
+<p>تُحدَّد <strong>القنوات المسمّاة</strong> (<code>slack:#engineering</code>، <code>discord:#engineering</code>، أو اسم مألوف مثل <code>slack:engineering</code>) بالرجوع إلى دليل القنوات الذي يبنيه الـ gateway من المهايئات المتصلة، لذا يجب أن يكون الـ gateway قد اكتشف القناة كي ينجح تحديد الاسم؛ أما المعرّفات الخام (<code>slack:C0123ABCD45</code>) فتعمل دائمًا.</p>
+<p>بالنسبة إلى <strong>Telegram topics</strong>، استخدم <code>telegram:&lt;chat_id&gt;:&lt;thread_id&gt;</code> (مثلًا <code>telegram:-1001234567890:17585</code>). وبالنسبة إلى <strong>Slack threads</strong>، يكون المقطع الثالث هو <code>thread_ts</code> الخاص بالرسالة الأم (مثلًا <code>slack:C0123ABCD45:1700000000.000100</code>)، لذا لا ينطبق إلا عند الرد أسفل رسالة موجودة.</p>
+<p><strong>Bot Chat</strong> (<code>bot-chat</code>، <code>bot-chat:&lt;profile&gt;</code>) منصة زائفة محلية على الجهاز، وليست مهايئًا (adapter) في الـ gateway. يتلقى المالك الحي المعتمد (canonical) القادر على استخدام صندوق البريد (mailbox) قبولًا دائمًا فورًا (سواء كان خاملًا أو مشغولًا)؛ ولا ينفّذ الدورَ الوارد إلا ذلك المالك. تحدّد <code>scheduler_delivery._deliver_to_bot_chat</code> الهدف باستخدام <code>get_profile_dir</code> أو قيمة <code>get_hermes_home</code> الحالية للمهمة، وتشتق معرّف الإيصال من المجلد الرئيسي المصدر، ومعرّف المهمة، و <code>execution_id</code> الدائم، والمجلد الرئيسي الهدف، وتتحقق من الإيصال قبل اكتشاف أي مالك. ولا يسمح وجود إيصال سابق أبدًا باللجوء إلى CLI كبديل احتياطي. ومن دون مالك لصندوق البريد، تحتفظ بالمسار <code>hermes [-p &lt;profile&gt;] chat --in ~ -c &quot;Bot Chat&quot; --create-if-missing -Q --query-file &lt;tmp&gt;</code> مع التسييج (fencing) المعتاد للملكية. يسلّم المساران كلاهما دورًا واردًا حقيقيًا، لا نسخة معكوسة من السجل. تملأ الإيصالات الموضوعة في الطابور أو المُطالَب بها الحقلَ <code>last_delivery_queued</code> بمعرّفات الإيصالات. يستثني مجمّع التسليم إشعارات القبول من الأخطاء الحقيقية، ويسجّل للتنفيذ <code>delivery_outcome=queued</code>؛ وتستخدم المهام الناجحة <code>last_status=delivery_queued</code>. وفي الأهداف المختلطة، تُقدَّم الأخطاء الحقيقية فتُعدّ المهمة فاشلة مع الاحتفاظ ببيانات الإيصالات الوصفية الموضوعة في الطابور. الإيصال الدائم في الـ profile الهدف هو المرجع المعتمد للاكتمال النهائي. وحالة queued هي نتيجة القبول التاريخية، وليست دليلًا على التسليم. ولا تتتبّع حالة cron التاريخية تلقائيًا اكتمال الإيصال لاحقًا. تُستثنى أهداف bot-chat من <code>all</code> ومن الفحص المسبق لبيانات الاعتماد. تتجاوز العمليات العاملة الخارجية (external workers) التي تستهدف bot-chat فقط طابورَ التسليم في الـ gateway؛ بينما تحتفظ أهداف العمليات العاملة الخارجية المختلطة بالتسليم عبر الـ gateway. ويحدّ <code>cron.bot_chat_delivery_timeout_seconds</code> (الافتراضي 600) مسار العملية الفرعية القديم فقط.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-wrapping">تغليف الاستجابة</h3>
+<p>افتراضيًا (<code>cron.wrap_response: true</code>)، تُغلَّف عمليات تسليم cron بما يلي:</p>
+<ul>
+<li>ترويسة تحدّد اسم مهمة cron والمهمة المطلوبة</li>
+<li>تذييل ينبّه إلى أن الوكيل لا يستطيع رؤية الرسالة المسلَّمة ضمن المحادثة</li>
+</ul>
+<p>تمنع البادئة <code>[SILENT]</code> في استجابة cron التسليمَ كليًا — وهذا مفيد للمهام التي تحتاج فقط إلى الكتابة في ملفات أو تنفيذ آثار جانبية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-isolation">عزل الجلسات</h3>
+<p>لا تُنسخ عمليات تسليم cron إلى سجل محادثة جلسة الـ gateway. فهي موجودة فقط في الجلسة الخاصة بمهمة cron. ويمنع هذا الإخلال بتناوب الرسائل في محادثة الدردشة الهدف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recursion-guard">الحماية من التعاود</h2>
+<p>تكون toolset <code>cronjob</code> معطّلة في الجلسات التي يشغّلها cron. ويمنع هذا:</p>
+<ul>
+<li>أن تنشئ مهمة مجدولة مهام cron جديدة</li>
+<li>الجدولة التعاودية التي قد تُضخّم استهلاك الـ tokens بشكل هائل</li>
+<li>التعديل غير المقصود لجدول المهام من داخل مهمة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="locking">الأقفال</h2>
+<p>يستخدم المجدول أقفالًا قائمة على الملفات عابرة للعمليات (<code>fcntl.flock</code> على Unix، و <code>msvcrt.locking</code> على Windows) لمنع النبضات المتداخلة من تنفيذ دفعة المهام المستحقة نفسها مرتين — حتى بين المؤقّت الداخلي في الـ gateway واستدعاء <code>hermes cron</code> مستقل / استدعاء <code>tick()</code> يدوي. وإذا تعذّر الحصول على القفل، تعيد <code>tick()</code> القيمة 0 فورًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-interface">واجهة CLI</h2>
+<p>توفّر واجهة <code>hermes cron</code> في CLI إدارة مباشرة للمهام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/features/cron">دليل ميزة Cron</a></li>
+<li><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a></li>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+</ul>

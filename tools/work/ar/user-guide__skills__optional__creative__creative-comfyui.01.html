@@ -1,0 +1,75 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ol>
+<li>
+<p><strong>صيغة API مطلوبة</strong> — يتوقع كل سكربت وendpoint <code>/api/prompt</code>
+JSON بصيغة workflow بصيغة API. تكتشف السكربتات صيغة المحرِّر (مصفوفتا
+<code>nodes</code> و<code>links</code> على المستوى الأعلى) وتخبرك بإعادة التصدير عبر
+"Workflow → Export (API)" (الواجهة الأحدث) أو "Save (API Format)" (الواجهة الأقدم).</p>
+</li>
+<li>
+<p><strong>يجب أن يكون الخادم قيد التشغيل</strong> — يتطلب كل تنفيذ خادمًا نشطًا.
+يشغّل <code>comfy launch --background</code> واحدًا. تحقق بـ
+<code>curl http://127.0.0.1:8188/system_stats</code>.</p>
+</li>
+<li>
+<p><strong>أسماء النماذج دقيقة</strong> — حساسة لحالة الأحرف، وتشمل امتداد الملف.
+يقوم <code>check_deps.py</code> بمطابقة تقريبية (مع/بدون امتداد وبادئة
+دليل)، لكن يجب أن يستخدم الـ workflow نفسه الاسم الرسمي (canonical). استخدم
+<code>comfy model list</code> لاكتشاف ما هو مثبَّت.</p>
+</li>
+<li>
+<p><strong>عُقد مخصّصة ناقصة</strong> — تعني رسالة "class_type not found" أن عقدة
+مطلوبة غير مثبَّتة. يبلّغ <code>check_deps.py</code> عن الحزمة الواجب تثبيتها؛
+ويشغّل <code>auto_fix_deps.py</code> التثبيت نيابةً عنك.</p>
+</li>
+<li>
+<p><strong>دليل العمل</strong> — تكتشف <code>comfy-cli</code> مساحة عمل ComfyUI تلقائيًا.
+إذا فشلت الأوامر برسالة "no workspace found"، استخدم
+<code>comfy --workspace /path/to/ComfyUI &lt;command&gt;</code> أو
+<code>comfy set-default /path/to/ComfyUI</code>.</p>
+</li>
+<li>
+<p><strong>حدود API للفئة المجانية على Cloud</strong> — تعيد <code>/api/prompt</code> و<code>/api/view</code> و<code>/api/upload/*</code> و
+<code>/api/object_info</code> جميعها 403 على الحسابات المجانية. تتعامل <code>health_check.py</code> و
+<code>check_deps.py</code> مع ذلك بسلاسة وتُظهران رسالة واضحة.</p>
+</li>
+<li>
+<p><strong>مهلة workflows الفيديو/الصوت</strong> — تُكتشف تلقائيًا عندما تكون عقدة الناتج
+<code>VHS_VideoCombine</code> أو <code>SaveVideo</code>، إلخ؛ تقفز القيمة الافتراضية من 300 ثانية إلى
+900 ثانية. تجاوزها صراحةً بـ <code>--timeout 1800</code>.</p>
+</li>
+<li>
+<p><strong>اجتياز المسارات (path traversal) في أسماء ملفات الناتج</strong> — تُمرَّر أسماء الملفات
+القادمة من الخادم عبر <code>safe_path_join</code> لرفض أي شيء يفلت من <code>--output-dir</code>.
+أبقِ هذه الحماية مفعّلة — قد تنتج workflows بعُقد حفظ مخصّصة مسارات
+عشوائية.</p>
+</li>
+<li>
+<p><strong>JSON الخاص بـ workflow كود تنفيذي عشوائي</strong> — تشغّل العُقد المخصّصة بايثون، لذا
+فتقديم workflow مجهول له نفس مستوى الثقة الخاص بـ <code>eval</code>.
+افحص الـ workflows من مصادر غير موثوقة قبل تشغيلها.</p>
+</li>
+<li>
+<p><strong>seed عشوائي تلقائي</strong> — مرّر <code>seed: -1</code> في <code>--args</code> (أو استخدم
+<code>--randomize-seed</code> وأغفل الـ seed) للحصول على seed جديد لكل تشغيل.
+تُسجَّل قيمة الـ seed الفعلية إلى stderr.</p>
+</li>
+<li>
+<p><strong>مطالبة <code>tracking</code></strong> — قد يطلب أول تشغيل لـ <code>comfy</code> موافقة على التحليلات (analytics).
+استخدم <code>comfy --skip-prompt tracking disable</code> لتخطّيها بشكل غير تفاعلي.
+يقوم <code>comfyui_setup.sh</code> بذلك نيابةً عنك.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-checklist">قائمة تحقق التحقّق</h2>
+<p>استخدم <code>python scripts/health_check.py</code> لتشغيل القائمة كاملة دفعة واحدة. يدويًا:</p>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="23"></x-keep> نتيجة <code>hardware_check.py</code> هي <code>ok</code> أو اختار المستخدم Comfy Cloud صراحةً</li>
+<li class="task-list-item"><x-keep id="24"></x-keep> يعمل <code>comfy --version</code> (أو <code>uvx --from comfy-cli comfy --help</code>)</li>
+<li class="task-list-item"><x-keep id="25"></x-keep> يعيد <code>curl http://HOST:PORT/system_stats</code> JSON</li>
+<li class="task-list-item"><x-keep id="26"></x-keep> يُظهر <code>comfy model list</code> نقطة تفتيش (checkpoint) واحدة على الأقل (محلي) أو
+يعيد <code>/api/experiment/models/checkpoints</code> نماذج (Cloud)</li>
+<li class="task-list-item"><x-keep id="27"></x-keep> JSON الخاص بالـ workflow بصيغة API</li>
+<li class="task-list-item"><x-keep id="28"></x-keep> يبلّغ <code>check_deps.py</code> عن <code>is_ready: true</code> (أو <code>node_check_skipped</code> فقط
+على الفئة المجانية من Cloud)</li>
+<li class="task-list-item"><x-keep id="29"></x-keep> تكتمل تجربة تشغيل بـ workflow صغير؛ وتهبط النواتج في <code>--output-dir</code></li>
+</ul>

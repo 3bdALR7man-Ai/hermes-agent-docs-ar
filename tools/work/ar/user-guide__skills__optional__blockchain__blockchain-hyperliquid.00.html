@@ -1,0 +1,101 @@
+
+<header><h1>Hyperliquid</h1></header>
+<p>بيانات سوق Hyperliquid وسجل الحسابات ومراجعة الصفقات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/blockchain/hyperliquid</code></td></tr><tr><td>المسار</td><td><code>optional-skills/blockchain/hyperliquid</code></td></tr><tr><td>الإصدار</td><td><code>0.1.0</code></td></tr><tr><td>المؤلف</td><td>Hugo Sequier (Hugo-SEQUIER), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Hyperliquid</code>, <code>Blockchain</code>, <code>Crypto</code>, <code>Trading</code>, <code>Perpetuals</code>, <code>Spot</code>, <code>DeFi</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Hyperliquid</h1>
+<p>استعلم عن بيانات سوق وحسابات Hyperliquid عبر endpoint <code>/info</code> العام.
+للقراءة فقط — بلا مفتاح API، وبلا توقيع، وبلا تنفيذ أوامر.</p>
+<p>12 أمرًا: <code>dexs</code>، <code>markets</code>، <code>spots</code>، <code>candles</code>، <code>funding</code>، <code>l2</code>، <code>state</code>،
+<code>spot-balances</code>، <code>fills</code>، <code>orders</code>، <code>review</code>، <code>export</code>. مكتبة قياسية (stdlib) فقط
+(<code>urllib</code>، <code>json</code>، <code>argparse</code>).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم بيانات سوق Hyperliquid للعقود الآجلة (perp) أو السوق الفوري (spot)، أو الشموع (candles)، أو التمويل (funding)، أو دفتر L2</li>
+<li>يريد المستخدم فحص مراكز perp لمحفظة ما، أو أرصدة spot، أو الصفقات المنفَّذة (fills)، أو الأوامر</li>
+<li>يريد المستخدم مراجعة ما بعد التداول تجمع بين الصفقات الأخيرة وسياق السوق</li>
+<li>يريد المستخدم فحص perp dexs المنشأة من قِبل builders أو أسواق HIP-3</li>
+<li>يريد المستخدم تصديرًا موحّدًا بصيغة JSON للشموع والتمويل تحضيرًا للاختبار الرجعي (backtesting)</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<p>مكتبة قياسية (stdlib) فقط — بلا حزم خارجية وبلا مفتاح API.</p>
+<p>يقرأ السكربت الملف <code>${HERMES_HOME:-~/.hermes}/.env</code> لقيمتين افتراضيتين اختياريتين:</p>
+<ul>
+<li><code>HYPERLIQUID_API_URL</code> — تكون افتراضيًا <code>https://api.hyperliquid.xyz</code>. اضبطها على
+<code>https://api.hyperliquid-testnet.xyz</code> للشبكة التجريبية (testnet).</li>
+<li><code>HYPERLIQUID_USER_ADDRESS</code> — العنوان الافتراضي لأوامر <code>state</code> و<code>spot-balances</code> و
+<code>fills</code> و<code>orders</code> و<code>review</code>. إذا لم تُضبط، مرّر العنوان كأول وسيطة (argument) موضعية.</li>
+</ul>
+<p>يُؤخذ بالاعتبار ملف <code>.env</code> خاص بالمشروع في دليل العمل الحالي كبديل احتياطي للتطوير.</p>
+<p>السكربت المساعد: <code>~/.hermes/skills/blockchain/hyperliquid/scripts/hyperliquid_client.py</code></p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">طريقة التشغيل</h2>
+<p>نفّذه عبر أداة <code>terminal</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أضِف <code>--json</code> إلى أي أمر للحصول على مخرجات قابلة للقراءة آليًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بالنسبة إلى <code>state</code> و<code>spot-balances</code> و<code>fills</code> و<code>orders</code> و<code>review</code>، يكون العنوان
+اختياريًا عند ضبط <code>HYPERLIQUID_USER_ADDRESS</code> في <code>${HERMES_HOME:-~/.hermes}/.env</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-discover-dexs-and-markets">1. اكتشاف DEXs والأسواق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<ul>
+<li>تنطبق <code>--dex</code> فقط على endpoints العقود الآجلة (perp)؛ أغفلها لاستخدام أول perp dex.</li>
+<li>قد تظهر أزواج spot باسم <code>PURR/USDC</code> أو بأسماء بديلة مثل <code>@107</code>.</li>
+<li>تسبق أسواق HIP-3 اسم العملة باسم الـ dex، مثل <code>mydex:BTC</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-pull-historical-market-data">2. سحب بيانات السوق التاريخية</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>تُقسَّم endpoints النطاقات الزمنية إلى صفحات (pagination). للنطاقات الأكبر، كرّر الطلب بقيمة
+<code>startTime</code> لاحقة أو استخدم <code>export</code> (أدناه).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-inspect-live-order-book">3. فحص دفتر الأوامر المباشر</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>استخدمه عند السؤال عن عمق الدفتر، أو السيولة قصيرة المدى، أو التأثير المحتمل
+لأمر كبير في السوق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-review-an-account">4. مراجعة حساب</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يعيد <code>state</code> مراكز العقود الآجلة (perp)؛ ويعيد <code>spot-balances</code> جرد spot.
+استخدمهما لأسئلة مثل "كيف حال مراكزي؟" أو "ما الذي أحمله؟" أو "كم المتاح للسحب؟".</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-review-fills-and-orders">5. مراجعة الصفقات المنفَّذة والأوامر</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-generate-a-trade-review">6. توليد مراجعة تداول</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يقدّم تقارير عن الربح والخسارة المحقَّقين، والرسوم، وعدد مرات الربح/الخسارة، وتفصيل حسب العملة،
+واتجاه السوق، ومتوسط التمويل لكل عقد آجل (perp) تم تداوله، إضافة إلى مؤشرات إرشادية (استنزاف الرسوم،
+التركّز، الخسائر المخالفة للاتجاه).</p>
+<p>لتحليل أعمق لما بعد التداول: ابدأ بـ <code>review</code> لتحديد العملات أو الفترات الإشكالية
+← اسحب <code>fills</code> و<code>orders</code> لتلك الفترة ← اسحب <code>candles</code>
+و<code>funding</code> لكل عملة تم تداولها ← احكم على جودة القرار بمعزل
+عن جودة النتيجة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-export-a-reusable-dataset">7. تصدير مجموعة بيانات قابلة لإعادة الاستخدام</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يحتوي JSON الناتج على: إصدار المخطط (schema)، بيانات وصفية عن المصدر، النطاق الزمني الدقيق،
+صفوف الشموع الموحّدة، صفوف التمويل الموحّدة، إحصاءات ملخّصة. استخدم
+<code>--end-time-ms</code> للحصول على نطاقات قابلة لإعادة الإنتاج.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>endpoints المعلومات العامة محدودة بحدّ معدل. قد تعيد الاستعلامات التاريخية الكبيرة
+نطاقات محدودة (capped)؛ كرّر الطلب بقيم <code>startTime</code> لاحقة.</li>
+<li>يستخدم <code>fills --hours ...</code> واجهة <code>userFillsByTime</code>، التي لا تكشف سوى نافذة
+متجدّدة حديثة — وليس السجل الكامل.</li>
+<li>يعيد <code>historicalOrders</code> الأوامر الأخيرة فقط؛ وليس تصديرًا كاملًا.</li>
+<li>أمر <code>review</code> إرشادي (heuristic). لا يمكنه إعادة بناء النية،
+أو جودة تنفيذ الأمر، أو الانزلاق (slippage) الحقيقي من الصفقات المنفَّذة وحدها.</li>
+<li>يكتب أمر <code>export</code> مجموعة بيانات موحّدة، وليس محرّك اختبار رجعي.
+ستظل بحاجة إلى نموذج انزلاق/تنفيذ خاص بك.</li>
+<li>الأسماء البديلة لأزواج spot مثل <code>@107</code> معرّفات صالحة حتى عندما تُظهر الواجهة
+اسمًا أكثر وضوحًا.</li>
+<li><code>l2</code> لقطة (snapshot) في لحظة معينة، وليس سلسلة زمنية.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يجب أن يطبع أهم أسواق العقود الآجلة على Hyperliquid حسب حجم التداول الاسمي خلال 24 ساعة.</p>

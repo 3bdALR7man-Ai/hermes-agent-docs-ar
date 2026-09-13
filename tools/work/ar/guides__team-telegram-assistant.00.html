@@ -1,0 +1,187 @@
+<header><h1>إعداد مساعد Telegram للفريق</h1></header>
+<p>يرشدك هذا الدرس التطبيقي خطوة بخطوة إلى إعداد بوت Telegram يعمل بـ Hermes Agent ويمكن لعدة أعضاء في الفريق استخدامه. في النهاية، سيكون لدى فريقك مساعد ذكاء اصطناعي مشترك يمكنهم مراسلته لطلب المساعدة في الكود، والبحث، وإدارة الأنظمة، وأي شيء آخر — مع حماية قائمة على تفويض كل مستخدم على حدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-were-building">ما الذي سنبنيه</h2>
+<p>بوت Telegram يتميّز بما يلي:</p>
+<ul>
+<li><strong>يمكن لأي عضو مصرّح له في الفريق</strong> مراسلته مباشرةً لطلب المساعدة — مراجعات الكود، والبحث، وأوامر الـ shell، وتصحيح الأخطاء</li>
+<li><strong>يعمل على خادمك</strong> مع وصول كامل إلى الأدوات — الطرفية، وتحرير الملفات، والبحث في الويب، وتنفيذ الكود</li>
+<li><strong>جلسات منفصلة لكل مستخدم</strong> — يحصل كل شخص على سياق محادثة خاص به</li>
+<li><strong>آمن افتراضيًا</strong> — لا يمكن التفاعل معه إلا للمستخدمين الموافَق عليهم، مع طريقتين للتفويض</li>
+<li><strong>مهام مجدولة</strong> — اجتماعات standup اليومية، وفحوص السلامة، والتذكيرات، تُسلَّم إلى قناة الفريق</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>قبل البدء، تأكد من توفّر ما يلي:</p>
+<ul>
+<li><strong>تثبيت Hermes Agent</strong> على خادم أو VPS (وليس على حاسوبك المحمول — إذ يجب أن يبقى البوت قيد التشغيل). اتبع <a href="/docs/getting-started/installation">دليل التثبيت</a> إن لم تكن قد ثبّته بعد.</li>
+<li><strong>حساب Telegram</strong> خاص بك (بصفتك مالك البوت)</li>
+<li><strong>مزوّد LLM مُعدّ</strong> — على الأقل، مفتاح API لـ OpenAI أو Anthropic أو أي مزوّد آخر مدعوم في <code>~/.hermes/.env</code></li>
+</ul>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يكفي VPS بتكلفة 5$ شهريًا لتشغيل الـ gateway. فـ Hermes نفسه خفيف — أما التكلفة الحقيقية فتأتي من استدعاءات LLM API، وهي تحدث عن بُعد.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-telegram-bot">الخطوة 1: إنشاء بوت Telegram</h2>
+<p>يبدأ كل بوت Telegram مع <strong>@BotFather</strong> — وهو البوت الرسمي من Telegram لإنشاء البوتات.</p>
+<ol>
+<li>
+<p><strong>افتح Telegram</strong> وابحث عن <code>@BotFather</code>، أو انتقل إلى <a href="https://t.me/BotFather" data-ext>t.me/BotFather</a></p>
+</li>
+<li>
+<p><strong>أرسل <code>/newbot</code></strong> — سيسألك BotFather عن أمرين:</p>
+<ul>
+<li><strong>الاسم المعروض (Display name)</strong> — ما يراه المستخدمون (مثل <code>Team Hermes Assistant</code>)</li>
+<li><strong>اسم المستخدم (Username)</strong> — يجب أن ينتهي بـ <code>bot</code> (مثل <code>myteam_hermes_bot</code>)</li>
+</ul>
+</li>
+<li>
+<p><strong>انسخ token البوت</strong> — سيرد BotFather برسالة مشابهة لما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>احفظ هذا الـ token — ستحتاج إليه في الخطوة التالية.</p>
+</li>
+<li>
+<p><strong>اضبط وصفًا للبوت</strong> (اختياري لكنه موصى به):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اختر البوت الخاص بك، ثم أدخل نصًا مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+</li>
+<li>
+<p><strong>اضبط أوامر البوت</strong> (اختياري — يمنح المستخدمين قائمة بالأوامر):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اختر البوت الخاص بك، ثم الصق:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>حافظ على سرية token البوت، فأي شخص يملكه يستطيع التحكم في البوت. إذا تسرّب، فاستخدم <code>/revoke</code> في BotFather لتوليد token جديد.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-configure-the-gateway">الخطوة 2: إعداد الـ Gateway</h2>
+<p>أمامك خياران: معالج الإعداد التفاعلي (موصى به) أو الإعداد اليدوي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup-recommended">الخيار A: الإعداد التفاعلي (موصى به)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يرشدك هذا المعالج خلال كل الخطوات مع إمكانية الاختيار بمفاتيح الأسهم. اختر <strong>Telegram</strong>، والصق token البوت، ثم أدخل معرّف المستخدم الخاص بك عندما يُطلب منك ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار B: الإعداد اليدوي</h3>
+<p>أضف هذه الأسطر إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="finding-your-user-id">العثور على معرّف المستخدم الخاص بك</h3>
+<p>معرّف المستخدم في Telegram قيمة رقمية (وليس اسم المستخدم). للعثور عليه:</p>
+<ol>
+<li>راسل <a href="https://t.me/userinfobot" data-ext>@userinfobot</a> على Telegram</li>
+<li>سيرد فورًا بمعرّف المستخدم الرقمي الخاص بك</li>
+<li>انسخ هذا الرقم إلى <code>TELEGRAM_ALLOWED_USERS</code></li>
+</ol>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>معرّفات المستخدمين في Telegram أرقام دائمة مثل <code>123456789</code>، وهي تختلف عن <code>@username</code> الذي يمكن تغييره. استخدم دائمًا المعرّف الرقمي في قوائم السماح (allowlists).</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-start-the-gateway">الخطوة 3: تشغيل الـ Gateway</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-test">اختبار سريع</h3>
+<p>شغّل الـ gateway في الواجهة الأمامية (foreground) أولًا للتأكد من أن كل شيء يعمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>من المفترض أن ترى مخرجات مثل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>افتح Telegram، وابحث عن البوت الخاص بك، وأرسل إليه رسالة. إذا ردّ عليك، فكل شيء جاهز. اضغط <code>Ctrl+C</code> للإيقاف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="production-install-as-a-service">بيئة الإنتاج: التثبيت كخدمة</h3>
+<p>للحصول على نشر دائم يصمد أمام إعادة التشغيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يُنشئ هذا خدمة تعمل في الخلفية: خدمة <strong>systemd</strong> على مستوى المستخدم في Linux افتراضيًا، أو خدمة <strong>launchd</strong> على macOS، أو خدمة نظام في Linux تعمل عند الإقلاع إذا مرّرت <code>--system</code>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>متغير PATH في macOS</div><div class="admonitionContent_BuS1"><p>يلتقط ملف launchd plist قيمة PATH الخاصة بالـ shell لديك وقت التثبيت، حتى تتمكن العمليات الفرعية للـ gateway من العثور على أدوات مثل Node.js و ffmpeg. إذا ثبّتَّ أدوات جديدة لاحقًا، فأعد تنفيذ <code>hermes gateway install</code> لتحديث ملف plist.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-its-running">التحقق من أنه يعمل</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>ثم أرسل رسالة تجريبية إلى البوت على Telegram. من المفترض أن تتلقى ردًا خلال ثوانٍ قليلة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-set-up-team-access">الخطوة 4: إعداد وصول الفريق</h2>
+<p>لنمنح الآن زملاءك صلاحية الوصول. هناك أسلوبان لذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approach-a-static-allowlist">الأسلوب A: قائمة سماح ثابتة</h3>
+<p>اجمع معرّف Telegram لكل عضو في الفريق (اطلب منهم مراسلة <a href="https://t.me/userinfobot" data-ext>@userinfobot</a>) وأضفها كقائمة مفصولة بفواصل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>أعد تشغيل الـ gateway بعد إجراء التغييرات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approach-b-dm-pairing-recommended-for-teams">الأسلوب B: الاقتران عبر DM (موصى به للفرق)</h3>
+<p>الاقتران عبر الرسائل المباشرة (DM pairing) أكثر مرونة — إذ لا تحتاج إلى جمع معرّفات المستخدمين مسبقًا. إليك آلية عمله:</p>
+<ol>
+<li>
+<p><strong>يراسل زميلك البوت مباشرةً</strong> — ولأنه ليس ضمن قائمة السماح، يرد البوت برمز اقتران يُستخدم مرة واحدة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+</li>
+<li>
+<p><strong>يرسل إليك زميلك الرمز</strong> (عبر أي قناة — Slack، أو البريد الإلكتروني، أو شخصيًا)</p>
+</li>
+<li>
+<p><strong>توافق أنت عليه</strong> على الخادم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+</li>
+<li>
+<p><strong>يصبح لديه وصول</strong> — ويبدأ البوت فورًا في الرد على رسائله</p>
+</li>
+</ol>
+<p><strong>إدارة المستخدمين المقترنين:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُعد الاقتران عبر DM مثاليًا للفرق لأنك لا تحتاج إلى إعادة تشغيل الـ gateway عند إضافة مستخدمين جدد، إذ تسري الموافقات فورًا.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-considerations">اعتبارات أمنية</h3>
+<ul>
+<li><strong>لا تضبط أبدًا <code>GATEWAY_ALLOW_ALL_USERS=true</code></strong> على بوت لديه وصول إلى الطرفية — فأي شخص يعثر على البوت قد يتمكن من تنفيذ أوامر على خادمك</li>
+<li>تنتهي صلاحية رموز الاقتران بعد <strong>ساعة واحدة</strong>، وتُولَّد بعشوائية تشفيرية</li>
+<li>يمنع حدّ المعدل (rate limit) هجمات التخمين (brute-force): طلب واحد لكل مستخدم كل 10 دقائق، وبحد أقصى 3 رموز معلّقة لكل منصة</li>
+<li>بعد 5 محاولات موافقة فاشلة، تدخل المنصة في حظر مؤقت لمدة ساعة واحدة</li>
+<li>تُخزَّن جميع بيانات الاقتران بصلاحيات <code>chmod 0600</code></li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-configure-the-bot">الخطوة 5: إعداد البوت</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="set-a-home-channel">تعيين قناة رئيسية</h3>
+<p><strong>القناة الرئيسية (home channel)</strong> هي المكان الذي يسلّم إليه البوت نتائج مهام cron والرسائل الاستباقية. ومن دونها، لن تجد المهام المجدولة مكانًا ترسل إليه مخرجاتها.</p>
+<p><strong>الخيار 1:</strong> استخدم الأمر <code>/sethome</code> في أي مجموعة أو محادثة على Telegram يكون البوت عضوًا فيها.</p>
+<p><strong>الخيار 2:</strong> اضبطها يدويًا في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>للعثور على معرّف القناة، أضف <a href="https://t.me/userinfobot" data-ext>@userinfobot</a> إلى المجموعة — وسيُبلغك بمعرّف المحادثة (chat ID) الخاص بالمجموعة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-tool-progress-display">إعداد عرض تقدّم الأدوات</h3>
+<p>تحكّم في مقدار التفاصيل التي يعرضها البوت عند استخدام الأدوات. في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<table><thead><tr><th>الوضع</th><th>ما تراه</th></tr></thead><tbody><tr><td><code>off</code></td><td>ردود نظيفة فقط — دون أي نشاط للأدوات</td></tr><tr><td><code>new</code></td><td>حالة موجزة لكل استدعاء أداة جديد (موصى به للمراسلة)</td></tr><tr><td><code>all</code></td><td>كل استدعاء أداة مع تفاصيله</td></tr><tr><td><code>verbose</code></td><td>مخرجات الأدوات كاملة بما في ذلك نتائج الأوامر</td></tr></tbody></table>
+<p>يمكن للمستخدمين أيضًا تغيير ذلك لكل جلسة على حدة باستخدام الأمر <code>/verbose</code> في المحادثة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="set-up-a-personality-with-soulmd">إعداد شخصية للبوت عبر SOUL.md</h3>
+<p>خصّص أسلوب تواصل البوت بتعديل <code>~/.hermes/SOUL.md</code>:</p>
+<p>للاطلاع على دليل كامل، راجع <a href="/docs/guides/use-soul-with-hermes">استخدام SOUL.md مع Hermes</a>.</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="add-project-context">إضافة سياق المشروع</h3>
+<p>إذا كان فريقك يعمل على مشاريع محددة، فأنشئ ملفات سياق حتى يعرف البوت الـ stack التقني الذي تستخدمونه:</p>
+<div class="language-markdown codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>تُحقن ملفات السياق في system prompt لكل جلسة. اجعلها موجزة — فكل حرف يُحتسب من ميزانية الـ tokens لديك.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-set-up-scheduled-tasks">الخطوة 6: إعداد المهام المجدولة</h2>
+<p>بعد تشغيل الـ gateway، يمكنك جدولة مهام متكررة تسلّم نتائجها إلى قناة فريقك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="daily-standup-summary">ملخّص Standup اليومي</h3>
+<p>راسل البوت على Telegram:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>يُنشئ الوكيل مهمة cron تلقائيًا ويسلّم النتائج إلى المحادثة التي طلبت منها ذلك (أو إلى القناة الرئيسية).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="server-health-check">فحص سلامة الخادم</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-scheduled-tasks">إدارة المهام المجدولة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>تعمل prompts مهام cron في جلسات جديدة تمامًا دون أي ذاكرة للمحادثات السابقة. تأكد من أن كل prompt يتضمن <strong>كل</strong> السياق الذي يحتاجه الوكيل — مسارات الملفات، والـ URLs، وعناوين الخوادم، والتعليمات الواضحة.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="production-tips">نصائح لبيئة الإنتاج</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-docker-for-safety">استخدم Docker للأمان</h3>
+<p>في بوت فريق مشترك، استخدم Docker كـ terminal backend حتى تُنفَّذ أوامر الوكيل داخل حاوية بدلًا من جهازك المضيف:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>أو في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>بهذه الطريقة، حتى لو طلب أحدهم من البوت تنفيذ شيء مدمّر، يبقى نظامك المضيف محميًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="monitor-the-gateway">مراقبة الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="keep-hermes-updated">إبقاء Hermes محدّثًا</h3>
+<p>من Telegram، أرسل <code>/update</code> إلى البوت — وسيسحب أحدث إصدار ثم يعيد التشغيل. أو من الخادم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="log-locations">مواقع السجلات</h3>
+<table><thead><tr><th>العنصر</th><th>الموقع</th></tr></thead><tbody><tr><td>سجلات الـ Gateway</td><td><code>journalctl --user -u hermes-gateway</code> (Linux) أو <code>~/.hermes/logs/gateway.log</code> (macOS)</td></tr><tr><td>مخرجات مهام cron</td><td><code>~/.hermes/cron/output/{job_id}/{timestamp}.md</code></td></tr><tr><td>تعريفات مهام cron</td><td><code>~/.hermes/cron/jobs.json</code></td></tr><tr><td>بيانات الاقتران</td><td><code>~/.hermes/pairing/</code></td></tr><tr><td>سجل الجلسات</td><td><code>~/.hermes/sessions/</code></td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="going-further">التعمّق أكثر</h2>
+<p>أصبح لديك الآن مساعد Telegram يعمل لفريقك. إليك بعض الخطوات التالية:</p>
+<ul>
+<li><strong><a href="/docs/user-guide/security">دليل الأمان</a></strong> — نظرة معمّقة على التفويض، وعزل الحاويات، والموافقة على الأوامر</li>
+<li><strong><a href="/docs/user-guide/messaging">Messaging Gateway</a></strong> — مرجع كامل لبنية الـ gateway، وإدارة الجلسات، وأوامر المحادثة</li>
+<li><strong><a href="/docs/user-guide/messaging/telegram">إعداد Telegram</a></strong> — تفاصيل خاصة بالمنصة، بما في ذلك الرسائل الصوتية و TTS</li>
+<li><strong><a href="/docs/user-guide/features/cron">المهام المجدولة</a></strong> — جدولة cron متقدمة مع خيارات التسليم وتعبيرات cron</li>
+<li><strong><a href="/docs/user-guide/features/context-files">ملفات السياق (Context Files)</a></strong> — ملفات AGENTS.md و SOUL.md و .cursorrules لتزويد الوكيل بمعرفة المشروع</li>
+<li><strong><a href="/docs/user-guide/features/personality">الشخصية</a></strong> — إعدادات الشخصية المسبقة المدمجة وتعريفات الشخصيات المخصصة</li>
+<li><strong>أضف مزيدًا من المنصات</strong> — يمكن للـ gateway نفسه تشغيل <a href="/docs/user-guide/messaging/discord">Discord</a> و<a href="/docs/user-guide/messaging/slack">Slack</a> و<a href="/docs/user-guide/messaging/whatsapp">WhatsApp</a> في آن واحد</li>
+</ul>
+<hr>
+<p><em>لديك أسئلة أو واجهت مشكلات؟ افتح issue على GitHub — نرحّب بالمساهمات.</em></p>

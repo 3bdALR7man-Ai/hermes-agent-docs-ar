@@ -1,0 +1,69 @@
+
+<header><h1>Polymarket</h1></header>
+<p>استعلم عن Polymarket: الأسواق، الأسعار، دفاتر الأوامر (orderbooks)، السجل التاريخي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/finance/polymarket</code></td></tr><tr><td>المسار</td><td><code>optional-skills/finance/polymarket</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent + Teknium</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Polymarket — بيانات أسواق التنبؤ</h1>
+<p>استعلم عن بيانات أسواق التنبؤ من Polymarket باستخدام واجهات REST API العامة الخاصة بها.
+جميع نقاط النهاية للقراءة فقط ولا تتطلب أي مصادقة.</p>
+<p>راجع <code>references/api-endpoints.md</code> للمرجع الكامل لنقاط النهاية مع أمثلة curl.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يسأل المستخدم عن أسواق التنبؤ، أو احتمالات الرهان، أو احتمالات الأحداث</li>
+<li>يريد المستخدم معرفة "ما احتمالات حدوث X؟"</li>
+<li>يسأل المستخدم عن Polymarket تحديدًا</li>
+<li>يريد المستخدم أسعار السوق، أو بيانات دفتر الأوامر، أو سجل الأسعار</li>
+<li>يطلب المستخدم مراقبة أو تتبّع تحركات أسواق التنبؤ</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-concepts">المفاهيم الأساسية</h2>
+<ul>
+<li>تحتوي <strong>الأحداث (Events)</strong> على سوق واحد أو أكثر من <strong>الأسواق (Markets)</strong> (علاقة واحد إلى متعدد)</li>
+<li><strong>الأسواق</strong> نتائج ثنائية بأسعار Yes/No بين 0.00 و1.00</li>
+<li>الأسعار هي احتمالات فعليًا: السعر 0.65 يعني أن السوق يرى احتمال 65%</li>
+<li>حقل <code>outcomePrices</code>: مصفوفة مُرمَّزة بصيغة JSON مثل <code>[&quot;0.80&quot;, &quot;0.20&quot;]</code></li>
+<li>حقل <code>clobTokenIds</code>: مصفوفة مُرمَّزة بصيغة JSON لمعرّفَي توكن [Yes, No] لاستعلامات السعر/الدفتر</li>
+<li>حقل <code>conditionId</code>: سلسلة سداسية عشرية تُستخدم في استعلامات سجل الأسعار</li>
+<li>الحجم بعملة USDC (دولار أمريكي)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="three-public-apis">ثلاث واجهات API عامة</h2>
+<ol>
+<li><strong>Gamma API</strong> على <code>gamma-api.polymarket.com</code> — الاكتشاف، البحث، التصفّح</li>
+<li><strong>CLOB API</strong> على <code>clob.polymarket.com</code> — الأسعار الفورية، دفاتر الأوامر، السجل التاريخي</li>
+<li><strong>Data API</strong> على <code>data-api.polymarket.com</code> — الصفقات، الفائدة المفتوحة (open interest)</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="typical-workflow">سير العمل النموذجي</h2>
+<p>عندما يسأل المستخدم عن احتمالات سوق التنبؤ:</p>
+<ol>
+<li><strong>ابحث</strong> باستخدام نقطة نهاية البحث العام في Gamma API مع استعلامه</li>
+<li><strong>حلّل</strong> الاستجابة — استخرج الأحداث وأسواقها المتداخلة</li>
+<li><strong>اعرض</strong> سؤال السوق، والأسعار الحالية كنسب مئوية، والحجم</li>
+<li><strong>تعمّق</strong> إذا طُلب منك ذلك — استخدم clobTokenIds لدفتر الأوامر، وconditionId للسجل التاريخي</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="presenting-results">عرض النتائج</h2>
+<p>نسّق الأسعار كنسب مئوية لسهولة القراءة:</p>
+<ul>
+<li>outcomePrices <code>[&quot;0.652&quot;, &quot;0.348&quot;]</code> تصبح "Yes: 65.2%, No: 34.8%"</li>
+<li>اعرض دائمًا سؤال السوق والاحتمال</li>
+<li>أدرِج الحجم عند توفره</li>
+</ul>
+<p>مثال: <code>&quot;Will X happen?&quot; — 65.2% Yes ($1.2M volume)</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parsing-double-encoded-fields">تحليل الحقول المُرمَّزة مرتين</h2>
+<p>تُعيد Gamma API الحقول <code>outcomePrices</code> و<code>outcomes</code> و<code>clobTokenIds</code> كسلاسل JSON
+داخل استجابات JSON (ترميز مزدوج). عند المعالجة باستخدام Python، حلّلها باستخدام
+<code>json.loads(market[&#x27;outcomePrices&#x27;])</code> للحصول على المصفوفة الفعلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limits">حدود المعدل (Rate Limits)</h2>
+<p>سخيّة — من غير المرجح بلوغها في الاستخدام العادي:</p>
+<ul>
+<li>Gamma: 4,000 طلب لكل 10 ثوانٍ (عام)</li>
+<li>CLOB: 9,000 طلب لكل 10 ثوانٍ (عام)</li>
+<li>Data: 1,000 طلب لكل 10 ثوانٍ (عام)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li>هذه المهارة للقراءة فقط — لا تدعم تنفيذ الصفقات</li>
+<li>يتطلّب التداول مصادقة عبر محفظة عملات رقمية (توقيعات EIP-712)</li>
+<li>قد يكون لبعض الأسواق الجديدة سجل أسعار فارغ</li>
+<li>تنطبق القيود الجغرافية على التداول، لكن بيانات القراءة فقط متاحة عالميًا</li>
+</ul>

@@ -1,0 +1,108 @@
+
+<header><h1>Solana</h1></header>
+<p>استعلم عن محافظ Solana والعملات (tokens) والمعاملات وقطع NFT بالدولار الأمريكي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/blockchain/solana</code></td></tr><tr><td>المسار</td><td><code>optional-skills/blockchain/solana</code></td></tr><tr><td>الإصدار</td><td><code>0.2.0</code></td></tr><tr><td>المؤلف</td><td>Deniz Alagoz (gizdusum), enhanced by Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Solana</code>, <code>Blockchain</code>, <code>Crypto</code>, <code>Web3</code>, <code>RPC</code>, <code>DeFi</code>, <code>NFT</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Solana Blockchain</h1>
+<p>استعلم عن بيانات Solana على السلسلة مُثراة بتسعير بالدولار عبر CoinGecko.
+8 أوامر: portfolio المحفظة، معلومات العملة (token)، المعاملات، النشاط، قطع NFT،
+رصد الحيتان (whale detection)، إحصاءات الشبكة، والبحث عن السعر.</p>
+<p>لا حاجة إلى مفتاح API. تُستخدم مكتبة Python القياسية فقط (urllib، json، argparse).</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>يطلب المستخدم رصيد محفظة Solana، أو العملات المملوكة، أو قيمة الـ portfolio</li>
+<li>يريد المستخدم فحص معاملة معيّنة عبر توقيعها (signature)</li>
+<li>يريد المستخدم بيانات وصفية أو سعرًا أو المعروض أو أهم حاملي عملة SPL</li>
+<li>يريد المستخدم سجل المعاملات الأخيرة لعنوان معيّن</li>
+<li>يريد المستخدم قطع NFT التي تملكها محفظة ما</li>
+<li>يريد المستخدم العثور على تحويلات SOL كبيرة (رصد الحيتان)</li>
+<li>يريد المستخدم صحة شبكة Solana أو TPS أو الحقبة (epoch) أو سعر SOL</li>
+<li>يسأل المستخدم "ما سعر BONK/JUP/SOL؟"</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات الأساسية</h2>
+<p>يستخدم السكربت المساعد مكتبة Python القياسية فقط (urllib، json، argparse).
+لا حاجة إلى حزم خارجية.</p>
+<p>تأتي بيانات التسعير من واجهة CoinGecko المجانية (بلا حاجة إلى مفتاح، بحدّ معدل
+~10-30 طلبًا في الدقيقة). للبحث الأسرع، استخدم الخيار <code>--no-prices</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<p>endpoint الخاص بـ RPC (الافتراضي): <a href="https://api.mainnet-beta.solana.com" data-ext>https://api.mainnet-beta.solana.com</a>
+التجاوز: export SOLANA_RPC_URL=<a href="https://your-private-rpc.com" data-ext>https://your-private-rpc.com</a></p>
+<p>مسار السكربت المساعد: ~/.hermes/skills/blockchain/solana/scripts/solana_client.py</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="0-setup-check">0. التحقق من الإعداد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-wallet-portfolio">1. Portfolio المحفظة</h3>
+<p>احصل على رصيد SOL، وعملات SPL المملوكة بقيمها بالدولار، وعدد قطع NFT،
+وإجمالي الـ portfolio. العملات مرتّبة حسب القيمة، مع تصفية الغبار (dust)، والعملات
+المعروفة موسومة بأسمائها (BONK، JUP، USDC، إلخ).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>الخيارات (Flags):</p>
+<ul>
+<li><code>--limit N</code> — عرض أعلى N عملة (الافتراضي: 20)</li>
+<li><code>--all</code> — عرض جميع العملات، بلا تصفية غبار، وبلا حد</li>
+<li><code>--no-prices</code> — تخطّي عمليات البحث عن الأسعار عبر CoinGecko (أسرع، عبر RPC فقط)</li>
+</ul>
+<p>تتضمن المخرجات: رصيد SOL + قيمته بالدولار، قائمة العملات مع الأسعار مرتّبة
+حسب القيمة، عدد عناصر الغبار، ملخص NFT، وإجمالي قيمة الـ portfolio بالدولار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-transaction-details">2. تفاصيل المعاملة</h3>
+<p>افحص معاملة كاملة عبر توقيعها (signature) بصيغة base58. يُظهر تغيّرات الرصيد
+بكل من SOL والدولار.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>المخرجات: slot، الطابع الزمني، الرسوم، الحالة، تغيّرات الرصيد (SOL + الدولار)،
+واستدعاءات البرامج (program invocations).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-token-info">3. معلومات العملة (Token)</h3>
+<p>احصل على البيانات الوصفية لعملة SPL، والسعر الحالي، والقيمة السوقية، والمعروض، وعدد المنازل العشرية،
+وصلاحيات الإصدار (mint) والتجميد (freeze)، وأهم 5 حاملين.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>المخرجات: الاسم، الرمز، المنازل العشرية، المعروض، السعر، القيمة السوقية، أهم 5
+حاملين مع نسبهم المئوية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-recent-activity">4. النشاط الأخير</h3>
+<p>اعرض المعاملات الأخيرة لعنوان معيّن (الافتراضي: آخر 10، بحد أقصى: 25).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-nft-portfolio">5. Portfolio قطع NFT</h3>
+<p>اعرض قطع NFT التي تملكها محفظة ما (بشكل إرشادي: عملات SPL بكمية=1 ومنازل عشرية=0).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ملاحظة: لا يكتشف هذا الأسلوب الإرشادي قطع NFT المضغوطة (cNFTs).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-whale-detector">6. كاشف الحيتان</h3>
+<p>افحص أحدث كتلة بحثًا عن تحويلات SOL كبيرة مع قيمها بالدولار.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>ملاحظة: يفحص أحدث كتلة فقط — لقطة (snapshot) في لحظة معينة، وليس بيانات تاريخية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-network-stats">7. إحصاءات الشبكة</h3>
+<p>صحة شبكة Solana مباشرة: الـ slot الحالي، الحقبة (epoch)، TPS، المعروض، إصدار
+المُصادِق (validator)، سعر SOL، والقيمة السوقية.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-price-lookup">8. البحث عن السعر</h3>
+<p>تحقق سريع من سعر أي عملة عبر عنوان mint أو رمز معروف.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>الرموز المعروفة: SOL، USDC، USDT، BONK، JUP، WETH، JTO، mSOL، stSOL،
+PYTH، HNT، RNDR، WEN، W، TNSR، DRIFT، bSOL، JLP، WIF، MEW، BOME، PENGU.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>حدود معدل CoinGecko</strong> — تسمح الفئة المجانية بـ ~10-30 طلبًا في الدقيقة.
+تستخدم عمليات البحث عن السعر طلبًا واحدًا لكل عملة. قد لا تحصل المحافظ التي تحتوي عملات كثيرة
+على أسعار لجميعها. استخدم <code>--no-prices</code> للسرعة.</li>
+<li><strong>حدود معدل RPC العامة</strong> — يحدّ RPC العام لشبكة Solana الرئيسية عدد الطلبات.
+للاستخدام الإنتاجي، اضبط SOLANA_RPC_URL على endpoint خاص
+(Helius، QuickNode، Triton).</li>
+<li><strong>اكتشاف NFT إرشادي</strong> — كمية=1 + منازل عشرية=0. لن تظهر قطع NFT
+المضغوطة (cNFTs) وقطع Token-2022.</li>
+<li><strong>يفحص كاشف الحيتان أحدث كتلة فقط</strong> — وليس بيانات تاريخية. تختلف النتائج
+حسب لحظة الاستعلام.</li>
+<li><strong>سجل المعاملات</strong> — يحتفظ RPC العام بنحو يومين فقط. قد لا تتوفر
+المعاملات الأقدم.</li>
+<li><strong>أسماء العملات</strong> — نحو 25 عملة معروفة موسومة بأسمائها. أما البقية
+فتظهر بعناوين mint مختصرة. استخدم أمر <code>token</code> للحصول على المعلومات الكاملة.</li>
+<li><strong>إعادة المحاولة عند 429</strong> — تُعاد محاولة طلبات كل من RPC وCoinGecko حتى مرتين
+مع تأخير تصاعدي (exponential backoff) عند حدوث أخطاء تجاوز حد المعدل.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>

@@ -1,0 +1,100 @@
+
+<header><h1>Peft</h1></header>
+<p>Fine-tune نماذج LLM كبيرة باستخدام LoRA مع ذاكرة GPU محدودة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/peft</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/peft</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>peft&gt;=0.13.0</code>, <code>transformers&gt;=4.45.0</code>, <code>torch&gt;=2.0.0</code>, <code>bitsandbytes&gt;=0.43.0</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Fine-Tuning</code>, <code>PEFT</code>, <code>LoRA</code>, <code>QLoRA</code>, <code>Parameter-Efficient</code>, <code>Adapters</code>, <code>Low-Rank</code>, <code>Memory Optimization</code>, <code>Multi-Adapter</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>PEFT (ضبط دقيق فعّال في المعاملات)</h1>
+<p>اضبط نماذج LLM دقيقًا (fine-tune) بتدريب أقل من 1% من المعاملات باستخدام LoRA وQLoRA وأكثر من 25 طريقة adapters.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-peft">متى تستخدم PEFT</h2>
+<p><strong>استخدم PEFT/LoRA عندما:</strong></p>
+<ul>
+<li>تضبط نماذج بحجم 7B-70B دقيقًا على وحدات GPU للمستهلكين (RTX 4090، A100)</li>
+<li>تحتاج إلى تدريب أقل من 1% من المعاملات (adapters بحجم 6MB مقابل نموذج كامل بحجم 14GB)</li>
+<li>تريد تكرارًا سريعًا مع عدة adapters خاصة بمهام محددة</li>
+<li>تنشر عدة نسخ مضبوطة دقيقًا من نموذج أساسي واحد</li>
+</ul>
+<p><strong>استخدم QLoRA (دمج PEFT مع التكميم quantization) عندما:</strong></p>
+<ul>
+<li>تضبط نماذج بحجم 70B دقيقًا على وحدة GPU واحدة بسعة 24GB</li>
+<li>تكون الذاكرة هي القيد الأساسي</li>
+<li>يمكنك قبول تنازل بنحو 5% في الجودة مقارنة بالضبط الدقيق الكامل</li>
+</ul>
+<p><strong>استخدم الضبط الدقيق الكامل بدلًا من ذلك عندما:</strong></p>
+<ul>
+<li>تدرّب نماذج صغيرة (أقل من 1B معامل)</li>
+<li>تحتاج إلى أقصى جودة ولديك ميزانية حوسبة كافية</li>
+<li>يتطلب تحوّل النطاق (domain shift) الكبير تحديث كل الأوزان</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lora-fine-tuning-standard">الضبط الدقيق بـ LoRA (قياسي)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="qlora-fine-tuning-memory-efficient">الضبط الدقيق بـ QLoRA (فعّال في الذاكرة)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lora-parameter-selection">اختيار معاملات LoRA</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rank-r---capacity-vs-efficiency">الرتبة (r) - السعة مقابل الكفاءة</h3>
+<table><thead><tr><th>الرتبة</th><th>المعاملات القابلة للتدريب</th><th>الذاكرة</th><th>الجودة</th><th>حالة الاستخدام</th></tr></thead><tbody><tr><td>4</td><td>~3M</td><td>الحد الأدنى</td><td>أقل</td><td>مهام بسيطة، نماذج أولية</td></tr><tr><td><strong>8</strong></td><td>~7M</td><td>منخفضة</td><td>جيدة</td><td><strong>نقطة البدء الموصى بها</strong></td></tr><tr><td><strong>16</strong></td><td>~14M</td><td>متوسطة</td><td>أفضل</td><td><strong>ضبط دقيق عام</strong></td></tr><tr><td>32</td><td>~27M</td><td>أعلى</td><td>عالية</td><td>مهام معقّدة</td></tr><tr><td>64</td><td>~54M</td><td>عالية</td><td>الأعلى</td><td>تكيّف النطاق، نماذج 70B</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="alpha-lora_alpha---scaling-factor">Alpha (lora_alpha) - عامل القياس</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="target-modules-by-architecture">الوحدات المستهدفة حسب البنية المعمارية</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="loading-and-merging-adapters">تحميل ودمج الـ adapters</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="load-trained-adapter">تحميل adapter مدرَّب</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="merge-adapter-into-base-model">دمج adapter في النموذج الأساسي</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-adapter-serving">تقديم adapters متعددة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="peft-methods-comparison">مقارنة طرق PEFT</h2>
+<table><thead><tr><th>الطريقة</th><th>نسبة المعاملات القابلة للتدريب</th><th>الذاكرة</th><th>السرعة</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><strong>LoRA</strong></td><td>0.1-1%</td><td>منخفضة</td><td>سريعة</td><td>ضبط دقيق عام</td></tr><tr><td><strong>QLoRA</strong></td><td>0.1-1%</td><td>منخفضة جدًا</td><td>متوسطة</td><td>محدودية الذاكرة</td></tr><tr><td>AdaLoRA</td><td>0.1-1%</td><td>منخفضة</td><td>متوسطة</td><td>اختيار الرتبة تلقائيًا</td></tr><tr><td>IA3</td><td>0.01%</td><td>الحد الأدنى</td><td>الأسرع</td><td>التكيّف مع أمثلة قليلة (few-shot)</td></tr><tr><td>Prefix Tuning</td><td>0.1%</td><td>منخفضة</td><td>متوسطة</td><td>التحكم في التوليد</td></tr><tr><td>Prompt Tuning</td><td>0.001%</td><td>الحد الأدنى</td><td>سريعة</td><td>تكيّف بسيط مع المهمة</td></tr><tr><td>P-Tuning v2</td><td>0.1%</td><td>منخفضة</td><td>متوسطة</td><td>مهام NLU</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ia3-minimal-parameters">IA3 (معاملات دنيا)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prefix-tuning">Prefix Tuning</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="integration-patterns">أنماط التكامل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-trl-sfttrainer">مع TRL (SFTTrainer)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-axolotl-yaml-config">مع Axolotl (إعدادات YAML)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-vllm-inference">مع vLLM (inference)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-benchmarks">مقاييس الأداء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-usage-llama-31-8b">استخدام الذاكرة (Llama 3.1 8B)</h3>
+<table><thead><tr><th>الطريقة</th><th>ذاكرة GPU</th><th>المعاملات القابلة للتدريب</th></tr></thead><tbody><tr><td>الضبط الدقيق الكامل</td><td>60+ GB</td><td>8B (100%)</td></tr><tr><td>LoRA r=16</td><td>18 GB</td><td>14M (0.17%)</td></tr><tr><td>QLoRA r=16</td><td>6 GB</td><td>14M (0.17%)</td></tr><tr><td>IA3</td><td>16 GB</td><td>800K (0.01%)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="training-speed-a100-80gb">سرعة التدريب (A100 80GB)</h3>
+<table><thead><tr><th>الطريقة</th><th>Tokens/ثانية</th><th>مقابل الضبط الدقيق الكامل</th></tr></thead><tbody><tr><td>الضبط الدقيق الكامل</td><td>2,500</td><td>1x</td></tr><tr><td>LoRA</td><td>3,200</td><td>1.3x</td></tr><tr><td>QLoRA</td><td>2,100</td><td>0.84x</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quality-mmlu-benchmark">الجودة (مقياس MMLU)</h3>
+<table><thead><tr><th>النموذج</th><th>الضبط الدقيق الكامل</th><th>LoRA</th><th>QLoRA</th></tr></thead><tbody><tr><td>Llama 2-7B</td><td>45.3</td><td>44.8</td><td>44.1</td></tr><tr><td>Llama 2-13B</td><td>54.8</td><td>54.2</td><td>53.5</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-issues">المشكلات الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cuda-oom-during-training">نفاد ذاكرة CUDA أثناء التدريب</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adapter-not-applying">الـ adapter لا يُطبَّق</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quality-degradation">تراجع الجودة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h2>
+<ol>
+<li><strong>ابدأ بـ r=8-16</strong>، وزِد القيمة إذا كانت الجودة غير كافية</li>
+<li><strong>استخدم alpha = 2 × الرتبة</strong> كنقطة بدء</li>
+<li><strong>استهدف طبقات الانتباه (attention) وMLP</strong> لأفضل توازن بين الجودة والكفاءة</li>
+<li><strong>فعّل gradient checkpointing</strong> لتوفير الذاكرة</li>
+<li><strong>احفظ الـ adapters بشكل متكرر</strong> (ملفات صغيرة، سهلة التراجع)</li>
+<li><strong>قيّم على بيانات محجوزة (held-out)</strong> قبل الدمج</li>
+<li><strong>استخدم QLoRA لنماذج 70B وما فوق</strong> على أجهزة المستهلكين</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/peft/references/advanced-usage.md" data-ext>الاستخدام المتقدم</a></strong> - DoRA وLoftQ وتثبيت الرتبة والوحدات المخصّصة</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/peft/references/troubleshooting.md" data-ext>استكشاف الأخطاء وإصلاحها</a></strong> - الأخطاء الشائعة، وتصحيح الأخطاء، والتحسين</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/huggingface/peft" data-ext>https://github.com/huggingface/peft</a></li>
+<li><strong>التوثيق</strong>: <a href="https://huggingface.co/docs/peft" data-ext>https://huggingface.co/docs/peft</a></li>
+<li><strong>ورقة LoRA</strong>: arXiv:2106.09685</li>
+<li><strong>ورقة QLoRA</strong>: arXiv:2305.14314</li>
+<li><strong>النماذج</strong>: <a href="https://huggingface.co/models?library=peft" data-ext>https://huggingface.co/models?library=peft</a></li>
+</ul>

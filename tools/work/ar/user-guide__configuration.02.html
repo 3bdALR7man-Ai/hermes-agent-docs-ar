@@ -1,0 +1,176 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vercel-sandbox-backend">Backend الخاص بـ Vercel Sandbox</h3>
+<p>يشغّل الأوامر في microVM سحابي من <a href="https://vercel.com/docs/vercel-sandbox" data-ext>Vercel Sandbox</a>. يستخدم Hermes واجهات الطرفية والملفات المعتادة؛ ولا توجد أدوات خاصة بـ Vercel يراها النموذج.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><strong>التثبيت المطلوب:</strong> ثبّت الإضافة الاختيارية (extra) الخاصة بالـ SDK:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><strong>المصادقة المطلوبة:</strong> اضبط مصادقة access-token بجميع المتغيرات الثلاثة <code>VERCEL_TOKEN</code> وَ<code>VERCEL_PROJECT_ID</code> وَ<code>VERCEL_TEAM_ID</code>. هذا هو الإعداد المدعوم لعمليات النشر ولعمليات Hermes الطويلة الأمد العادية على Render وRailway وDocker وما شابهها من المضيفين.</p>
+<p>للتطوير المحلي لمرة واحدة، يقبل Hermes أيضًا tokens قصيرة الأمد من Vercel OIDC:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>من دليل مشروع Vercel مرتبط، يمكنك حذف اسم المشروع:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>tokens الخاصة بـ OIDC قصيرة الأمد ولا ينبغي استخدامها كمسار نشر موثَّق.</p>
+<p><strong>وقت التشغيل:</strong> يدعم <code>terminal.vercel_runtime</code> كلًا من <code>node24</code> وَ<code>node22</code> وَ<code>python3.13</code>. إذا لم تُضبط، يستخدم Hermes افتراضيًا <code>node24</code>.</p>
+<p><strong>الاستمرارية:</strong> عندما تكون <code>container_persistent: true</code>، يأخذ Hermes لقطة من نظام ملفات الـ sandbox أثناء التنظيف ويستعيد sandbox لاحقًا لنفس المهمة من تلك اللقطة. يمكن أن تتضمّن محتويات اللقطة بيانات اعتماد ومهارات وملفات تخزين مؤقت مزامَنة من Hermes نُسِخت إلى الـ sandbox. يحافظ هذا على حالة نظام الملفات فقط؛ ولا يحافظ على هوية الـ sandbox الحية، أو فضاء PID، أو حالة الـ shell، أو العمليات الخلفية الجارية.</p>
+<p><strong>الأوامر الخلفية:</strong> يستخدم <code>terminal(background=true)</code> مسار Hermes العام للعمليات الخلفية غير المحلية. يمكنك إطلاق العمليات، واستقصاءها، والانتظار عليها، وعرض سجلاتها، وإنهاؤها عبر أداة العمليات المعتادة طالما الـ sandbox حي. لا يوفّر Hermes استعادة أصلية للعمليات المنفصلة (detached) الخاصة بـ Vercel بعد التنظيف أو إعادة التشغيل.</p>
+<p><strong>حجم القرص:</strong> لا يدعم Vercel Sandbox حاليًا مفتاح مورد <code>container_disk</code> الخاص بـ Hermes. اترك <code>container_disk</code> بلا ضبط أو على الافتراضي المشترك <code>51200</code>؛ فالقيم غير الافتراضية تفشل في التشخيصات وإنشاء الـ backend بدلًا من أن تُتجاهَل بصمت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="singularityapptainer-backend">Backend الخاص بـ Singularity/Apptainer</h3>
+<p>يشغّل الأوامر في حاوية <a href="https://apptainer.org" data-ext>Singularity/Apptainer</a>. مصمَّم لمجموعات HPC والأجهزة المشتركة حيث لا يتوفر Docker.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p><strong>المتطلبات:</strong> ثنائي <code>apptainer</code> أو <code>singularity</code> في <code>$PATH</code>.</p>
+<p><strong>التعامل مع الصور:</strong> تُحوَّل عناوين Docker (<code>docker://...</code>) تلقائيًا إلى ملفات SIF وتُخزَّن مؤقتًا. تُستخدَم ملفات <code>.sif</code> الموجودة مباشرة.</p>
+<p><strong>دليل Scratch:</strong> يُحسَم بهذا الترتيب: <code>TERMINAL_SCRATCH_DIR</code> ← <code>TERMINAL_SANDBOX_DIR/singularity</code> ← <code>/scratch/$USER/hermes-agent</code> (اصطلاح HPC) ← <code>~/.hermes/sandboxes/singularity</code>.</p>
+<p><strong>العزل:</strong> يستخدم <code>--containall --no-home</code> لعزل namespaces كامل دون تركيب دليل home الخاص بالمضيف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-terminal-backend-issues">مشكلات terminal backend الشائعة</h3>
+<p>إذا فشلت أوامر الطرفية فورًا أو أُبلِغ عن أداة الطرفية بأنها معطَّلة:</p>
+<ul>
+<li><strong>Local</strong> — لا متطلبات خاصة. الافتراضي الأكثر أمانًا عند البدء.</li>
+<li><strong>Docker</strong> — نفّذ <code>docker version</code> للتحقق من أن Docker يعمل. إذا فشل، أصلح Docker أو نفّذ <code>hermes config set terminal.backend local</code>.</li>
+<li><strong>SSH</strong> — يجب ضبط كلٍّ من <code>TERMINAL_SSH_HOST</code> وَ<code>TERMINAL_SSH_USER</code>. يسجّل Hermes خطأً واضحًا إذا كان أحدهما مفقودًا.</li>
+<li><strong>Modal</strong> — يحتاج متغير البيئة <code>MODAL_TOKEN_ID</code> أو <code>~/.modal.toml</code>. نفّذ <code>hermes doctor</code> للتحقق.</li>
+<li><strong>Daytona</strong> — يحتاج <code>DAYTONA_API_KEY</code>. يتولى SDK الخاص بـ Daytona إعداد عنوان URL للخادم.</li>
+<li><strong>Singularity</strong> — يحتاج <code>apptainer</code> أو <code>singularity</code> في <code>$PATH</code>. شائع على مجموعات HPC.</li>
+</ul>
+<p>عند الشك، أعِد <code>terminal.backend</code> إلى <code>local</code> وتحقّق أولًا من أن الأوامر تعمل هناك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="remote-to-host-state-sync-on-teardown">مزامنة الحالة من البعيد إلى المضيف عند إيقاف التشغيل</h3>
+<p>بالنسبة للـ backends الخاصة بـ<strong>SSH</strong> وَ<strong>Modal</strong> وَ<strong>Daytona</strong>، يدفع Hermes حالة <code>~/.hermes/</code> الخاصة بك (ملفات بيانات الاعتماد، والمهارات، وذاكرة التخزين المؤقت) إلى الـ sandbox البعيد أثناء الجلسة، وعند إيقاف التشغيل <strong>يزامن ملفات الحالة المتغيرة عائدةً</strong> إلى مواقعها الأصلية على المضيف. تُطبَّق الملفات التي تختلف عمّا دُفع أصلًا (بمقارنة تجزئة (hash) المحتوى) في مكانها؛ وتُطابَق الملفات البعيدة الجديدة تحت دليل مُزامَن (مثل مهارة أنشأها الوكيل عن بعد) مع المسار المضيف المقابل. لا تُستبدَل أبدًا ملفات بيانات الاعتماد المخصصة للرفع فقط على المضيف.</p>
+<ul>
+<li>تُعاد محاولة المزامنة العائدة حتى 3 مرات مع تراجع تدريجي (backoff) وترفض استخراج أرشيفات بعيدة أكبر من 2 GiB.</li>
+<li>يستخدم Docker وSingularity bind mounts (عرض مباشر لنظام ملفات المضيف) ولا يحتاجان إلى هذا.</li>
+<li>يغطي هذا حالة Hermes (<code>~/.hermes/</code>)، <strong>وليس</strong> ملفات شجرة العمل العشوائية داخل الـ sandbox — اجعل الوكيل ينسخ العناصر المهمة خارجًا صراحةً (مثلًا عبر <code>scp</code> أو <code>modal volume put</code>) قبل تدمير الـ sandbox.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-volume-mounts">Mounts الخاصة بـ Docker Volume</h3>
+<p>عند استخدام backend الخاص بـ Docker، تتيح لك <code>docker_volumes</code> مشاركة أدلة المضيف مع الحاوية. يستخدم كل عنصر صيغة <code>-v</code> القياسية لـ Docker: <code>host_path:container_path[:options]</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>هذا مفيد من أجل:</p>
+<ul>
+<li><strong>تقديم ملفات</strong> إلى الوكيل (مجموعات بيانات، وإعدادات، وكود مرجعي)</li>
+<li><strong>استقبال ملفات</strong> من الوكيل (كود مُولَّد، وتقارير، وتصديرات)</li>
+<li><strong>مساحات عمل مشتركة</strong> حيث تصل أنت والوكيل معًا إلى نفس الملفات</li>
+</ul>
+<p>إذا كنت تستخدم messaging gateway وتريد أن يرسل الوكيل ملفات مُولَّدة عبر
+<code>MEDIA:/...</code>، يُفضَّل استخدام mount تصدير مخصص مرئي للمضيف مثل
+<code>/home/user/.hermes/cache/documents:/output</code>.</p>
+<ul>
+<li>اكتب الملفات داخل Docker إلى <code>/output/...</code></li>
+<li>أصدِر <strong>مسار المضيف</strong> في <code>MEDIA:</code>، على سبيل المثال:
+<code>MEDIA:/home/user/.hermes/cache/documents/report.txt</code></li>
+<li><strong>لا</strong> تُصدِر <code>/workspace/...</code> أو <code>/output/...</code> ما لم يكن ذلك المسار بعينه
+موجودًا أيضًا لعملية الـ gateway على المضيف</li>
+</ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="142"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>تُبطل مفاتيح YAML المكرَّرة صمتًا المفاتيح السابقة. إذا كان لديك بالفعل
+قسم <code>docker_volumes:</code>، ادمج mounts الجديدة في نفس القائمة بدلًا من إضافة
+مفتاح <code>docker_volumes:</code> آخر لاحقًا في الملف.</p></div></div>
+<p>يمكن ضبطها أيضًا عبر متغير بيئة: <code>TERMINAL_DOCKER_VOLUMES=&#x27;[&quot;/host:/container&quot;]&#x27;</code> (مصفوفة JSON).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-credential-forwarding">توجيه بيانات الاعتماد لـ Docker</h3>
+<p>افتراضيًا، لا ترث جلسات طرفية Docker بيانات اعتماد المضيف العشوائية. إذا احتجت token معينًا داخل الحاوية، أضِفه إلى <code>terminal.docker_forward_env</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>يحسم Hermes كل متغير مُدرَج من shell الحالي لديك أولًا، ثم يعود إلى <code>~/.hermes/.env</code> إذا حُفِظ عبر <code>hermes config set</code>.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="143"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>أي شيء مُدرَج في <code>docker_forward_env</code> يصبح مرئيًا للأوامر التي تعمل داخل الحاوية. لا توجّه سوى بيانات الاعتماد التي تشعر بالارتياح لكشفها لجلسة الطرفية.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-the-container-as-your-host-user">تشغيل الحاوية بحساب مستخدم المضيف لديك</h3>
+<p>افتراضيًا تعمل حاويات Docker باسم <code>root</code> (UID 0). تصبح الملفات المُنشأة داخل <code>/workspace</code> أو غيرها من bind-mounts مملوكة لـ root على المضيف، لذا عليك بعد الجلسة تنفيذ <code>sudo chown</code> عليها قبل أن تتمكّن من تحريرها من محرر المضيف لديك. يعالج مفتاح <code>terminal.docker_run_as_host_user</code> هذا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>عند التفعيل، يُلحق Hermes <code>--user $(id -u):$(id -g)</code> إلى أمر <code>docker run</code> بحيث تصبح الملفات المكتوبة في الأدلة ذات bind-mount (<code>/workspace</code>، وَ<code>/root</code>، وأي شيء في <code>docker_volumes</code>) مملوكة لمستخدم المضيف لديك، وليس root. المقايضة: لم يعد بإمكان الحاوية تنفيذ <code>apt install</code> أو الكتابة إلى مسارات مملوكة لـ root مثل <code>/root/.npm</code> — استخدم صورة أساسية <code>HOME</code> فيها مملوك لمستخدم غير root (أو أضف أدواتك المطلوبة وقت بناء الصورة) إذا احتجت الاثنين معًا.</p>
+<p>اترك هذا على <code>false</code> (الافتراضي) للحفاظ على التوافق مع السلوك السابق. فعّله عندما يكون سير عملك في معظمه &quot;تحرير ملفات المضيف المُركَّبة&quot; وسئمت من <code>sudo chown -R</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="snap-packaged-docker-apparmor">Docker المُعبَّأ كـ snap (AppArmor)</h3>
+<p>على المضيفين حيث ثُبِّت Docker كحزمة snap (شائع على صور Ubuntu السحابية، مثل أجهزة Azure الافتراضية)، يرفض تقييد AppArmor الخاص بالـ snap علمين من أعلام تقوية الـ sandbox وتموت الحاوية عند البدء:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>هذا قيد من قيود snapd (<a href="https://bugs.launchpad.net/snapd/+bug/1908448" data-ext>LP#1908448</a>)، وليس شيئًا يمكن لـ Hermes الالتفاف حوله. إما ثبّت Docker من مستودع apt الخاص بـ Docker بدلًا من الـ snap (مفضَّل — تبقى كل إجراءات التقوية فعّالة)، أو اختر:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>عند تفعيل ذلك، لا تُحصَد العمليات الميتة (zombie) داخل الـ sandbox من قِبل init، ويمكن لثنائي setuid داخل الحاوية استعادة الامتيازات؛ ويُسجَّل تحذير عند بدء الحاوية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-mount-the-launch-directory-into-workspace">اختياري: تركيب دليل الإطلاق في <code>/workspace</code></h3>
+<p>تبقى sandboxes الخاصة بـ Docker معزولة افتراضيًا. لا يُمرِّر Hermes دليل عمل المضيف الحالي لديك إلى الحاوية <strong>إلا</strong> إذا اخترت ذلك صراحةً.</p>
+<p>فعّله في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>عند التفعيل:</p>
+<ul>
+<li>إذا أطلقت Hermes من <code>~/projects/my-app</code>، يُركَّب ذلك الدليل المضيف بـbind-mount في <code>/workspace</code></li>
+<li>يبدأ backend الخاص بـ Docker في <code>/workspace</code></li>
+<li>ترى أدوات الملفات وأوامر الطرفية معًا نفس المشروع المُركَّب</li>
+</ul>
+<p>عند التعطيل، يبقى <code>/workspace</code> مملوكًا للـ sandbox ما لم تُركِّب شيئًا صراحةً عبر <code>docker_volumes</code>.</p>
+<p>المقايضة الأمنية:</p>
+<ul>
+<li><code>false</code> يحافظ على حدود الـ sandbox</li>
+<li><code>true</code> يمنح الـ sandbox وصولًا مباشرًا إلى الدليل الذي أطلقت منه Hermes</li>
+</ul>
+<p>استخدم هذا الخيار الاختياري فقط عندما تريد عن قصد أن تعمل الحاوية على ملفات المضيف الحية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="persistent-shell">الـ Shell الدائم</h3>
+<p>افتراضيًا، يعمل كل أمر طرفية في عملية فرعية خاصة به — تُعاد تهيئة دليل العمل ومتغيرات البيئة ومتغيرات الـ shell بين الأوامر. عند تفعيل <strong>الـ shell الدائم</strong>، تُبقى عملية bash واحدة طويلة الأمد حيّة عبر استدعاءات <code>execute()</code> بحيث تنجو الحالة بين الأوامر.</p>
+<p>هذا أكثر فائدة لـ<strong>backend الخاص بـ SSH</strong>، حيث يزيل أيضًا عبء الاتصال لكل أمر. الـ shell الدائم <strong>مفعَّل افتراضيًا لـ SSH</strong> ومعطَّل للـ backend المحلي.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>للتعطيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p><strong>ما الذي ينجو بين الأوامر:</strong></p>
+<ul>
+<li>دليل العمل (تلتصق <code>cd /tmp</code> للأمر التالي)</li>
+<li>متغيرات البيئة المصدَّرة (<code>export FOO=bar</code>)</li>
+<li>متغيرات الـ shell (<code>MY_VAR=hello</code>)</li>
+</ul>
+<p><strong>الأسبقية:</strong></p>
+<table><thead><tr><th>المستوى</th><th>المتغير</th><th>الافتراضي</th></tr></thead><tbody><tr><td>الإعدادات</td><td><code>terminal.persistent_shell</code></td><td><code>true</code></td></tr><tr><td>تجاوز SSH</td><td><code>TERMINAL_SSH_PERSISTENT</code></td><td>يتبع الإعدادات</td></tr><tr><td>التجاوز المحلي</td><td><code>TERMINAL_LOCAL_PERSISTENT</code></td><td><code>false</code></td></tr></tbody></table>
+<p>لمتغيرات البيئة الخاصة بكل backend الأسبقية الأعلى. إذا أردت الـ shell الدائم على الـ backend المحلي أيضًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="144"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>الأوامر التي تحتاج <code>stdin_data</code> أو sudo تعود تلقائيًا إلى الوضع الفوري (one-shot)، بما أن مُدخَل الـ shell الدائم مشغول بالفعل ببروتوكول IPC.</p></div></div>
+<p>راجع <a href="/docs/user-guide/features/code-execution">تنفيذ الكود</a> وَ<a href="/docs/user-guide/features/tools">قسم Terminal في الـ README</a> لتفاصيل كل backend.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-settings">إعدادات المهارات</h2>
+<p>يمكن للمهارات إعلان إعداداتها الخاصة عبر frontmatter الخاص بـ SKILL.md. هذه قيم غير سرّية (مسارات، وتفضيلات، وإعدادات نطاق) تُخزَّن تحت مساحة الأسماء <code>skills.config</code> في <code>config.yaml</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p><strong>كيف تعمل إعدادات المهارات:</strong></p>
+<ul>
+<li><code>hermes config migrate</code> يفحص كل المهارات المفعَّلة، ويجد الإعدادات غير المضبوطة، ويعرض مطالبتك بها</li>
+<li><code>hermes config show</code> يعرض جميع إعدادات المهارات تحت &quot;Skill Settings&quot; مع المهارة التي تنتمي إليها</li>
+<li>عند تحميل مهارة، تُحقَن قيم إعداداتها المحسومة تلقائيًا في سياق المهارة</li>
+</ul>
+<p><strong>ضبط القيم يدويًا:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>لتفاصيل عن إعلان إعدادات ضبط في مهاراتك الخاصة، راجع <a href="/docs/developer-guide/creating-skills#config-settings-configyaml">إنشاء المهارات — إعدادات الضبط</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guard-on-agent-created-skill-writes">حارس على كتابات المهارات التي ينشئها الوكيل</h3>
+<p>عندما يستخدم الوكيل <code>skill_manage</code> لإنشاء مهارة أو تعديلها أو تصحيحها (patch) أو حذفها، يمكن لـ Hermes اختياريًا فحص المحتوى الجديد/المُحدَّث بحثًا عن أنماط كلمات مفتاحية خطيرة (جمع بيانات الاعتماد، وحقن prompt واضح، وتعليمات تسريب). الماسح <strong>مُعطَّل افتراضيًا</strong> — كانت سير عمل الوكلاء الحقيقية التي تلمس بشكل مشروع <code>~/.ssh/</code> أو تذكر <code>$OPENAI_API_KEY</code> تُفعِّل هذا الإجراء التقريبي (heuristic) كثيرًا. فعِّله مجددًا إذا أردت أن يطالبك الماسح قبل أن تصل كتابات مهارة الوكيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>عند التفعيل، تظهر أي كتابة <code>skill_manage</code> مُعلَّمة كمطالبة موافقة مع مبرر الماسح. تصل الكتابات المقبولة؛ وتُعيد الكتابات المرفوضة خطأً توضيحيًا إلى الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="write-approval-for-skill-writes">موافقة الكتابة لكتابات المهارات</h3>
+<p>بمعزل عن ماسح المحتوى أعلاه، يحجب <code>skills.write_approval</code> <strong>كل</strong> كتابة مهارة من الوكيل (إنشاء / تعديل / تصحيح / حذف / ملفات داعمة) خلف موافقتك الصريحة — بنفس آلية القبول/الرفض المستخدمة للأوامر الخطيرة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>عند التفعيل، تُخزَّن كتابات المهارات مرحليًا تحت <code>~/.hermes/pending/skills/</code> وتُراجَع عبر <code>/skills pending</code> وَ<code>/skills diff &lt;id&gt;</code> وَ<code>/skills approve &lt;id&gt;</code> وَ<code>/skills reject &lt;id&gt;</code> — من CLI أو أي منصة مراسلة. بدّل وقت التشغيل عبر <code>/skills approval on|off</code>. للذاكرة نفس البوابة (<code>memory.write_approval</code>، أدناه). شرح كامل: <a href="/docs/user-guide/features/skills#gating-agent-skill-writes-skillswrite_approval">حجب كتابات مهارات الوكيل</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-configuration">إعدادات الذاكرة</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>مع <code>memory.write_approval: true</code>، تحتاج كتابات الذاكرة إلى موافقتك قبل أن تصل: تطالبك أدوار CLI التفاعلية مضمَّنة؛ أما جلسات المراسلة ومراجعة التحسين الذاتي في الخلفية فتُخزِّن الكتابة مرحليًا لمراجعة <code>/memory pending</code> ← <code>/memory approve &lt;id&gt;</code> / <code>/memory reject &lt;id&gt;</code>. بدّل وقت التشغيل عبر <code>/memory approval on|off</code>. راجع <a href="/docs/user-guide/features/memory#controlling-memory-writes-write_approval">التحكم في كتابات الذاكرة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-file-truncation">اقتطاع ملفات السياق</h2>
+<p>يتحكّم في مقدار المحتوى الذي يحمّله Hermes من كل ملف سياق تلقائي قبل تطبيق الاقتطاع من البداية/النهاية. ينطبق هذا على الملفات المحقونة في system prompt مثل <code>SOUL.md</code> وَ<code>.hermes.md</code> وَ<code>AGENTS.md</code> وَ<code>CLAUDE.md</code> وَ<code>.cursorrules</code>. لا <strong>يؤثر</strong> على أداة <code>read_file</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p>اضبط عددًا صحيحًا موجبًا لتثبيت حد ثابت بدلًا من السلوك الديناميكي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>يُقيَّد كل قراءة لملف سياق أيضًا بـ<code>context_file_read_timeout</code> (بالثواني، الافتراضي <code>5.0</code>). يُتجاوَز الملف الذي تستغرق قراءته وقتًا أطول — عادةً على نظام ملفات مدعوم بالشبكة مثل iCloud Drive أو OneDrive أو NFS — مع تحذير بحيث تستمر بقية system prompt في التحميل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-read-safety">أمان قراءة الملفات</h2>
+<p>يتحكّم في مقدار المحتوى الذي يمكن أن يعيده استدعاء <code>read_file</code> واحد. تُرفَض القراءات التي تتجاوز الحد بخطأ يُطلِع الوكيل على استخدام <code>offset</code> وَ<code>limit</code> لنطاق أصغر. يمنع هذا قراءة واحدة لحزمة JS مُصغَّرة (minified) أو ملف بيانات كبير من إغراق نافذة السياق.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>ارفعه إذا كنت تستخدم نموذجًا بنافذة سياق كبيرة وتقرأ ملفات كبيرة كثيرًا. خفّضه للنماذج ذات السياق الصغير للحفاظ على كفاءة القراءات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>يزيل الوكيل أيضًا تكرار قراءات الملفات تلقائيًا — إذا قُرِئت منطقة الملف نفسها مرتين ولم يتغيّر الملف، تُعاد كعب (stub) خفيف بدلًا من إعادة إرسال المحتوى. يُعاد ضبط هذا عند ضغط السياق بحيث يمكن للوكيل إعادة قراءة الملفات بعد تلخيص محتواها بعيدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-output-truncation-limits">حدود اقتطاع مخرجات الأدوات</h2>
+<p>ثلاثة حدود مترابطة تتحكّم في مقدار المخرجات الخام التي يمكن لأداة إعادتها قبل أن يقتطعها Hermes:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<ul>
+<li><strong><code>max_bytes</code></strong> — عندما ينتج أمر <code>terminal</code> أكثر من هذا العدد من الأحرف في stdout/stderr مجتمعين، يحتفظ Hermes بأول 40% وآخر 60% ويُدرج إشعار <code>[OUTPUT TRUNCATED]</code> بينهما. الافتراضي <code>50000</code> (نحو 12-15 ألف token عبر مُجزِّئات النصوص (tokenisers) المعتادة).</li>
+<li><strong><code>max_lines</code></strong> — الحد الأقصى لوسيط <code>limit</code> في استدعاء <code>read_file</code> واحد. تُقيَّد الطلبات الأعلى من هذا بحيث لا يمكن لقراءة واحدة إغراق نافذة السياق. الافتراضي <code>2000</code>.</li>
+<li><strong><code>max_line_length</code></strong> — حد لكل سطر يُطبَّق عندما يُخرِج <code>read_file</code> العرض المُرقَّم بالأسطر. تُقتطَع الأسطر الأطول من هذا إلى هذا العدد من الأحرف متبوعًا بـ<code>... [truncated]</code>. الافتراضي <code>2000</code>.</li>
+</ul>
+<p>ارفع الحدود على النماذج ذات نوافذ السياق الكبيرة التي يمكنها تحمّل مخرجات خام أكثر لكل استدعاء. خفّضها للنماذج ذات السياق الصغير للحفاظ على إيجاز نتائج الأدوات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-result-spillover-budget">ميزانية انسكاب نتائج الأدوات (Spillover)</h3>
+<p>بمعزل عن الاقتطاع، تُنسكب <em>نتائج</em> الأدوات كبيرة الحجم إلى القرص بدلًا من قصّها: تُحفظ المخرجات الكاملة تحت <code>$HERMES_HOME/cache/spillover/</code> ويُستبدَل المحتوى داخل السياق بمعاينة إضافةً إلى مسار الملف المحفوظ (قابل للقراءة بـ<code>read_file</code> باستخدام <code>offset</code>/<code>limit</code>، أو قابل للمعالجة بـ<code>execute_code</code>). عتبة الانسكاب العامة لكل نتيجة هي 100,000 حرف، تُقاس تنازليًا تلقائيًا للنماذج ذات السياق الصغير.</p>
+<p>تنسكب نتائج أدوات MCP (الأدوات المسمّاة <code>mcp_*</code>) بعتبة افتراضية أضيق قدرها <strong>50,000 حرف</strong>: تعيد خوادم MCP بشكل روتيني حمولات كبيرة غير مُقسَّمة إلى صفحات (كتالوجات اكتشاف الأدوات، والتنفيذات الدفعية) كانت ستبقى تحت العتبة العامة وتُضخِّم السياق في كل دور لاحق. لا شيء يُفقَد — تُحفَظ النتيجة الكاملة على القرص. تجاوَز العتبة عبر:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<p>عتبة MCP دائمًا مُقيَّدة بالعتبة العامة لكل نتيجة (المُقاسة تنازليًا بحسب السياق أحيانًا)، بحيث لا يمكن لرفعها أن يتجاوز ما تسمح به نافذة النموذج النشط.</p>
+<p>يشير Hermes أيضًا إلى <strong>الحذف من جانب المزوّد (provider-side elision)</strong>: عندما تضمِّن نتيجة أداة MCP أو ويب علامات اقتطاع خاصة بها (<code>...N more items</code>، وَ<code>&quot;has_more&quot;: true</code>، وملاحظات &quot;saved to sandbox&quot;)، يُلحَق إشعار من سطر واحد بالنتيجة يحذّر من أن البيانات المرئية غير مكتملة وينبغي تصفّحها/جلبها قبل معاملة أي تعداد على أنه مكتمل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="global-toolset-disable">تعطيل Toolset عام</h2>
+<p>لقمع toolsets محددة عبر CLI وكل منصة gateway في مكان
+واحد، أدرِج أسماءها تحت <code>agent.disabled_toolsets</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<p>ينطبق هذا <strong>بعد</strong> إعدادات الأدوات لكل منصة (<code>platform_toolsets</code> التي يكتبها
+<code>hermes tools</code>)، لذا يُزال toolset مُدرَج هنا دائمًا — حتى لو كانت إعدادات
+منصة محفوظة لا تزال تُدرِجه. استخدم هذا عندما تريد مفتاحًا واحدًا لـ &quot;أطفئ X
+في كل مكان&quot; بدلًا من تعديل أكثر من 15 صفًا لكل منصة في
+واجهة <code>hermes tools</code>.</p>
+<p>ترك القائمة فارغة، أو حذف المفتاح، لا يفعل شيئًا.</p>

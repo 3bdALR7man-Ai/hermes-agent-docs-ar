@@ -1,0 +1,95 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unauthorized-user-handling">التعامل مع المستخدمين غير المصرّح لهم</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>يمكنك أيضًا ضبط هذا عالميًا لجميع المنصات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>الإعداد الخاص بالمنصة تحت <code>slack:</code> له الأولوية على الإعداد العالمي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-transcription">تحويل الصوت إلى نص (Voice Transcription)</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>عند ضبطه على <code>true</code> (الإعداد الافتراضي)، تُحوَّل رسائل الصوت الواردة تلقائيًا إلى نص باستخدام مزوّد STT المُهيّأ قبل أن يعالجها الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-example">مثال كامل</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية (Home Channel)</h2>
+<p>اضبط <code>SLACK_HOME_CHANNEL</code> على معرّف قناة سيُرسل إليها Hermes الرسائل المجدولة،
+ونتائج مهام cron، وغيرها من الإشعارات الاستباقية. للعثور على معرّف قناة:</p>
+<ol>
+<li>انقر بزر الماوس الأيمن على اسم القناة في Slack</li>
+<li>انقر على <strong>View channel details</strong></li>
+<li>مرّر إلى الأسفل — يظهر Channel ID هناك</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>تأكد من أن البوت قد <strong>دُعي إلى القناة</strong> (<code>/invite @Hermes Agent</code>).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-delivery-targeting">استهداف تسليم مهام Cron</h3>
+<p>يمكن لمهام cron (راجع <a href="/docs/user-guide/features/cron#delivery-options">دليل Cron</a>) استهداف Slack بثلاث طرق:</p>
+<table><thead><tr><th>قيمة <code>deliver:</code></th><th>أين تصل</th></tr></thead><tbody><tr><td><code>slack</code></td><td>القناة الرئيسية (<code>SLACK_HOME_CHANNEL</code>)</td></tr><tr><td><code>slack:C0123456789</code></td><td>قناة محددة بمعرّفها</td></tr><tr><td><code>slack:U0123456789</code></td><td><strong>الرسائل المباشرة (DM)</strong> لذلك المستخدم — يُحلَّل معرّف المستخدم المجرّد تلقائيًا إلى محادثة DM (يتطلب صلاحية <code>im:write</code>)</td></tr></tbody></table>
+<p>يعمل التسليم حتى عندما لا تكون عملية cron مشتركة في نفس الموقع مع الـ gateway — يعود Hermes إلى مرسِل Web API مستقل باستخدام <code>SLACK_BOT_TOKEN</code>. تُرفع مرفقات <code>MEDIA:</code> في مُخرَجات cron كملفات Slack أصلية مشارَكة إلى نفس الهدف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sending-messages-and-media-send_message">إرسال الرسائل والوسائط (<code>send_message</code>)</h3>
+<p>تقبل أداة <code>send_message</code> الخاصة بالوكيل نفس أشكال الهدف: معرّف قناة (<code>C…</code>/<code>G…</code>)، محادثة DM (<code>D…</code>)، أو معرّف مستخدم مجرّد (<code>U…</code>/<code>W…</code>) يُحلَّل إلى DM الخاص بالمستخدم في كل مسار إرسال — النص والوسائط والمطالبات التفاعلية على حد سواء. تُرفع مرفقات <code>MEDIA:&lt;path&gt;</code> (الصور، ملفات PDF، المستندات) كملفات Slack أصلية مشارَكة؛ وعندما ترافق رسالة قصيرة مرفقًا واحدًا، تظهر كتعليق توضيحي للملف بدلًا من رسالة منفصلة. يُبلَّغ عن الملفات المفقودة كتحذيرات لكل ملف على حدة بدلًا من فشل الإرسال بالكامل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-workspace-support">دعم تعدد مساحات العمل (Multi-Workspace)</h2>
+<p>يمكن لـ Hermes الاتصال بـ <strong>مساحات عمل متعددة في Slack</strong> في وقت واحد باستخدام مثيل gateway واحد. تُصادَق كل مساحة عمل بشكل مستقل بمعرّف مستخدم بوت خاص بها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعداد</h3>
+<p>وفّر عدة رموز بوت (bot tokens) كقائمة <strong>مفصولة بفواصل</strong> في <code>SLACK_BOT_TOKEN</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>أو في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="oauth-token-file">ملف رمز OAuth</h3>
+<p>بالإضافة إلى الرموز في البيئة أو ملف الإعدادات، يحمّل Hermes أيضًا الرموز من <strong>ملف رمز OAuth</strong> في:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>هذا الملف هو كائن JSON يربط معرّفات الفريق بإدخالات الرموز:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>تُدمَج الرموز من هذا الملف مع أي رموز محددة عبر <code>SLACK_BOT_TOKEN</code>. تُزال الرموز المكررة تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل هذا</h3>
+<ul>
+<li><strong>الرمز الأول</strong> في القائمة هو الرمز الأساسي، ويُستخدم لاتصال Socket Mode (AsyncApp).</li>
+<li>تتم مصادقة كل رمز عبر <code>auth.test</code> عند بدء التشغيل. يربط الـ gateway كل <code>team_id</code> بـ <code>WebClient</code> و <code>bot_user_id</code> خاصين به.</li>
+<li>عند وصول رسالة، يستخدم Hermes العميل الخاص بمساحة العمل الصحيحة للرد.</li>
+<li>يُستخدم <code>bot_user_id</code> الأساسي (من الرمز الأول) للتوافق العكسي مع الميزات التي تتوقع هوية بوت واحدة.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-messages">الرسائل الصوتية</h2>
+<p>يدعم Hermes الصوت في Slack:</p>
+<ul>
+<li><strong>الوارد:</strong> تُحوَّل رسائل الصوت/الصوتيات الواردة تلقائيًا إلى نص باستخدام مزوّد STT المُهيّأ: <code>faster-whisper</code> المحلي، أو Groq Whisper (<code>GROQ_API_KEY</code>)، أو OpenAI Whisper (<code>VOICE_TOOLS_OPENAI_KEY</code>)</li>
+<li><strong>الصادر:</strong> تُرسَل استجابات TTS كمرفقات ملفات صوتية</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-channel-prompts">Prompts خاصة بكل قناة</h2>
+<p>خصّص system prompts مؤقتة لقنوات Slack محددة. يُحقَن الـ prompt وقت التشغيل في كل دور — ولا يُحفَظ أبدًا في سجل المحادثة — لذا تسري التغييرات فورًا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>المفاتيح هي معرّفات قنوات Slack (اعثر عليها عبر تفاصيل القناة → &quot;About&quot; → مرّر إلى الأسفل). تُحقَن جميع الرسائل في القناة المطابقة بالـ prompt كتعليمة نظام مؤقتة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-channel-skill-bindings">ربط المهارات (Skills) بكل قناة</h2>
+<p>حمّل مهارة تلقائيًا كلما بدأت جلسة جديدة في قناة أو DM محددة. على عكس الـ prompts الخاصة بكل قناة (التي تُحقَن في كل دور)، تحقن ربطات المهارات محتوى المهارة كرسالة مستخدم عند <strong>بدء الجلسة</strong> — فتصبح جزءًا من سجل المحادثة ولا تحتاج إلى إعادة تحميلها في الأدوار اللاحقة.</p>
+<p>هذا مثالي للرسائل المباشرة أو القنوات ذات الغرض المحدد (بطاقات تعليمية، بوت أسئلة وأجوبة مخصص لمجال معين، قناة فرز طلبات الدعم، إلخ) حيث لا تريد أن يقرر مُحدِّد المهارات الخاص بالنموذج ما إذا كان سيُحمّل المهارة في كل رد قصير.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>يُطابَق الربط بمعرّف القناة. بالنسبة للرسائل المسلسلة (threaded) في قناة مربوطة، يرث الـ thread ربط القناة الأصلية.</li>
+<li>تُحمَّل المهارة فقط عند بدء الجلسة (جلسة جديدة). إذا غيّرت الربط، نفّذ <code>/new</code> ليسري التغيير.</li>
+<li>ادمج مع <code>channel_prompts</code> لضبط نبرة/قيود خاصة بكل قناة فوق تعليمات المهارة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<table><thead><tr><th>المشكلة</th><th>الحل</th></tr></thead><tbody><tr><td>لا يستجيب البوت للرسائل المباشرة (DMs)</td><td>تحقق من أن <code>message.im</code> مُضاف في اشتراكات الأحداث وأن التطبيق أُعيد تثبيته</td></tr><tr><td>يعمل البوت في الرسائل المباشرة لكن ليس في القنوات</td><td><strong>المشكلة الأكثر شيوعًا.</strong> أضف <code>message.channels</code> و <code>message.groups</code> إلى اشتراكات الأحداث، وأعد تثبيت التطبيق، وادعُ البوت إلى القناة باستخدام <code>/invite @Hermes Agent</code></td></tr><tr><td>لا يستجيب البوت للإشارات (@mentions) في القنوات</td><td>1) تحقق من الاشتراك في حدث <code>message.channels</code>. 2) يجب دعوة البوت إلى القناة. 3) تأكد من إضافة صلاحية <code>channels:history</code>. 4) أعد تثبيت التطبيق بعد تغييرات الصلاحيات/الأحداث</td></tr><tr><td>يتجاهل البوت الرسائل في القنوات الخاصة</td><td>أضف اشتراك حدث <code>message.groups</code> وصلاحية <code>groups:history</code> معًا، ثم أعد تثبيت التطبيق ونفّذ <code>/invite</code> للبوت</td></tr><tr><td>لا يستجيب البوت في الرسائل المباشرة الجماعية (group DMs)</td><td>أضف اشتراك حدث <code>message.mpim</code> وصلاحية <code>mpim:history</code> (بالإضافة إلى <code>mpim:read</code>)، ثم <strong>أعد تثبيت</strong> التطبيق. بدون <code>message.mpim</code>، لا يُسلّم Slack رسائل الـ DM الجماعية إلى البوت أبدًا — حتى لو كانت الرسائل المباشرة الفردية تعمل.</td></tr><tr><td>&quot;تم إيقاف إرسال الرسائل إلى هذا التطبيق&quot; في الرسائل المباشرة</td><td>فعّل <strong>Messages Tab</strong> في إعدادات App Home (راجع الخطوة 5)</td></tr><tr><td>أخطاء &quot;not_authed&quot; أو &quot;invalid_auth&quot;</td><td>أعد توليد Bot Token و App Token، وحدّث <code>.env</code></td></tr><tr><td>يستجيب البوت لكن لا يستطيع النشر في قناة</td><td>ادعُ البوت إلى القناة باستخدام <code>/invite @Hermes Agent</code></td></tr><tr><td>يستطيع البوت الدردشة لكن لا يستطيع قراءة الصور/الملفات المرفوعة</td><td>أضف <code>files:read</code>، ثم <strong>أعد تثبيت</strong> التطبيق. يعرض Hermes الآن تشخيصات الوصول إلى المرفقات داخل المحادثة عندما يُرجع Slack أخطاء الصلاحية/المصادقة/الأذونات.</td></tr><tr><td>خطأ <code>missing_scope</code></td><td>أضف الصلاحية المطلوبة في OAuth &amp; Permissions، ثم <strong>أعد تثبيت</strong> التطبيق</td></tr><tr><td>انقطاعات متكررة في الـ Socket</td><td>تحقق من شبكتك؛ يعيد Bolt الاتصال تلقائيًا لكن الاتصالات غير المستقرة تسبب تأخيرًا</td></tr><tr><td>غيّرت الصلاحيات/الأحداث لكن لم يتغير شيء</td><td><strong>يجب إعادة تثبيت</strong> التطبيق في مساحة عملك بعد أي تغيير في الصلاحيات أو اشتراكات الأحداث</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-checklist">قائمة تحقق سريعة</h3>
+<p>إذا كان البوت لا يعمل في القنوات، تحقق من <strong>جميع</strong> ما يلي:</p>
+<ol>
+<li>✅ الاشتراك في حدث <code>message.channels</code> (للقنوات العامة)</li>
+<li>✅ الاشتراك في حدث <code>message.groups</code> (للقنوات الخاصة)</li>
+<li>✅ الاشتراك في حدث <code>app_mention</code></li>
+<li>✅ إضافة صلاحية <code>channels:history</code> (للقنوات العامة)</li>
+<li>✅ إضافة صلاحية <code>groups:history</code> (للقنوات الخاصة)</li>
+<li>✅ <strong>إعادة تثبيت</strong> التطبيق بعد إضافة الصلاحيات/الأحداث</li>
+<li>✅ <strong>دعوة</strong> البوت إلى القناة (<code>/invite @Hermes Agent</code>)</li>
+<li>✅ أنك <strong>تُشير (@mention)</strong> إلى البوت في رسالتك</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="47"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>اضبط دائمًا <code>SLACK_ALLOWED_USERS</code></strong> بمعرّفات الأعضاء (Member IDs) للمستخدمين المصرّح لهم. بدون هذا الإعداد،
+سيرفض الـ gateway <strong>جميع الرسائل</strong> افتراضيًا كإجراء أمان. لا تشارك رموز البوت الخاصة بك أبدًا —
+عاملها كما تعامل كلمات المرور.</p></div></div>
+<ul>
+<li>يجب تخزين الرموز في <code>~/.hermes/.env</code> (صلاحيات ملف <code>600</code>)</li>
+<li>دوّر الرموز دوريًا عبر إعدادات تطبيق Slack</li>
+<li>راجع من لديه صلاحية الوصول إلى دليل إعدادات Hermes الخاص بك</li>
+<li>يعني Socket Mode عدم كشف أي endpoint عام — وهذا يقلل من سطح الهجوم</li>
+</ul>

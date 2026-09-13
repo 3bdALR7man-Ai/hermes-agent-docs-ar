@@ -1,0 +1,113 @@
+
+<header><h1>Shopify</h1></header>
+<p>استعلم عن واجهات Shopify Admin/Storefront GraphQL عبر curl.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/productivity/shopify</code></td></tr><tr><td>المسار</td><td><code>optional-skills/productivity/shopify</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>community</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>Shopify</code>، <code>E-commerce</code>، <code>Commerce</code>، <code>API</code>، <code>GraphQL</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/productivity/productivity-airtable"><code>airtable</code></a>، <a href="/docs/user-guide/skills/bundled/social-media/social-media-xurl"><code>xurl</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Shopify — واجهات Admin و Storefront GraphQL</h1>
+<p>تعامل مع متاجر Shopify مباشرة عبر <code>curl</code>: اعرض قائمة المنتجات، وأدر المخزون، واسحب الطلبات، وحدّث بيانات العملاء، واقرأ metafields. بلا SDK، وبلا إطار عمل تطبيقات — فقط endpoint الخاص بـ GraphQL ورمز وصول تطبيق مخصَّص.</p>
+<p>واجهة REST Admin API قديمة (legacy) منذ 2024-04 ولا تتلقى سوى إصلاحات أمنية. <strong>استخدم GraphQL Admin</strong> لكل أعمال الإدارة. استخدم <strong>Storefront GraphQL</strong> للاستعلامات المخصَّصة للعملاء والمقتصرة على القراءة (المنتجات، المجموعات، سلة الشراء).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ol>
+<li>في لوحة إدارة Shopify: <strong>Settings → Apps and sales channels → Develop apps → Create an app</strong>.</li>
+<li>انقر <strong>Configure Admin API scopes</strong>، وحدّد ما تحتاجه (أمثلة أدناه)، ثم احفظ.</li>
+<li><strong>Install app</strong> → يظهر رمز وصول Admin API مرة واحدة فقط. انسخه فورًا — فلن يعرضه Shopify مجددًا أبدًا. تبدأ الرموز بـ <code>shpat_</code>.</li>
+<li>احفظه في <code>${HERMES_HOME:-~/.hermes}/.env</code>:
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+</ol>
+<blockquote>
+<p><strong>تنبيه:</strong> اعتبارًا من 1 يناير 2026، لم تعد &quot;التطبيقات المخصَّصة القديمة&quot; الجديدة المُنشأة من لوحة إدارة Shopify متاحة. يجب أن تستخدم الإعدادات الجديدة <strong>Dev Dashboard</strong> (<code>shopify.dev/docs/apps/build/dev-dashboard</code>). تظل التطبيقات المُنشأة سابقًا من لوحة الإدارة تعمل. إذا لم يكن لدى متجر المستخدم تطبيق مخصَّص موجود وكان التاريخ بعد 2026-01-01، وجّهه إلى Dev Dashboard بدلًا من مسار لوحة الإدارة.</p>
+</blockquote>
+<p>النطاقات (scopes) الشائعة حسب المهمة:</p>
+<ul>
+<li>المنتجات / المجموعات: <code>read_products</code>، <code>write_products</code></li>
+<li>المخزون: <code>read_inventory</code>، <code>write_inventory</code>، <code>read_locations</code></li>
+<li>الطلبات: <code>read_orders</code>، <code>write_orders</code> (أحدث 30 طلبًا دون <code>read_all_orders</code>)</li>
+<li>العملاء: <code>read_customers</code>، <code>write_customers</code></li>
+<li>الطلبات المسوَّدة: <code>read_draft_orders</code>، <code>write_draft_orders</code></li>
+<li>عمليات التنفيذ: <code>read_fulfillments</code>، <code>write_fulfillments</code></li>
+<li>Metafields / metaobjects: مغطاة بنطاقات الموارد المطابقة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="api-basics">أساسيات API</h2>
+<ul>
+<li><strong>Endpoint:</strong> <code>https://$SHOPIFY_STORE_DOMAIN/admin/api/$SHOPIFY_API_VERSION/graphql.json</code></li>
+<li><strong>ترويسة المصادقة:</strong> <code>X-Shopify-Access-Token: $SHOPIFY_ACCESS_TOKEN</code> (وليست <code>Authorization: Bearer</code>)</li>
+<li><strong>الطريقة:</strong> دائمًا <code>POST</code>، ودائمًا <code>Content-Type: application/json</code>، والمتن هو <code>{&quot;query&quot;: &quot;...&quot;, &quot;variables&quot;: {...}}</code></li>
+<li><strong>لا يعني HTTP 200 النجاح.</strong> تُعيد GraphQL الأخطاء في مصفوفة <code>errors</code> على المستوى الأعلى، وأخطاء <code>userErrors</code> لكل حقل. تحقق دائمًا من الاثنتين.</li>
+<li><strong>المعرّفات هي سلاسل GID:</strong> <code>gid://shopify/Product/10079467700516</code>، <code>gid://shopify/Variant/...</code>، <code>gid://shopify/Order/...</code>. مرّرها كما هي حرفيًا — لا تحذف البادئة.</li>
+<li><strong>حدّ المعدل (rate limit):</strong> يُحسَب عبر تكلفة الاستعلام (leaky bucket). تحمل كل استجابة <code>extensions.cost</code> ومعها <code>requestedQueryCost</code>، و<code>actualQueryCost</code>، و<code>throttleStatus.{currentlyAvailable, maximumAvailable, restoreRate}</code>. تباطأ عندما تنخفض <code>currentlyAvailable</code> دون تكلفة استعلامك التالي. المتاجر القياسية = دلو (bucket) بـ100 نقطة، استعادة 50/ثانية؛ Plus = 1000/100.</li>
+</ul>
+<p>نمط curl الأساسي (قابل لإعادة الاستخدام):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>مرّر الناتج عبر <code>jq</code> لإخراج مقروء. يبقي <code>-sS</code> الأخطاء ظاهرة لكنه يخفي شريط التقدّم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery">الاستكشاف</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shop-info--current-api-version">معلومات المتجر + إصدار API الحالي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-all-supported-api-versions">عرض كل إصدارات API المدعومة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="products">المنتجات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-products-first-20-matching-query">البحث في المنتجات (أول 20 نتيجة مطابقة للاستعلام)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تدعم صياغة الاستعلام <code>title:</code>، و<code>sku:</code>، و<code>vendor:</code>، و<code>product_type:</code>، و<code>status:active</code>، و<code>tag:</code>، و<code>created_at:&gt;2025-01-01</code>. القواعد الكاملة: <a href="https://shopify.dev/docs/api/usage/search-syntax" data-ext>https://shopify.dev/docs/api/usage/search-syntax</a></p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="paginate-products-cursor">ترقيم صفحات المنتجات (cursor)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-a-product-with-variants--metafields">جلب منتج مع متغيّراته وmetafields</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-product-with-one-variant">إنشاء منتج بمتغيّر واحد</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أصبح للمتغيّرات الآن mutations خاصة بها في الإصدارات الحديثة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-price--sku">تحديث السعر / SKU</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="orders">الطلبات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-recent-orders-last-30-by-default-without-read_all_orders">عرض الطلبات الأخيرة (آخر 30 افتراضيًا دون <code>read_all_orders</code>)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>فلاتر استعلام طلبات مفيدة: <code>financial_status:paid|pending|refunded</code>، و<code>fulfillment_status:unfulfilled|fulfilled</code>، و<code>created_at:&gt;2025-01-01</code>، و<code>tag:gift</code>، و<code>email:foo@example.com</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fetch-a-single-order-with-shipping-address">جلب طلب واحد مع عنوان الشحن</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="customers">العملاء</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inventory">المخزون</h2>
+<p>يقيم المخزون في <strong>عناصر المخزون (inventory items)</strong> المرتبطة بالمتغيّرات، وتُتبَّع الكميات حسب <strong>الموقع (location)</strong>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تعديل المخزون (فارق) — يستخدم <code>inventoryAdjustQuantities</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>ضبط المخزون كقيمة مطلقة (لا فارق) — <code>inventorySetQuantities</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="metafields--metaobjects">Metafields وMetaobjects</h2>
+<p>تُرفق Metafields بيانات مخصَّصة بالموارد (المنتجات، العملاء، الطلبات، المتجر).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="storefront-api-public-read-only">واجهة Storefront API (عامة، للقراءة فقط)</h2>
+<p>Endpoint مختلف، ورمز مختلف، تُستخدم لتطبيقات مواجهة العملاء أو إعدادات headless من طراز hydrogen. تختلف الترويسات:</p>
+<ul>
+<li><strong>Endpoint:</strong> <code>https://$SHOPIFY_STORE_DOMAIN/api/$SHOPIFY_API_VERSION/graphql.json</code></li>
+<li><strong>ترويسة المصادقة (عامة):</strong> <code>X-Shopify-Storefront-Access-Token: &lt;public token&gt;</code> — قابلة للتضمين في المتصفح</li>
+<li><strong>ترويسة المصادقة (خاصة):</strong> <code>Shopify-Storefront-Private-Token: &lt;private token&gt;</code> — للخادم فقط</li>
+</ul>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-operations">العمليات الدفعية (Bulk Operations)</h2>
+<p>للتفريغات الأكبر مما تسمح به حدود المعدل (كامل كتالوج المنتجات، كل طلبات سنة كاملة):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>كل سطر JSONL هو عقدة (node)، وتُصدَر الاتصالات المتداخلة كسطور منفصلة تحمل <code>__parentId</code>. أعد تجميعها من جانب العميل عند الحاجة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhooks">Webhooks</h2>
+<p>اشترك في الأحداث كي لا تضطر إلى الاستطلاع (polling):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>تحقق من HMAC الوارد في الـ webhook باستخدام سر عميل التطبيق (وليس رمز الوصول):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li><strong>لا تزال endpoints واجهة REST موجودة لكنها مجمَّدة.</strong> لا تكتب تكاملات جديدة باستخدام <code>/admin/api/.../products.json</code>. استخدم GraphQL.</li>
+<li><strong>تحقق من صيغة الرمز.</strong> تبدأ رموز Admin بـ <code>shpat_</code>. وتبدأ رموز Storefront العامة بـ <code>shpua_</code>. إذا كان لديك رمز واستخدمت الترويسة الخاطئة، تعيد كل الطلبات 401 دون نص خطأ مفيد.</li>
+<li><strong>403 مع رمز صالح = نطاق (scope) مفقود.</strong> يعيد Shopify <code>{&quot;errors&quot;:[{&quot;message&quot;:&quot;Access denied for ...&quot;}]}</code>. أعد ضبط نطاقات Admin API على التطبيق، ثم أعد تثبيته لتوليد رمز جديد.</li>
+<li><strong>فراغ <code>userErrors</code> لا يعني النجاح.</strong> تحقق أيضًا من أن <code>data.&lt;mutation&gt;.&lt;resource&gt;</code> ليست null. بعض الإخفاقات لا تملأ أيًا منهما — افحص الاستجابة كاملة.</li>
+<li><strong>GID مقابل المعرّف الرقمي.</strong> كانت REST القديمة تعطي معرّفات رقمية؛ أما GraphQL فتطلب سلاسل GID كاملة. للتحويل: <code>gid://shopify/Product/&lt;numeric&gt;</code>.</li>
+<li><strong>مفاجأة حدّ المعدل.</strong> يمكن لاستعلام واحد من نوع <code>products(first: 250)</code> بتداخل عميق أن يكلّف أكثر من 1000 نقطة ويتسبب في التباطؤ فورًا على متجر بخطة قياسية. ابدأ ضيقًا، واقرأ <code>extensions.cost</code>، ثم اضبط.</li>
+<li><strong>ترتيب ترقيم الصفحات.</strong> يرتّب <code>products(first: N, reverse: true)</code> حسب <code>id DESC</code> وليس <code>created_at</code>. استخدم <code>sortKey: CREATED_AT, reverse: true</code> لـ&quot;الأحدث أولًا&quot;.</li>
+<li><strong><code>read_all_orders</code> للبيانات التاريخية.</strong> دونه، تقتصر <code>orders(...)</code> صامتة على نافذة الـ 60 يومًا. لن تحصل على خطأ، بل نتائج أقل مما تتوقع. لتجار Shopify Plus ذوي الطلبات الكثيرة، اطلب هذا النطاق عبر إعدادات protected-data للتطبيق.</li>
+<li><strong>العملات نصوص (strings).</strong> تعود المبالغ كـ <code>&quot;49.00&quot;</code> وليس <code>49.0</code>. لا تستخدم <code>jq tonumber</code> عشوائيًا إن كنت تهتم بالأصفار البادئة.</li>
+<li><strong>حقول Money متعددة العملات</strong> تحمل <code>shopMoney</code> (عملة المتجر) و<code>presentmentMoney</code> (عملة العميل). اختر واحدة بثبات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety">السلامة</h2>
+<p>الـ mutations في Shopify حقيقية — فهي تنشئ منتجات، وتُصدر استردادات، وتلغي طلبات، وتشحن عمليات تنفيذ. قبل تشغيل <code>productDelete</code>، أو <code>orderCancel</code>، أو <code>refundCreate</code>، أو أي mutation دفعي: اذكر بوضوح ماهية التغيير، وعلى أي متجر، وأكّد مع المستخدم. لا توجد نسخة تجريبية (staging) من بيانات الإنتاج ما لم يمتلك المستخدم متجرًا تطويريًا منفصلًا.</p>

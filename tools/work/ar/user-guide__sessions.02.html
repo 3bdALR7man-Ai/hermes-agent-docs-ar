@@ -1,0 +1,79 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="storage-locations">مواقع التخزين</h2>
+<table><thead><tr><th>ماذا</th><th>المسار</th><th>الوصف</th></tr></thead><tbody><tr><td>قاعدة بيانات SQLite</td><td><code>~/.hermes/state.db</code></td><td>كل البيانات الوصفية للجلسات + الرسائل مع FTS5</td></tr><tr><td>رسائل Gateway</td><td><code>~/.hermes/state.db</code></td><td>SQLite — المخزن الأساسي لكل رسائل الجلسات</td></tr><tr><td>فهرس توجيه Gateway</td><td>جدول <code>gateway_routing</code> في <code>~/.hermes/state.db</code></td><td>يربط مفاتيح الجلسات بمعرّفات الجلسات النشطة (بيانات الأصل الوصفية، أعلام انتهاء الصلاحية)</td></tr><tr><td>مرآة التوجيه القديمة</td><td><code>~/.hermes/sessions/sessions.json</code></td><td>مرآة توافقية إلى الخلف لفهرس التوجيه، تُكتب عندما تكون <code>gateway.write_sessions_json: true</code> (الافتراضي)</td></tr></tbody></table>
+<p>تستخدم قاعدة بيانات SQLite وضع WAL للقرّاء المتزامنين وكاتب واحد، وهو ما يناسب بنية gateway متعددة المنصات جيدًا.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="41"></x-keep></span><code>sessions.json</code> ليس قائمة الجلسات</div><div class="admonitionContent_BuS1"><p>يعيش فهرس توجيه gateway في جدول <code>gateway_routing</code> داخل
+<code>state.db</code>؛ <code>~/.hermes/sessions/sessions.json</code> <strong>مرآة قديمة</strong> له،
+مُبقاة للتوافق إلى الخلف (عطِّلها بضبط
+<code>gateway.write_sessions_json: false</code>). تربط مفاتيح جلسات المراسلة
+(<code>agent:main:&lt;platform&gt;:...</code>) بمعرّفات الجلسات النشطة.
+تحتوي فقط على مدخلات gateway/المراسلة على الإطلاق، لذا إذا شغّلت منصة
+مراسلة سترى تلك فقط (مثل <code>agent:main:whatsapp:dm:...</code>).</p><p>هذا <strong>متوقَّع</strong> و<strong>لا</strong> يعني أن جلسات CLI الخاصة بك مفقودة.
+تقرأ <code>hermes sessions list</code> و<code>/sessions</code> ولوحة التحكم جميعها <code>state.db</code>،
+الذي يحتفظ بـ<strong>كل</strong> جلسة (CLI وTUI وgateway). لقطات <code>/save</code>
+تحت <code>~/.hermes/sessions/saved/*.json</code> صادرات ملائمة، وليست الفهرس.</p><p>إذا لم تظهر جلسات CLI فعلًا في <code>hermes sessions list</code>، فالسبب هو
+عدم استلام <code>state.db</code> لها — شغّل <code>hermes sessions repair</code> وراقب ظهور تحذير
+<code>⚠ Session store unavailable</code> عند إقلاع CLI، مما يعني أن استمرارية
+SQLite فشلت لذلك التشغيل.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="42"></x-keep></span>نُسخ JSONL نصية قديمة</div><div class="admonitionContent_BuS1"><p>قد يكون للجلسات المُنشأة قبل أن يصبح state.db أساسيًا ملفات
+<code>*.jsonl</code> متبقية في <code>~/.hermes/sessions/</code>. لم تعد تُكتب أو
+تُقرأ بواسطة Hermes. آمن حذفها بعد التحقق من وجود الجلسة
+المقابلة في state.db.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-schema">مخطط قاعدة البيانات</h3>
+<p>الجداول الرئيسية في <code>state.db</code>:</p>
+<ul>
+<li><strong>sessions</strong> — البيانات الوصفية للجلسة (id، source، user_id، model، title، الطوابع الزمنية، عدد الـ tokens). للعناوين فهرس فريد (تُسمح القيم NULL، فقط غير NULL يجب أن تكون فريدة).</li>
+<li><strong>messages</strong> — سجل الرسائل الكامل (role، content، tool_calls، tool_name، token_count)</li>
+<li><strong>messages_fts</strong> — جدول افتراضي FTS5 للبحث النصي الكامل عبر محتوى الرسائل</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-expiry-and-cleanup">انتهاء صلاحية الجلسات وتنظيفها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-cleanup">التنظيف التلقائي</h3>
+<ul>
+<li>تستمر محادثات gateway عبر الخمول؛ استخدم <code>/new</code> أو <code>/reset</code> لحد صريح</li>
+<li>قبل إعادة الضبط، يحفظ الوكيل الذاكرة والمهارات من الجلسة المنتهية</li>
+<li>التقليم التلقائي (<strong>مفعَّل افتراضيًا</strong> منذ #54189): عندما تكون <code>sessions.auto_prune</code> بقيمة <code>true</code>، تُقلَّم الجلسات المنتهية الخاملة لمدة <code>sessions.retention_days</code> (الافتراضي 90) عند إقلاع CLI/gateway/cron</li>
+<li>بعد تقليم أزال صفوفًا فعلًا، تخضع <code>state.db</code> لعملية <code>VACUUM</code> لاستعادة مساحة القرص فقط عندما يُجتاز <strong>كلا</strong> الشرطين: مرور <code>sessions.min_vacuum_interval_days</code> (الافتراضي 30) على الأقل منذ آخر <code>VACUUM</code> ناجح، <strong>و</strong>كون أكثر من 25% من صفحات الملف قابلة للاستعادة (<code>PRAGMA freelist_count / page_count</code>). قاعدة بيانات كثيفة لا تدفع أبدًا ثمن إعادة كتابة كاملة لاستعادة بضعة ميغابايتات (لا يُقلِّص SQLite الملف عند DELETE عادي)</li>
+<li>يعمل التقليم مرة واحدة على الأكثر كل <code>sessions.min_interval_hours</code> (الافتراضي 24)؛ يُتَتبَّع طابع زمن آخر تشغيل داخل <code>state.db</code> نفسه بحيث يُشارَك عبر كل عملية Hermes في نفس <code>HERMES_HOME</code></li>
+</ul>
+<p>دون تقليم، ينمو <code>state.db</code> بلا حدود — أُبلغ عن ملفات بحجم عدة غيغابايتات خلال أسابيع على تثبيتات gateway وcron. إذا فضّلت الاحتفاظ بكل جلسة منتهية إلى الأبد (السلوك قبل #54189)، عطِّله في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p>التثبيتات الموجودة التي ضبطت بالفعل أيًا من هذه المفاتيح صراحةً تحتفظ
+بقيمها؛ فقط المفاتيح غير المضبوطة تأخذ الإعدادات الافتراضية الجديدة.</p>
+<p>فقط الجلسات <strong>المنتهية</strong> تُحذَف على الإطلاق. لا تُقلَّم الجلسات النشطة تلقائيًا أبدًا،
+بغضّ النظر عن العمر. تُحسَب أعمار الجلسات المنتهية من آخر رسالة فيها، لذا
+لا تُحذَف محادثة طويلة الأمد استُخدمت مؤخرًا لمجرد أنها بدأت
+قبل نافذة الاحتفاظ.</p>
+<p><strong>جلسات مفتوحة راكدة من الأتمتة.</strong> بعض المُنتِجين — مهام cron، عمّال kanban،
+subagents، تشغيلات CLI لمرة واحدة — يمكن أن يموتوا دون وسم جلستهم أبدًا
+كمنتهية، والتقليم لا يحذف إلا الصفوف <em>المنتهية</em>. لمنع تراكم تلك
+إلى الأبد، <em>تُغلق</em> كل مرحلة تقليم تلقائي أيضًا الجلسات المفتوحة من
+تلك المصادر المملوكة للحالة (<code>cli</code>، <code>cron</code>، <code>kanban</code>، <code>acp</code>، <code>api_server</code>،
+<code>subagent</code>، <code>tool</code>) التي يكون آخر نشاط لها أقدم من <code>retention_days</code>
+(<code>end_reason: startup_orphan_reap</code>). الإغلاق غير مدمِّر — تظل
+الجلسة قابلة للاستئناف — ويُحسَب عمر الصف من إغلاقه، لذا لا
+يُحذَف إلا في مرحلة <em>لاحقة</em> بعد نافذة احتفاظ كاملة أخرى. جلسات منصات
+المراسلة (Telegram، Discord، …)، وجلسات TUI/Desktop، والجلسات
+المثبَّتة، والجلسات ذات دور حي أو ضغط جارٍ لا
+يُغلقها هذا الاكتساح أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="oversized-transcript-guards">حراسة النسخ النصية الضخمة الحجم</h3>
+<p>حدّان يمنعان تحميل نسخة نصية جامحة إلى الذاكرة دفعة واحدة
+(كلاهما افتراضيًا <code>20000</code> رسالة نشطة؛ <code>0</code> يعطّل الحارس):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p><code>max_resume_messages</code> يحدّد <strong>ما يُحمِّله الاستئناف فعليًا</strong>، وليس كامل
+تاريخ المحادثة:</p>
+<ul>
+<li>يُجسِّد الاستئناف التفاعلي البسيط (CLI <code>--resume</code>، TUI) نسب الضغط
+الكامل — كل مقطع مضغوط بالإضافة إلى الطرف الحي — لذا فهو
+محدود عبر النسب.</li>
+<li>يُصفِّح استئناف Desktop البارد النسخة النصية عبر REST ولا يحتفظ في الذاكرة
+إلا بمقطع الطرف الحي، لذا فهو محدود بالطرف وحده. محادثة طويلة العمر
+ضُغطت مرات عديدة (عشرات المقاطع، عشرات آلاف
+الصفوف المؤرشفة خلف طرف صغير) هي بالضبط ما يُقصد به الضغط
+أن يُنتج، وتُفتح عاديًا؛ يعكس عدد رسائل تذييلها النسب المُخزَّن،
+لا الـ prompt الحي.</li>
+</ul>
+<p>عندما يُرفَض استئناف، يتلقى العميل رمز الخطأ <code>4130</code> مع العدد
+والنطاق الذي قِيس فيه (<code>across its lineage</code> أو
+<code>in its tip segment</code>). لا يزال <code>hermes sessions export</code> يعمل لمثل هذه الجلسات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-cleanup">التنظيف اليدوي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>التقليم التلقائي <strong>مفعَّل افتراضيًا</strong>: تُزال الجلسات المنتهية الخاملة لمدة <code>sessions.retention_days</code> (الافتراضي 90) عند الإقلاع، ولا تُمس الجلسات النشطة أبدًا (راجع <a href="#automatic-cleanup">التنظيف التلقائي</a> أعلاه). يُغذّي سجل الجلسات استرجاع <code>session_search</code> عبر المحادثات السابقة، لذا إذا أردت الاحتفاظ بكل جلسة منتهية إلى الأبد، اضبط <code>sessions.auto_prune: false</code> في <code>config.yaml</code>، أو ارفع <code>retention_days</code>. مع تعطيل التقليم التلقائي، يبقى <code>hermes sessions prune</code> متاحًا للتنظيف لمرة واحدة (نمط فشل مُلاحَظ دون أي تقليم: <code>state.db</code> بحجم 384 ميغابايت مع نحو 1000 جلسة يُبطئ إدراجات FTS5 وقوائم <code>/resume</code>).</p></div></div>

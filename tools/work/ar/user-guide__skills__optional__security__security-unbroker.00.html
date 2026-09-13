@@ -1,0 +1,236 @@
+
+<header><h1>Unbroker</h1></header>
+<p>أزِل معلوماتك تلقائيًا من مواقع سماسرة البيانات (data brokers).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/security/unbroker</code></td></tr><tr><td>المسار</td><td><code>optional-skills/security/unbroker</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>SHL0MS (github.com/SHL0MS)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>privacy</code>, <code>data-broker</code>, <code>opt-out</code>, <code>ccpa</code>, <code>gdpr</code>, <code>security</code>, <code>doxxing</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/productivity/productivity-google-workspace"><code>google-workspace</code></a>, <a href="/docs/user-guide/skills/optional/email/email-agentmail"><code>agentmail</code></a>, <a href="/docs/user-guide/skills/bundled/email/email-himalaya"><code>himalaya</code></a>, <a href="/docs/user-guide/skills/optional/research/research-scrapling"><code>scrapling</code></a>, <a href="/docs/user-guide/skills/optional/research/research-osint-investigation"><code>osint-investigation</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="2"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>unbroker</h1>
+<p>ابحث عن الأماكن التي تُعرَض فيها معلومات شخص ما (الاسم، العناوين، الهاتف، البريد الإلكتروني، الأقارب) على
+سماسرة البيانات ومواقع البحث عن الأشخاص، ثم أزِلها - تلقائيًا حيثما أمكن، مع خطوات بشرية موجَّهة
+فقط عندما يتطلّب موقع ما CAPTCHA أو هوية حكومية أو مكالمة هاتفية أو فاكس. تدير عدة
+أشخاص باستقلالية. لا <strong>تتغلّب</strong> على أنظمة مكافحة الروبوتات، ولا <strong>تتصرّف</strong> مع أي شخص دون
+موافقة مسجّلة، ولا <strong>تزيل</strong> السجلات العامة (الناخبين/العقارية/المحكمة) أو الحسابات التي يتحكّم بها
+الشخص نفسه.</p>
+<p>واجهة سطر الأوامر بلغة Python (<code>scripts/pdd.py</code>) تمتلك الحالة الحتمية - الإعدادات، الملفات (dossiers) + الموافقة، قاعدة
+بيانات السماسرة، تخطيط المستويات (tiers)، السجل (ledger)، المسوّدات، <strong>إرسال البريد الإلكتروني (SMTP)، واستطلاع
+روابط التحقق (IMAP)، وقائمة الإجراءات المستقلة (<code>next</code>)</strong>. أنت (الوكيل) تقوم بالفحص
+وتشغيل النماذج بالأدوات الأصلية: <code>web_extract</code> و <code>browser_navigate</code> للبحث والنماذج على الويب، و
+<code>cronjob</code> لإعادة الفحص الدورية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="autonomy-contract">عقد الاستقلالية</h2>
+<p>صُمّمت هذه المهارة للعمل <strong>دون تدخّل بشري</strong>. بعد الاستقبال (intake) (+ الموافقة المسجّلة) توجد نقطتا تواصل بشري
+مشروعتان فقط: (1) محادثة الاستقبال نفسها، و(2) ملخّص واحد موحّد للمهام البشرية
+في نهاية التشغيل (<code>$PDD tasks</code>). وفيما بين ذلك:</p>
+<ul>
+<li><strong>لا تطلب أبدًا من المشغّل اختيار الإعدادات.</strong> يكتشف <code>$PDD setup --auto</code> القدرات المتاحة
+ويختار بنفسه الإعداد الأكثر استقلالية والصالح.</li>
+<li><strong>لا تتوقّف أبدًا قبل عمليات الإرسال الفردية</strong> عندما تكون <code>autonomy=full</code> (الوضع الافتراضي): تُعدّ الموافقة
+المسجّلة عند الاستقبال تفويضًا قائمًا لعمليات إلغاء الاشتراك (opt-out) من المستويين T0-T2. (يعيد <code>autonomy=assisted</code> التأكيد
+قبل كل عملية إرسال للمشغّلين الحذرين - التزم بأعلام <code>confirm_first</code> في إخراج <code>next</code>.)</li>
+<li><strong>لا تقاطع التشغيل أبدًا من أجل عمل يتطلّب بشرًا فقط.</strong> سجّله (<code>record ... human_task_queued --reason &quot;...&quot;</code>) وواصل العمل؛ فكل ذلك يظهر مرة واحدة في الملخّص النهائي.</li>
+<li><strong>سيّر التشغيل بالكامل كحلقة فوق <code>$PDD next &lt;subject&gt;</code></strong> - فهو يُرجع الإجراءات المرتّبة بالضبط
+لتنفيذها الآن (الفحص، استطلاع التحقق، إعادة الفحص، إلغاء الاشتراك بدءًا بالجهات الأم، إعادة جدولة المحظور)، إضافة إلى
+ملخّص المهام البشرية. نفّذ كل إجراء، سجّل النتائج، أعد تشغيل <code>next</code>، وكرّر ذلك حتى
+<code>done_for_now</code>. ثم اعرض الملخّص والتقرير وجدوِل مهمة cron.</li>
+</ul>
+<p>القيود الصارمة التي لا تتجاوزها الاستقلالية أبدًا: عدم التصرّف دون موافقة مسجّلة، وعدم الإفصاح
+عمّا يتجاوز <code>disclosure_fields</code>، وعدم تجاوز CAPTCHA/أنظمة مكافحة الروبوتات، وعدم تسجيل <code>confirmed_removed</code> إلا بعد
+إعادة فحص تحقّق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>&quot;أزِل بياناتي (أو بيانات أحد أفراد عائلتي) من سماسرة البيانات / مواقع البحث عن الأشخاص.&quot;</li>
+<li>&quot;ألغِ اشتراكي&quot;، &quot;احذفني من Spokeo/Whitepages/إلخ&quot;، &quot;نظّف الآثار بعد حادثة doxxing.&quot;</li>
+<li>&quot;أعِدّ مراقبة خصوصية دورية&quot; (يعيد السماسرة إدراج الأشخاص).</li>
+<li>التحقق من السماسرة الذين ما زالوا يعرضون بيانات شخص ما وسبب ذلك.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><code>python</code> (المكتبة القياسية فقط؛ لا حاجة لحزم إضافية للمحرّك الأساسي).</li>
+<li><strong>ترقيات اختيارية</strong> (تعمل المهارة بلا إعداد إضافي حتى بدونها؛ يفعّل <code>setup --auto</code> كل
+ترقية يكتشفها، بقراءة بيانات الاعتماد من بيئة الـ shell <strong>ومن <code>$HERMES_HOME/.env</code></strong> بحيث تُلتقط المفاتيح
+التي يحمّلها Hermes بالفعل لأدواته الخاصة دون إعادة تصديرها - كل ترقية
+تحوّل فئة من المهام البشرية إلى إجراءات للوكيل):
+<ul>
+<li><strong>المتصفح السحابي (الخيار الافتراضي الموصى به): <code>BROWSERBASE_API_KEY</code>.</strong> يختاره <code>setup --auto</code>
+كلما كان المفتاح متوفّرًا، وهو الأساس المقصود: متصفح سحابي بعنوان IP سكني حقيقي <strong>يجتاز
+تحديات CAPTCHA الخفيفة/المُدارة (Cloudflare Turnstile‏، مربّع اختيار hCaptcha/reCAPTCHA) كعملية
+اعتيادية</strong>، لذا تبقى تلك السماسرة مؤتمَتة (T1) بدلًا من أن تتحوّل إلى مهام بشرية. هذا
+ليس &quot;حلًّا&quot; لـ CAPTCHA - لا خدمة حل، ولا انتحال بصمة جهاز؛ فقط التحديات التفاعلية/السلوكية
+(&quot;الصعبة&quot;) التي لا يستطيع المتصفح فعلًا اجتيازها تتحوّل إلى مهمة بشرية. دون المفتاح،
+يُستخدم متصفح الوكيل العادي وتنخفض سماسرة CAPTCHA الخفيفة إلى المستوى T2 (بشري).</li>
+<li>أتمتة البريد الإلكتروني، بخيارين أحدهما بلا بيانات اعتماد مخزَّنة:
+<ul>
+<li><strong>وضع المتصفح (بلا كلمة مرور): <code>setup --email-mode browser</code>.</strong> يرسل الوكيل رسائل إلغاء الاشتراك/CCPA
+ويفتح روابط التحقق عبر <strong>بريد الويب الذي سجّل فيه المشغّل دخوله</strong> باستخدام
+أدوات <code>browser_*</code>. لا يُخزَّن شيء. يتطلّب هذا توجيه Hermes إلى متصفح المشغّل
+الحقيقي المسجَّل الدخول، <strong>وليس</strong> متصفحًا سحابيًا: فالمتصفح السحابي بلا واجهة (Browserbase) لا يحمل
+جلسة بريد ويب، وهو نفسه محجوب بواسطة Cloudflare/DataDome على بريد الويب وعلى
+بوّابات السماسرة المرتبطة بالجلسة (مثل الوضع الموجَّه لدى PeopleConnect). شغّل متصفح Chrome
+الحقيقي للمشغّل عبر CDP - أطلق
+<code>chrome --remote-debugging-port=9222 --user-data-dir=&quot;$HOME/.hermes/chrome-debug&quot;</code> (ملف تعريف
+تصحيح مخصّص مسجَّل الدخول إلى بريد الويب مرة واحدة، وليس الملف التعريفي الافتراضي) وصِل أدوات المتصفح
+بـ <code>127.0.0.1:9222</code>. <strong><code>$PDD cdp</code> يشغّل هذا نيابة عنك</strong> (يجد Chrome/Chromium/Brave/Edge،
+يشغّله منفصلًا على الملف التعريفي المخصّص، ويطبع نقطة نهاية CDP؛ <code>--check</code> للاختبار، و <code>--print</code>
+لعرض الأمر). راجع <code>references/methods.md</code> ← &quot;Browser backends: scan vs execute&quot;.
+يرجع إلى المسوّدات لأي رسالة إذا تعذّر الوصول إلى صندوق البريد.</li>
+<li><strong>SMTP/IMAP (بيانات اعتماد مخزَّنة): <code>EMAIL_ADDRESS</code> + <code>EMAIL_PASSWORD</code></strong> (+ <code>EMAIL_SMTP_HOST</code> /
+<code>EMAIL_IMAP_HOST</code> للمزوّدين غير الشائعين؛ يُستنتج ذلك تلقائيًا لكل من gmail/outlook/yahoo/icloud/fastmail).
+ترسل واجهة سطر الأوامر عبر <code>send-email</code> وتقرأ روابط التحقق عبر <code>poll-verification</code>. تُحتسب أيضًا مهارة
+<code>agentmail</code> (بأسماء مستعارة لكل سمسار).</li>
+</ul>
+</li>
+<li>متتبّع Google Sheets: مهارة <code>google-workspace</code>.</li>
+<li>مهارة <code>scrapling</code> للصفحات الخفية/المحمية بـ Cloudflare.</li>
+</ul>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p>نفّذ كل شيء عبر أداة <code>terminal</code>. من دليل هذه المهارة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يخزّن المحرّك البيانات تحت <code>$PDD_DATA_DIR</code> (الافتراضي <code>$HERMES_HOME/unbroker</code>)، مكتوبة
+بصلاحيات <code>0600</code>. شغّله عبر <code>terminal</code>، <strong>وليس</strong> <code>execute_code</code> (فتلك البيئة المعزولة تمسح متغيرات البيئة وتحجب الإخراج، ما
+يعطّل قراءة الملف).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>الأمر</th><th>الغرض</th></tr></thead><tbody><tr><td><code>$PDD setup --auto</code></td><td><strong>إعداد مستقل</strong>: اكتشاف القدرات، واختيار الإعداد الأكثر استقلالية والصالح (دون أسئلة)</td></tr><tr><td><code>$PDD doctor</code></td><td>فحص الجاهزية: الإعدادات، وعدد السماسرة، والترقيات المفعّلة/المتاحة</td></tr><tr><td><code>$PDD cdp [--check] [--print] [--port N]</code></td><td>تشغيل/اكتشاف متصفح Chrome الخاص بالمشغّل عبر CDP للمرحلة 2 من المتصفح + بريد الويب (ملف تعريف تصحيح مخصّص؛ الطريقة الموثوقة لإرسال بريد الويب وتجاوز البوابات المرتبطة بالجلسة)</td></tr><tr><td><code>$PDD intake --full-name &quot;...&quot; [--alias ...] [--email ... --phone ...] [--city --state] [--prior-location &quot;City,ST&quot;] --consent</code></td><td>إنشاء موضوع (subject) موافِق؛ يسجّل الأسماء المستعارة + عدة رسائل بريد/هواتف + المواقع السابقة؛ يطبع <code>subject_id</code></td></tr><tr><td><code>$PDD next &lt;subject&gt;</code></td><td><strong>محرّك الحلقة المستقلة</strong>: الإجراءات المرتّبة الآن + ملخّص المهام البشرية + <code>next_wake_at</code></td></tr><tr><td><code>$PDD brokers [--priority crucial]</code></td><td>سرد قاعدة بيانات سماسرة البحث عن الأشخاص (المنسَّقة + الحيّة)</td></tr><tr><td><code>$PDD refresh-brokers</code></td><td>سحب أحدث قائمة BADBOOL لسماسرة البحث عن الأشخاص <strong>وسجلّ California Data Broker Registry</strong> (يعيد <code>next</code> جدولة هذا تلقائيًا عند انتهاء صلاحية الذاكرة المؤقتة)</td></tr><tr><td><code>$PDD registry [--search NAME]</code></td><td>تغطية سجلّ الولاية (كاليفورنيا ~545 مُدرَجة؛ بوابات VT/OR/TX مرصودة)؛ مسار DROP/البريد الإلكتروني، لا يُفحص</td></tr><tr><td><code>$PDD drop &lt;subject&gt; [--filed]</code></td><td><strong>الرافعة القانونية الفورية</strong>: طلب DROP واحد في كاليفورنيا يحذف من جميع السماسرة المسجَّلين دفعة واحدة؛ <code>--filed</code> يسجّل تقديمه</td></tr><tr><td><code>$PDD plan &lt;subject&gt; [--priority crucial]</code></td><td>المستوى (tier) + الطريقة + <code>search_vectors</code> + الحقول الدقيقة الواجب الإفصاح عنها لكل سمسار</td></tr><tr><td><code>$PDD plan &lt;subject&gt; --batch</code></td><td><strong>عرض مختصر (reduce)</strong>: يطبّق حالة السجل، ويجمّع السماسرة حسب الإجراء التالي (غير مفحوص/موجود/تعرّض غير مباشر/محظور/قيد التنفيذ/منجَز)، ويدمج مجموعات الملكية، <strong>ويرتّب مجموعة <code>found</code> بدءًا بالجهات الأم ويصدر <code>parent_playbook</code> مخصّصًا</strong>، ويطبع <code>next_actions</code></td></tr><tr><td><code>$PDD fanout &lt;subject&gt; [--priority crucial] [--size 5]</code></td><td>تقسيم السماسرة إلى دفعات subagents متوازية عبر <code>delegate_task</code> (تلقائيًا للتشغيلات الكبيرة؛ الدفعات من 5 إلى 8+ تنتهي مهلتها)</td></tr><tr><td><code>$PDD record &lt;subject&gt; &lt;broker&gt; &lt;state&gt; [--found true] [--evidence JSON] [--disclosed F --channel C] [--reason &quot;...&quot;]</code></td><td>تحديث السجل (آلة حالة مُتحقَّق منها)؛ <strong>يضبط <code>next_recheck_at</code> تلقائيًا</strong></td></tr><tr><td><code>$PDD show &lt;subject&gt; &lt;broker&gt;</code></td><td>قراءة الحالة المسجَّلة للحالة + الأدلة + سجلّ الإفصاح (بحيث يعيد الأصل التحقّق من نتيجة <code>found</code> الخاصة بـ subagent دون إعادة اشتقاق رابط الإدراج)</td></tr><tr><td><code>$PDD send-email &lt;subject&gt; &lt;broker&gt; --listing &lt;url&gt; [--kind ccpa_indirect ...]</code></td><td>صياغة الطلب وتسجيله (المستلم مقيَّد بعنوان السمسار نفسه). يعيد وضع <strong>browser</strong> حِمولة <code>compose</code> لإرسالها عبر بريد الويب (بلا كلمة مرور)؛ وضع <strong>programmatic</strong> يرسل عبر SMTP</td></tr><tr><td><code>$PDD verify-link &lt;subject&gt; &lt;broker&gt; --text &#x27;&lt;body&gt;&#x27;</code></td><td><strong>وضع browser</strong>: استخراج رابط تحقق سمسار من نص بريد الويب الذي قرأته (مُقيَّم لمكافحة التصيّد)</td></tr><tr><td><code>$PDD poll-verification &lt;subject&gt; [--broker &lt;id&gt;]</code></td><td><strong>الوضع البرمجي (programmatic)</strong>: استطلاع IMAP بحثًا عن روابط التحقق (مُقيَّمة لمكافحة التصيّد)؛ يتقدّم تلقائيًا من <code>submitted → verification_pending</code></td></tr><tr><td><code>$PDD render-email &lt;subject&gt; &lt;broker&gt; --listing &lt;url&gt;</code></td><td>مسوّدة فقط (بديل احتياطي عند عدم ضبط أي وضع للبريد الإلكتروني)</td></tr><tr><td><code>$PDD due &lt;subject&gt;</code></td><td>الحالات التي حان موعد إعادة فحصها (طابور إعادة الفحص عبر cron)</td></tr><tr><td><code>$PDD tasks &lt;subject&gt;</code></td><td>ملخّص واحد موحّد للمهام البشرية (يُعرض في نهاية التشغيل)</td></tr><tr><td><code>$PDD status &lt;subject&gt;</code></td><td>تقرير حالة بصيغة Markdown</td></tr><tr><td><code>$PDD report &lt;subject&gt; --sheets</code></td><td>صفوف لمتتبّع Google Sheets</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="batch-operation-two-phase-crawl-all-then-delete">العملية الدفعية (مرحلتان: زحف شامل ثم حذف)</h2>
+<p>لأي عدد يتجاوز سمسارَين، نفّذها بأسلوب <strong>map → reduce → act</strong>، لا سمسارًا تلو الآخر:</p>
+<ul>
+<li><strong>المرحلة 1 - الاكتشاف (للقراءة فقط، متوازٍ، ثابت النتيجة).</strong> اِزحف على <em>كل</em> سمسار أولًا وسجّل
+حكمًا لكل واحد (<code>found</code> / <code>not_found</code> / <code>indirect_exposure</code> / <code>blocked</code>). لا يترتّب على الفحص أي أثر جانبي،
+لذا فمن الآمن تنفيذه بالتوازي وإعادة المحاولة. الحصول على خريطة التعرّض الكاملة <em>قبل</em> التصرّف هو ما
+يتيح دمج المجموعات وترتيب الأولويات أدناه. <strong>الافتراضي: يشغّل الأصل مسبارات
+<code>web_extract</code> مباشرة</strong> - معظم مواقع البحث عن الأشخاص تعرض نتائج الاسم/الهاتف/العنوان كصفحات HTML ثابتة يقرأها
+<code>web_extract</code> خلال ثوانٍ. صعِّد إلى <code>browser_*</code> فقط للمواقع القليلة التي تعتمد على JS بالكامل، وإلى
+subagents عبر <code>delegate_task</code> فقط للعمل الذي يتطلّب حقًا <em>استدلالًا</em> ثقيلًا (تمييز أسماء متشابهة/أقارب على نطاق واسع). <strong>لا تُسنِد إلى subagent مزوَّد بمجموعة أدوات متصفح قائمة طويلة من السماسرة للزحف
+عليها</strong> - ففي الميدان انتهت مهلة هذا النهج مرارًا (600 ثانية، ~5-6 سماسرة لكل عملية، دون ملخّص) لأن التنقّل عبر المتصفح
+ثقيل؛ وقد جاءت كتابات السجل التي نجت بتكلفة أعلى بعشر مرات من <code>web_extract</code> الخاص بالأصل. كذلك موقع
+<code>blocked</code> (بواسطة DataDome/Cloudflare/<code>antibot</code>) <em>ليس</em> مهمة مناسبة لـ subagent - سجّل <code>blocked</code> وأعِد جدولته
+لجولة متصفح خفي/سحابي (Browserbase). تقارير الـ subagents هي تقارير ذاتية - يعيد الأصل
+جلب عناوين URL الأساسية للتأكد من صحة <code>found</code> قبل الوثوق بها (وهذا ينطبق في الاتجاهين: فقد كشف مرة إدراجًا حقيقيًا كان الأصل قد افترض خطأً أنه نتيجة إيجابية كاذبة).</li>
+<li><strong>الاختزال (reduce) - <code>$PDD plan &lt;subject&gt; --batch</code>.</strong> يختزل الزحف إلى خطة موجَّهة حسب المرحلة: يجمّع حسب
+الإجراء التالي، <strong>ويدمج مجموعات الملكية</strong> (فحذف واحد من جهة أم يزيل الأبناء يُعدّ إجراءً واحدًا،
+لا N - مثلًا كبت واحد في Intelius/PeopleConnect يغطّي Truthfinder/Instant Checkmate/US Search/…)،
+ويطبع <code>next_actions</code>. تكون <code>phase</code> بقيمة <code>discover</code> ما دام هناك عنصر غير مفحوص، وإلا فهي <code>delete</code>.</li>
+<li><strong>المرحلة 2 - الحذف (تسلسلي، لا رجعة فيه).</strong> اشتغل على المجموعات المُختزَلة بالترتيب <strong>الآباء أولًا</strong>:
+يرتّب <code>plan --batch</code> مجموعة <code>found</code> بدءًا بالجهات الأم في المجموعة (الأكثر أبناءً أولًا) ويصدر
+<code>parent_playbook</code> بخطوات مخصّصة ومرتّبة لكل جهة أم - اتبع ذلك الترتيب وتلك الخطوات
+(الوصفات الكاملة في <code>references/methods.md</code> ← &quot;Ownership clusters - DO PARENTS FIRST&quot;). نفّذ
+الجهات الأم للمجموعات (متجاوزًا الأبناء المشمولين)، <strong>وأعِد فحص أبناء كل جهة أم بعد تأكيدها</strong>
+(عادةً ما يختفون)، ثم الإدراجات المستقلة؛ وأرسل حالات <code>indirect_exposure</code> كرسائل
+حذف بيانات شخصية بموجب CCPA/GDPR (<code>send-email --kind ccpa_indirect</code>)، وأجِّل الحالات <code>blocked</code> لجولة
+المتصفح الخفي. عالِج الحالات هنا <strong>واحدة تلو الأخرى بعناية</strong> (وهذا عكس فكرة التوزيع
+المتوازي)، ولا تتوقّف لطلب إذن لكل عملية إرسال في وضع <code>autonomy=full</code>؛ أمّا في <code>assisted</code> فأكّد كل واحدة. <strong>فضّل عادةً الحذف على الكبت</strong> حيثما أتاح السمسار كليهما (Spokeo/BeenVerified) -
+لكن اتبع <code>deletion.prefer</code> في السجل: <strong>PeopleConnect استثناء</strong> (<code>prefer: false</code>)، حيث إن حذف
+بيانات المستخدم يزيل حالات الكبت لديك ولا يوقف إعادة الإدراج من السجلات العامة، فتُبقي
+عملية الكبت مفعّلة بدلًا من ذلك.</li>
+<li><strong>إلغاء الاشتراك الأعمى هو الافتراضي وليس بديلًا احتياطيًا.</strong> قدّم طلب إلغاء اشتراك/حذف على <strong>كل موقع
+لديه قناة إزالة متاحة، حتى دون التأكد أولًا من وجود إدراج فعلي</strong> - فهذا لا يفصح إلا عن معرّفات
+الموضوع نفسه للقناة الرسمية الخاصة بالسمسار، ولا يخالف بالتالي مبدأ الحدّ الأدنى من الإفصاح. نتيجتان لذلك:
+(1) تدفّق موجَّه يطابق البريد الإلكتروني+تاريخ الميلاد+الاسم ويقول &quot;لا نتائج&quot; يُعدّ
+<strong>تأكيدًا أقوى لـ <code>not_found</code></strong> من أي عملية استخراج - فتدفّق إلغاء الاشتراك يقوم بدور البحث نفسه؛ (2) عندما يكون
+النموذج معاديًا للأتمتة (CAPTCHA صعب، Cloudflare/DataDome، شريط تحقّق بالسحب)، <strong>الجأ افتراضيًا إلى
+بريد طلب الحقوق الرسمي</strong> للسمسار (الاسم+الولاية+بريد التواصل فقط) بدلًا من تسجيل <code>blocked</code>.
+سياسة CAPTCHA: لا تتغلّب أبدًا على التحديات السلوكية/الرمزية/الانزلاقية؛ يجوز قراءة CAPTCHA نصّي مشوَّه ثابت أو
+حسابي بسيط في طلب إلغاء اشتراك الموضوع نفسه، لكن توقّف إذا رفض الموقع الطلب بأكمله
+بعد إجابة صحيحة (فهذا يعني أنه يميّز الأتمتة ببصمتها). السجلّات الخاصة بأطراف ثالثة/غير مباشرة هي
+الاستثناء - تأكّد منها قبل التصرّف رغم ذلك. خطط اللعب الخاصة بكل موقع + قائمة تجاوز محرّكات البحث الوصفية
+موجودة في <code>references/site-playbooks.md</code>؛ والسياسة الكاملة في <code>references/methods.md</code>.</li>
+<li><strong>قاعدة PeopleConnect لحذف يمحو الكبت (قاعدة دائمة).</strong> يمحو <em>الحذف</em> في PeopleConnect
+الكبت ويعيد إدراج الموضوع عبر مجموعة الشركات التابعة بأكملها. إذا ظهرت رسالة &quot;طلب الحذف
+الخاص بك على PeopleConnect.us مكتمل&quot;، فإن الكبت قد زال ← <strong>أعِد تشغيل الكبت
+وتأكّد مجددًا</strong> من أن خطوة Control تقرأ &quot;مكبوت (suppressed)&quot;. لا تترك هذه المجموعة أبدًا على حذف
+مكتمل (راجع <code>references/brokers/intelius.json</code>).</li>
+</ul>
+<p>تقارير الـ subagents تقارير ذاتية: يعيد الأصل التحقّق من الادعاءات الأساسية (عناوين URL للإدراج، أساس المطابقة) قبل
+تسجيل <code>found</code> وقبل أي حذف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure-the-autonomous-loop">الإجراء (الحلقة المستقلة)</h2>
+<ol>
+<li>
+<p><strong>الإعداد (مرة واحدة، دون أسئلة).</strong> شغّل <code>$PDD setup --auto</code> - فهو يكتشف القدرات ويضبط
+التركيبة الأكثر استقلالية والصالحة بنفسه (بريد إلكتروني برمجي عند وجود بيانات اعتماد <code>EMAIL_*</code>،
+Browserbase عند وجود مفتاحه، تشفير <code>age</code> عند وجود الملف التنفيذي، <code>autonomy=full</code>). ثم شغّل
+<code>$PDD doctor</code> واعرض على المشغّل مخرَجات الجاهزية <strong>للعِلم لا كسؤال</strong> -
+تابع فورًا. اذكر ما قد يفتح مزيدًا من الأتمتة (مثل بيانات اعتماد البريد الإلكتروني) لكن لا تنتظر.</p>
+</li>
+<li>
+<p><strong>الاستقبال والموافقة (المحادثة البشرية الوحيدة).</strong> نفّذ <code>$PDD intake ...</code> مع <code>--consent</code> (و
+<code>--consent-method</code>). دون موافقة يرفض المحرّك التخطيط أو التصرّف. اجمع كل شيء في جولة
+واحدة - الأسماء/الأسماء المستعارة، المدن الحالية والسابقة، رسائل البريد الإلكتروني، الهواتف - بحيث لا تضطر أبدًا للعودة
+بأسئلة. للموضوعات في كاليفورنيا، اقرأ أيضًا <code>references/legal/drop.md</code>: سيُظهر <code>next</code>
+إجراء <code>drop_submit</code> الفوري الذي يحذف من كل سمسار مسجَّل (~545) دفعة واحدة، وهو
+الإجراء الأعلى تأثيرًا على الإطلاق. قدّمه، ثم <code>drop &lt;subject&gt; --filed</code>. للموضوعات خارج كاليفورنيا يُغطّى
+السجلّ برسائل CCPA/GDPR موجَّهة (<code>registry --search</code>، ثم <code>send-email</code>)؛ وتُعالَج مواقع البحث عن الأشخاص
+مباشرة في كلتا الحالتين.</p>
+</li>
+<li>
+<p><strong>استنزاف الطابور.</strong> كرّر:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يصدر <code>next</code>، بالترتيب: <code>refresh_brokers</code> (ذاكرة مؤقتة منتهية الصلاحية)، <code>fanout_scan</code>/<code>scan_inline</code> (زحف
+المرحلة 1 - انظر الخطوة 4)، <code>poll_verification</code> (تأكيدات البريد الإلكتروني الجارية)، <code>verify_removal</code> (إعادة
+الفحص المستحقّة)، <code>optout_web_form</code>/<code>optout_email_send</code> (المرحلة 2، الآباء أولًا مع خطوات playbook)،
+<code>indirect_email_send</code>، و <code>stealth_rescan</code>. لا يظهر العمل البشري الصرف كإجراء أبدًا -
+بل يتراكم في <code>q.human_digest</code>. في وضع <code>autonomy=full</code>، نفّذ الإجراءات دون توقّف؛ التزم
+بـ <code>confirm_first</code> في وضع <code>assisted</code>.</p>
+</li>
+<li>
+<p><strong>الفحص (عندما يشير <code>next</code> إلى ذلك).</strong> لـ <code>fanout_scan</code>: شغّل <code>$PDD fanout &lt;subject&gt;</code> <strong>وأطلق
+subagent واحدًا عبر <code>delegate_task</code> لكل <code>batch</code>، بالتوازي، مع تمرير <code>brief</code> الجاهز الخاص بتلك الدفعة</strong> - لا
+تفحص كل السماسرة بنفسك تسلسليًا. لـ <code>scan_inline</code>: افحص أنت السماسرة القليلة بنفسك.
+في الحالتين، يحصل كل سمسار على <strong>كل</strong> إدخال في <code>search_vectors</code> عبر سلّم
+<code>references/methods.md</code> (<code>web_extract</code> ← مسبار <code>site:</code> ← <code>browser_navigate</code> ← <code>scrapling</code>)، ويُعدّ الخطأ 404 غير حاسم
+(وليس <code>not_found</code>)، ويُسجَّل <code>blocked</code> عند ضبط <code>antibot</code> وعدم توفّر متصفح خفي،
+ويجب التأكّد من كون الموضوع لا نظيرًا/قريبًا قبل التسجيل:
+<code>$PDD record &lt;subject&gt; &lt;broker&gt; &lt;found|not_found|indirect_exposure|blocked&gt; --found &lt;bool&gt; --evidence &#x27;{&quot;listing_urls&quot;:[...]}&#x27;</code>.
+يعيد الأصل التحقّق من ادعاءات <code>found</code> الأساسية الواردة من الـ subagents قبل الوثوق بها.</p>
+</li>
+<li>
+<p><strong>إلغاء الاشتراك (عندما يشير <code>next</code> إلى ذلك).</strong> تصل الإجراءات مرتّبة مسبقًا بدءًا بالآباء مع <code>steps</code> من
+<code>optout.playbook</code> الخاصة بكل سجل سمسار (متحقَّق منها ميدانيًا؛ لدى الجهات الأم مثل PeopleConnect،
+Whitepages‏، BeenVerified‏، Spokeo وصفات دقيقة مُختبَرة فعليًا). <strong>الحذف يتفوّق عادةً على
+الكبت</strong>: عندما يحمل إجراء <code>prefer_deletion</code>، أكمِل مسار الحذف في السجل، لا
+مجرد تدفّق إخفاء الإدراج. وعندما يحمل <code>prefer_suppression</code> بدلًا من ذلك (<strong>PeopleConnect</strong> -
+فحذف بياناتك يزيل حالات الكبت لديك ولا يوقف إعادة الإدراج)، نفّذ تدفّق الكبت وأبقِه
+مفعّلًا؛ استخدم زر الحذف الخاص بهم فقط لعملية محو بيانات متعمَّدة. حسب الطريقة:</p>
+<ul>
+<li><strong>web_form</strong> ← شغّل <code>optout_url</code> باستخدام <code>browser_navigate</code>/<code>browser_type</code>/<code>browser_click</code>، وقدّم
+فقط <code>disclosure_fields</code>، والتقط لقطة شاشة للتأكيد، ثم نفّذ أمر التسجيل <code>after</code> الخاص بالإجراء.
+قد تنتهي بعض الـ playbooks بمتابعة <code>send-email</code> لطلب الحق في الحذف - نفّذها (محو كامل، لا مجرد
+إخفاء الإدراج).</li>
+<li><strong>email</strong> ← يسجّل <code>$PDD send-email &lt;subject&gt; &lt;broker&gt; --kind &lt;ccpa|gdpr|generic&gt; --to &lt;addr&gt; --listing &lt;url&gt;</code> ويفصح في خطوة واحدة (المستلم مقيَّد بالعناوين التي يعلنها سجل
+السمسار؛ يختار <code>next</code> النوع بناءً على مكان الإقامة - لا تدّعِ أبدًا CCPA/GDPR لشخص
+لا ينطبق عليه ذلك). في وضع <strong>browser</strong> يُرجع حِمولة <code>compose</code> مقيَّدة بالمستلم: أنشئ
+رسالة جديدة إلى <code>compose.to</code> بعنوان/نص <code>compose.subject</code>/<code>compose.body</code> بالضبط في بريد الويب الخاص بالمشغّل
+عبر <code>browser_*</code> ثم أرسلها (بلا كلمة مرور)؛ وفي الوضع <strong>programmatic</strong> يرسل عبر SMTP. يوجّه <code>next</code> أيضًا
+النماذج التي تتطلّب بشرًا (اتصال هاتفي/هوية حكومية) عبر بريد حذف تابع لسمسار عندما يتوفّر -
+وهذا هو <strong>مسار الإنقاذ</strong> (نمط Whitepages المُتحقَّق منه). يرجع الخيار المخصَّص للمسوّدة فقط إلى
+<code>render-email</code> + إدخال في الملخّص.</li>
+<li><strong>captcha</strong> ← تُجتاز التحديات الخفيفة/المُدارة تلقائيًا على المتصفح السحابي الافتراضي (تابع
+كالمعتاد)؛ يُسجَّل فقط التحدي التفاعلي/السلوكي الصعب الذي لا يمكن اجتيازه كـ <code>blocked</code>
+(يُعاد جدولته لجولة المتصفح الخفي/متصفح المشغّل). لا تستخدم خدمة حل أبدًا.</li>
+<li><strong>phone_callback / account / gov_id / fax / mail / voice (T3)</strong> <em>بلا بريد حذف</em> ←
+ليست أبدًا إجراء وكيل؛ يكون <code>next</code> قد وجّهها بالفعل إلى الملخّص. سجّلها:
+<code>$PDD record &lt;subject&gt; &lt;broker&gt; human_task_queued --reason &quot;...&quot;</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>التحقق (عندما يشير <code>next</code> إلى ذلك).</strong> في الوضع <strong>programmatic</strong> يجد <code>$PDD poll-verification &lt;subject&gt;</code>
+روابط التأكيد الواردة عبر IMAP (مُقيَّمة لمكافحة التصيّد، تتقدّم تلقائيًا في الحالة). في
+وضع <strong>browser</strong>، افتح بريد تأكيد السمسار في بريد الويب الخاص بالمشغّل وشغّل
+<code>$PDD verify-link &lt;subject&gt; &lt;broker&gt; --text &#x27;&lt;body&gt;&#x27;</code> لتقييم الرابط. في كلتا الحالتين <strong>افتح
+الرابط في المتصفح نفسه</strong> (يربط عدد من السماسرة جلسة التحقق بالمتصفح الذي
+يفتحه)، أنهِ التدفّق، ثم سجّل <code>awaiting_processing</code>. لا تسجّل <code>confirmed_removed</code> إلا بعد
+إعادة فحص تحقّق تُظهر اختفاء الإدراج - لا استنادًا إلى صفحة التأكيد الخاصة بتدفّق الإرسال نفسه.</p>
+</li>
+<li>
+<p><strong>الختام (مرة واحدة لكل تشغيل).</strong> عندما لا يُرجع <code>next</code> أي إجراءات: اعرض <code>$PDD tasks &lt;subject&gt;</code> (ملخّص
+المهام البشرية الموحّد) إن لم يكن فارغًا، ثم <code>$PDD status &lt;subject&gt;</code>؛ إذا كان متتبّع
+Sheets مفعّلًا، أضِف صفوف <code>$PDD report &lt;subject&gt; --sheets</code> عبر مهارة <code>google-workspace</code>.</p>
+</li>
+<li>
+<p><strong>جدولة الاستيقاظ التالي.</strong> يُرجع <code>next</code> القيمة <code>next_wake_at</code> (أقرب موعد فحص مستحقّ). أنشئ مهمة
+<code>cronjob</code> واحدة تعيد تشغيل حلقة هذه المهارة للموضوع (نصّ توجيهي على غرار: <em>&quot;شغّل
+حلقة unbroker للموضوع &lt;subject_id&gt;: نفّذ <code>$PDD next</code> وطبّق كل الإجراءات&quot;</em>). تمرّ نوافذ
+المعالجة، واستطلاعات التحقق، ودورات إعادة الظهور كلها عبر الطابور نفسه، بحيث تستمر الحالة
+في التقدّم دون أي عناية بشرية.</p>
+</li>
+</ol>

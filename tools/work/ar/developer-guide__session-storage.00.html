@@ -1,0 +1,166 @@
+<header><h1>تخزين الجلسات</h1></header>
+<p>يستخدم Hermes Agent قاعدة بيانات SQLite (<code>~/.hermes/state.db</code>) لحفظ بيانات
+الجلسات الوصفية، وسجل الرسائل الكامل، وإعدادات النموذج عبر جلسات CLI وgateway.
+هذا يحلّ محلّ أسلوب ملفات JSONL السابق لكل جلسة على حدة.</p>
+<p>ملفات المصدر: <code>hermes_state.py</code> (الواجهة الأمامية) بالإضافة إلى ملفات <code>hermes_state_*.py</code>
+المرافقة (schema، fts، search، compression، portability، gateway، ...)</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-profile-isolation-and-compaction-generations">عزل profile في Desktop وأجيال الضغط (compaction)</h3>
+<p>يخزّن كل profile مُسمّى نصّه الكامل (transcript) في <code>$HERMES_HOME/state.db</code> الخاص به،
+حتى عندما تخدم عملية <code>hermes serve</code> واحدة عدة profiles. يجب أن تحتفظ عمليات إعادة
+بناء الوكيل أثناء الجلسة (تحديث قدرات Bot Chat و <code>tools.configure</code>) بمقبض قاعدة بيانات
+تلك الجلسة، وأن تربط الصفحة الرئيسية (home) الخاصة بـ profile أثناء الإنشاء. يجب ألا يُغلق
+تحرير الوكيل الخارج المقبضَ الذي يرثه بديله. يحلّ <code>tools.configure</code> الإعدادات من
+<code>profile_home</code> الخاص بالجلسة الحيّة، حتى عندما يزوّد العميل <code>session_id</code> فقط. تُعِدّ عمليات
+إعادة البناء إعدادات النموذج قبل تخصيص بديل، ثم تُثبّت الوكيل وتنقل الملكية معًا؛ فشل
+التحضير يترك الوكيل الحالي مسؤولًا عن التفكيك. تفشل الـ profiles الصريحة التي يتعذّر
+حلّها أو التي اختفى مجلدها قبل الوصول إلى إعدادات الإطلاق أو السجل. وبالمثل، يُعيد
+معرّف جلسة <code>tools.configure</code> القديم (stale) رسالة <code>session not found</code> دون تغيير الإعدادات؛
+وحذف معرّف الجلسة لا يزال يدعم عملية الإعدادات العامة.</p>
+<p>يؤرشف الضغط في المكان (in-place compaction) الصفوف القديمة بوضع <code>active=0</code> ويُدرج
+السياق المُحتفَظ به كصفوف <code>active=1</code>. لذا يمكن لرسالة محمية أن تظهر بشكل مشروع في
+كلا الجيلين بنفس المحتوى والطابع الزمني. لا تحذف صفوف الأرشيف هذه باعتبارها تكرارًا.
+شخِّص التكرار في الكتابات <em>الحيّة</em> باستخدام <code>active=1</code>، وتحقّق من profile قاعدة البيانات
+كذلك إلى جانب معرّف الجلسة عند التحقيق في سجل يبدو وكأنه تراجع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="codex-app-server-input-ownership">ملكية الإدخال في Codex app-server</h2>
+<p>يحفظ الوكيل إدخال المستخدم المقبول قبل بدء دور Codex الخاص به. ثم يعرض Codex ذلك
+الإدخال كإشعار <code>userMessage</code> رائد (leading). عند حدّ الدمج (splice) وقت التشغيل، يستبعد
+Hermes ذلك العنصر الرائد فقط عندما يطابق تمامًا النص المُسلسَل في <code>turn/start</code>، بما في ذلك
+تحويل الإدخال الغني (rich-input coercion). تبقى أحداث المستخدم اللاحقة أو غير المطابقة
+سليمة، وكذلك الأدوار المتطابقة المقبولة بشكل منفصل. ينطبق هذا أيضًا على الإدخال
+الاصطناعي/عديم المفتاح (keyless)؛ ولا يعتمد على معرّف رسالة المنصة. لا تُعاد كتابة التكرارات
+التاريخية الموجودة. يتخطّى gateway كتابة النص الكامل الخاصة به عندما يُبلغ الوكيل أنه
+يمتلك عملية الحفظ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-exception-path-input-ownership">ملكية الإدخال في مسار استثناء gateway</h2>
+<p>يمكن أن يحدث استثناء gateway قبل إنشاء الوكيل أو بعد وصول إدخاله إلى SQLite. يمنح
+gateway الإدخال المقبول علامة مالك (owner marker) ضمن ملحق <code>display_metadata</code>
+الموجود، ويمرّره عبر مسار الحفظ الطبيعي للوكيل. لا تحتوي رسائل المزوّد أبدًا على هذه
+البيانات الوصفية. تُصنِّف علامات المنصة معرّف الرسالة الواردة حسب المنصة وprofile
+والنطاق (scope) والمحادثة والخيط (thread)؛ يبقى <code>platform_message_id</code> الأصلي دون تغيير
+لغرض حلّ الاقتباس/الرد. تحصل الأدوار عديمة المفتاح على علامة جديدة، حتى مع تطابق
+النص والطابع الزمني.</p>
+<p>يستقصي كاتب الاستثناء (exception writer) عن تلك العلامة فقط، متتبّعًا مسار إعادة
+التوجيه المنشور وخليفة الضغط الحيّ القانوني، ثم أسلاف الضغط. تُحتسب الصفوف النشطة
+وأرشيفات الضغط؛ أما الصفوف المُتراجَع عنها، والإدخال المُلاحَظ (observed)، والكتّاب غير
+المرتبطين فلا تُحتسب. لا يمكن لعملية غير مرتبطة تكتب في الجلسة نفسها أن تمنع هذا
+الدور. لا حاجة إلى خط أساس (baseline) لكامل السجل ولا إلى تخصيص لنص رسالة مؤرشفة.
+لا تُخوِّل قراءات الملكية الفاشلة إضافة تخمينية؛ تحتفظ حالات فشل قراءة السجل العادية
+باستجابة عدم توفّر السجل الحالية.</p>
+<p>الحفظ الطبيعي المملوك من الوكيل يبقى دون تغيير. هذا تحكيم بين كتّاب الفشل (failure-writer
+arbitration)، وليس تسليمًا شاملاً لمرة واحدة بالضبط (exactly-once)، ولا إزالة تكرار
+للمحتوى، ولا ترحيل schema. لا تُعاد كتابة الصفوف التاريخية؛ ولا يمكن للإدخالات
+التاريخية غير المُعلَّمة إثبات الملكية لحدث مُعاد تسليمه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ينسخ <code>hermes sessions recover</code> الجداول أعلاه التي تحمل صفوفًا إلى قاعدة البيانات
+المُستعادة (يُعاد توليد فهارس FTS و <code>schema_version</code>)، بما في ذلك سجلّ (ledger)
+<code>delivery_obligations</code> المُنشأ بشكل كسول (lazily) عندما يمتلك المصدر واحدًا — يُتحقّق من
+عدد صفوفه كما هو الحال في <code>sessions</code>/<code>messages</code>.</p>
+<p>قرارات التصميم الرئيسية:</p>
+<ul>
+<li><strong>وضع WAL</strong> للقرّاء المتزامنين + كاتب واحد (gateway متعدد المنصات)</li>
+<li><strong>جدول FTS5 الافتراضي</strong> للبحث النصي السريع عبر جميع رسائل الجلسة</li>
+<li><strong>نسب الجلسات (session lineage)</strong> عبر سلاسل <code>parent_session_id</code> (تقسيمات ناتجة عن الضغط)</li>
+<li><strong>وسم المصدر</strong> (<code>cli</code>، <code>telegram</code>، <code>discord</code>، إلخ) لتصفية المنصات</li>
+<li>لا يُخزَّن هنا مُشغّل الدُفعات (batch runner) ومسارات RL (trajectories) (أنظمة منفصلة)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sqlite-schema">Schema الخاص بـ SQLite</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sessions-table">جدول الجلسات (Sessions)</h3>
+<p>مُختصر — راجع <code>SCHEMA_SQL</code> في <code>hermes_state_common.py</code> (المُطبَّق بواسطة <code>hermes_state_schema.py</code>)
+للاطلاع على قائمة الأعمدة الكاملة الحالية (والتي تتضمن أيضًا بيانات توجيه gateway
+الوصفية مثل <code>session_key</code> و <code>chat_id</code> و <code>chat_type</code> و <code>thread_id</code> و <code>display_name</code> و
+<code>origin_json</code> و <code>expiry_finalized</code>، وحقول بيئة العمل <code>cwd</code> / <code>git_branch</code> / <code>git_repo_root</code>،
+وحقول التسليم (handoff) وفشل الضغط، و <code>profile_name</code> و <code>rewind_count</code> و <code>archived</code>
+و <code>pinned</code>):</p>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messages-table">جدول الرسائل (Messages)</h3>
+<p>مُختصر — يتضمن schema الكامل أيضًا <code>effect_disposition</code> و
+<code>platform_message_id</code> و <code>observed</code> و <code>active</code> و <code>compacted</code> و <code>api_content</code> و
+<code>display_kind</code> و <code>display_metadata</code>:</p>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li><code>tool_calls</code> يُخزَّن كسلسلة JSON (قائمة مُسلسلة من كائنات استدعاء الأدوات)</li>
+<li><code>reasoning_details</code> و <code>codex_reasoning_items</code> و <code>codex_message_items</code> تُخزَّن كسلاسل JSON</li>
+<li>يحتفظ استرجاع سجل Desktop بالملحقات (sidecars) الخاصة بالمساعد في كلٍّ من إسقاطات REST وJSON-RPC (<code>session.resume</code> و <code>session.activate</code> و <code>session.history</code>)، بما في ذلك الصفوف التي تحتوي على استدلال (reasoning) واستدعاءات أدوات. قد تُعيد REST سلسلة JSON الخاصة بـ SQLite بينما تُعيد RPC عناصر مُفكّكة الترميز؛ يقبل Desktop كلا الشكلين. قد يقيم الرد النهائي من Responses في <code>codex_message_items</code> فقط بينما يكون <code>content</code> فارغًا. لا يزال المحتوى القانوني (canonical) له الأولوية، ولا تُرقّى عناصر التحليل والتعليق إلى نص الرد.</li>
+<li><code>reasoning</code> يخزّن نص الاستدلال الخام للمزوّدين الذين يعرضونه</li>
+<li><code>api_content</code> ملحق بدقّة بايتية (byte-fidelity): سلسلة المحتوى الدقيقة المرسلة إلى الـ API لهذه الرسالة عندما تختلف عن <code>content</code> (حقن الذاكرة المؤقتة/الإضافات، وتجاوزات الحفظ). يحافظ على بايتات النقل (wire bytes) لإعادة التشغيل المستقرة لتخزين الـ prompt المؤقت (cache) — يُخزَّن كما أُرسِل، باستثناء الأزواج البديلة المنفردة (lone surrogates) التي يتعذّر على sqlite3 ربطها والتي تُزيلها حلقة المحادثة من كل حمولة صادرة على أي حال. القيمة <code>NULL</code> تعني أن <code>content</code> أُرسِل حرفيًا.</li>
+<li>الطوابع الزمنية هي قيم عشرية بتوقيت Unix epoch (<code>time.time()</code>)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fts5-full-text-search">البحث النصي الكامل FTS5</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يُبقَى جدول FTS5 متزامنًا عبر ثلاثة مُشغِّلات (triggers) تُفعَّل عند INSERT وUPDATE وDELETE
+على جدول <code>messages</code>. تُقيَّد المُشغِّلات الحالية بعلامتَي <code>fts_rebuild_high_water</code> /
+<code>fts_rebuild_progress</code> في <code>state_meta</code> (بحيث يمكن لإعادة بناء FTS في الخلفية المتابعة
+دون فهرسة مزدوجة) وتغطّي الأعمدة الثلاثة المفهرَسة كلها — راجع <code>SCHEMA_SQL</code> في
+<code>hermes_state_common.py</code> للاطلاع على SQL الدقيق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="schema-version-and-migrations">إصدار Schema والترحيلات (Migrations)</h2>
+<p>إصدار Schema الحالي: <strong>23</strong></p>
+<p>يخزّن جدول <code>schema_version</code> عددًا صحيحًا واحدًا. تُعالَج إضافات الأعمدة البسيطة بشكل
+تصريحي بواسطة <code>_reconcile_columns()</code> (التي تقارن الأعمدة الحيّة بـ <code>SCHEMA_SQL</code> وتضيف
+أي عمود مفقود). سلسلة الترحيل المقيَّدة بالإصدار محجوزة لترحيلات البيانات وتغييرات
+الفهرس/FTS التي يتعذّر التعبير عنها تصريحيًا:</p>
+<table><thead><tr><th>الإصدار</th><th>التغيير</th></tr></thead><tbody><tr><td>1</td><td>Schema الأولي (sessions، messages، FTS5)</td></tr><tr><td>2</td><td>إضافة عمود <code>finish_reason</code> إلى messages</td></tr><tr><td>3</td><td>إضافة عمود <code>title</code> إلى sessions</td></tr><tr><td>4</td><td>إضافة فهرس فريد على <code>title</code> (القيم NULL مسموحة، وغير NULL يجب أن تكون فريدة)</td></tr><tr><td>5</td><td>إضافة أعمدة الفوترة: <code>cache_read_tokens</code>، <code>cache_write_tokens</code>، <code>reasoning_tokens</code>، <code>billing_provider</code>، <code>billing_base_url</code>، <code>billing_mode</code>، <code>estimated_cost_usd</code>، <code>actual_cost_usd</code>، <code>cost_status</code>، <code>cost_source</code>، <code>pricing_version</code></td></tr><tr><td>6</td><td>إضافة أعمدة الاستدلال إلى messages: <code>reasoning</code>، <code>reasoning_details</code>، <code>codex_reasoning_items</code></td></tr><tr><td>7</td><td>إضافة عمود <code>reasoning_content</code> إلى messages</td></tr><tr><td>8</td><td>إضافة عمود <code>api_call_count</code> إلى sessions</td></tr><tr><td>9</td><td>إضافة عمود <code>codex_message_items</code> إلى messages لإعادة تشغيل معرّف/مرحلة رسائل Codex Responses</td></tr><tr><td>10</td><td>إضافة جدول <code>messages_fts_trigram</code> الافتراضي (مُرمِّز trigram للبحث بالأحرف الصينية/اليابانية/الكورية وبالسلاسل الجزئية) وتعبئة الصفوف الموجودة بأثر رجعي</td></tr><tr><td>11</td><td>إعادة فهرسة <code>messages_fts</code> و <code>messages_fts_trigram</code> لتغطية <code>tool_name</code> + <code>tool_calls</code> والتحويل من المحتوى الخارجي إلى الوضع المضمَّن (inline)؛ إسقاط المُشغِّلات القديمة وتعبئة كل صف رسالة بأثر رجعي</td></tr><tr><td>16</td><td>وسم صفوف subagent المفوَّضة في <code>model_config</code> (<code>$._delegate_from</code>) لإبقاء منتقيات الجلسات نظيفة بعد أن يجعلها حذف الوالد يتيمة</td></tr><tr><td>18</td><td>توحيد بيانات gateway الوصفية — تعبئة <code>display_name</code> / <code>origin_json</code> / <code>expiry_finalized</code> بأثر رجعي من <code>sessions.json</code></td></tr><tr><td>20</td><td>إسناد الاستخدام لكل نموذج — بذر صفوف <code>session_model_usage</code> من إجماليات المجموع التاريخية لكل جلسة</td></tr><tr><td>22</td><td>إسناد الاستخدام ببُعد المهمة (task) — إعادة بناء <code>session_model_usage</code> بحيث يشارك عمود <code>task</code> في PRIMARY KEY</td></tr><tr><td>23</td><td>إعادة تصميم تخزين FTS — استبدال جداول FTS ذات المحتوى الخارجي لنسخ الوضع المضمَّن في الإصدار 11 (انتقال اختياري لقواعد البيانات الموجودة)</td></tr><tr><td>29</td><td>تخرج جلسات cron من فهرس trigram (البحث بالسلاسل الجزئية/CJK)؛ عرض (view) <code>messages_fts_trigram_src</code> ومُشغِّلاته تُصفّي بناءً على <code>sessions.source</code>، وإعادة بناء لمرة واحدة تُطهّر الصفوف التاريخية</td></tr><tr><td>30</td><td>تخرج جلسات subagent المفوَّضة (delegate-child) أيضًا من فهرس trigram — <code>source=&#x27;subagent&#x27;</code> أو علامة <code>$._delegate_from</code> (<code>FTS_TRIGRAM_SESSION_SQL</code>). تبقى الصفوف في <code>messages</code> وفهرس الكلمات القياسي <code>messages_fts</code>، لذا لا يزال <code>session_search</code> يجدها؛ فقط جداول trigram الظليّة (~2.6× حجمًا) تتقلّص. نفس إعادة البناء لمرة واحدة كما في الإصدار 29</td></tr></tbody></table>
+<p>الإصدارات غير المذكورة أعلاه كانت إضافات أعمدة تصريحية عالجها <code>_reconcile_columns()</code> (زيادة رقم الإصدار فقط، دون ترحيل بيانات).</p>
+<p>تستخدم إضافات الأعمدة التصريحية <code>ALTER TABLE ADD COLUMN</code> مُغلَّفة بـ try/except للتعامل مع حالة وجود العمود مسبقًا (idempotent). يُزاد رقم الإصدار بعد كل كتلة ترحيل ناجحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="write-contention-handling">التعامل مع تنازع الكتابة</h2>
+<p>تشترك عدة عمليات hermes (gateway + جلسات CLI + وكلاء worktree) في <code>state.db</code>
+واحد. تتعامل فئة <code>SessionDB</code> مع تنازع الكتابة عبر:</p>
+<ul>
+<li><strong>مهلة SQLite قصيرة</strong> (1 ثانية) بدلًا من الافتراضية البالغة 30 ثانية</li>
+<li><strong>إعادة محاولة على مستوى التطبيق</strong> مع تذبذب عشوائي (jitter) (20-150 مللي ثانية، حتى 15 محاولة)</li>
+<li>معاملات <strong>BEGIN IMMEDIATE</strong> لإظهار تنازع القفل عند بداية المعاملة</li>
+<li><strong>نقاط تفتيش WAL دورية</strong> كل 50 عملية كتابة ناجحة (وضع PASSIVE)</li>
+</ul>
+<p>هذا يتجنّب &quot;تأثير القافلة&quot; (convoy effect) حيث يتسبب التراجع الداخلي الحتمي لـ SQLite
+في أن تُعيد جميع الكتّاب المتنافسين المحاولة على نفس الفواصل الزمنية.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-operations">العمليات الشائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="initialize">التهيئة (Initialize)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-and-manage-sessions">إنشاء الجلسات وإدارتها</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-messages">تخزين الرسائل</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="retrieve-messages">استرجاع الرسائل</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-titles">عناوين الجلسات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-text-search">البحث النصي الكامل</h2>
+<p>تدعم الدالة <code>search_messages()</code> صيغة استعلام FTS5 مع تعقيم تلقائي لإدخال المستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-search">بحث أساسي</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fts5-query-syntax">صيغة استعلام FTS5</h3>
+<table><thead><tr><th>الصيغة</th><th>مثال</th><th>المعنى</th></tr></thead><tbody><tr><td>كلمات مفتاحية</td><td><code>docker deployment</code></td><td>كِلا المصطلحين (AND ضمنية)</td></tr><tr><td>عبارة بين علامتَي اقتباس</td><td><code>&quot;exact phrase&quot;</code></td><td>مطابقة عبارة دقيقة</td></tr><tr><td>OR منطقية</td><td><code>docker OR kubernetes</code></td><td>أيّ من المصطلحين</td></tr><tr><td>NOT منطقية</td><td><code>python NOT java</code></td><td>استبعاد مصطلح</td></tr><tr><td>بادئة (Prefix)</td><td><code>deploy*</code></td><td>مطابقة بادئة</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtered-search">بحث مُصفّى</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-results-format">صيغة نتائج البحث</h3>
+<p>تتضمن كل نتيجة:</p>
+<ul>
+<li><code>id</code> و <code>session_id</code> و <code>role</code> و <code>timestamp</code></li>
+<li><code>snippet</code> — مقتطف مُولَّد من FTS5 بعلامات <code>&gt;&gt;&gt;match&lt;&lt;&lt;</code></li>
+<li><code>context</code> — رسالة واحدة قبل وبعد المطابقة (يُقتَطع المحتوى إلى 200 حرف)</li>
+<li><code>source</code> و <code>model</code> و <code>session_started</code> — من الجلسة الأصل</li>
+</ul>
+<p>تتعامل الدالة <code>_sanitize_fts5_query()</code> مع الحالات الخاصة:</p>
+<ul>
+<li>إزالة علامات الاقتباس غير المتطابقة والأحرف الخاصة</li>
+<li>إحاطة المصطلحات ذات الشرطات بعلامات اقتباس (<code>chat-send</code> ← <code>&quot;chat-send&quot;</code>)</li>
+<li>إزالة عوامل التشغيل المنطقية المعلَّقة (<code>hello AND</code> ← <code>hello</code>)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-lineage">نسب الجلسات (Session Lineage)</h2>
+<p>يمكن للجلسات تكوين سلاسل عبر <code>parent_session_id</code>. يحدث هذا عندما يُحفّز ضغط
+السياق تقسيم جلسة في gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-find-session-lineage">استعلام: إيجاد نسب الجلسة</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-recent-sessions-with-preview">استعلام: الجلسات الأخيرة مع معاينة</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-token-usage-statistics">استعلام: إحصائيات استخدام tokens</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="export-and-cleanup">التصدير والتنظيف</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-location">موقع قاعدة البيانات</h2>
+<p>المسار الافتراضي: <code>~/.hermes/state.db</code></p>
+<p>يُشتَقّ هذا من <code>hermes_constants.get_hermes_home()</code> الذي يُحلَّل إلى
+<code>~/.hermes/</code> افتراضيًا، أو إلى قيمة متغير البيئة <code>HERMES_HOME</code>.</p>
+<p>يُنشَأ ملف قاعدة البيانات وملف WAL (<code>state.db-wal</code>) وملف الذاكرة المشتركة
+(<code>state.db-shm</code>) جميعها في نفس المجلد.</p>

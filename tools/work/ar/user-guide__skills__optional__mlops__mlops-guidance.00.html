@@ -1,0 +1,167 @@
+
+<header><h1>Guidance</h1></header>
+<p>قيّد مخرجات LLM باستخدام القواعد النحوية (grammars)؛ واضمن الحصول على JSON صالح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/guidance</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/guidance</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>guidance</code>, <code>transformers</code></td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Prompt Engineering</code>, <code>Guidance</code>, <code>Constrained Generation</code>, <code>Structured Output</code>, <code>JSON Validation</code>, <code>Grammar</code>, <code>Microsoft Research</code>, <code>Format Enforcement</code>, <code>Multi-Step Workflows</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Guidance: توليد مقيّد من LLM</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this-skill">متى تستخدم هذه المهارة</h2>
+<p>استخدم Guidance عندما تحتاج إلى:</p>
+<ul>
+<li><strong>التحكم في صياغة مخرجات LLM</strong> عبر regex أو grammars</li>
+<li><strong>ضمان توليد JSON/XML/كود صالح</strong></li>
+<li><strong>تقليل زمن الاستجابة (latency)</strong> مقارنة بأساليب الـ prompting التقليدية</li>
+<li><strong>فرض صيغ منظّمة</strong> (تواريخ، بريد إلكتروني، معرّفات، إلخ)</li>
+<li><strong>بناء سير عمل متعدد الخطوات</strong> باستخدام تدفق تحكم بأسلوب Python</li>
+<li><strong>منع المخرجات غير الصالحة</strong> عبر قيود نحوية (grammatical constraints)</li>
+</ul>
+<p><strong>نجوم GitHub</strong>: 18,000+ | <strong>من</strong>: Microsoft Research</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-example-structured-generation">مثال أساسي: توليد منظّم</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-format-with-a-local-model">صيغة المحادثة مع نموذج محلي</h3>
+<blockquote>
+<p><strong>دعم القيود (constraints) يتطلّب وصولًا محليًا إلى الـ logits.</strong> التوليد المقيّد باستخدام regex أو <code>select()</code> أو
+grammars يعمل فقط مع الـ backends المحلية
+(<code>Transformers</code> و<code>LlamaCpp</code>). أما backends واجهات API البعيدة (<code>OpenAI</code> ونسخ
+Azure) فتدعم <code>gen()</code> / المحادثة غير المقيّدة فقط — ولا يمكنها فرض
+قيود على مستوى الـ token. الإصدار guidance 0.3.x لا يتضمّن الفئة <code>models.Anthropic</code>.</p>
+</blockquote>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="core-concepts">المفاهيم الأساسية</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-context-managers">1. مدراء السياق (Context Managers)</h3>
+<p>يستخدم Guidance مدراء سياق بأسلوب Python للتفاعلات على طراز المحادثة.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>الفوائد:</strong></p>
+<ul>
+<li>تدفّق محادثة طبيعي</li>
+<li>فصل واضح للأدوار</li>
+<li>سهل القراءة والصيانة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-constrained-generation">2. التوليد المقيّد (Constrained Generation)</h3>
+<p>يضمن Guidance تطابق المخرجات مع الأنماط المحدَّدة باستخدام regex أو grammars.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="regex-constraints">قيود Regex</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>كيف يعمل ذلك:</strong></p>
+<ul>
+<li>يُحوَّل الـ regex إلى grammar على مستوى الـ token</li>
+<li>تُستبعَد الرموز (tokens) غير الصالحة أثناء التوليد</li>
+<li>لا يمكن للنموذج إنتاج سوى مخرجات مطابقة</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="selection-constraints">قيود الاختيار (Selection Constraints)</h4>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-token-healing">3. معالجة حدود الـ Token (Token Healing)</h3>
+<p>يقوم Guidance تلقائيًا بـ&quot;معالجة&quot; حدود الـ token بين الـ prompt والتوليد.</p>
+<p><strong>المشكلة:</strong> تُنشئ عملية التقطيع إلى tokens حدودًا غير طبيعية.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><strong>الحل:</strong> يتراجع Guidance عن token واحد ويعيد التوليد.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p><strong>الفوائد:</strong></p>
+<ul>
+<li>حدود نصية طبيعية</li>
+<li>لا مشاكل تباعد غير مريحة</li>
+<li>أداء أفضل للنموذج (يرى تسلسلات tokens طبيعية)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-grammar-based-generation">4. التوليد القائم على Grammar</h3>
+<p>عرّف بنى معقّدة عبر تركيب دوال grammar. صيغة القالب النصي
+<code>grammar=</code> لم تعد جزءًا من guidance الحالي — ابنِ الـ grammars من
+دوال قابلة للتركيب، أو استخدم <code>guidance.json()</code> لصيغة JSON.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p><strong>حالات الاستخدام:</strong></p>
+<ul>
+<li>مخرجات منظّمة معقّدة</li>
+<li>بنى بيانات متداخلة</li>
+<li>صياغة لغات البرمجة</li>
+<li>لغات مخصّصة لمجال معيّن (DSL)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-guidance-functions">5. دوال Guidance</h3>
+<p>أنشئ أنماط توليد قابلة لإعادة الاستخدام باستخدام المُزخرِف (decorator) <code>@guidance</code>.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p><strong>دوال ذات حالة (Stateful Functions):</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="backend-configuration">إعداد الـ Backend</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="openai-remote--unconstrained-only">OpenAI (بعيد — غير مقيّد فقط)</h3>
+<blockquote>
+<p>لا تستطيع backends واجهات API البعيدة إجراء توليد مقيّد (regex/select/grammar)؛
+استخدمها فقط للمحادثة العادية أو <code>gen()</code>. أما للقيود، فاستخدم backend محليًا.</p>
+</blockquote>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-models-transformers">نماذج محلية (Transformers)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-models-llamacpp">نماذج محلية (llama.cpp)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-1-json-generation">النمط 1: توليد JSON</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-2-classification">النمط 2: التصنيف</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-3-multi-step-reasoning">النمط 3: الاستدلال متعدد الخطوات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-4-react-agent">النمط 4: وكيل ReAct</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-5-data-extraction">النمط 5: استخراج البيانات</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-use-regex-for-format-validation">1. استخدم Regex للتحقق من الصيغة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-use-select-for-fixed-categories">2. استخدم select() للفئات الثابتة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-leverage-token-healing">3. استفد من Token Healing</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-use-stop-sequences">4. استخدم تسلسلات stop</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-create-reusable-functions">5. أنشئ دوالًا قابلة لإعادة الاستخدام</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-balance-constraints">6. وازِن بين القيود</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-to-alternatives">مقارنة بالبدائل</h2>
+<table><thead><tr><th>الميزة</th><th>Guidance</th><th>Instructor</th><th>Outlines</th><th>LMQL</th></tr></thead><tbody><tr><td>قيود Regex</td><td>✅ نعم</td><td>❌ لا</td><td>✅ نعم</td><td>✅ نعم</td></tr><tr><td>دعم Grammar</td><td>✅ CFG</td><td>❌ لا</td><td>✅ CFG</td><td>✅ CFG</td></tr><tr><td>التحقق عبر Pydantic</td><td>❌ لا</td><td>✅ نعم</td><td>✅ نعم</td><td>❌ لا</td></tr><tr><td>Token Healing</td><td>✅ نعم</td><td>❌ لا</td><td>✅ نعم</td><td>❌ لا</td></tr><tr><td>النماذج المحلية</td><td>✅ نعم</td><td>⚠️ محدود</td><td>✅ نعم</td><td>✅ نعم</td></tr><tr><td>نماذج API</td><td>✅ نعم</td><td>✅ نعم</td><td>⚠️ محدود</td><td>✅ نعم</td></tr><tr><td>صياغة بأسلوب Python</td><td>✅ نعم</td><td>✅ نعم</td><td>✅ نعم</td><td>❌ أشبه بـ SQL</td></tr><tr><td>منحنى التعلّم</td><td>منخفض</td><td>منخفض</td><td>متوسط</td><td>مرتفع</td></tr></tbody></table>
+<p><strong>متى تختار Guidance:</strong></p>
+<ul>
+<li>عند الحاجة إلى قيود regex/grammar</li>
+<li>عند رغبتك في Token Healing</li>
+<li>عند بناء سير عمل معقّد مع تدفق تحكم</li>
+<li>عند استخدام نماذج محلية (Transformers، llama.cpp)</li>
+<li>عند تفضيلك صياغة بأسلوب Python</li>
+</ul>
+<p><strong>متى تختار البدائل:</strong></p>
+<ul>
+<li>Instructor: عند الحاجة إلى التحقق عبر Pydantic مع إعادة المحاولة تلقائيًا</li>
+<li>Outlines: عند الحاجة إلى التحقق من مخطط JSON schema</li>
+<li>LMQL: عند تفضيل صياغة استعلام تصريحية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-characteristics">خصائص الأداء</h2>
+<p><strong>تقليل زمن الاستجابة:</strong></p>
+<ul>
+<li>أسرع بنسبة 30-50% من الـ prompting التقليدي للمخرجات المقيّدة</li>
+<li>يقلّل Token Healing من إعادة التوليد غير الضرورية</li>
+<li>تمنع قيود Grammar توليد tokens غير صالحة</li>
+</ul>
+<p><strong>استهلاك الذاكرة:</strong></p>
+<ul>
+<li>عبء إضافي طفيف مقارنة بالتوليد غير المقيّد</li>
+<li>يُخزَّن تجميع الـ grammar مؤقتًا بعد أول استخدام</li>
+<li>ترشيح فعّال للـ tokens وقت الـ inference</li>
+</ul>
+<p><strong>كفاءة استخدام الـ Tokens:</strong></p>
+<ul>
+<li>يمنع إهدار tokens على مخرجات غير صالحة</li>
+<li>لا حاجة لحلقات إعادة المحاولة</li>
+<li>مسار مباشر نحو مخرجات صالحة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>التوثيق</strong>: <a href="https://guidance.readthedocs.io" data-ext>https://guidance.readthedocs.io</a></li>
+<li><strong>GitHub</strong>: <a href="https://github.com/guidance-ai/guidance" data-ext>https://github.com/guidance-ai/guidance</a> (أكثر من 18 ألف نجمة)</li>
+<li><strong>دفاتر Notebooks</strong>: <a href="https://github.com/guidance-ai/guidance/tree/main/notebooks" data-ext>https://github.com/guidance-ai/guidance/tree/main/notebooks</a></li>
+<li><strong>Discord</strong>: دعم مجتمعي متاح</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
+<ul>
+<li><code>references/constraints.md</code> - أنماط شاملة لـ regex و grammar</li>
+<li><code>references/backends.md</code> - إعداد خاص بكل backend</li>
+<li><code>references/examples.md</code> - أمثلة جاهزة للإنتاج</li>
+</ul>

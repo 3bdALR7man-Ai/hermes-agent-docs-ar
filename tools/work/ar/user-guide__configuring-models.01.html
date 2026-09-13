@@ -1,0 +1,39 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="alternative-methods">الطرق البديلة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-slash-command">الـ slash command في CLI</h3>
+<p>داخل أي جلسة <code>hermes chat</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يؤدي <code>--global</code> ما يؤديه زر <strong>Change</strong> في لوحة التحكم، ويبدّل إضافة إلى ذلك النموذج في الجلسة الجارية في مكانها.</p>
+<p>يبدّل <code>--once</code> النموذج لدور واحد فقط ثم يستعيد النموذج السابق بعده — سواء انتهى الدور بنجاح أو بخطأ أو بمقاطعة. لا يُحفظ شيء: فإعادة تشغيل gateway في منتصف الدور تعود بالنموذج الأصلي. مفيد لتصعيد سؤال صعب واحد إلى نموذج مكلف (&quot;اسأل Opus هذه المرة فقط&quot;) أو للنزول إلى نموذج رخيص لاستعلام عابر.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>تكلفة التخزين المؤقت للـ prompt</div><div class="admonitionContent_BuS1"><p>يكسر التبديل لدور واحد بادئة التخزين المؤقت للـ prompt لدى المزوّد مرتين (عند التبديل ذهابًا وعند العودة). وفي جلسة طويلة لدى مزوّد يعتمد التخزين المؤقت للبادئة (Anthropic و OpenAI)، يدفع الدور التالي تكلفة الإدخال الكاملة من جديد — لذا يكون <code>--once</code> مجديًا في الجلسات القصيرة أو عند التصعيد من نموذج رخيص إلى مكلف، لكن سؤالًا جانبيًا سريعًا داخل جلسة طويلة مكلفة قد يكلّف أكثر مما يوفّر.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="custom-aliases">الأسماء البديلة المخصّصة</h3>
+<p>عرّف أسماءً مختصرة خاصة بك للنماذج التي تستخدمها كثيرًا، ثم استخدم <code>/model &lt;alias&gt;</code> في جلسة جارية أو <code>hermes chat --model &lt;alias&gt;</code> عند بدء التشغيل. هناك صيغتان متكافئتان — اختر ما يناسب سير عملك.</p>
+<p><strong>الصيغة المعتمدة (<code>model_aliases:</code> في المستوى الأعلى)</strong> — تحكّم كامل في provider + base_url:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يمكن للاسم البديل الذي يشير إلى endpoint خاص به أن يحمل أيضًا بيانات اعتماد ذلك
+الـ endpoint، إما عبر <code>api_key</code> (قيمة حرفية، أو مرجع <code>&quot;${VAR}&quot;</code>) أو عبر
+<code>key_env</code> (اسم متغير بيئة). وإذا ضُبط الاثنان، تكون
+الأسبقية لـ <code>api_key</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>عندما لا يضبط الاسم البديل أيًّا منهما، يُحدَّد المفتاح من <strong>مضيف</strong> الاسم البديل —
+<code>OLLAMA_API_KEY</code> لـ endpoint على <code>ollama.com</code>، و <code>DEEPSEEK_API_KEY</code> لـ
+<code>api.deepseek.com</code>، وهكذا. ولا يُورث أبدًا من المزوّد الذي
+صادف أنه كان نشطًا قبل التبديل، لذا لا يمكن أن يؤدي التبديل إلى اسم بديل إلى إرسال
+سرّ مزوّد ما إلى مضيف مزوّد آخر.</p>
+<p><strong>الصيغة النصية المختصرة (<code>model.aliases.&lt;name&gt;: provider/model</code>)</strong> — مريحة من الـ shell لأن <code>hermes config set</code> يكتب القيم المفردة (scalars) وأصبح الآن يحلّل أيضًا القوائم/الـ mappings المكتوبة بشكل مضمّن، وإن كانت صيغة الاسم البديل المختصرة هذه لا تزال لا تستطيع حمل <code>base_url</code> مخصّص:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<blockquote>
+<p>يقبل <code>hermes config set</code> أيضًا <strong>القوائم/الـ mappings الحرفية</strong> المضمّنة (بأسلوب JSON/YAML flow). ضعها بين علامتي اقتباس كي يمرّرها الـ shell كما هي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+</blockquote>
+<p>يغذّي المساران أداة التحميل نفسها (<code>hermes_cli/model_switch.py</code>). وتتقدّم العناصر المعرّفة في <code>model_aliases:</code> على عناصر <code>model.aliases:</code> التي تحمل الاسم نفسه.</p>
+<p>بعد ذلك استخدم <code>/model fav</code> أو <code>/model grok</code> في المحادثة. تحجب الأسماء البديلة التي يعرّفها المستخدم الأسماء المختصرة المدمجة (<code>sonnet</code> و <code>kimi</code> و <code>opus</code> وغيرها). راجع <a href="/docs/reference/slash-commands#custom-model-aliases">الأسماء البديلة المخصّصة للنماذج</a> للاطلاع على المرجع الكامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-model-subcommand">الأمر الفرعي <code>hermes model</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يرشدك <code>hermes model</code> خطوة بخطوة خلال اختيار المزوّد، والمصادقة (تفتح تدفقات OAuth متصفحًا؛ ويطلب المزوّدون الذين يعتمدون على مفتاح API إدخال المفتاح)، ثم اختيار نموذج محدد من الكتالوج المنتقى لذلك المزوّد. ويُكتب الاختيار في <code>model.provider</code> و <code>model.default</code> ضمن <code>~/.hermes/config.yaml</code>.</p>
+<p>لعرض قائمة المزوّدين/النماذج دون تشغيل أداة الاختيار، استخدم لوحة التحكم أو REST endpoints أدناه. ولفحص ما سيستخدمه CLI فعليًا الآن: <code>hermes config get model --json</code> و <code>hermes status</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="direct-config-edit">التعديل المباشر لملف الإعدادات</h3>
+<p>عدّل <code>~/.hermes/config.yaml</code> وأعد تشغيل أي شيء يقرؤه. راجع <a href="/docs/user-guide/configuration">مرجع الإعدادات</a> للاطلاع على المخطط الكامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rest-api">REST API</h3>
+<p>تستخدم لوحة التحكم ثلاث endpoints. وهي مفيدة لكتابة السكربتات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>يُحقن session token في HTML لوحة التحكم عند بدء التشغيل ويتغيّر مع كل إعادة تشغيل للخادم. احصل عليه من أدوات المطوّر في المتصفح (<code>window.__HERMES_SESSION_TOKEN__</code>) إذا كنت تكتب سكربتات تعمل مع لوحة تحكم قيد التشغيل.</p>

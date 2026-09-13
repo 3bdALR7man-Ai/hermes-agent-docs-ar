@@ -1,0 +1,138 @@
+
+<header><h1>Nemo Curator</h1></header>
+<p>تنقية بيانات تدريب LLM: إزالة التكرار، التصفية، وتنقية المعلومات الشخصية (PII).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/nemo-curator</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/nemo-curator</code></td></tr><tr><td>الإصدار</td><td><code>1.0.1</code></td></tr><tr><td>المؤلف</td><td>Orchestra Research</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>nemo-curator</code>, <code>cudf</code>, <code>dask</code>, <code>rapids</code></td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Data Processing</code>, <code>NeMo Curator</code>, <code>Data Curation</code>, <code>GPU Acceleration</code>, <code>Deduplication</code>, <code>Quality Filtering</code>, <code>NVIDIA</code>, <code>RAPIDS</code>, <code>PII Redaction</code>, <code>Multimodal</code>, <code>LLM Training Data</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>NeMo Curator - تنقية بيانات مُسرَّعة بـ GPU</h1>
+<p>مجموعة أدوات NVIDIA لتحضير بيانات تدريب عالية الجودة لنماذج LLM.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-nemo-curator">متى تستخدم NeMo Curator</h2>
+<p><strong>استخدم NeMo Curator عندما:</strong></p>
+<ul>
+<li>تحضّر بيانات تدريب LLM من عمليات جمع الويب (Common Crawl)</li>
+<li>تحتاج إزالة تكرار سريعة (أسرع 16 مرة من المعالجة على CPU)</li>
+<li>تنقّي مجموعات بيانات متعددة الوسائط (نص، صور، فيديو، صوت)</li>
+<li>تصفّي المحتوى منخفض الجودة أو السام</li>
+<li>توسّع معالجة البيانات عبر عنقود من وحدات GPU</li>
+</ul>
+<p><strong>الأداء</strong>:</p>
+<ul>
+<li>إزالة تكرار ضبابية (fuzzy deduplication) <strong>أسرع 16 مرة</strong> (على 8TB من RedPajama v2)</li>
+<li><strong>تكلفة إجمالية أقل بنسبة 40%</strong> مقارنة ببدائل CPU</li>
+<li><strong>توسع شبه خطي</strong> عبر عُقد GPU</li>
+</ul>
+<p><strong>استخدم بدائل أخرى بدلًا من ذلك</strong>:</p>
+<ul>
+<li><strong>datatrove</strong>: معالجة بيانات مفتوحة المصدر تعمل على CPU</li>
+<li><strong>dolma</strong>: مجموعة أدوات البيانات من Allen AI</li>
+<li><strong>Ray Data</strong>: معالجة بيانات عامة لتعلّم الآلة (بلا تركيز على التنقية)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-text-curation-pipeline">Pipeline أساسي لتنقية النصوص</h3>
+<blockquote>
+<p><strong>إعادة كتابة كبرى للإصدار (1.x):</strong> أُعيدت كتابة NeMo Curator حول <strong>بنية pipeline/stage
+مبنية على Ray</strong>. واجهة <code>DocumentDataset</code> و<code>nemo_curator.modules.*</code> /
+<code>ScoreFilter</code> / <code>Modify</code> القديمة التي تستدعي الكائن مباشرةً على مجموعة بيانات في الإصدار 0.x لم تعد موجودة. في الإصدار 1.x
+تُركّب <code>ProcessingStage</code>s ضمن <code>Pipeline</code> وتشغّلها عبر executor. تختلف
+واجهة الـ stage/import بالضبط حسب الوسيط — تعامل مع الأمثلة في هذه المهارة أدناه على أنها
+<strong>مفاهيمية</strong> (بأسلوب 0.x) واتبع
+<a href="https://github.com/NVIDIA-NeMo/Curator/blob/main/tutorials/quickstart.py" data-ext>دليل البدء السريع</a>
+و<a href="https://docs.nvidia.com/nemo/curator/latest/get-started/text" data-ext>دليل النصوص</a> للحصول على
+واجهات الإصدار 1.x الدقيقة بدلًا من نسخ الاستيرادات حرفيًا.</p>
+</blockquote>
+<p>شكل pipeline في الإصدار 1.x (من دليل البدء السريع الرسمي):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>مقتطفات الإصدار 0.x في الأقسام التالية توضّح <em>المفاهيم</em> (تصفية
+الجودة، إزالة التكرار الدقيقة/الضبابية/الدلالية، تنقية PII، التصفية بالمصنِّف). للحصول على كود
+قابل للتشغيل في الإصدار 1.x، اربط كل مفهوم بالـ stage المقابل من دليل الوسيط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-curation-pipeline">Pipeline تنقية البيانات</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stage-1-quality-filtering">المرحلة 1: تصفية الجودة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stage-2-deduplication">المرحلة 2: إزالة التكرار</h3>
+<p><strong>إزالة التكرار الدقيقة</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>إزالة التكرار الضبابية (Fuzzy)</strong> (أسرع 16 مرة على GPU):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>إزالة التكرار الدلالية</strong>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stage-3-pii-redaction">المرحلة 3: تنقية المعلومات الشخصية (PII)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stage-4-classifier-filtering">المرحلة 4: التصفية بالمصنِّف (Classifier)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gpu-acceleration">التسريع بـ GPU</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gpu-vs-cpu-performance">الأداء: GPU مقابل CPU</h3>
+<table><thead><tr><th>العملية</th><th>CPU (16 نواة)</th><th>GPU (A100)</th><th>التسريع</th></tr></thead><tbody><tr><td>إزالة تكرار ضبابية (8TB)</td><td>120 ساعة</td><td>7.5 ساعة</td><td>16×</td></tr><tr><td>إزالة تكرار دقيقة (1TB)</td><td>8 ساعات</td><td>0.5 ساعة</td><td>16×</td></tr><tr><td>تصفية الجودة</td><td>ساعتان</td><td>0.2 ساعة</td><td>10×</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-gpu-scaling">التوسع عبر عدة وحدات GPU</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-modal-curation">التنقية متعددة الوسائط</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-curation">تنقية الصور</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="video-curation">تنقية الفيديو</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="audio-curation">تنقية الصوت</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web-scrape-curation-common-crawl">تنقية جمع الويب (Common Crawl)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distributed-processing">المعالجة الموزّعة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-benchmarks">مقاييس الأداء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fuzzy-deduplication-8tb-redpajama-v2">إزالة تكرار ضبابية (8TB من RedPajama v2)</h3>
+<ul>
+<li><strong>CPU (256 نواة)</strong>: 120 ساعة</li>
+<li><strong>GPU (8× A100)</strong>: 7.5 ساعة</li>
+<li><strong>التسريع</strong>: 16×</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="exact-deduplication-1tb">إزالة تكرار دقيقة (1TB)</h3>
+<ul>
+<li><strong>CPU (64 نواة)</strong>: 8 ساعات</li>
+<li><strong>GPU (4× A100)</strong>: 0.5 ساعة</li>
+<li><strong>التسريع</strong>: 16×</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quality-filtering-100gb">تصفية الجودة (100GB)</h3>
+<ul>
+<li><strong>CPU (32 نواة)</strong>: ساعتان</li>
+<li><strong>GPU (2× A100)</strong>: 0.2 ساعة</li>
+<li><strong>التسريع</strong>: 10×</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cost-comparison">مقارنة التكلفة</h2>
+<p><strong>التنقية على CPU</strong> (10 وحدات AWS c5.18xlarge):</p>
+<ul>
+<li>التكلفة: 3.60$/ساعة × 10 = 36$/ساعة</li>
+<li>الوقت لـ 8TB: 120 ساعة</li>
+<li><strong>الإجمالي</strong>: 4,320$</li>
+</ul>
+<p><strong>التنقية على GPU</strong> (وحدتا AWS p4d.24xlarge):</p>
+<ul>
+<li>التكلفة: 32.77$/ساعة × 2 = 65.54$/ساعة</li>
+<li>الوقت لـ 8TB: 7.5 ساعة</li>
+<li><strong>الإجمالي</strong>: 491.55$</li>
+</ul>
+<p><strong>التوفير</strong>: تخفيض 89% (توفير 3,828$)</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-data-formats">صيغ البيانات المدعومة</h2>
+<ul>
+<li><strong>الإدخال</strong>: Parquet وJSONL وCSV</li>
+<li><strong>الإخراج</strong>: Parquet (موصى بها) وJSONL</li>
+<li><strong>WebDataset</strong>: أرشيفات TAR للبيانات متعددة الوسائط</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-cases">حالات الاستخدام</h2>
+<p><strong>عمليات نشر إنتاجية</strong>:</p>
+<ul>
+<li>استخدمت NVIDIA أداة NeMo Curator لتحضير بيانات تدريب Nemotron-4</li>
+<li>مجموعات بيانات مفتوحة المصدر جرى تنقيتها: RedPajama v2 وThe Pile</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<ul>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/nemo-curator/references/filtering.md" data-ext>دليل التصفية</a></strong> - أكثر من 30 مرشّح جودة وقواعد إرشادية (heuristics)</li>
+<li><strong><a href="https://github.com/NousResearch/hermes-agent/blob/main/optional-skills/mlops/nemo-curator/references/deduplication.md" data-ext>دليل إزالة التكرار</a></strong> - الطرق الدقيقة والضبابية والدلالية</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resources">الموارد</h2>
+<ul>
+<li><strong>GitHub</strong>: <a href="https://github.com/NVIDIA-NeMo/Curator" data-ext>https://github.com/NVIDIA-NeMo/Curator</a></li>
+<li><strong>التوثيق</strong>: <a href="https://docs.nvidia.com/nemo/curator/latest/" data-ext>https://docs.nvidia.com/nemo/curator/latest/</a></li>
+<li><strong>الإصدار</strong>: 1.2.0 (الإصدار 1.x هو إعادة كتابة قائمة على pipeline مبني على Ray — راجع دليل البدء السريع قبل نسخ مقتطفات 0.x)</li>
+<li><strong>الترخيص</strong>: Apache 2.0</li>
+</ul>

@@ -1,0 +1,78 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<p>يتضمّن محوّل webhook (webhook adapter) عدة طبقات من الحماية:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hmac-signature-validation">التحقق من توقيع HMAC</h3>
+<p>يتحقق المحوّل من توقيعات طلبات webhook الواردة باستخدام الطريقة المناسبة لكل مصدر:</p>
+<ul>
+<li><strong>GitHub</strong>: الترويسة <code>X-Hub-Signature-256</code> — ملخّص HMAC-SHA256 بصيغة hex مسبوق بـ <code>sha256=</code></li>
+<li><strong>GitLab</strong>: الترويسة <code>X-Gitlab-Token</code> — مطابقة مباشرة لنص السرّ (secret)</li>
+<li><strong>Standard Webhooks</strong>: الترويسات <code>webhook-id</code> و <code>webhook-timestamp</code> و <code>webhook-signature</code> — المحتوى الموقَّع هو <code>{id}.{timestamp}.{raw_body}</code> مع توقيع بالصيغة <code>v1,&lt;base64-hmac-sha256&gt;</code></li>
+<li><strong>Generic (V2، موصى به)</strong>: الترويستان <code>X-Webhook-Signature-V2</code> + <code>X-Webhook-Timestamp</code> — ملخّص HMAC-SHA256 بصيغة hex لـ <code>&lt;timestamp&gt;.&lt;body&gt;</code>. يجب أن يكون الطابع الزمني (بثواني Unix) ضمن ±300 ثانية من ساعة الخادم، ما يمنع إعادة تشغيل الطلبات الملتقَطة لاحقًا (replay).</li>
+<li><strong>Generic (V1، قديم)</strong>: الترويسة <code>X-Webhook-Signature</code> — ملخّص HMAC-SHA256 خام بصيغة hex لجسم الطلب فقط. لا يزال مقبولًا للحفاظ على التوافق مع الإصدارات السابقة، لكنه لا يوفّر أي حماية من إعادة التشغيل (إذ يمكن إعادة تشغيل الطلب الملتقَط إلى ما لا نهاية)؛ ويسجّل الـ gateway تحذيرًا بالإهمال (deprecation) مرة واحدة لكل مسار. انقل الجهات المُرسِلة إلى V2.</li>
+</ul>
+<p>إذا كان هناك سرّ مُعدّ ولم تكن هناك أي ترويسة توقيع معروفة، يُرفض الطلب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="secret-is-required">السرّ إلزامي</h3>
+<p>يجب أن يكون لكل مسار (route) سرّ — إما مضبوط مباشرة على المسار أو موروث من الإعداد العام <code>secret</code>. تؤدي المسارات التي لا تملك سرًّا إلى فشل المحوّل عند بدء التشغيل مع ظهور خطأ. لأغراض التطوير والاختبار فقط، يمكنك ضبط السرّ على <code>&quot;INSECURE_NO_AUTH&quot;</code> لتخطّي التحقق كليًا.</p>
+<p>عند تفعيل التوجيه متعدد الـ profiles، يربط الحقل <code>profile</code> الخاص بالمسار
+ذلك السرّ أيضًا بهدف تنفيذ واحد. أما المسار الذي لا يحتوي على <code>profile</code> فيقتصر
+على الـ profile الافتراضي. ويُرفض الطلب الذي يحمل توقيعًا صالحًا للمسار
+إذا لم تتطابق البادئة <code>/p/&lt;profile&gt;/</code> فيه مع الـ profile المرتبط بالمسار.</p>
+<p>لا تُقبل <code>INSECURE_NO_AUTH</code> إلا عندما يكون الـ gateway مربوطًا بمضيف loopback (<code>127.0.0.1</code>، <code>localhost</code>، <code>::1</code>). وإذا اقترنت بربط غير loopback مثل <code>0.0.0.0</code> أو عنوان IP على الشبكة المحلية (LAN)، يرفض المحوّل بدء التشغيل — وهذا يمنع كشف endpoint غير مُصادَق عليه على واجهة عامة عن طريق الخطأ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limiting">تحديد المعدل (Rate limiting)</h3>
+<p>يخضع كل مسار افتراضيًا لحدّ معدل قدره <strong>30 طلبًا في الدقيقة</strong> (بنافذة زمنية ثابتة). اضبط ذلك على المستوى العام:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>تتلقى الطلبات التي تتجاوز الحد استجابة <code>429 Too Many Requests</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="idempotency">عدم تكرار التنفيذ (Idempotency)</h3>
+<p>تُخزَّن معرّفات التسليم (Delivery IDs) — المأخوذة من <code>X-GitHub-Delivery</code> أو <code>svix-id</code> أو <code>webhook-id</code> أو <code>X-Request-ID</code>، أو من طابع زمني احتياطي — تخزينًا مؤقتًا لمدة <strong>ساعة واحدة</strong>. ويجري تخطّي عمليات التسليم المكررة (مثل إعادة محاولات webhook) بصمت مع استجابة <code>200</code>، ما يمنع تشغيل الوكيل أكثر من مرة للحدث نفسه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="body-size-limits">حدود حجم جسم الطلب</h3>
+<p>تُرفض الحمولات (payloads) التي تتجاوز <strong>1 MB</strong> قبل قراءة جسم الطلب. اضبط ذلك كما يلي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authenticated-does-not-mean-trusted">المصادقة لا تعني الثقة</h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p><strong>يصادق التحقق عبر HMAC على <em>المُرسِل</em>، لا على <em>المحتوى</em>.</strong> فالتوقيع الصالح يثبت فقط أن الطلب صادر عن طرف يملك سرّ المسار (مثل GitHub)، ولا يقول شيئًا عمّن كتب <em>حقول البيانات الفعلية</em> داخل الحمولة — فعناوين PR ورسائل commit وأوصاف issues وأي نص آخر قادم من المصدر يكتبه أطراف ثالثة عشوائيون، ويجب التعامل معه على أنه غير موثوق.</p><p>هذا هو نموذج الثقة نفسه الذي ينطبق على كل ما يقرؤه الوكيل: صفحات الويب والملفات ومخرجات الأدوات كلها مُدخلات غير موثوقة. لا يُنقّي Hermes النص غير الموثوق باستخدام قائمة حظر (blocklist) — ولا يمكنه ذلك بشكل موثوق؛ فإعادة الصياغة والترميز والترجمة تجعل تجاوزها أمرًا في غاية السهولة. <strong>حدود الثقة هي نطاق قدرات الوكيل، لا قناة الإدخال.</strong> عزّز الحماية هناك:</p><ul>
+<li><strong>اعزل بيئة التشغيل في sandbox.</strong> شغّل الـ gateway باستخدام terminal backend من نوع Docker أو SSH (أو داخل VM) عند تعريضه للإنترنت، حتى لا يتمكن دور مُختطَف من المساس بالجهاز المضيف.</li>
+<li><strong>قيّد الـ toolset.</strong> عطّل أدوات <code>terminal</code> و <code>file</code> وأدوات الإجراءات الخارجية في الجلسات التي يطلقها webhook إذا كان المسار يحتاج إلى القراءة والتلخيص فقط. فكلما قلّت القدرات صغُر نطاق الضرر إذا حمل أحد حقول الحمولة تعليمات محقونة.</li>
+<li><strong>أبقِ الموافقات مفعّلة</strong> لأي عملية تخريبية أو خارجية، حتى لا تتمكن تعليمات محقونة من التصرف دون إشراف.</li>
+<li><strong>اجعل القالب محدّدًا.</strong> فضّل <code>prompt</code> محددًا بحقول مسمّاة (<code>{pull_request.title}</code>) على <code>{__raw__}</code> أو قالب فارغ يُفرغ الحمولة بأكملها، حتى لا يصل إلى الـ prompt إلا الحقول التي تقصدها.</li>
+</ul></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-not-arriving">طلبات webhook لا تصل</h3>
+<ul>
+<li>تحقّق من أن المنفذ مكشوف ويمكن الوصول إليه من مصدر webhook</li>
+<li>راجع قواعد جدار الحماية — يجب أن يكون المنفذ <code>8644</code> (أو المنفذ الذي أعددته) مفتوحًا</li>
+<li>تحقّق من تطابق مسار URL: <code>http://your-server:8644/webhooks/&lt;route-name&gt;</code></li>
+<li>استخدم endpoint <code>/health</code> للتأكد من أن الخادم يعمل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="signature-validation-failing">فشل التحقق من التوقيع</h3>
+<ul>
+<li>تأكّد من أن السرّ في إعدادات المسار يطابق تمامًا السرّ المُعدّ في مصدر webhook</li>
+<li>في GitHub، يعتمد السرّ على HMAC — راجع <code>X-Hub-Signature-256</code></li>
+<li>في GitLab، السرّ مطابقة مباشرة لـ token — راجع <code>X-Gitlab-Token</code></li>
+<li>ابحث في سجلات الـ gateway عن تحذيرات <code>Invalid signature</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-being-ignored">تجاهل الحدث</h3>
+<ul>
+<li>تحقّق من أن نوع الحدث موجود في قائمة <code>events</code> الخاصة بالمسار</li>
+<li>تستخدم أحداث GitHub قيمًا مثل <code>pull_request</code> و <code>push</code> و <code>issues</code> (قيمة الترويسة <code>X-GitHub-Event</code>)</li>
+<li>تستخدم أحداث GitLab قيمًا مثل <code>merge_request</code> و <code>push</code> (قيمة الترويسة <code>X-GitLab-Event</code>)</li>
+<li>إذا كانت <code>events</code> فارغة أو غير مضبوطة، تُقبل جميع الأحداث</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-not-responding">الوكيل لا يستجيب</h3>
+<ul>
+<li>شغّل الـ gateway في الواجهة الأمامية (foreground) لرؤية السجلات: <code>hermes gateway run</code></li>
+<li>تحقّق من أن قالب الـ prompt يُعرض بشكل صحيح</li>
+<li>تحقّق من أن هدف التسليم مُعدّ ومتصل</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="duplicate-responses">ردود مكررة</h3>
+<ul>
+<li>من المفترض أن تمنع ذاكرة Idempotency المؤقتة ذلك — تحقّق من أن مصدر webhook يرسل ترويسة معرّف التسليم (<code>X-GitHub-Delivery</code> أو <code>svix-id</code> أو <code>webhook-id</code> أو <code>X-Request-ID</code>)</li>
+<li>تُخزَّن معرّفات التسليم مؤقتًا لمدة ساعة واحدة</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gh-cli-errors-github-comment-delivery">أخطاء <code>gh</code> CLI (تسليم التعليقات إلى GitHub)</h3>
+<ul>
+<li>نفّذ <code>gh auth login</code> على الجهاز المضيف للـ gateway</li>
+<li>تأكّد من أن مستخدم GitHub المُصادَق عليه يملك صلاحية الكتابة على المستودع</li>
+<li>تحقّق من أن <code>gh</code> مثبّت وموجود ضمن PATH</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة (Environment Variables)</h2>
+<table><thead><tr><th>المتغير</th><th>الوصف</th><th>القيمة الافتراضية</th></tr></thead><tbody><tr><td><code>WEBHOOK_ENABLED</code></td><td>تفعيل محوّل منصة webhook</td><td><code>false</code></td></tr><tr><td><code>WEBHOOK_PORT</code></td><td>منفذ خادم HTTP لاستقبال طلبات webhook</td><td><code>8644</code></td></tr><tr><td><code>WEBHOOK_SECRET</code></td><td>سرّ HMAC العام (يُستخدم كقيمة احتياطية عندما لا تحدد المسارات سرّها الخاص)</td><td><em>(لا يوجد)</em></td></tr></tbody></table>

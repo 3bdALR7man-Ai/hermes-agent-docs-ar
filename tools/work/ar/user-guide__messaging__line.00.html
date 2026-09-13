@@ -1,0 +1,81 @@
+<header><h1>إعداد LINE</h1></header>
+<p>شغّل Hermes Agent كبوت على <a href="https://line.me/" data-ext>LINE</a> عبر LINE Messaging API الرسمية. يوجد المحوِّل (adapter) كإضافة منصة مضمّنة (bundled platform plugin) ضمن <code>plugins/platforms/line/</code> — دون أي تعديل على النواة، ما عليك إلا تفعيله كأي منصة أخرى.</p>
+<p>LINE هو تطبيق المراسلة المهيمن في اليابان وتايوان وتايلاند. إذا كان مستخدموك يعيشون هناك، فهذه هي الوسيلة التي يصلون بها إليك.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>LINE</strong> للحصول على إعداد موجَّه خطوة بخطوة.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-the-bot-responds">كيف يستجيب البوت</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>محادثة فردية 1:1</strong> (معرّفات <code>U</code>)</td><td>يستجيب لكل رسالة</td></tr><tr><td><strong>محادثة جماعية</strong> (معرّفات <code>C</code>)</td><td>يستجيب عندما تكون المجموعة ضمن قائمة السماح (allowlist)</td></tr><tr><td><strong>غرفة متعددة المستخدمين</strong> (معرّفات <code>R</code>)</td><td>يستجيب عندما تكون الغرفة ضمن قائمة السماح</td></tr></tbody></table>
+<p>يعالج المحوِّل جميع الرسائل الواردة من نصوص وصور وصوت وفيديو وملفات وملصقات ومواقع. أما النصوص الصادرة فتستخدم <strong>reply token المجاني أولًا</strong> (صالح لمرة واحدة، ضمن نافذة تقارب 60 ثانية)، وترجع احتياطيًا إلى Push API المدفوعة حسب الاستخدام عندما تنتهي صلاحية الـ token.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-line-messaging-api-channel">الخطوة 1: أنشئ قناة LINE Messaging API</h2>
+<ol>
+<li>انتقل إلى <a href="https://developers.line.biz/console/" data-ext>LINE Developers Console</a>.</li>
+<li>أنشئ Provider، ثم أنشئ تحته قناة <strong>Messaging API</strong>.</li>
+<li>من تبويب <strong>Basic settings</strong> في القناة، انسخ <strong>Channel secret</strong>.</li>
+<li>من تبويب <strong>Messaging API</strong>، مرّر إلى <strong>Channel access token (long-lived)</strong> وانقر <strong>Issue</strong>. انسخ الـ token.</li>
+<li>في تبويب <strong>Messaging API</strong> أيضًا، عطّل <strong>Auto-reply messages</strong> و <strong>Greeting messages</strong> حتى لا تتعارض مع ردود البوت.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-expose-the-webhook-port">الخطوة 2: اكشف منفذ الـ webhook</h2>
+<p>يسلّم LINE الـ webhooks عبر HTTPS عام. المنفذ الافتراضي هو <code>8646</code> — يمكنك تغييره عبر <code>LINE_PORT</code> عند الحاجة.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>انسخ عنوان <code>https://...</code> — إذ ستضبطه لاحقًا بوصفه URL الـ webhook. <strong>اترك النفق (tunnel) قيد التشغيل</strong> أثناء الاختبار. وفي بيئة الإنتاج، أعِدّ نفق Cloudflare مُسمّى وثابتًا كي لا يتغير URL الـ webhook عند إعادة التشغيل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-hermes">الخطوة 3: اضبط Hermes</h2>
+<p>أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ثم في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>هذا كافٍ — إذ يلتقط فحص الإضافات المضمّنة في <code>gateway/config.py</code> المجلد <code>plugins/platforms/line/</code> تلقائيًا. لا حاجة إلى تعديل enum ‏<code>Platform.LINE</code>، ولا إلى تسجيل في <code>_create_adapter</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-set-the-webhook-url">الخطوة 4: اضبط URL الـ webhook</h2>
+<p>عُد إلى وحدة تحكم LINE:</p>
+<ol>
+<li>افتح قناتك → تبويب <strong>Messaging API</strong>.</li>
+<li>ضمن <strong>Webhook settings</strong> → <strong>Webhook URL</strong>، الصق <code>https://&lt;your-tunnel&gt;/line/webhook</code> (انتبه إلى المسار <code>/line/webhook</code> — فالمحوِّل يستمع عليه).</li>
+<li>انقر <strong>Verify</strong>. سيرسل LINE طلب اختبار إلى الـ URL، ويُفترض أن ترى الاستجابة 200.</li>
+<li>بدّل <strong>Use webhook</strong> إلى <strong>On</strong>.</li>
+</ol>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-run-the-gateway">الخطوة 5: شغّل الـ gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يُظهر سجل الوكيل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>أضف البوت كصديق من تطبيق LINE (امسح رمز QR الموجود في تبويب <strong>Messaging API</strong> للقناة) وأرسل إليه رسالة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slow-llm-responses">ردود LLM البطيئة</h2>
+<p>الـ reply token في LINE صالح لمرة واحدة وتنتهي صلاحيته بعد نحو 60 ثانية من الحدث الوارد. لا تستطيع نماذج LLM البطيئة الرد في الوقت المناسب، ما يفرض عادةً استدعاءً مدفوعًا لـ Push API.</p>
+<p>عندما يستمر الـ LLM في العمل لأكثر من <code>LINE_SLOW_RESPONSE_THRESHOLD</code> ثانية (الافتراضي <code>45</code>)، يستهلك المحوِّل الـ reply token الأصلي لإرسال فقاعة <strong>Template Buttons</strong>:</p>
+<blockquote>
+<p>🤔 Still thinking. Tap below to fetch the answer when it&#x27;s ready.</p>
+<p>[ Get answer ]</p>
+</blockquote>
+<p>ينقر المستخدم <strong>Get answer</strong> متى شاء — فيسلّم ذلك الـ postback reply token <em>جديدًا</em>، يستخدمه المحوِّل لإرسال الإجابة المخزّنة مؤقتًا (مجانًا أيضًا).</p>
+<p>آلة الحالات: <code>PENDING → READY → DELIVERED</code>، إضافة إلى <code>ERROR</code> للتشغيلات الملغاة (تتحول حالة PENDING اليتيمة إلى &quot;Run was interrupted before completion.&quot; بعد <code>/stop</code> كي لا يدخل الزر الدائم في حلقة).</p>
+<p>لتعطيل زر الـ postback والرجوع احتياطيًا إلى Push دائمًا بدلًا منه:</p>
+<div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لكي يعمل تدفق الـ postback بشكل موثوق، أوقف الرسائل الجانبية التي قد تستهلك الـ reply token قبل بلوغ الحد:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron--notification-delivery">تسليم Cron والإشعارات</h2>
+<div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>تُوجَّه مهام cron التي تحمل <code>deliver: line</code> إلى <code>LINE_HOME_CHANNEL</code>. يأتي المحوِّل مع مُرسِل مستقل يعتمد على Push فقط، كي تعمل مهام cron حتى عندما يعمل cron في عملية منفصلة عن الـ gateway.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-reference">مرجع متغيرات البيئة</h2>
+<table><thead><tr><th>المتغير</th><th>مطلوب</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>LINE_CHANNEL_ACCESS_TOKEN</code></td><td>نعم</td><td>—</td><td>channel access token طويل الأمد</td></tr><tr><td><code>LINE_CHANNEL_SECRET</code></td><td>نعم</td><td>—</td><td>سرّ القناة (للتحقق من الـ webhook عبر HMAC-SHA256)</td></tr><tr><td><code>LINE_HOST</code></td><td>لا</td><td>غير مضبوط (dual-stack: جميع الواجهات، IPv4+IPv6)</td><td>المضيف الذي يرتبط به الـ webhook</td></tr><tr><td><code>LINE_PORT</code></td><td>لا</td><td><code>8646</code></td><td>المنفذ الذي يرتبط به الـ webhook</td></tr><tr><td><code>LINE_PUBLIC_URL</code></td><td>للوسائط</td><td>—</td><td>URL أساسي عام عبر HTTPS؛ مطلوب لإرسال الصور والصوت والفيديو</td></tr><tr><td><code>LINE_ALLOWED_USERS</code></td><td>أحدها</td><td>—</td><td>معرّفات مستخدمين مفصولة بفواصل (تبدأ بـ U)</td></tr><tr><td><code>LINE_ALLOWED_GROUPS</code></td><td>أحدها</td><td>—</td><td>معرّفات مجموعات مفصولة بفواصل (تبدأ بـ C)</td></tr><tr><td><code>LINE_ALLOWED_ROOMS</code></td><td>أحدها</td><td>—</td><td>معرّفات غرف مفصولة بفواصل (تبدأ بـ R)</td></tr><tr><td><code>LINE_ALLOW_ALL_USERS</code></td><td>للتطوير فقط</td><td><code>false</code></td><td>تجاوز قائمة السماح كليًا</td></tr><tr><td><code>LINE_HOME_CHANNEL</code></td><td>لا</td><td>—</td><td>الوجهة الافتراضية لتسليم cron والإشعارات</td></tr><tr><td><code>LINE_SLOW_RESPONSE_THRESHOLD</code></td><td>لا</td><td><code>45</code></td><td>عدد الثواني قبل ظهور زر الـ postback (<code>0</code> = معطّل)</td></tr><tr><td><code>LINE_PENDING_TEXT</code></td><td>لا</td><td>&quot;🤔 Still thinking…&quot;</td><td>نص الفقاعة المعروض بجانب زر الـ postback</td></tr><tr><td><code>LINE_BUTTON_LABEL</code></td><td>لا</td><td>&quot;Get answer&quot;</td><td>تسمية الزر</td></tr><tr><td><code>LINE_DELIVERED_TEXT</code></td><td>لا</td><td>&quot;Already replied ✅&quot;</td><td>الرد عند النقر مجددًا على زر سبق تسليم إجابته</td></tr><tr><td><code>LINE_INTERRUPTED_TEXT</code></td><td>لا</td><td>&quot;Run was interrupted before completion.&quot;</td><td>الرد عند النقر على زر يتيم بسبب <code>/stop</code></td></tr><tr><td><code>LINE_EXPIRED_TEXT</code></td><td>لا</td><td>&quot;That request has expired — send your message again.&quot;</td><td>الرد عند النقر على زر لم تعد إجابته المخزّنة مؤقتًا متوفرة</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>ظهور &quot;invalid signature&quot; عند التحقق من الـ webhook.</strong> نُسخ <code>Channel secret</code> بشكل خاطئ، أو أعاد النفق كتابة جسم الطلب. تحقّق أولًا باستخدام <code>curl -i https://&lt;tunnel&gt;/line/webhook/health</code> — يُفترض أن يعيد <code>{&quot;status&quot;:&quot;ok&quot;,&quot;platform&quot;:&quot;line&quot;}</code>.</p>
+<p><strong>لا يستقبل البوت أي شيء في المجموعات.</strong> تحقّق من أن <code>LINE_ALLOWED_GROUPS</code> يتضمن معرّف المجموعة <code>C...</code>. لمعرفة معرّف مجموعة، أرسل رسالة تجريبية وابحث باستخدام grep في <code>~/.hermes/logs/gateway.log</code> عن <code>LINE: rejecting unauthorized source</code> — يحتوي قاموس المصدر المرفوض على المعرّفات.</p>
+<p><strong>فشل <code>send_image</code> مع الرسالة &quot;LINE_PUBLIC_URL must be set&quot;.</strong> لا تقبل LINE Messaging API رفع البيانات الثنائية — يجب أن تكون الصور والصوت والفيديو عناوين HTTPS يمكن الوصول إليها. اضبط <code>LINE_PUBLIC_URL</code> على اسم المضيف العام للنفق، وسيقدّم المحوِّل الملفات من <code>/line/media/&lt;token&gt;/&lt;filename&gt;</code> تلقائيًا.</p>
+<p><strong>زر الـ postback لا يظهر أبدًا.</strong> إما أن الـ LLM استجاب أسرع من <code>LINE_SLOW_RESPONSE_THRESHOLD</code>، أو أن فقاعة أخرى (تقدّم الأدوات، البث المتدفق) استهلكت الـ reply token أولًا. راجع كتلة الإيقاف في قسم &quot;ردود LLM البطيئة&quot;.</p>
+<p><strong>ظهور &quot;already in use by another profile&quot;.</strong> channel access token نفسه مرتبط بـ profile آخر من Hermes قيد التشغيل. أوقف الـ gateway الآخر أو استخدم قناة منفصلة.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>حدود الفقاعات والطول.</strong> الحد الأقصى لكل فقاعة نصية في LINE هو 5000 حرف. تُقسَّم الردود الأطول بذكاء إلى أجزاء بنحو 4500 حرف على ما يصل إلى 5 فقاعات لكل استدعاء Reply/Push، مع التقسيم عند الحدود الطبيعية للنص قدر الإمكان.</li>
+<li><strong>لا يوجد تحرير أصلي للرسائل.</strong> لا تملك LINE واجهة API لتحرير الرسائل — لذا ترسل الردود المتدفقة دائمًا فقاعات جديدة، ولا تحرّر الفقاعات السابقة أبدًا.</li>
+<li><strong>لا يوجد عرض لـ Markdown.</strong> يظهر الخط العريض (<code>**</code>) والمائل (<code>*</code>) وأسوار الشيفرة (code fences) والعناوين كأحرف حرفية. يزيلها المحوِّل قبل الإرسال، مع الحفاظ على عناوين URL (يصبح <code>[label](url)</code> بالشكل <code>label (url)</code>).</li>
+<li><strong>مؤشر التحميل متاح في المحادثات المباشرة فقط.</strong> ترفض LINE واجهة chat/loading API للمجموعات والغرف، لذا لا يظهر مؤشر الكتابة إلا في المحادثات الفردية 1:1.</li>
+</ul>

@@ -1,0 +1,107 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="operating-a-multi-platform-gateway">تشغيل gateway متعدد المنصات</h2>
+<p>يشغّل gateway عادةً عدة محوّلات (adapters) في آن واحد (Telegram + Discord + Slack، إلخ). وتتناول الأقسام التالية العمليات اليومية بعد الإعداد (day-2 operations) التي تشمل جميع المنصات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-command">الأمر <code>/platform</code></h3>
+<p>بعد تشغيل gateway، استخدم الـ slash command <code>/platform</code> من أي جلسة CLI أو محادثة متصلة لفحص المحوّلات كلٍّ على حدة والتحكم بها دون إعادة تشغيل gateway بالكامل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>يعرض <code>/platform list</code> ما إذا كان كل محوّل في حالة <code>running</code>، أو <code>paused</code> (يدويًا)، أو <code>paused-by-breaker</code> (انظر أدناه). ويُبقي الإيقاف المؤقت المحوّلَ محمّلًا وحلقاته الخلفية نشطة — إذ تُهمل الرسائل الواردة، لكن الاتصال نفسه يبقى مفتوحًا فيكون الاستئناف فوريًا.</p>
+<p>راجع أيضًا أمر ملخص الحالة الأشمل <a href="/docs/reference/slash-commands#info"><code>/platforms</code></a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling-a-platform-whose-credentials-are-still-in-env">تعطيل منصة لا تزال بيانات اعتمادها موجودة في <code>.env</code></h3>
+<p>الإعداد <code>platforms.&lt;name&gt;.enabled: false</code> في <code>~/.hermes/config.yaml</code> هو المرجع الحاسم.
+فبيانات الاعتماد الخاصة بتلك المنصة المتروكة في البيئة (<code>TELEGRAM_BOT_TOKEN</code>،
+<code>WEIXIN_TOKEN</code>، <code>HASS_TOKEN</code>، <code>EMAIL_*</code>، <code>TWILIO_ACCOUNT_SID</code>، ...) تبقى
+مربوطة بإعدادات المنصة كي تواصل أدوات الإرسال فقط عملها، لكنها
+لم تعد تُشغّل المحوّل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/config.yaml</div><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>كانت الإصدارات السابقة تسمح لمجرد وجود بيانات الاعتماد بإعادة تفعيل اثنتي عشرة
+منصة (Weixin و WhatsApp Cloud و Home Assistant و Email و SMS و DingTalk و Feishu و
+WeCom و WeCom callback و BlueBubbles و QQ Bot و Yuanbao) بغض النظر عن ذلك المفتاح. وإذا
+كنت تعتمد على ذلك، فإن gateway يسجّل الآن رسالة WARNING واحدة لكل منصة متأثرة عند
+بدء التشغيل حتى لا تتوقف بصمت:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>أما حذف المفتاح <code>enabled</code> كليًا فيُبقي السلوك المعتمد على البيئة وحدها: وجود بيانات الاعتماد
+← يبدأ المحوّل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ignoring-an-inherited-proxy-gatewaytrust_env">تجاهل proxy موروث (<code>gateway.trust_env</code>)</h3>
+<p>افتراضيًا، يلتزم كل محوّل منصة بالمتغيرات <code>HTTP_PROXY</code> / <code>HTTPS_PROXY</code> /
+<code>NO_PROXY</code> (و <code>SSL_CERT_FILE</code>) من بيئة gateway، ويكتشف
+proxy النظام في macOS تلقائيًا. وقد يرث gateway الذي تشغّله مهمة مجدولة في Windows (Scheduled
+Task) أو مدير خدمات proxy لا يراه الـ shell التفاعلي أبدًا
+— كمستمع Clash/V2Ray محلي لم يبدأ تشغيله بعد — فيسجّل
+<code>Cannot connect to host 127.0.0.1:7890</code> عند كل عملية استطلاع. أوقف الـ proxy
+الموروث لجميع المحوّلات دفعة واحدة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockTitle_OeMC">~/.hermes/config.yaml</div><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>أما متغيرات الـ proxy الصريحة الخاصة بكل منصة (<code>DISCORD_PROXY</code>، <code>TELEGRAM_PROXY</code>،
+<code>MATRIX_PROXY</code>، ...) فيظل الالتزام بها قائمًا. أعد تشغيل gateway بعد تغيير هذا الإعداد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-circuit-breaker">قاطع الدائرة التلقائي (circuit breaker)</h3>
+<p>يُغلَّف كل محوّل بقاطع دائرة. وتؤدي حالات الفشل المتكررة القابلة لإعادة المحاولة (انقطاعات الشبكة العابرة، وردود حدّ المعدل، واستجابات 5xx من الخدمة الأصلية، وانقطاعات websocket) إلى تفعيل القاطع — فيُوقَف المحوّل مؤقتًا تلقائيًا، ويُرسل إشعار للمشغّل إلى القناة الرئيسية (home channel) لمنصة أخرى تعمل إن كانت مضبوطة، ويُكتب سطر سجل منظّم.</p>
+<p><strong>لا</strong> يستأنف القاطع العمل تلقائيًا — بل يبقى مفتوحًا إلى أن تنفّذ <code>/platform resume &lt;name&gt;</code> يدويًا. وهذا مقصود: فإذا كانت منصة ما تعاني انقطاعًا مستمرًا، فلن ترغب في أن يستنزف gateway نفسه بمحاولات إعادة الاتصال المتكررة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-to-look-when-a-platform-is-paused">أين تبحث عندما تكون منصة موقوفة مؤقتًا</h3>
+<p>عندما يكون محوّل موقوفًا مؤقتًا، تحقق مما يلي:</p>
+<ol>
+<li><strong>سجل gateway</strong> (<code>~/.hermes/logs/gateway.log</code> أو سجل وحدة systemd / launchd). ابحث عن اسم المنصة مع <code>circuit breaker</code> أو <code>paused</code> أو <code>disabled</code>. ويتضمن حدث التفعيل عدد حالات الفشل وآخر خطأ.</li>
+<li><strong>مخرجات <code>/platform list</code></strong> — تعرض الحالة الحالية وآخر سبب.</li>
+<li><strong>صفحة حالة المزوّد</strong> (حالة Telegram bot API، وحالة Discord، إلخ). فقد تفعّل القاطع لأن المنصة كانت متعثرة؛ لذا لا تحاول الاستئناف حتى تعود للعمل.</li>
+</ol>
+<p>بمجرد أن تتعافى الخدمة الأصلية، يُعيد <code>/platform resume &lt;name&gt;</code> ضبط القاطع ويعيد تجهيز المحوّل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="restart-notifications">إشعارات إعادة التشغيل</h3>
+<p>عندما يُعاد تشغيل gateway (أو يُوقف أثناء وجود جلسات قيد التنفيذ)، يمكنه إرسال رسالة لمرة واحدة من نوع &quot;the agent is back&quot; / &quot;the agent was interrupted&quot; إلى القناة الرئيسية لكل منصة. ويُتحكم في ذلك لكل منصة عبر الخيار <code>gateway_restart_notification</code> في <code>config.yaml</code>، وقيمته الافتراضية <code>true</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>عطّله على المنصات المزعجة أو منخفضة الأولوية مع إبقائه مفعّلًا لمحادثتك الرئيسية. يُرسل الإشعار مرة واحدة لكل إعادة تشغيل، بغض النظر عن عدد الجلسات التي كانت قيد التنفيذ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="typing-indicators">مؤشرات الكتابة</h3>
+<p>أثناء معالجة الوكيل لرسالة، يعرض gateway حالة كتابة مباشرة على المنصات التي تدعمها — فقاعة &quot;typing…&quot; على Telegram/Discord/Signal، أو حالة المساعد &quot;is thinking…&quot; على Slack. ويُتحكم في ذلك لكل منصة عبر الخيار <code>typing_indicator</code> في <code>config.yaml</code>، وقيمته الافتراضية <code>true</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>اضبط <code>typing_indicator: false</code> على أي منصة لا ترغب فيها بالمؤشر. يجد بعض المستخدمين حالة &quot;is thinking…&quot; في Slack مزعجة (كما أنها تعطّل مربع الكتابة لفترة وجيزة أثناء ظهورها، لأنها تستخدم Assistant API الخاصة بـ Slack). ولا يؤدي تعطيلها إلا إلى إخفاء المؤشر — أما تسليم الرسائل وكل ما عداه فلا يتغير. والخيار عام، لذا يعمل المفتاح نفسه مع كل منصة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-resume-across-gateway-restarts">استئناف الجلسات عبر عمليات إعادة تشغيل gateway</h3>
+<p>عندما يتوقف gateway أثناء وجود استدعاء أداة أو عملية توليد قيد التنفيذ، تُعلَّم الجلسات المتأثرة بالحالة <code>restart_interrupted</code>. وعند بدء التشغيل التالي، يجدول gateway استئنافًا تلقائيًا لكل منها — فيتلقى المستخدم تنبيهًا قصيرًا في المحادثة (&quot;Send any message after restart and I&#x27;ll try to resume where you left off.&quot;) وتستأنف الجلسة من آخر دور مُثبَّت عندما يرد.</p>
+<p>هذا السلوك مفعّل افتراضيًا ويُسجَّل عند بدء gateway:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>لا يلزم أي إعداد. وإذا كنت لا تريد هذا التنبيه، فاضبط <code>gateway_restart_notification: false</code> على المنصة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mobile-friendly-progress-defaults">إعدادات تقدّم افتراضية ملائمة للهاتف المحمول</h3>
+<p>غالبًا ما يُستخدم Telegram كصندوق وارد على الهاتف المحمول، لذا ضُبطت القيم الافتراضية لتلائم هذه الواجهة:</p>
+<ul>
+<li>القيمة الافتراضية لـ <strong><code>tool_progress</code></strong> هي <strong><code>off</code></strong> — فلا يوجد سيل من إشعارات التتبع لكل أداة يملأ المحادثة.</li>
+<li>القيمة الافتراضية لـ <strong><code>busy_ack_detail</code></strong> هي <strong><code>off</code></strong> — فتبقى إشعارات حالة الانشغال ونبضات المهام الطويلة مقتضبة (دون تفاصيل تصحيح مثل <code>iteration 21/60</code>).</li>
+<li>يبقى <strong><code>interim_assistant_messages</code></strong> <strong>مفعّلًا</strong> — فتعليقات المساعد الفعلية في منتصف الدور (حين يخبرك النموذج حرفيًا بما هو على وشك فعله) معلومات مفيدة، لا ضجيج.</li>
+<li>يبقى <strong><code>long_running_notifications</code></strong> <strong>مفعّلًا</strong> — إذ تتحدّث فقاعة واحدة تُعدَّل في مكانها &quot;⏳ Working — N min&quot; كل بضع دقائق، فتحصل على نبضة تطمئنك بدلًا من التحديق في <code>typing…</code> لنصف ساعة.</li>
+</ul>
+<p>يمكنك إلغاء أيٍّ من الإعدادين المفعّلين افتراضيًا، أو إعادة تفعيل عرض التقدّم المفصّل، لكل منصة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="progress-bubble-cleanup-opt-in">تنظيف فقاعات التقدّم (اختياري)</h3>
+<p>يمكن أيضًا حذف رسائل تقدّم الأدوات ونبضة &quot;still working…&quot; وفقاعات استدعاء الحالة تلقائيًا بعد وصول الرد النهائي. فعّل ذلك لكل منصة عبر <code>display.platforms.&lt;platform&gt;.cleanup_progress</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>القيمة الافتراضية <code>false</code>. ولا تلتزم بهذا الإعداد إلا المنصات التي يطبّق محوّلها <code>delete_message</code> (حاليًا Telegram و Discord). أما عمليات التشغيل الفاشلة ف<strong>تتخطى</strong> التنظيف لتبقى الفقاعات كأثر يمكن تتبعه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="next-steps">الخطوات التالية</h2>
+<ul>
+<li><a href="/docs/user-guide/messaging/telegram">إعداد Telegram</a></li>
+<li><a href="/docs/user-guide/messaging/discord">إعداد Discord</a></li>
+<li><a href="/docs/user-guide/messaging/slack">إعداد Slack</a></li>
+<li><a href="/docs/user-guide/messaging/google_chat">إعداد Google Chat</a></li>
+<li><a href="/docs/user-guide/messaging/whatsapp">إعداد WhatsApp</a></li>
+<li><a href="/docs/user-guide/messaging/whatsapp-cloud">إعداد WhatsApp Business Cloud API</a></li>
+<li><a href="/docs/user-guide/messaging/signal">إعداد Signal</a></li>
+<li><a href="/docs/user-guide/messaging/sms">إعداد SMS (Twilio)</a></li>
+<li><a href="/docs/user-guide/messaging/email">إعداد البريد الإلكتروني (Email)</a></li>
+<li><a href="/docs/user-guide/messaging/homeassistant">التكامل مع Home Assistant</a></li>
+<li><a href="/docs/user-guide/messaging/mattermost">إعداد Mattermost</a></li>
+<li><a href="/docs/user-guide/messaging/matrix">إعداد Matrix</a></li>
+<li><a href="/docs/user-guide/messaging/dingtalk">إعداد DingTalk</a></li>
+<li><a href="/docs/user-guide/messaging/feishu">إعداد Feishu/Lark</a></li>
+<li><a href="/docs/user-guide/messaging/wecom">إعداد WeCom</a></li>
+<li><a href="/docs/user-guide/messaging/wecom-callback">إعداد WeCom Callback</a></li>
+<li><a href="/docs/user-guide/messaging/weixin">إعداد Weixin (WeChat)</a></li>
+<li><a href="/docs/user-guide/messaging/bluebubbles">إعداد BlueBubbles (iMessage)</a></li>
+<li><a href="/docs/user-guide/messaging/photon">إعداد Photon (iMessage)</a></li>
+<li><a href="/docs/user-guide/messaging/qqbot">إعداد QQBot</a></li>
+<li><a href="/docs/user-guide/messaging/yuanbao">إعداد Yuanbao</a></li>
+<li><a href="/docs/user-guide/messaging/teams">إعداد Microsoft Teams</a></li>
+<li><a href="/docs/user-guide/messaging/teams-meetings">Pipeline اجتماعات Teams</a></li>
+<li><a href="/docs/user-guide/messaging/msgraph-webhook">مستمع Webhook لـ Microsoft Graph</a></li>
+<li><a href="/docs/user-guide/messaging/line">إعداد LINE</a></li>
+<li><a href="/docs/user-guide/messaging/ntfy">إعداد ntfy</a></li>
+<li><a href="/docs/user-guide/messaging/simplex">إعداد SimpleX Chat</a></li>
+<li><a href="/docs/user-guide/messaging/open-webui">Open WebUI + خادم API</a></li>
+<li><a href="/docs/user-guide/messaging/raft">إعداد Raft</a></li>
+<li><a href="/docs/user-guide/messaging/irc">إعداد IRC</a></li>
+<li><a href="/docs/user-guide/messaging/buzz">إعداد Buzz</a></li>
+<li><a href="/docs/user-guide/messaging/a2a">إعداد A2A (Agent-to-Agent)</a></li>
+<li><a href="/docs/user-guide/messaging/webhooks">Webhooks</a></li>
+</ul>

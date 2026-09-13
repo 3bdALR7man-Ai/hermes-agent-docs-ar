@@ -1,0 +1,98 @@
+<header><h1>WeCom Callback (تطبيق مُخصّص)</h1></header>
+<p>اربط Hermes بـ WeCom (WeChat للمؤسسات) كتطبيق مؤسسي مُخصّص (self-built) باستخدام نموذج callback/webhook.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="4"></x-keep></span>WeCom Bot مقابل WeCom Callback</div><div class="admonitionContent_BuS1"><p>يدعم Hermes وضعين للتكامل مع WeCom:</p><ul>
+<li><strong><a href="/docs/user-guide/messaging/wecom">WeCom Bot</a></strong> — بأسلوب البوت، ويتصل عبر WebSocket. إعداده أبسط، ويعمل في المحادثات الجماعية.</li>
+<li><strong>WeCom Callback</strong> (هذه الصفحة) — تطبيق مُخصّص يستقبل استدعاءات callback بصيغة XML مشفّرة. يظهر كتطبيق أساسي في الشريط الجانبي لـ WeCom لدى المستخدمين. ويدعم التوجيه عبر عدة مؤسسات (multi-corp routing).</li>
+</ul></div></div>
+<p>راجع أيضًا: <a href="/docs/user-guide/messaging/wecom">WeCom Bot</a> للتكامل بأسلوب البوت.</p>
+<blockquote>
+<p>نفّذ <code>hermes gateway setup</code> واختر <strong>WeCom Callback</strong> للحصول على إرشاد خطوة بخطوة.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<ol>
+<li>تسجّل تطبيقًا مُخصّصًا في WeCom Admin Console</li>
+<li>يدفع WeCom رسائل XML مشفّرة إلى HTTP callback endpoint الخاص بك</li>
+<li>يفك Hermes تشفير الرسالة ويضعها في طابور الوكيل</li>
+<li>يُرسل إقرار بالاستلام فورًا (بصمت — لا يُعرض شيء للمستخدم)</li>
+<li>يعالج الوكيل الطلب (عادةً من 3 إلى 30 دقيقة)</li>
+<li>يُسلَّم الرد استباقيًا عبر واجهة <code>message/send</code> API في WeCom</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>حساب مؤسسة على WeCom بصلاحيات المسؤول</li>
+<li>حزمتا Python <code>aiohttp</code> و <code>httpx</code> (مضمّنتان في التثبيت الافتراضي)</li>
+<li>خادم يمكن الوصول إليه علنًا لاستضافة callback URL (أو نفق مثل ngrok)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-a-self-built-app-in-wecom">1. إنشاء تطبيق مُخصّص في WeCom</h3>
+<ol>
+<li>انتقل إلى <a href="https://work.weixin.qq.com/" data-ext>WeCom Admin Console</a> → <strong>Applications</strong> → <strong>Create App</strong></li>
+<li>دوّن <strong>Corp ID</strong> الخاص بك (يظهر أعلى لوحة المسؤول)</li>
+<li>في إعدادات التطبيق، أنشئ <strong>Corp Secret</strong></li>
+<li>دوّن <strong>Agent ID</strong> من صفحة نظرة عامة على التطبيق</li>
+<li>ضمن <strong>Receive Messages</strong>، اضبط callback URL:
+<ul>
+<li>URL: <code>http://YOUR_PUBLIC_IP:8645/wecom/callback</code></li>
+<li>Token: أنشئ token عشوائيًا (يوفّر WeCom واحدًا)</li>
+<li>EncodingAESKey: أنشئ مفتاحًا (يوفّر WeCom واحدًا)</li>
+</ul>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-configure-environment-variables">2. ضبط متغيرات البيئة</h3>
+<p>أضف ما يلي إلى ملف <code>.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-start-the-gateway">3. تشغيل الـ Gateway</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>(لا تستخدم <code>hermes gateway start</code> إلا بعد أن يسجّل <code>hermes gateway install</code> خدمة systemd/launchd.)</p>
+<p>يشغّل محوّل callback خادم HTTP على المنفذ المُعدّ. سيتحقق WeCom من callback URL عبر طلب GET، ثم يبدأ بإرسال الرسائل عبر POST.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
+<p>اضبط هذه القيم في <code>config.yaml</code> تحت <code>platforms.wecom_callback.extra</code>، أو استخدم متغيرات البيئة:</p>
+<table><thead><tr><th>الإعداد</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>corp_id</code></td><td>—</td><td>Corp ID لمؤسسة WeCom (مطلوب)</td></tr><tr><td><code>corp_secret</code></td><td>—</td><td>Corp secret للتطبيق المُخصّص (مطلوب)</td></tr><tr><td><code>agent_id</code></td><td>—</td><td>Agent ID للتطبيق المُخصّص (مطلوب)</td></tr><tr><td><code>token</code></td><td>—</td><td>Token التحقق من callback (مطلوب)</td></tr><tr><td><code>encoding_aes_key</code></td><td>—</td><td>مفتاح AES من 43 حرفًا لتشفير callback (مطلوب)</td></tr><tr><td><code>host</code></td><td>غير مضبوط (dual-stack: جميع الواجهات، IPv4+IPv6)</td><td>عنوان الربط (bind) لخادم HTTP callback</td></tr><tr><td><code>port</code></td><td><code>8645</code></td><td>منفذ خادم HTTP callback</td></tr><tr><td><code>path</code></td><td><code>/wecom/callback</code></td><td>مسار URL الخاص بـ callback endpoint</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-app-routing">التوجيه عبر عدة تطبيقات</h2>
+<p>للمؤسسات التي تشغّل عدة تطبيقات مُخصّصة (مثلًا عبر أقسام أو شركات تابعة مختلفة)، اضبط القائمة <code>apps</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يُحدَّد نطاق المستخدمين بالصيغة <code>corp_id:user_id</code> لمنع التعارض بين المؤسسات. وعندما يرسل مستخدم رسالة، يسجّل المحوّل التطبيق (المؤسسة) الذي ينتمي إليه، ويوجّه الردود عبر access token الخاص بالتطبيق الصحيح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="access-control">التحكم في الوصول</h2>
+<p>قيّد المستخدمين الذين يمكنهم التفاعل مع التطبيق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="endpoints">نقاط النهاية (Endpoints)</h2>
+<p>يُتيح المحوّل ما يلي:</p>
+<table><thead><tr><th>الطريقة</th><th>المسار</th><th>الغرض</th></tr></thead><tbody><tr><td>GET</td><td><code>/wecom/callback</code></td><td>مصافحة التحقق من URL (يرسلها WeCom أثناء الإعداد)</td></tr><tr><td>POST</td><td><code>/wecom/callback</code></td><td>callback الرسائل المشفّرة (يرسل WeCom رسائل المستخدمين إلى هنا)</td></tr><tr><td>GET</td><td><code>/health</code></td><td>فحص السلامة — يُرجع <code>{&quot;status&quot;: &quot;ok&quot;}</code></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="encryption">التشفير</h2>
+<p>جميع حمولات callback مشفّرة بـ AES-CBC باستخدام EncodingAESKey. ويتولى المحوّل ما يلي:</p>
+<ul>
+<li><strong>الوارد</strong>: فك تشفير حمولة XML والتحقق من توقيع SHA1</li>
+<li><strong>الصادر</strong>: تُرسل الردود عبر API الاستباقي (وليس عبر رد callback مشفّر)</li>
+</ul>
+<p>تطبيق التشفير متوافق مع WXBizMsgCrypt SDK الرسمي من Tencent.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>لا يوجد بث مباشر</strong> — تصل الردود كرسائل كاملة بعد أن ينتهي الوكيل</li>
+<li><strong>لا توجد مؤشرات كتابة</strong> — لا يدعم نموذج callback حالة الكتابة</li>
+<li><strong>نص فقط</strong> — يدعم حاليًا الرسائل النصية كمدخلات؛ ولم يُنفَّذ بعد إدخال الصور أو الملفات أو الرسائل الصوتية. ويدرك الوكيل قدرات إرسال الوسائط الصادرة عبر تلميح منصة WeCom (الصور والمستندات والفيديو والصوت).</li>
+<li><strong>زمن الاستجابة</strong> — تستغرق جلسات الوكيل من 3 إلى 30 دقيقة؛ ويرى المستخدمون الرد عند اكتمال المعالجة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>فشل التحقق من التوقيع.</strong>
+يوقّع WeCom كل طلب باستخدام <strong>Token</strong> الذي سجّلته في لوحة
+المسؤول. والسبب الأكثر شيوعًا هو عدم التطابق بين الـ token المضبوط في Hermes والـ token الذي
+تتوقعه لوحة المسؤول. انسخ مجددًا كلًّا من <strong>Token</strong> و
+<strong>EncodingAESKey</strong> من لوحة المسؤول — فمن السهل اقتطاع جزء منهما. كما أن المسافات البيضاء
+في قيم <code>~/.hermes/.env</code> حول <code>=</code> تُفسد فحوص التوقيع أيضًا. بعد
+الإصلاح، أعد تشغيل <code>hermes gateway run</code>.</p>
+<p><strong>تعذّر الوصول إلى callback URL / فشل خطوة التحقق.</strong>
+يتصل WeCom بالـ URL العام الذي سجّلته. تأكد مما يلي:</p>
+<ol>
+<li>أن الـ reverse proxy أو النفق يمرّر <code>/wecom/callback</code> إلى منفذ الـ gateway.</li>
+<li>أن الـ URL في لوحة المسؤول يستخدم HTTPS (يرفض WeCom بروتوكول HTTP العادي).</li>
+<li>أن تنفيذ <code>curl -i https://&lt;your-domain&gt;/wecom/callback</code> من خارج شبكتك
+يُرجع شيئًا غير انتهاء المهلة (لا بأس برمز 4xx دون معاملات استعلام —
+فهذا يعني فقط أنه يمكن الوصول إلى المستمع).</li>
+</ol>
+<p><strong>تعذّر الوصول إلى المنفذ / المستمع غير مربوط.</strong>
+راجع سجلات <code>hermes gateway run</code> لمعرفة المضيف/المنفذ المربوط. إذا ارتبط المحوّل بـ
+<code>127.0.0.1</code> فيجب أن تضع أمامه reverse proxy أو نفقًا — إذ لا تستطيع خوادم WeCom
+الوصول إلى واجهة loopback. اترك <code>extra.host</code> دون ضبط ليُطبَّق الربط الافتراضي dual-stack
+(جميع الواجهات، IPv4+IPv6)، أو ثبّت واجهة محددة في <code>config.yaml</code> (مع
+<code>allowed_source_cidrs</code> إذا كنت تعرضه مباشرةً)، أو أبقِ على loopback واستخدم نفقًا
+مثل Cloudflare Tunnel / nginx.</p>

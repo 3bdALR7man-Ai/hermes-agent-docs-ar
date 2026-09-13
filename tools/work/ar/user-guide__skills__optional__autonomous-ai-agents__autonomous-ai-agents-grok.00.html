@@ -1,0 +1,170 @@
+
+<header><h1>Grok</h1></header>
+<p>تفويض البرمجة إلى xAI Grok Build CLI (الميزات، الـ PRs).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/autonomous-ai-agents/grok</code></td></tr><tr><td>المسار</td><td><code>optional-skills/autonomous-ai-agents/grok</code></td></tr><tr><td>الإصدار</td><td><code>0.1.1</code></td></tr><tr><td>المؤلف</td><td>Matt Maximo (MattMaximo)، Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>Coding-Agent</code>, <code>Grok</code>, <code>xAI</code>, <code>Code-Review</code>, <code>Refactoring</code>, <code>Automation</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-codex"><code>codex</code></a>, <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-claude-code"><code>claude-code</code></a>, <a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="11"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>دليل تنسيق Grok Build CLI مع Hermes</h1>
+<p>فوّض مهام البرمجة إلى <a href="https://docs.x.ai/build/overview" data-ext>Grok Build</a> (وكيل
+البرمجة المستقل من xAI عبر سطر الأوامر، أمر <code>grok</code>) عبر طرفية Hermes. يستطيع
+Grok قراءة الملفات، وكتابة الكود، وتشغيل أوامر shell، وإطلاق subagents، وإدارة
+سير عمل git. يعمل بثلاث طرق: واجهة TUI تفاعلية، ووضع <strong>بلا واجهة (headless)</strong>
+(<code>-p</code>)، وكـ <strong>وكيل ACP</strong> عبر JSON-RPC.</p>
+<p>هذه هي المهارة الشقيقة الثالثة لـ <code>codex</code> و<code>claude-code</code>. نمط التنسيق مطابق
+تقريبًا — <strong>يُفضَّل الوضع بلا واجهة <code>-p</code> للمهام لمرة واحدة</strong>، واستخدم PTY
+للجلسات التفاعلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>بناء الميزات</li>
+<li>إعادة الهيكلة</li>
+<li>مراجعات PR</li>
+<li>إصلاح المشكلات دفعيًا</li>
+<li>أي مهمة كنت لتلجأ فيها عادة إلى Codex / Claude Code لكنك تريد Grok</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li><strong>التثبيت (المُفضَّل):</strong> <code>npm install -g @xai-official/grok</code>
+<ul>
+<li>يعمل أيضًا المُثبّت الرسمي <code>curl -fsSL https://x.ai/cli/install.sh | bash</code>،
+لكن مضيف <code>x.ai</code> محجوب خلف Cloudflare في بعض البيئات. مسار npm يتجنّب هذا
+الاعتماد كليًا.</li>
+</ul>
+</li>
+<li><strong>المصادقة — اشتراك SuperGrok / X Premium+ (المسار الأساسي):</strong>
+<ul>
+<li>شغّل <code>grok login</code> مرة واحدة ← يفتح متصفحًا لتنفيذ OAuth ← يُخزَّن token في
+<code>~/.grok/auth.json</code>. يستخدم هذا اشتراكك في <strong>SuperGrok أو X Premium+</strong>
+(بلا فوترة لكل token عبر API).</li>
+<li>تحقق من حالة تسجيل الدخول بالبحث عن <code>~/.grok/auth.json</code>، أو شغّل اختبارًا
+سريعًا بلا واجهة: <code>grok --no-auto-update -p &quot;Say ok.&quot;</code></li>
+<li>في TUI، يسجّل <code>/logout</code> الخروج، ويسجّل <code>/login</code> (أو إعادة التشغيل) الدخول مجددًا.</li>
+</ul>
+</li>
+<li><strong>لا حاجة إلى مستودع git</strong> — بخلاف Codex، يعمل Grok جيدًا خارج دليل git
+(مناسب للمهام المؤقتة/غير المحفوظة).</li>
+<li><strong>متوافق مع Claude Code / AGENTS.md بلا أي إعداد</strong> — يقرأ Grok تلقائيًا
+<code>CLAUDE.md</code>، و<code>.claude/</code> (المهارات، الوكلاء، خوادم MCP، الـ hooks، القواعد)، وعائلة
+<code>AGENTS.md</code>. سياق المشروع الحالي يعمل تلقائيًا دون تدخل.</li>
+</ul>
+<blockquote>
+<p><strong>مفتاح API كخيار احتياطي (ليس الافتراضي لهذا المستخدم):</strong> يدعم Grok أيضًا
+ضبط متغير البيئة <code>XAI_API_KEY</code> للفوترة حسب الاستخدام عبر <code>api.x.ai</code>. استخدم
+هذا فقط إذا تعذّرت مصادقة <code>grok login</code> / SuperGrok. مسار الاشتراك
+(<code>grok login</code>) هو الإعداد المقصود هنا.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-orchestration-modes">وضعا التنسيق</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mode-1-headless--p--non-interactive-preferred">الوضع 1: بلا واجهة (<code>-p</code>) — غير تفاعلي (مُفضَّل)</h3>
+<p>يُنفّذ مهمة واحدة، ويطبع النتيجة، ثم يخرج. بلا PTY، وبلا حوارات تفاعلية
+يجب التنقل بينها. هذا هو مسار التكامل الأنظف — نظير <code>claude -p</code> و<code>codex exec</code>.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>مرّر دائمًا <code>--no-auto-update</code> في الأتمتة لتجاوز فحوصات التحديث في الخلفية.</p>
+<p><strong>متى تستخدم الوضع بلا واجهة:</strong></p>
+<ul>
+<li>مهام برمجة لمرة واحدة (إصلاح خلل، إضافة ميزة، إعادة هيكلة)</li>
+<li>أتمتة CI/CD والسكربتة</li>
+<li>تحليل مخرجات مُهيكلة عبر <code>--output-format json</code></li>
+<li>أي مهمة لا تحتاج إلى محادثة متعددة الأدوار</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mode-2-interactive-pty--multi-turn-tui-sessions">الوضع 2: PTY تفاعلي — جلسات TUI متعددة الأدوار</h3>
+<p>واجهة TUI هي تطبيق بملء الشاشة وتفاعلي بالماوس. شغّلها بـ <code>pty=true</code>. للمراقبة
+والإدخال الموثوق استخدم tmux (نفس نمط مهارة <code>claude-code</code>).</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>نصيحة لمخرجات مضمّنة بأسلوب TUI بلا واجهة:</strong> إذا أردت مخرجات بأسلوب TUI بلا
+الاستحواذ على الشاشة الكاملة (alt-screen) (لسجلات أنظف مثلًا)، أضف
+<code>--no-alt-screen</code>. للأتمتة الخالصة، يبقى الوضع بلا واجهة <code>-p</code> أنظف من TUI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="headless-deep-dive">تفصيل الوضع بلا واجهة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-flags">الخيارات الشائعة</h3>
+<table><thead><tr><th>الخيار</th><th>الأثر</th></tr></thead><tbody><tr><td><code>-p, --single &lt;PROMPT&gt;</code></td><td>أرسل prompt واحدًا، شغّله بلا واجهة، ثم اخرج</td></tr><tr><td><code>-m, --model &lt;MODEL&gt;</code></td><td>اختر نموذجًا</td></tr><tr><td><code>-s, --session-id &lt;UUID&gt;</code></td><td>عيّن UUID <strong>جديدًا</strong> صالحًا لمحادثة جديدة (يجب ألا يكون موجودًا مسبقًا). لا <strong>يستأنف</strong> — استخدم <code>--resume</code>/<code>--continue</code> لذلك. صالح فقط مع <code>--resume</code>/<code>--continue</code> عند اقترانه بـ <code>--fork-session</code></td></tr><tr><td><code>-r, --resume [&lt;UUID&gt;]</code></td><td>استأنف جلسة قائمة عبر UUID الخاص بها (أو الأحدث إن حُذفت)</td></tr><tr><td><code>-c, --continue</code></td><td>تابع أحدث جلسة في الدليل الحالي</td></tr><tr><td><code>--fork-session</code></td><td>عند الاستئناف، أنشئ معرّف جلسة جديدًا بدل إعادة استخدام الأصلي</td></tr><tr><td><code>--max-turns &lt;N&gt;</code></td><td>حدّد الحد الأقصى لعدد أدوار الوكيل</td></tr><tr><td><code>--cwd &lt;PATH&gt;</code></td><td>حدّد دليل العمل</td></tr><tr><td><code>--output-format &lt;FMT&gt;</code></td><td><code>plain</code> (الافتراضي)، أو <code>json</code>، أو <code>streaming-json</code></td></tr><tr><td><code>--always-approve</code></td><td>وافق تلقائيًا على كل تنفيذ للأدوات (يعادل <code>--full-auto</code> / <code>--yolo</code>)</td></tr><tr><td><code>--no-alt-screen</code></td><td>شغّل مضمّنًا، بلا استحواذ TUI على الشاشة الكاملة</td></tr><tr><td><code>--no-auto-update</code></td><td>تجاوز فحوصات التحديث في الخلفية (استخدمه في كل أتمتة؛ مخفي عن <code>--help</code> لكنه يعمل)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="output-formats">صيغ المخرجات</h3>
+<ul>
+<li><code>plain</code> — نص قابل للقراءة البشرية (الافتراضي)</li>
+<li><code>json</code> — كائن JSON واحد في نهاية التشغيل (لتحليل النتيجة بدقة)</li>
+<li><code>streaming-json</code> — أحداث JSON مفصولة بأسطر جديدة عند وصولها</li>
+</ul>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-mode-long-tasks">وضع الخلفية (المهام الطويلة)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لجلسة خلفية تفاعلية (TUI)، استخدم <code>pty=true</code> + tmux وراقبها عبر
+<code>tmux capture-pane</code>، تمامًا كما في مهارتَي <code>claude-code</code> / <code>codex</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-continuation">استئناف الجلسة</h3>
+<p>الجلسات تُعرَّف بـ <strong>UUID</strong>، لا بالاسم. يعيّن <code>--session-id</code> UUID <em>جديدًا</em>
+لتشغيل جديد (لا <strong>يستأنف</strong>)؛ ويأخذ <code>--resume</code> UUID جلسة قائمة (أو احذف القيمة
+لاستئناف الأحدث).</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="read-only-audit--markdown-note-pattern">نمط التدقيق للقراءة فقط ← ملاحظة Markdown</h2>
+<p>لجعل Grok يراجع مُصنَّفات (artifacts) محلية ويعيد ملاحظة markdown نظيفة (لـ
+Obsidian أو مستودع) دون تعديل أي شيء:</p>
+<ol>
+<li>جهّز ملفات إدخال ثابتة أولًا بأدوات Hermes (<code>read_file</code>،
+<code>write_file</code>). التقط لقطة (Snapshot) للسياق ذي الصلة فقط في ملف مؤقت بدل
+تفريغ مسارات خام.</li>
+<li>شغّل Grok بلا واجهة <strong>دون</strong> <code>--always-approve</code> حتى لا يكتب تلقائيًا، واطلب
+<code>markdown only, no preamble</code>.</li>
+<li>احفظ مخرجات Grok القياسية (stdout) مباشرة في الملاحظة الوجهة عبر <code>write_file()</code>.</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><strong>مزلق (كما في Claude Code):</strong> عند إعادة كتابة المستندات، قد يعيد prompt فضفاض
+مثل "أعد كتابة هذا" ملخص تغيير بدل الملف الكامل. بدلًا من ذلك: مرّر الملف
+عبر الأنبوب (pipe)، واطلب <code>Return ONLY the full revised markdown document. No intro, no explanation, no code fences. Start immediately with &#x27;# Title&#x27;.</code> تحقق من
+الأسطر الأولى بـ <code>read_file()</code> قبل الكتابة فوق الوجهة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pr-review-patterns">أنماط مراجعة PR</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-review-headless">مراجعة سريعة (بلا واجهة)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clone-to-temp-review-safe-no-repo-mutation">مراجعة عبر استنساخ إلى مجلد مؤقت (آمن، بلا تعديل للمستودع)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-the-review">نشر المراجعة</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parallel-issue-fixing-with-worktrees">إصلاح المشكلات بالتوازي باستخدام Worktrees</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="useful-subcommands--tui-commands">أوامر فرعية مفيدة وأوامر TUI</h2>
+<table><thead><tr><th>الأمر</th><th>الغرض</th></tr></thead><tbody><tr><td><code>grok</code></td><td>ابدأ واجهة TUI التفاعلية</td></tr><tr><td><code>grok -p &quot;query&quot;</code></td><td>تشغيل بلا واجهة لمرة واحدة</td></tr><tr><td><code>grok login</code> / <code>grok logout</code></td><td>تسجيل الدخول / الخروج (OAuth عبر SuperGrok / X Premium+)</td></tr><tr><td><code>grok inspect</code></td><td>اعرض ما اكتشفه Grok في دليل العمل الحالي: مصادر الإعدادات، التعليمات، المهارات، الإضافات، الـ hooks، خوادم MCP</td></tr><tr><td><code>grok agent stdio</code></td><td>شغّله كوكيل ACP عبر JSON-RPC (لتكامل بيئة التطوير/الأدوات)</td></tr><tr><td><code>grok update</code></td><td>حدّث سطر الأوامر (يحتاج مضيف <code>x.ai</code>؛ تجاوزه في الأتمتة)</td></tr></tbody></table>
+<p>أوامر TUI بشرطة مائلة (تفاعلية فقط): <code>/model &lt;name&gt;</code>، <code>/always-approve</code>،
+<code>/plan</code>، <code>/context</code>، <code>/compact</code>، <code>/resume</code>، <code>/sessions</code>، <code>/fork</code>، <code>/usage</code>،
+<code>/quit</code>. يتنقل <code>Shift+Tab</code> بين أوضاع الجلسة (بما فيها وضع Plan، الذي يمنع
+أدوات الكتابة عدا ملف خطة الجلسة).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-grokconfigtoml">الإعدادات (<code>~/.grok/config.toml</code>)</h2>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>ضع التفضيلات العامة في <code>~/.grok/config.toml</code> (وليس <code>.grok/config.toml</code> المحصور
+بالمشروع). يحلّ <code>permission_mode</code> محل مفتاحَي <code>approval_mode</code> / <code>yolo = true</code>
+القديمين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls--gotchas">المزالق والتفاصيل الدقيقة</h2>
+<ol>
+<li><strong>المصادقة مرتبطة بالاشتراك.</strong> يتطلب <code>grok login</code> اشتراك SuperGrok أو X
+Premium+. إذا فشل تسجيل الدخول أو لم يوجد <code>~/.grok/auth.json</code>، تأكد من أن
+الاشتراك فعّال قبل الرجوع إلى <code>XAI_API_KEY</code>.</li>
+<li><strong>لا تخلط بين مصادقة xAI الخاصة بـ Hermes ومصادقة سطر أوامر <code>grok</code>.</strong> تعمل
+<code>x_search</code> الخاصة بـ Hermes على OAuth خاص بها من xAI؛ ولسطر أوامر <code>grok</code>
+المستقل token منفصل في <code>~/.grok/auth.json</code>. عمل <code>x_search</code> بنجاح لا يعني أن
+<code>grok</code> مسجّل الدخول.</li>
+<li><strong>مرّر دائمًا <code>--no-auto-update</code> في الأتمتة</strong> — وإلا يتصل Grok بمصادره
+لفحص التحديثات (وقد يتعذّر الوصول إلى <code>x.ai</code>/<code>storage.googleapis.com</code>).</li>
+<li><strong>يُفضَّل التثبيت عبر npm على مُثبّت curl</strong> — يتجنّب <code>npm install -g @xai-official/grok</code> مضيف <code>x.ai</code> المحجوب خلف Cloudflare.</li>
+<li><strong><code>--always-approve</code> هو مفتاح البناء المستقل.</strong> بدونه، قد تتوقف التشغيلات
+بلا واجهة في انتظار موافقات الأدوات. احذفه عمدًا لأعمال المراجعة/التدقيق
+للقراءة فقط حتى لا يستطيع Grok تعديل الملفات.</li>
+<li><strong>يتجاوز الوضع بلا واجهة <code>-p</code> حوارات TUI</strong>؛ وتحتاج TUI إلى <code>pty=true</code>
+(+ tmux للمراقبة)، تمامًا كما Claude Code.</li>
+<li><strong>استخدم <code>--no-alt-screen</code></strong> إذا شغّلت TUI مضمّنًا واستحواذ الشاشة الكاملة
+(alt-screen) يشوّه المخرجات المُلتقَطة.</li>
+<li><strong>لا حاجة إلى مستودع git</strong>، لكن لسير عمل PR/commit ستحتاج إليه — استخدم
+<code>mktemp -d &amp;&amp; git init</code> لمهام commit المؤقتة.</li>
+<li><strong>نظّف جلسات tmux</strong> بـ <code>tmux kill-session -t &lt;name&gt;</code> عند الانتهاء.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rules-for-hermes-agents">قواعد لوكلاء Hermes</h2>
+<ol>
+<li><strong>يُفضَّل الوضع بلا واجهة <code>-p</code></strong> للمهام المفردة — أنظف تكامل، ومخرجات
+مُهيكلة عبر <code>--output-format json</code>.</li>
+<li><strong>اضبط دائمًا <code>workdir</code></strong> (أو <code>--cwd</code>) حتى يستهدف Grok المشروع الصحيح.</li>
+<li><strong>مرّر <code>--no-auto-update</code></strong> في كل استدعاء آلي.</li>
+<li><strong>استخدم <code>--always-approve</code> فقط عندما يجب أن يكتب Grok باستقلالية</strong>؛ واحذفه
+للمراجعات والتدقيقات للقراءة فقط.</li>
+<li><strong>ضع المهام الطويلة في الخلفية</strong> بـ <code>background=true, notify_on_complete=true</code>
+وراقبها عبر أداة <code>process</code>.</li>
+<li><strong>استخدم tmux للعمل التفاعلي متعدد الأدوار</strong> وراقبه بـ
+<code>tmux capture-pane -t &lt;session&gt; -p -S -50</code>.</li>
+<li><strong>تحقق من المصادقة قبل الاعتماد عليها</strong> — تحقق من <code>~/.grok/auth.json</code> أو
+شغّل اختبارًا رخيصًا <code>grok -p &quot;Say ok.&quot;</code>؛ ولا تفترض أن مصادقة xAI الخاصة بـ
+Hermes تنتقل تلقائيًا.</li>
+<li><strong>أبلغ المستخدم بالنتائج</strong> — لخّص ما غيّره Grok وما تبقّى.</li>
+</ol>

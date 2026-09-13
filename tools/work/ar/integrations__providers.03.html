@@ -1,0 +1,146 @@
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-calls-appear-as-text-instead-of-executing">استدعاءات الأدوات تظهر كنص بدلًا من التنفيذ</h4>
+<p>يُخرج النموذج شيئًا مثل <code>{&quot;name&quot;: &quot;web_search&quot;, &quot;arguments&quot;: {...}}</code> كرسالة بدلًا من استدعاء الأداة فعليًا.</p>
+<p><strong>السبب:</strong> خادمك لا يفعّل استدعاء الأدوات، أو أن النموذج لا يدعمه عبر تطبيق استدعاء الأدوات الخاص بالخادم.</p>
+<table><thead><tr><th>الخادم</th><th>الحل</th></tr></thead><tbody><tr><td><strong>llama.cpp</strong></td><td>أضف <code>--jinja</code> إلى أمر التشغيل</td></tr><tr><td><strong>vLLM</strong></td><td>أضف <code>--enable-auto-tool-choice --tool-call-parser hermes</code></td></tr><tr><td><strong>SGLang</strong></td><td>أضف <code>--tool-call-parser qwen</code> (أو المُحلِّل المناسب)</td></tr><tr><td><strong>Ollama</strong></td><td>استدعاء الأدوات مفعَّل افتراضيًا — تأكد أن نموذجك يدعمه (تحقّق عبر <code>ollama show model-name</code>)</td></tr><tr><td><strong>LM Studio</strong></td><td>حدّث إلى 0.3.6 أو أحدث واستخدم نموذجًا بدعم أصلي للأدوات</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-seems-to-forget-context-or-give-incoherent-responses">يبدو أن النموذج ينسى السياق أو يقدّم استجابات غير متماسكة</h4>
+<p><strong>السبب:</strong> نافذة السياق صغيرة جدًا. عندما تتجاوز المحادثة حد السياق، تُسقِط معظم الخوادم الرسائل الأقدم بصمت. قد يستهلك الـ system prompt وأنظمة الأدوات في Hermes وحدهما ما بين 4 آلاف و8 آلاف token.</p>
+<p><strong>التشخيص:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="63"></x-keep></div></div>
+<p><strong>الحل:</strong> اضبط السياق على <strong>64,000 token</strong> على الأقل لاستخدام الوكيل. راجع قسم كل خادم أعلاه للاطلاع على الإعلام المحدَّد.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-limit-2048-tokens-at-startup">&quot;Context limit: 2048 tokens&quot; عند بدء التشغيل</h4>
+<p>يكتشف Hermes طول السياق تلقائيًا من endpoint <code>/v1/models</code> الخاص بخادمك. إذا أبلغ الخادم عن قيمة منخفضة (أو لم يبلّغ عن قيمة أصلًا)، يستخدم Hermes الحد المُعلَن للنموذج والذي قد يكون خاطئًا.</p>
+<p><strong>الحل:</strong> اضبطه صراحةً في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="64"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="responses-get-cut-off-mid-sentence">تُقتَطع الاستجابات في منتصف الجملة</h4>
+<p><strong>الأسباب المحتملة:</strong></p>
+<ol>
+<li><strong>حد مخرجات منخفض على الخادم</strong> — اضبط إعداد التوليد الافتراضي للخادم (مثل <code>--default-max-tokens</code> في SGLang). لا يعرض Hermes إعداد سقف لعدد tokens المخرجات. طول الاستجابة مستقل عن نافذة سياق المحادثة (<code>context_length</code>).</li>
+<li><strong>استنفاد السياق</strong> — ملأ النموذج نافذة سياقه. زِد <code>model.context_length</code> أو فعّل <a href="/docs/user-guide/configuration#context-compression">ضغط السياق</a> في Hermes.</li>
+</ol>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="litellm-proxy--multi-provider-gateway">LiteLLM Proxy — gateway متعدد المزوّدين</h3>
+<p><a href="https://docs.litellm.ai/" data-ext>LiteLLM</a> هو وسيط (proxy) متوافق مع OpenAI يوحّد أكثر من 100 مزوّد LLM خلف واجهة واحدة. الأفضل لـ: التبديل بين المزوّدين دون تغيير الإعدادات، وموازنة الحمل، وسلاسل الاحتياط (fallback chains)، وضوابط الميزانية.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="65"></x-keep></div></div>
+<p>ثم اضبط Hermes عبر <code>hermes model</code> → Custom endpoint → <code>http://localhost:4000/v1</code>.</p>
+<p>مثال على <code>litellm_config.yaml</code> مع احتياط (fallback):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="66"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clawrouter--cost-optimized-routing">ClawRouter — توجيه مُحسَّن للتكلفة</h3>
+<p><a href="https://github.com/BlockRunAI/ClawRouter" data-ext>ClawRouter</a> من BlockRunAI هو وسيط توجيه محلي يختار النماذج تلقائيًا حسب تعقيد الاستعلام. يصنّف الطلبات عبر 14 بُعدًا ويوجّهها إلى أرخص نموذج يمكنه إنجاز المهمة. تتم الدفعات عبر عملة USDC الرقمية (بلا مفاتيح API).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="67"></x-keep></div></div>
+<p>ثم اضبط Hermes عبر <code>hermes model</code> → Custom endpoint → <code>http://localhost:8402/v1</code> → اسم النموذج <code>blockrun/auto</code>.</p>
+<p>ملفات التوجيه (profiles):</p>
+<table><thead><tr><th>Profile</th><th>الاستراتيجية</th><th>التوفير</th></tr></thead><tbody><tr><td><code>blockrun/auto</code></td><td>توازن بين الجودة والتكلفة</td><td>74-100%</td></tr><tr><td><code>blockrun/eco</code></td><td>الأرخص الممكن</td><td>95-100%</td></tr><tr><td><code>blockrun/premium</code></td><td>أفضل نماذج الجودة</td><td>0%</td></tr><tr><td><code>blockrun/free</code></td><td>نماذج مجانية فقط</td><td>100%</td></tr><tr><td><code>blockrun/agentic</code></td><td>مُحسَّن لاستخدام الأدوات</td><td>يتفاوت</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="119"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يتطلّب ClawRouter محفظة مموَّلة بعملة USDC على شبكة Base أو Solana للدفع. تمر جميع الطلبات عبر واجهة BlockRun الخلفية. شغّل <code>npx @blockrun/clawrouter doctor</code> للتحقق من حالة المحفظة.</p></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="other-compatible-providers">مزوّدون متوافقون آخرون</h3>
+<p>تعمل أي خدمة ذات واجهة متوافقة مع OpenAI. من الخيارات الشائعة:</p>
+<table><thead><tr><th>المزوّد</th><th>Base URL</th><th>ملاحظات</th></tr></thead><tbody><tr><td><a href="https://together.ai" data-ext>Together AI</a></td><td><code>https://api.together.xyz/v1</code></td><td>نماذج مفتوحة مستضافة سحابيًا</td></tr><tr><td><a href="https://groq.com" data-ext>Groq</a></td><td><code>https://api.groq.com/openai/v1</code></td><td>استدلال فائق السرعة</td></tr><tr><td><a href="https://deepseek.com" data-ext>DeepSeek</a></td><td><code>https://api.deepseek.com/v1</code></td><td>نماذج DeepSeek</td></tr><tr><td><a href="https://fireworks.ai" data-ext>Fireworks AI</a></td><td><code>https://api.fireworks.ai/inference/v1</code></td><td>استضافة سريعة للنماذج المفتوحة</td></tr><tr><td><a href="https://www.gmicloud.ai/" data-ext>GMI Cloud</a></td><td><code>https://api.gmi-serving.com/v1</code></td><td>استدلال مُدار متوافق مع OpenAI</td></tr><tr><td><a href="https://actual.inc" data-ext>Actual Computer</a></td><td><code>https://api.actual.inc/v1</code></td><td>مُرحِّل خاص إلى عنقودك الخاص؛ عفريت محلي عند <code>http://127.0.0.1:8080/v1</code></td></tr><tr><td><a href="https://cerebras.ai" data-ext>Cerebras</a></td><td><code>https://api.cerebras.ai/v1</code></td><td>استدلال بشريحة على مستوى الرقاقة (wafer-scale)</td></tr><tr><td><a href="https://mistral.ai" data-ext>Mistral AI</a></td><td><code>https://api.mistral.ai/v1</code></td><td>نماذج Mistral</td></tr><tr><td><a href="https://openai.com" data-ext>OpenAI</a></td><td><code>https://api.openai.com/v1</code></td><td>وصول مباشر إلى OpenAI</td></tr><tr><td><a href="https://azure.microsoft.com" data-ext>Azure OpenAI</a></td><td><code>https://YOUR.openai.azure.com/</code></td><td>OpenAI للمؤسسات</td></tr><tr><td><a href="https://localai.io" data-ext>LocalAI</a></td><td><code>http://localhost:8080/v1</code></td><td>مستضاف ذاتيًا، متعدد النماذج</td></tr><tr><td><a href="https://jan.ai" data-ext>Jan</a></td><td><code>http://localhost:1337/v1</code></td><td>تطبيق سطح مكتب بنماذج محلية</td></tr></tbody></table>
+<p>اضبط أيًا من هذه عبر <code>hermes model</code> → Custom endpoint، أو في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="68"></x-keep></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-length-detection">اكتشاف طول السياق</h3>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="120"></x-keep></span>نوافذ السياق وحدود المخرجات مختلفتان</div><div class="admonitionContent_BuS1"><p><strong><code>context_length</code></strong> هي <strong>نافذة السياق الكاملة</strong> — الميزانية المجمّعة لـ tokens الإدخال <em>و</em> الإخراج (مثلًا 200,000 لـ Claude Opus 4.6). يستخدمها Hermes لتحديد متى يضغط السجل التاريخي وللتحقق من صحة طلبات API.</p><p>تحكم حدود المخرجات استجابة واحدة مُولَّدة، وليس سجل المحادثة.
+لم يعد Hermes يقرأ <code>model.max_tokens</code> أو <code>HERMES_MAX_TOKENS</code> أو إعدادات سقف مخرجات المزوّد
+أو <code>model_overrides.*.*.max_output_tokens</code>. أزل هذه الإعدادات القديمة.
+لا تحصل نقاط النهاية المخصّصة المتوافقة مع OpenAI على سقف مخرجات تلقائي بحجم الكتالوج.
+تُطبَّق قيم الخادم الافتراضية؛ وقد تكون أقل من الحد الأقصى للنموذج.</p><p>يتطلّب Anthropic Messages الأصلي (بما في ذلك مسار Anthropic Bedrock الأصلي)
+<code>max_tokens</code>، لذا يوفّر Hermes قيمة داخلية. Bedrock Converse بروتوكول
+منفصل: يُهمَل معامل <code>inferenceConfig.maxTokens</code> الاختياري افتراضيًا، والذي
+<a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InferenceConfiguration.html" data-ext>توثّقه AWS بأنه الحد الأقصى للنموذج</a>.
+تبقى المهام الداخلية المقيَّدة ومتطلبات البروتوكول الخاصة بالمزوّد تفاصيل
+تنفيذ. الإهمال لا يختار عالميًا الحد الأقصى لمخرجات النموذج.</p><p>اضبط <code>context_length</code> عندما يخطئ الاكتشاف التلقائي في تحديد حجم النافذة.</p></div></div>
+<p>يستخدم Hermes سلسلة تحليل متعددة المصادر لاكتشاف نافذة السياق الصحيحة لنموذجك ومزوّدك:</p>
+<ol>
+<li><strong>تجاوز الإعدادات</strong> — <code>model.context_length</code> في config.yaml (أعلى أولوية)</li>
+<li><strong>مزوّد مخصّص لكل نموذج</strong> — <code>providers.&lt;name&gt;.models.&lt;id&gt;.context_length</code></li>
+<li><strong>تخزين مؤقت دائم</strong> — قيم مكتشَفة سابقًا (تبقى بعد إعادة التشغيل)</li>
+<li><strong>endpoint <code>/models</code></strong> — يستعلم واجهة خادمك (للـ endpoints المحلية/المخصّصة)</li>
+<li><strong><code>/v1/models</code> الخاص بـ Anthropic</strong> — يستعلم واجهة Anthropic عن <code>max_input_tokens</code> (لمستخدمي مفتاح API فقط)</li>
+<li><strong>واجهة OpenRouter</strong> — بيانات وصفية حية للنموذج من OpenRouter</li>
+<li><strong>Nous Portal</strong> — مطابقة اللواحق لمعرّفات نماذج Nous مقابل بيانات OpenRouter الوصفية</li>
+<li><strong><a href="https://models.dev" data-ext>models.dev</a></strong> — سجل يديره المجتمع بأطوال سياق خاصة بكل مزوّد لأكثر من 3800 نموذج عبر أكثر من 100 مزوّد</li>
+<li><strong>قيم احتياطية افتراضية</strong> — أنماط عائلة نموذج عامة (128K افتراضيًا)</li>
+</ol>
+<p>يعمل هذا بشكل جاهز في معظم الإعدادات. النظام واعٍ بالمزوّد — فقد يكون لنفس النموذج حدود سياق مختلفة تبعًا لمن يقدّمه (مثلًا <code>claude-opus-4.6</code> بحجم 1M مباشرةً من Anthropic لكن 128K على GitHub Copilot).</p>
+<p>لضبط طول السياق صراحةً، أضف <code>context_length</code> إلى إعدادات نموذجك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="69"></x-keep></div></div>
+<p>بالنسبة للـ endpoints المخصّصة، يمكنك أيضًا ضبط طول السياق لكل نموذج:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="70"></x-keep></div></div>
+<p>سيطلب منك <code>hermes model</code> إدخال طول السياق عند ضبط endpoint مخصّص. اتركه فارغًا للاكتشاف التلقائي.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="121"></x-keep></span>متى تضبط هذا يدويًا</div><div class="admonitionContent_BuS1"><ul>
+<li>تستخدم Ollama مع <code>num_ctx</code> مخصّص أقل من الحد الأقصى للنموذج</li>
+<li>تريد تقييد السياق أقل من الحد الأقصى للنموذج (مثلًا 8k على نموذج 128k لتوفير VRAM)</li>
+<li>تعمل خلف وسيط (proxy) لا يعرض <code>/v1/models</code></li>
+</ul></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="named-custom-providers">مزوّدون مخصّصون مُسمّون</h3>
+<p>إذا كنت تعمل مع عدة endpoints مخصّصة (مثل خادم تطوير محلي وخادم GPU بعيد)، يمكنك تعريفها كمزوّدين مخصّصين مُسمّين تحت قاموس <code>providers:</code> في <code>config.yaml</code>، مفهرَسة باسم المزوّد:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="71"></x-keep></div></div>
+<p>يقبل كل إدخال: <code>api</code> (الـ base URL للـ endpoint — <code>base_url</code>/<code>url</code> أسماء بديلة مقبولة)، و<code>name</code> (اسم عرض اختياري؛ الافتراضي هو مفتاح القاموس)، و<code>key_env</code> أو <code>api_key</code> المضمَّن أو <code>key_cmd</code> (انظر أدناه)، و<code>transport</code> (<code>chat_completions</code> / <code>anthropic_messages</code> / <code>codex_responses</code>)، و<code>default_model</code>، و<code>models</code>، و<code>context_length</code>، و<code>discover_models</code>، و<code>extra_body</code>، و<code>extra_headers</code>، و<code>ssl_ca_cert</code> / <code>ssl_verify</code>، و<code>enabled: false</code> لإخفاء إدخال دون حذفه.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="command-minted-credentials-key_cmd">بيانات اعتماد مُصكوكة بأمر (<code>key_cmd</code>)</h4>
+<p>تجسّد فحوصات القدرة (probes) للرؤية والتفكير والنماذج المحلية الأصلية نفس
+بيانات الاعتماد القابلة للاستدعاء (callable) المستخدَمة من المحادثة قبل بناء ترويسات المصادقة.
+تعيد استخدام ذاكرة تخزين رمز الأمر المؤقتة دون استبدال العنصر القابل للاستدعاء الخاص بعميل المحادثة.
+إذا تعذّر على أمر ما صك رمز نصي، ترسل هذه الفحوصات المبذولة (best-effort) بلا bearer
+بدلًا من تمثيل ككائن أو بيانات اعتماد مُهيَّأة ذات أولوية أدنى.
+تزيل فحوصات النماذج المحلية الأصلية ترويسة Authorization الموروثة عند فشل الاستدعاء الصريح
+مع الاحتفاظ بالترويسات المُهيَّأة غير ذات الصلة. تحتفظ المحادثة بمعالجة أخطائها المعتادة.</p>
+<p>غالبًا ما تُصدر بوابات المؤسسات رموزًا مؤقتة قصيرة الأجل (وسطاء SSO/OIDC، وIAM السحابي، ووكلاء المصادقة الداخليون) بدلًا من مفاتيح API ثابتة، لذا يصبح الرمز المنسوخ إلى <code>.env</code> قديمًا في منتصف الجلسة وتبدأ الطلبات بإعادة 401. يسمّي <code>key_cmd</code> أمرًا <em>يطبع</em> رمزًا؛ يشغّله Hermes ويخزّن النتيجة مؤقتًا حتى قبيل انتهاء صلاحيتها بقليل، بحيث تبقى الجلسات الطويلة تعمل دون إعادة تشغيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="72"></x-keep></div></div>
+<p>يعمل مع أي مساعد يطبع رمزًا — <code>databricks auth token</code>، و<code>gcloud auth print-access-token</code>، و<code>az account get-access-token</code>، و<code>vault read</code>، أو سكربتات <code>apiKeyHelper</code> على طراز Claude Code.</p>
+<p>يجب أن يطبع الأمر <strong>فقط</strong> الرمز على stdout: إما مجرَّدًا، أو كـ JSON بحقل <code>access_token</code> (يُعتَد بـ <code>expires_in</code>؛ وكذلك الطوابع الزمنية المطلقة بصيغة ISO مثل <code>expiry</code>/<code>expiresOn</code>). تُرفَض المخرجات متعددة الأسطر بدلًا من تخمينها. إذا لم تُعلَن مدة انتهاء صلاحية، يُعاد صك الرمز ضمن نافذة محدودة.</p>
+<p>الأولوية: يفوز إعلام <code>--api-key</code> الصريح دائمًا؛ وإلا فإن <code>key_cmd</code> يتفوّق على <code>api_key</code>/<code>key_env</code> الثابتَين في نفس الإدخال. تنطبق بيانات الاعتماد المصكوكة على دور الوكيل الرئيسي وعلى المهام المساعدة (توليد العناوين، والضغط، والرؤية، والتضمين) على حد سواء.</p>
+<p>يعتد اكتشاف النماذج أيضًا بـ <code>key_cmd</code> لكل من إدخالات <code>providers:</code> و
+<code>custom_providers:</code> القديمة، بما في ذلك إعداد <code>hermes model</code>. تُشغَّل المساعدات فقط عندما
+تكون هناك حاجة لفحص كتالوج حي مصادَق عليه: لا تصك رموزًا كل من اكتشاف الكتالوج المعطَّل وقراءات الكتالوج المخزَّن مؤقتًا الدافئة. تُحصَر
+الكتالوجات بهوية الأمر، لذا فإن تدوير bearer لا يبطل الكتالوج. تستخدم مساعدات الفحص
+مصدر رمز قصير الأجل خاصًا بها، وليس ذاكرة تخزين رمز عميل الاستدلال المؤقتة؛
+لا تُحفَظ الرموز المصكوكة أبدًا في <code>config.yaml</code>. إذا فشل مساعد، يرجع الاكتشاف إلى
+النموذج المُهيَّأ دون كشف مخرجات المساعد.</p>
+<p>لا يُخلَط هذا مع <code>secrets.command</code>، الذي يشغّل مساعدًا <strong>مرة واحدة عند بدء التشغيل</strong> لتعبئة متغيرات البيئة على مستوى العملية بأكملها. استخدم ذلك لمساعد خزنة/سلسلة مفاتيح يعيد أسرارًا كثيرة؛ واستخدم <code>key_cmd</code> عندما يجب إعادة صك بيانات اعتماد مزوّد واحد <em>أثناء</em> الجلسة.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="122"></x-keep></span>الصيغة القديمة</div><div class="admonitionContent_BuS1"><p>استخدمت الإعدادات الأقدم قائمة <code>custom_providers:</code> من المستوى الأعلى بدلًا من ذلك. لا تزال تعمل — يقرأ Hermes كلا الصيغتين — ويرحّلها <code>hermes update</code> تلقائيًا إلى قاموس <code>providers:</code> (config v12). تختلف أسماء الحقول قليلًا في صيغة القاموس: يصبح <code>model</code> القديم هو <code>default_model</code>، ويصبح <code>api_mode</code> القديم هو <code>transport</code>.</p></div></div>
+<p>تحتاج بعض الـ endpoints المتوافقة مع OpenAI حقولًا خاصة بالمزوّد في جسم الطلب. أضف خريطة <code>extra_body</code> إلى المزوّد المخصّص المطابق وسيدمجها Hermes في كل طلب chat-completions لذلك الـ endpoint:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="73"></x-keep></div></div>
+<p>استخدم الشكل الذي يوثّقه خادمك. على سبيل المثال، تتوقع نشرات vLLM Gemma وبعض endpoints من NVIDIA NIM أن يكون <code>enable_thinking</code> تحت <code>chat_template_kwargs</code> بدلًا من كونه حقل <code>extra_body</code> من المستوى الأعلى:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="74"></x-keep></div></div>
+<p>بالنسبة لنماذج استدلال Qwen المُقدَّمة عبر vLLM، يمكن استخدام هذا الشكل نفسه لتعطيل التفكير عندما يفصل مُحلِّل الاستدلال كل النص المُولَّد إلى حقول استدلال ويترك <code>content</code> الخاص بالمساعد فارغًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="75"></x-keep></div></div>
+<p>يرافق <code>extra_body</code> المُهيَّأ المزوّد في كل مكان: يُدمَج عند إنشاء الوكيل، و<strong>يبقى قائمًا عبر كل دور في الـ gateway</strong> (بما في ذلك الأدوار التي تضيف فيها <code>/fast</code> تجاوزات <code>service_tier</code>/<code>speed</code> فوقه — تُدمَج هذه فوق <code>extra_body</code> الخاص بك بدلًا من استبداله)، و<strong>يُعاد اشتقاقه عند تبديل <code>/model</code></strong> — فالتبديل إلى مزوّد مخصّص مُسمّى يطبّق <code>extra_body</code> الخاص به، والتبديل بعيدًا عنه يمحوه بحيث لا يتسرّب إلى مزوّد آخر.</p>
+<p>يطلب معالج <code>hermes model</code> → Custom Endpoint الآن وضع API صراحةً ويحفظ إجابتك في <code>config.yaml</code> (كـ <code>transport</code> في إدخال المزوّد). لا يزال الاكتشاف التلقائي المستند إلى الرابط (مثل مسارات <code>/anthropic</code> → <code>anthropic_messages</code>) يحدث كاحتياط عند ترك الحقل فارغًا.</p>
+<p><strong>الرؤية الأصلية لنماذج المزوّد المخصّص.</strong> إذا كان endpoint المخصّص لديك يقدّم نموذجًا يدعم الرؤية غير موجود في models.dev، اضبط <code>model.supports_vision: true</code> بحيث يوجّه Hermes الصور المرفقة أصليًا (كأجزاء <code>image_url</code>) بدلًا من معالجتها مسبقًا عبر <code>vision_analyze</code>. مفتاح واحد فقط — لا حاجة لضبط <code>agent.image_input_mode: native</code> أيضًا.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="76"></x-keep></div></div>
+<p>يُعتَد بنفس المفتاح في نماذج المزوّدين المُسمّين لكل نموذج (<code>providers.&lt;name&gt;.models.&lt;id&gt;.supports_vision</code>) ويقبل قيم YAML المنطقية القياسية (<code>true/false/yes/no/on/off/1/0</code>).</p>
+<p>بدِّل بينها أثناء الجلسة عبر الصيغة الثلاثية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="77"></x-keep></div></div>
+<p>يمكنك أيضًا اختيار المزوّدين المخصّصين المُسمّين من قائمة <code>hermes model</code> التفاعلية.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cookbook-together-ai-groq-perplexity">كتاب وصفات: Together AI، Groq، Perplexity</h3>
+<p>يتحدث جميع مزوّدي السحابة المذكورين في <a href="#other-compatible-providers">مزوّدون متوافقون آخرون</a> لهجة REST الخاصة بـ OpenAI، لذا يُوصَلون بنفس الطريقة تحت قاموس <code>providers:</code>. فيما يلي ثلاث وصفات جاهزة. تدخل كل واحدة في <code>~/.hermes/config.yaml</code> ويذهب مفتاح API المطابق إلى <code>~/.hermes/.env</code>.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="together-ai">Together AI</h4>
+<p>يستضيف نماذج مفتوحة الأوزان (Llama، وMiniMax، وGemma، وDeepSeek، وQwen) بأسعار أقل بكثير من واجهات API الأصلية. خيار افتراضي جيد لأساطيل النماذج المتعددة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="78"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="79"></x-keep></div></div>
+<p>بدّل النماذج أثناء الجلسة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="80"></x-keep></div></div>
+<p>واجهة <code>/v1/models</code> الخاصة بـ Together تعمل، لذا يمكن لـ <code>hermes model</code> اكتشاف النماذج المتاحة تلقائيًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="groq">Groq</h4>
+<p>استدلال فائق السرعة (~500 tok/s على Llama-3.3-70B). كتالوج صغير لكنه قوي للاستخدام التفاعلي الحسّاس لزمن الاستجابة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="81"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="82"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="perplexity">Perplexity</h4>
+<p>مفيد عندما تريد نموذجًا يقوم ببحث ويب حي واستشهاد تلقائيًا. صارم بشأن النماذج المتاحة — تحقّق من <a href="https://www.perplexity.ai/settings/api" data-ext>perplexity.ai/settings/api</a> للاطلاع على القائمة الحالية.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="83"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="84"></x-keep></div></div>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-providers-in-one-config">عدة مزوّدين في إعداد واحد</h4>
+<p>تتركّب الوصفات الثلاث معًا — استخدمها كلها معًا وبدّل حسب كل دور عبر <code>/model custom:&lt;name&gt;:&lt;model&gt;</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="85"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="123"></x-keep></span>استكشاف الأخطاء وإصلاحها</div><div class="admonitionContent_BuS1"><ul>
+<li>يجب ألا يطبع <code>hermes doctor</code> أي تحذيرات <code>Unknown provider</code> لأي من هذه الأسماء بعد إصلاحات مُدقِّق CLI في #15083.</li>
+<li>إذا تعذّر الوصول إلى endpoint <code>/v1/models</code> الخاص بمزوّد ما (Perplexity هي الحالة الشائعة)، سيحفظ <code>hermes model</code> النموذج مع تحذير بدلًا من الرفض الصارم — انظر #15136.</li>
+<li>لتخطّي المزوّدين المُسمّين تمامًا واستخدام <code>provider: custom</code> المجرَّد مع متغير البيئة <code>CUSTOM_BASE_URL</code>، انظر #15103.</li>
+</ul></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-the-right-setup">اختيار الإعداد المناسب</h3>
+<table><thead><tr><th>حالة الاستخدام</th><th>المُوصى به</th></tr></thead><tbody><tr><td><strong>فقط تريده أن يعمل</strong></td><td>OpenRouter (الافتراضي) أو Nous Portal</td></tr><tr><td><strong>نماذج محلية، إعداد سهل</strong></td><td>Ollama</td></tr><tr><td><strong>تقديم GPU إنتاجي</strong></td><td>vLLM أو SGLang</td></tr><tr><td><strong>Mac / بلا GPU</strong></td><td>Ollama أو llama.cpp</td></tr><tr><td><strong>توجيه متعدد المزوّدين</strong></td><td>LiteLLM Proxy أو OpenRouter</td></tr><tr><td><strong>تحسين التكلفة</strong></td><td>ClawRouter أو OpenRouter مع <code>sort: &quot;price&quot;</code></td></tr><tr><td><strong>أقصى خصوصية</strong></td><td>Ollama، أو vLLM، أو llama.cpp (محلي بالكامل)</td></tr><tr><td><strong>مؤسسات / Azure</strong></td><td>Azure OpenAI بـ endpoint مخصّص</td></tr><tr><td><strong>نماذج الذكاء الاصطناعي الصينية</strong></td><td>z.ai (GLM)، Kimi/Moonshot (<code>kimi-coding</code> أو <code>kimi-coding-cn</code>)، MiniMax، Xiaomi MiMo، أو Tencent TokenHub (مزوّدون من الدرجة الأولى)</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="124"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك التبديل بين المزوّدين في أي وقت عبر <code>hermes model</code> — دون الحاجة لإعادة التشغيل. يبقى سجل محادثتك وذاكرتك ومهاراتك كما هي بصرف النظر عن المزوّد الذي تستخدمه.</p></div></div>

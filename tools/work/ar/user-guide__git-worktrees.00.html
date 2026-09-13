@@ -1,0 +1,136 @@
+<header><h1>Git Worktrees</h1></header>
+<p>كثيرًا ما يُستخدم Hermes Agent على مستودعات كبيرة وطويلة العمر. فعندما تريد:</p>
+<ul>
+<li>تشغيل <strong>عدة وكلاء بالتوازي</strong> على المشروع نفسه، أو</li>
+<li>إبقاء عمليات إعادة الهيكلة (refactors) التجريبية معزولة عن الـ branch الرئيسي،</li>
+</ul>
+<p>فإن <strong>worktrees</strong> في Git هي الطريقة الأكثر أمانًا لمنح كل وكيل نسخته المسحوبة (checkout) الخاصة دون تكرار المستودع بأكمله.</p>
+<p>توضّح هذه الصفحة كيفية الجمع بين worktrees و Hermes بحيث تحصل كل جلسة على مجلد عمل نظيف ومعزول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-use-worktrees-with-hermes">لماذا تستخدم worktrees مع Hermes؟</h2>
+<p>يتعامل Hermes مع <strong>مجلد العمل الحالي</strong> على أنه جذر المشروع:</p>
+<ul>
+<li>CLI: المجلد الذي تشغّل فيه <code>hermes</code> أو <code>hermes chat</code></li>
+<li>Messaging gateways: المجلد المحدد عبر <code>terminal.cwd</code> في <code>~/.hermes/config.yaml</code></li>
+</ul>
+<p>إذا شغّلت عدة وكلاء في <strong>النسخة المسحوبة نفسها</strong>، فقد تتداخل تغييراتهم مع بعضها:</p>
+<ul>
+<li>قد يحذف أحد الوكلاء ملفات يستخدمها الآخر أو يعيد كتابتها.</li>
+<li>يصبح من الأصعب معرفة أي التغييرات تنتمي إلى أي تجربة.</li>
+</ul>
+<p>باستخدام worktrees، يحصل كل وكيل على:</p>
+<ul>
+<li><strong>branch ومجلد عمل خاصين به</strong></li>
+<li><strong>سجل Checkpoint Manager خاص به</strong> لاستخدامه مع <code>/rollback</code></li>
+</ul>
+<p>راجع أيضًا: <a href="/docs/user-guide/checkpoints-and-rollback">نقاط الحفظ (Checkpoints) و /rollback</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-creating-a-worktree">البدء السريع: إنشاء worktree</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-inside-a-session-worktree-new">من داخل الجلسة: <code>/worktree new</code></h3>
+<p>أسرع طريقة (مستوحاة من <code>/worktree new</code> في Copilot CLI): من جلسة CLI تفاعلية، نفّذ</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يُنشئ Hermes المجلد <code>.worktrees/my-experiment/</code> داخل المستودع (على الـ branch
+<code>hermes/my-experiment</code>، استنادًا إلى أحدث commit في المستودع البعيد بعد جلبه للتو، ما لم يكن
+<code>worktree_sync: false</code>)، ويعيد توجيه أدوات الطرفية والملفات الخاصة بالجلسة إليه — دون الحاجة إلى إعادة التشغيل. احذف الاسم لتحصل على شجرة عشوائية باسم <code>hermes-&lt;id&gt;</code>.
+يعرض <code>/worktree</code> وحده الشجرة النشطة؛ ويسرد <code>/worktree list</code> جميع الأشجار. وعند الخروج لا تُحفظ الشجرة إلا إذا كانت تحتوي على commits لم تُدفع (push) بعد، تمامًا كما في
+<code>hermes -w</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manually-with-git">يدويًا باستخدام git</h3>
+<p>من المستودع الرئيسي (الذي يحتوي على <code>.git/</code>)، أنشئ worktree جديدًا لـ feature branch:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يُنشئ هذا:</p>
+<ul>
+<li>مجلدًا جديدًا: <code>../repo-feature</code></li>
+<li>branch جديدًا: <code>feature/hermes-experiment</code> مسحوبًا في ذلك المجلد</li>
+</ul>
+<p>يمكنك الآن الانتقال بالأمر <code>cd</code> إلى الـ worktree الجديد وتشغيل Hermes هناك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>سيقوم Hermes بما يلي:</p>
+<ul>
+<li>اعتبار <code>../repo-feature</code> جذرًا للمشروع.</li>
+<li>استخدام ذلك المجلد لملفات السياق وتعديلات الكود والأدوات.</li>
+<li>استخدام <strong>سجل نقاط حفظ منفصل</strong> لـ <code>/rollback</code> مقصور على هذا الـ worktree.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-multiple-agents-in-parallel">تشغيل عدة وكلاء بالتوازي</h2>
+<p>يمكنك إنشاء عدة worktrees، لكل منها branch خاص به:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>في طرفيات منفصلة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>كل عملية Hermes:</p>
+<ul>
+<li>تعمل على الـ branch الخاص بها (<code>feature/hermes-a</code> مقابل <code>feature/hermes-b</code>).</li>
+<li>تكتب نقاط الحفظ تحت hash مختلف لمستودع الظل (shadow repo) (مشتق من مسار الـ worktree).</li>
+<li>يمكنها استخدام <code>/rollback</code> بشكل مستقل دون التأثير على الأخرى.</li>
+</ul>
+<p>يفيد هذا خصوصًا عند:</p>
+<ul>
+<li>تشغيل عمليات إعادة هيكلة دفعية.</li>
+<li>تجربة مناهج مختلفة للمهمة نفسها.</li>
+<li>الجمع بين جلسات CLI و gateway على المستودع الأصلي (upstream) نفسه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cleaning-up-worktrees-safely">تنظيف worktrees بأمان</h2>
+<p>عندما تنتهي من تجربة ما:</p>
+<ol>
+<li>قرّر ما إذا كنت ستحتفظ بالعمل أم ستتخلص منه.</li>
+<li>إذا أردت الاحتفاظ به:
+<ul>
+<li>ادمج (merge) الـ branch في الـ branch الرئيسي كالمعتاد.</li>
+</ul>
+</li>
+<li>أزِل الـ worktree:</li>
+</ol>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li>يرفض <code>git worktree remove</code> إزالة worktree يحتوي على تغييرات لم تُنفَّذ لها commit ما لم تفرض ذلك.</li>
+<li>إزالة الـ worktree <strong>لا</strong> تحذف الـ branch تلقائيًا؛ ويمكنك حذف الـ branch أو الاحتفاظ به باستخدام أوامر <code>git branch</code> المعتادة.</li>
+<li>لا تُحذف بيانات نقاط الحفظ الخاصة بـ Hermes ضمن <code>~/.hermes/checkpoints/</code> تلقائيًا عند إزالة worktree، لكنها عادةً صغيرة جدًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices">أفضل الممارسات</h2>
+<ul>
+<li><strong>worktree واحد لكل تجربة Hermes</strong>
+<ul>
+<li>أنشئ branch/worktree مخصصًا لكل تغيير جوهري.</li>
+<li>يُبقي هذا الفروقات (diffs) مركّزة، والـ PRs صغيرة وقابلة للمراجعة.</li>
+</ul>
+</li>
+<li><strong>سمِّ الـ branches باسم التجربة</strong>
+<ul>
+<li>مثل <code>feature/hermes-checkpoints-docs</code>، <code>feature/hermes-refactor-tests</code>.</li>
+</ul>
+</li>
+<li><strong>نفّذ commits بشكل متكرر</strong>
+<ul>
+<li>استخدم git commits للمراحل الرئيسية.</li>
+<li>استخدم <a href="/docs/user-guide/checkpoints-and-rollback">نقاط الحفظ و /rollback</a> كشبكة أمان للتعديلات التي تُجريها الأدوات فيما بينها.</li>
+</ul>
+</li>
+<li><strong>تجنّب تشغيل Hermes من جذر المستودع المجرّد عند استخدام worktrees</strong>
+<ul>
+<li>فضّل بدلًا من ذلك مجلدات الـ worktrees، بحيث يكون لكل وكيل نطاق واضح.</li>
+</ul>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-hermes--w-automatic-worktree-mode">استخدام <code>hermes -w</code> (وضع worktree التلقائي)</h2>
+<p>يتضمن Hermes الخيار المدمج <code>-w</code> الذي <strong>يُنشئ تلقائيًا git worktree مؤقتًا</strong> مع branch خاص به. لا تحتاج إلى إعداد worktrees يدويًا — فقط انتقل بالأمر <code>cd</code> إلى مستودعك ونفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>سيقوم Hermes بما يلي:</p>
+<ul>
+<li>إنشاء worktree مؤقت ضمن <code>.worktrees/</code> داخل مستودعك.</li>
+<li>سحب branch معزول (مثل <code>hermes/hermes-&lt;hash&gt;</code>).</li>
+<li>تشغيل جلسة CLI كاملة داخل ذلك الـ worktree.</li>
+</ul>
+<p>هذه أسهل طريقة للحصول على عزل worktree. ويمكنك أيضًا دمجها مع استعلام واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>للوكلاء المتوازين، افتح عدة طرفيات ونفّذ <code>hermes -w</code> في كل منها — إذ يحصل كل استدعاء على worktree و branch خاصين به تلقائيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="putting-it-all-together">جمع كل ما سبق معًا</h2>
+<ul>
+<li>استخدم <strong>git worktrees</strong> لمنح كل جلسة Hermes نسختها المسحوبة النظيفة الخاصة.</li>
+<li>استخدم <strong>الـ branches</strong> لتسجيل السجل العام لتجاربك.</li>
+<li>استخدم <strong>نقاط الحفظ + <code>/rollback</code></strong> للتعافي من الأخطاء داخل كل worktree.</li>
+</ul>
+<p>يمنحك هذا الجمع:</p>
+<ul>
+<li>ضمانات قوية بألا يتداخل الوكلاء والتجارب المختلفة مع بعضها.</li>
+<li>دورات تكرار سريعة مع سهولة التعافي من التعديلات السيئة.</li>
+<li>pull requests نظيفة وقابلة للمراجعة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="developing-the-ui-surfaces-across-worktrees">تطوير واجهات UI عبر worktrees</h2>
+<p>تحتاج واجهات TypeScript (<code>ui-tui/</code>، <code>apps/desktop/</code>) كلٌّ منها إلى <code>node_modules</code>، وتنفيذ <code>npm ci</code> جديد لكل worktree يكرّرها عبر كل branch. إذا كنت تعمل على TUI أو تطبيق سطح المكتب من عدة worktrees، فراجع <a href="/docs/developer-guide/worktree-ui-dev">تطوير TUI و Desktop من Worktrees</a> للتعرّف على الأداتين المساعدتين <code>htui</code> / <code>hgui</code> اللتين تتشاركان تثبيتًا واحدًا عبر symlink.</p>

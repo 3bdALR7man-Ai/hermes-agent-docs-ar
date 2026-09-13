@@ -1,0 +1,41 @@
+<header><h1>Deliverable Mode</h1></header>
+<p>عندما يعمل Hermes Agent داخل gateway للمراسلة (Slack، Discord، Telegram، WhatsApp، Signal، وغيرها)، يمكنه تسليم الملفات التي يولّدها مباشرةً داخل المحادثة — لا كمسارات يتعيّن على المستخدم نسخها، بل كمرفقات أصلية.</p>
+<p>يظهر الرسم البياني كصورة مضمّنة في الرسالة. ويظهر تقرير PDF كملف قابل للتنزيل. ويُرفَع جدول البيانات بصيغة <code>.xlsx</code>. لا يحتاج الوكيل إلى كتابة وسم <code>MEDIA:</code> أو القيام بأي شيء خاص — بل يكفيه أن يولّد الملف ويذكر مساره المطلق في الرد. يلتقط الـ gateway المسار من النص، ويزيله من الرسالة المرئية، ثم يرفع الملف بشكل أصلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>تتكامل ثلاثة عناصر معًا:</p>
+<ol>
+<li>
+<p><strong>لدى الوكيل أدوات تُنتج ملفات.</strong> <code>execute_code</code> للرسوم البيانية عبر matplotlib، والمهارة <code>docx</code> لمستندات Word، والمهارة <code>xlsx</code> لجداول البيانات، والمهارتان <code>pdf</code> و <code>latex-pdf-report</code> لملفات PDF، والمهارة <code>powerpoint</code> للعروض التقديمية، و <code>image_generate</code> للصور، و <code>text_to_speech</code> للصوت، وهكذا.</p>
+</li>
+<li>
+<p><strong>يفحص الـ gateway ردود الوكيل بحثًا عن مسارات الملفات.</strong> يُستخرَج أي مسار مطلق (<code>/tmp/...</code>) أو مسار نسبي إلى المجلد الرئيسي (<code>~/...</code>) ينتهي بامتداد مدعوم. وتُتجاهَل المسارات الموجودة داخل كتل الكود والكود المضمّن في السطر، حتى لا تتشوّه أمثلة الكود أبدًا.</p>
+</li>
+<li>
+<p><strong>يوزّع الـ gateway الملفات حسب نوعها.</strong> تُضمَّن الصور داخل الرسالة حيثما تدعم المنصة ذلك؛ وتُضمَّن مقاطع الفيديو داخل الرسالة؛ ويُوجَّه الصوت إلى مرفقات صوتية أو رسائل صوتية؛ وكل ما عدا ذلك يُرفَع كمرفق ملف.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-file-extensions">امتدادات الملفات المدعومة</h2>
+<table><thead><tr><th>الفئة</th><th>الامتدادات</th><th>طريقة التسليم</th></tr></thead><tbody><tr><td>الصور</td><td><code>.png .jpg .jpeg .gif .webp .bmp .tiff .svg</code></td><td>تضمين داخل الرسالة</td></tr><tr><td>الفيديو</td><td><code>.mp4 .mov .avi .mkv .webm .3gp</code></td><td>تضمين داخل الرسالة (حيثما كان مدعومًا)</td></tr><tr><td>الصوت</td><td><code>.mp3 .m2a .wav .ogg .opus .m4a .flac</code></td><td>رسالة صوتية / مرفق صوتي</td></tr><tr><td>المستندات</td><td><code>.pdf .docx .doc .odt .rtf .txt .md .epub</code></td><td>رفع ملف</td></tr><tr><td>البيانات</td><td><code>.xlsx .xls .ods .csv .tsv .json .xml .yaml .yml</code></td><td>رفع ملف</td></tr><tr><td>البيانات الجغرافية المكانية</td><td><code>.kmz .kml .geojson .gpx</code></td><td>رفع ملف</td></tr><tr><td>العروض التقديمية</td><td><code>.pptx .ppt .odp .key</code></td><td>رفع ملف</td></tr><tr><td>الأرشيفات</td><td><code>.zip .tar .gz .tgz .bz2 .xz .7z .rar .apk .ipa</code></td><td>رفع ملف</td></tr><tr><td>الويب</td><td><code>.html .htm</code></td><td>رفع ملف</td></tr></tbody></table>
+<p>استُبعدت <code>.py</code> و <code>.log</code> وامتدادات ملفات الكود المصدري الأخرى عمدًا، حتى لا يرسل الوكيل ملفات مصدرية عشوائية تلقائيًا؛ وإذا أردت إرسال كود إلى المستخدم، فاستخدم كتلة كود.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="encouraging-the-agent-to-produce-artifacts">تشجيع الوكيل على إنتاج المُخرَجات (artifacts)</h2>
+<p>لا يلجأ الوكيل إلى إنتاج المُخرَجات افتراضيًا — بل عليه أن يعرف أن ذلك مطلوب. وهناك طريقتان لتوجيهه:</p>
+<p><strong>على مستوى الجلسة:</strong> اطلب ذلك صراحةً (&quot;send me the comparison as a chart&quot;، &quot;return the data as a CSV&quot;) أو اكتب تعليمات مخصّصة / مُدخلًا للشخصية (personality) خاصًا بك يُرجّح الردود على شكل مُخرَجات في منصات المراسلة.</p>
+<p><strong>على مستوى المشروع:</strong> أضف هذا التوجيه إلى <code>AGENTS.md</code> / <code>CLAUDE.md</code> / <code>.cursorrules</code> في مشروع يعمل منه الوكيل، أو إلى الشخصية العامة في <code>~/.hermes/SOUL.md</code>، أو كإعداد مسبق مُسمّى تحت <code>agent.personalities</code> في <code>~/.hermes/config.yaml</code> (يمكن التبديل إليه في كل جلسة عبر <code>/personality</code>).</p>
+<p>الآلية التي يجب أن يستخدمها الوكيل بسيطة: يُنشئ الملف في مسار مطلق (مثل <code>/tmp/q3-revenue.png</code>) ويذكر ذلك المسار كنص عادي في الرد. ويتولى الـ gateway الباقي. وتُتجاهَل المسارات الموجودة داخل كتل الكود المُسيّجة أو بين علامات backtick، حتى لا تتشوّه أمثلة الكود أبدًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="kanban-artifacts-ride-completion-notifications">Kanban: المُخرَجات ترافق إشعارات الإنجاز</h2>
+<p>إذا كنت تستخدم سير عمل Kanban متعدد الوكلاء في Hermes، فيمكن للـ workers إرفاق ملفات المُخرَجات باستدعاء <code>kanban_complete</code> الخاص بهم:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>عندما يسلّم مُرسِل الإشعارات في الـ gateway رسالة &quot;task completed&quot; إلى من اشترك في المهمة على Slack أو Telegram أو غيرهما، فإنه يرفع أيضًا كل مُخرَج كمرفق أصلي في تلك المحادثة. وهكذا يحصل الشخص على المُخرَج والملخّص في مكان واحد.</p>
+<p>الملفات غير الموجودة على القرص عند تشغيل مُرسِل الإشعارات تُتجاوَز بصمت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="connecting-more-services-with-mcp">ربط مزيد من الخدمات عبر MCP</h2>
+<p>إلى جانب pipeline تسليم المُخرَجات، يمكن للوكيل الوصول إلى خدمات أخرى عبر MCP (Model Context Protocol). ويوفّر نظام MCP خوادم مجتمعية لمعظم الأدوات الشائعة — ثبّت ما تحتاج إليه منها:</p>
+<table><thead><tr><th>الخدمة</th><th>ما تتيحه</th></tr></thead><tbody><tr><td><strong>Notion</strong></td><td>قراءة صفحات Notion وقواعد بياناتها والكتابة فيها، والاستعلام عن مساحة العمل</td></tr><tr><td><strong>GitHub</strong></td><td>Issues و PRs والتعليقات والبحث في المستودعات بما يتجاوز gh CLI</td></tr><tr><td><strong>Linear</strong></td><td>التذاكر والمشاريع والدورات (cycles)</td></tr><tr><td><strong>Slack</strong></td><td>البحث على مستوى مساحة العمل كلها، وقراءة القنوات الأخرى</td></tr><tr><td><strong>Gmail</strong></td><td>فرز البريد الوارد، وإرسال البريد، وإدارة التصنيفات</td></tr><tr><td><strong>Salesforce</strong></td><td>العملاء المحتملون (leads) والفرص (opportunities) وبيانات الحسابات</td></tr><tr><td><strong>Snowflake / BigQuery</strong></td><td>استعلامات SQL على مستودعات البيانات</td></tr><tr><td><strong>Google Drive</strong></td><td>البحث عن الملفات، ومحتوياتها، وإدارة المشاركة</td></tr></tbody></table>
+<p>ثبّت خوادم MCP عبر <code>~/.hermes/config.yaml</code> ضمن القسم <code>mcp_servers</code>. راجع <a href="/docs/user-guide/features/mcp">التكامل مع MCP</a> للاطلاع على دليل الإعداد الكامل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="comparison-to-perplexity-computer-in-slack">مقارنة مع Perplexity Computer في Slack</h2>
+<p>يقوم تكامل Perplexity Computer مع Slack على الفكرة نفسها: يولّد الوكيل مُخرَجًا (رسمًا بيانيًا، أو ملف PDF، أو عرضًا تقديميًا) وينشره في سلسلة الرسائل (thread) كمرفق أصلي. ويقدّم Deliverable Mode في Hermes Agent النمط نفسه من منظور المستخدم، ولكن محليًا:</p>
+<ul>
+<li>يجري التوليد داخل venv / sandbox الخاص بالمستخدم نفسه (دون مستأجر بعيد).</li>
+<li>تصل الملفات إلى المحادثة عبر API نفسه في Slack: <code>files.uploadV2</code>.</li>
+<li>يأتي تنوّع الموصلات (connectors) عبر MCP بدلًا من كتالوج منتقى يضم 400 تكامل مستضاف — ثبّت ما تستخدمه فعلًا.</li>
+</ul>
+<p>تبقى tokens الخاصة بـ OAuth على جهاز المستخدم في <code>auth.json</code> / <code>.env</code>. لا يوجد تخزين مستضاف للـ tokens. ولا توجد microVM متعددة المستأجرين. والنتيجة النهائية نفسها.</p>

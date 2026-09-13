@@ -1,0 +1,51 @@
+<header><h1>الحلقات المتكررة (<code>/loop</code>)</h1></header>
+<p>يعيد <code>/loop</code> تشغيل prompt (أو slash command) وفق إيقاع متكرر <strong>داخل جلستك الحالية</strong>. كل استيقاظ هو دور حقيقي للوكيل: يقرأ Hermes الحالة الراهنة من جديد — أحدث نتيجة لـ CI، وأحدث عمق للطابور، والملف كما هو الآن — وينفّذ العمل، ويُبلغك بالنتيجة، ثم يهدأ حتى الدورة (tick) التالية.</p>
+<p>إنه تصوّر Hermes لـ <strong>الأمر <code>/loop</code> في Claude Code</strong> (والاسم البديل له <code>/proactive</code>، الذي يعمل هنا أيضًا). فبينما يعتمد <a href="/docs/user-guide/features/goals"><code>/goal</code></a> على المُقيِّم (judge) — &quot;واصل العمل حتى يتحقق هذا الهدف&quot; — يعتمد <code>/loop</code> على المؤقّت: &quot;كرّر هذا كل N دقيقة (أو متى كان ذلك منطقيًا) حتى يطلب شيءٌ التوقف.&quot;</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-it">متى تستخدمه</h2>
+<ul>
+<li><strong>استطلاع حالة خارجية.</strong> &quot;راقب عملية النشر / تشغيل CI / الطابور وأخبرني عندما يتغير.&quot; حالة الاستخدام النموذجية.</li>
+<li><strong>التكرار حتى النجاح.</strong> &quot;شغّل الاختبارات، وأصلح ما يفشل، وكرّر حتى تنجح.&quot;</li>
+<li><strong>المراقبة أثناء جلسة عمل.</strong> راقب معدلات الأخطاء أو تقدّم مهمة طويلة بينما تنجز شيئًا آخر في المحادثة نفسها.</li>
+<li><strong>أعمال الصيانة الدورية.</strong> أعد تشغيل فحص lint أو ملخص الحالة كل N دقيقة خلال جلسة طويلة.</li>
+</ul>
+<p>عندما يجب أن يعمل العمل <strong>دون إشراف</strong> — طوال الليل، ووفق جدول حقيقي، وبما يصمد بعد إعادة تشغيل الطرفية — فاستخدم <a href="/docs/user-guide/features/cron">مهمة cron</a> بدلًا من ذلك. يعيش <code>/loop</code> داخل جلسة؛ بينما يعيش cron خارج الجلسات كلها. وعندما تكون المهمة هدفًا واحدًا له تعريف واضح للإنجاز، فإن <a href="/docs/user-guide/features/goals"><code>/goal</code></a> يكون عادةً الخيار الأنسب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ما ستراه:</p>
+<ol>
+<li><strong>قبول الحلقة</strong> — <code>↻ Loop set (every 5m): check the deploy status…</code></li>
+<li><strong>أول استيقاظ ينطلق فورًا</strong> — عند الاستطلاع التالي في حالة الخمول (في الـ gateway: فحص المراقب التالي كل 15 ثانية)، يحقن Hermes الاستيقاظ وينفّذ دورًا عاديًا على الحالة الراهنة.</li>
+<li><strong>التكرار</strong> — كل 5 دقائق بعد ذلك، حتى ينطلق شرط توقف أو توقفها أنت.</li>
+</ol>
+<p>يمكنك تكرار slash command بالسهولة نفسها:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-two-cadence-modes">وضعا الإيقاع</h2>
+<p><strong>فاصل زمني ثابت — أنت من يضبط الساعة.</strong> حدّد فاصلًا زمنيًا (<code>30s</code>، <code>5m</code>، <code>2h</code>، <code>1h30m</code>) وستنطلق الحلقة وفق ذلك الجدول. استخدمه عندما يتغير الشيء الذي تراقبه وفق جدوله الزمني الخاص:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>إيقاع ذاتي — Hermes يضبط الساعة.</strong> احذف الفاصل الزمني وستضبط الحلقة إيقاعها بنفسها: تبدأ من الحد الأدنى (دقيقة واحدة افتراضيًا)، وما دامت ردود الوكيل لا تتغير فإنها تتباطأ أُسّيًا — 2 دقيقة، ثم 4، ثم 8، وصولًا إلى الحد الأقصى (15 دقيقة افتراضيًا). وفي اللحظة التي يختلف فيها رد عن سابقه، يعود الإيقاع فورًا إلى الحد الأدنى. يعتمد اكتشاف التغيير على مقارنة محلية للبصمة (digest) (مع تجاهل الطوابع الزمنية)، لذا لا تكلّف فترات الانتظار الخاملة شيئًا إضافيًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>القاعدة العامة: <strong>فاصل زمني ثابت عندما تقود ساعة خارجية العمل؛ وإيقاع ذاتي عندما يقود العمل الإيقاع.</strong></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="stop-conditions">شروط التوقف</h2>
+<p>تنتهي الحلقة عندما ينطلق أيٌّ مما يلي:</p>
+<table><thead><tr><th>الشرط</th><th>الطريقة</th></tr></thead><tbody><tr><td>يقرر الوكيل أن العمل انتهى</td><td>يُعلِّم prompt الاستيقاظ الوكيلَ أن يُنهي رده بـ <code>LOOP_COMPLETE</code> في سطر مستقل عندما تنتهي المهمة أو تفقد جدواها.</td></tr><tr><td>حدّ لعدد التشغيلات</td><td><code>--times N</code> — التوقف بعد N من الاستيقاظات.</td></tr><tr><td>شرط قائم على الأدلة</td><td><code>--until &lt;condition&gt;</code> — بعد كل استيقاظ، يتحقق المُقيِّم المساعد نفسه الذي يشغّل <code>/goal</code> من الرد مقابل شرطك. وإذا حكم المُقيِّم بأن الشرط غير قابل للتحقيق، <strong>تتوقف</strong> الحلقة مؤقتًا مع ذكر السبب بدلًا من إعادة الانطلاق حتى استنفاد ميزانية الدورات (fail-open: المُقيِّم المعطّل لا يُعلِّق الحلقة أبدًا).</td></tr><tr><td>أنت</td><td><code>/loop stop</code> (أو <code>/loop pause</code> للإبقاء عليها).</td></tr><tr><td>ميزانية الأمان</td><td>يوقف <code>loops.max_ticks</code> (الافتراضي 100) الحلقة مؤقتًا كي لا تستهلك جلسة دون إشراف الـ tokens إلى الأبد. <code>0</code> = بلا حدود.</td></tr></tbody></table>
+<p>أمثلة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands">الأوامر</h2>
+<table><thead><tr><th>الأمر</th><th>ما يفعله</th></tr></thead><tbody><tr><td><code>/loop [interval] &lt;prompt&gt; [--times N] [--until &lt;cond&gt;]</code></td><td>يبدأ الحلقة لهذه الجلسة (أو يستبدلها). ينطلق الاستيقاظ الأول فورًا؛ وتتبع الاستيقاظات اللاحقة الإيقاع المحدد.</td></tr><tr><td><code>/loop</code> أو <code>/loop status</code></td><td>يعرض الإيقاع، وعدد الدورات المنطلقة، والوقت المتبقي حتى الاستيقاظ التالي.</td></tr><tr><td><code>/loop pause</code></td><td>يوقف الانطلاق دون فقدان الحلقة.</td></tr><tr><td><code>/loop resume</code></td><td>يستأنف الحلقة.</td></tr><tr><td><code>/loop stop</code></td><td>يُنهي الحلقة.</td></tr><tr><td><code>/proactive …</code></td><td>اسم بديل لـ <code>/loop</code> (للتكافؤ مع Claude Code).</td></tr></tbody></table>
+<p>يعمل في CLI، و TUI ‏(<code>hermes --tui</code>)، ومحادثة لوحة التحكم على الويب، وتطبيق سطح المكتب، وكل منصات الـ gateway ‏(Telegram و Discord و Slack و WhatsApp و…). وعلى منصات المراسلة يُطلق الـ gateway الاستيقاظات حتى بين رسائلك — فالحلقة تنتمي إلى جلسة المحادثة، وتصل نتائجها كردود عادية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mixing-with-goal">الجمع مع <code>/goal</code></h2>
+<p>تحقن كلتا الميزتين أدوارًا اصطناعية عند حدود الخمول، لذا تتبعان قاعدة واحدة: <strong>الهدف النشط يملك الجلسة.</strong> فبينما يقود <code>/goal</code> العمل فعليًا (والمُقيِّم يقول &quot;continue&quot;)، تُؤجَّل استيقاظات الحلقة. وتستأنف الحلقة استخدام وقت الخمول فور انتهاء الهدف، أو توقفه مؤقتًا، أو دخوله وضع الانتظار على حاجز انتظار (<code>/goal wait</code>، أو حكم WAIT التلقائي من المُقيِّم). والجمع بين هدف في وضع الانتظار و <code>/loop</code> تركيبة طبيعية: ينتظر الهدف الشيء غير المتزامن الكبير بينما تُبقي الحلقة نبضًا على شيء آخر.</p>
+<p>رسالة المستخدم الحقيقية لها الأولوية دائمًا على كليهما — فالاستيقاظات لا تنطلق إلا عندما تكون الجلسة خاملة ولا يوجد شيء منك في الطابور.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="behavior-details">تفاصيل السلوك</h2>
+<ul>
+<li><strong>الاستيقاظ دور عادي بدور المستخدم.</strong> لا تعديل على الـ system prompt، ولا تبديل للـ toolset — فيبقى التخزين المؤقت للـ prompt سليمًا.</li>
+<li><strong>يصمد بعد <code>/resume</code> والضغط.</strong> تُحفظ حالة الحلقة لكل جلسة وتنتقل عبر حدود ضغط السياق، تمامًا مثل <code>/goal</code>.</li>
+<li><strong>حلقة واحدة لكل جلسة.</strong> تعيين <code>/loop</code> جديد يستبدل القديم. لتشغيل عدة حلقات، شغّل عدة جلسات (أو استخدم cron لمجموعة كبيرة من الجداول).</li>
+<li><strong>مقاطعة دور الاستيقاظ (Ctrl+C) توقف الحلقة مؤقتًا</strong> — ويمكن استعادتها باستخدام <code>/loop resume</code>، فالإلغاء يعني الإلغاء فعلًا.</li>
+<li><strong>تتناسب تكلفة الـ tokens مع الإيقاع.</strong> كل دورة هي دور كامل للوكيل. طابِق الفاصل الزمني مع عدد مرات تغيّر الحالة فعليًا؛ وفضّل الإيقاع الذاتي لفترات الانتظار الخاملة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>يمرّ مُقيِّم <code>--until</code> عبر المهمة المساعدة <code>goal_judge</code>، لذا تنطبق قيم التوجيه البديلة <code>auxiliary.goal_judge.*</code> (المزوّد، والنموذج) على شروط الحلقة أيضًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="loop-vs-goal-vs-cron"><code>/loop</code> مقابل <code>/goal</code> مقابل cron</h2>
+<table><thead><tr><th></th><th><code>/loop</code></th><th><code>/goal</code></th><th>cron</th></tr></thead><tbody><tr><td><strong>المُشغِّل</strong></td><td>مؤقّت (أو إيقاع ذاتي)</td><td>حكم المُقيِّم بعد كل دور</td><td>جدول زمني، خارج أي جلسة</td></tr><tr><td><strong>مكان العمل</strong></td><td>جلستك الحالية</td><td>جلستك الحالية</td><td>جلسة خاصة لكل تشغيل</td></tr><tr><td><strong>ينتهي عندما</strong></td><td>شرط توقف / حدود قصوى / أنت</td><td>تحقق الهدف / الميزانية / أنت</td><td>تزيل أنت المهمة</td></tr><tr><td><strong>الأنسب لـ</strong></td><td>الاستطلاع، والمراقبة، وإعادة التشغيل الدورية</td><td>هدف واحد، مع التكرار حتى الإنجاز</td><td>الجداول طويلة المدى التي تعمل دون إشراف</td></tr></tbody></table>

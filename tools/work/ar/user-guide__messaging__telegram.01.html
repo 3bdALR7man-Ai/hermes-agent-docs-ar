@@ -1,0 +1,166 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="large-files-20mb-via-local-bot-api-server">الملفات الكبيرة (&gt;20MB) عبر خادم Bot API محلي</h2>
+<p>تحدّ Bot API <strong>العامة</strong> في Telegram عمليات تنزيل <code>getFile</code> بـ <strong>20 MB</strong>، لذا فإن أي ملاحظة صوتية أو ملف صوتي أو فيديو أو مستند أكبر من ذلك يرفضه Hermes بصمت مع رد &quot;too large&quot;. والطريقة الموثّقة لتجاوز ذلك هي تشغيل daemon <strong>محلي</strong> لـ <a href="https://github.com/tdlib/telegram-bot-api" data-ext>telegram-bot-api</a> — وهو برنامج الخادم نفسه الذي يستخدمه Telegram، لكنه يعمل على شبكتك. ويرفع الخادم المحلي سقف حجم الملفات إلى <strong>2 GB</strong>، ويرفع Hermes حده الداخلي تلقائيًا عندما يرى <code>base_url</code> مخصصًا مضبوطًا.</p>
+<p>يتيح ذلك سير عمل مثل:</p>
+<ul>
+<li>إرسال مذكرات صوتية طويلة (اجتماعات مدتها 45 دقيقة، وحلقات بودكاست) إلى البوت</li>
+<li>رفع مقاطع فيديو كبيرة لمعالجتها بأدوات الرؤية (vision)</li>
+<li>أرشفة الصوت الخام لاستخدامه في pipelines غير متصلة مثل تمييز المتحدثين (diarization) أو المحاذاة أو بيانات التدريب</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-obtain-telegram-api-credentials">الخطوة 1: الحصول على بيانات اعتماد Telegram API</h3>
+<p>يتواصل الخادم المحلي مباشرةً مع طبقة MTProto في Telegram (وليس مع Bot API العامة)، لذا يحتاج إلى <strong>بيانات اعتماد MTProto</strong>:</p>
+<ol>
+<li>زُر <a href="https://my.telegram.org/apps" data-ext>my.telegram.org/apps</a> وسجّل الدخول بحساب Telegram الخاص بك.</li>
+<li>أنشئ تطبيقًا جديدًا (أي اسم ووصف قصير يفيان بالغرض).</li>
+<li>انسخ <code>api_id</code> و <code>api_hash</code> — فكلاهما مطلوب.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-run-the-telegram-bot-api-server">الخطوة 2: تشغيل خادم telegram-bot-api</h3>
+<p>تُعد صورة Docker <a href="https://hub.docker.com/r/aiogram/telegram-bot-api" data-ext><code>aiogram/telegram-bot-api</code></a> التي يصونها المجتمع أسهل طريق. وإليك ملف <code>docker-compose.yaml</code> بسيطًا (استخدم الوضع <code>--local</code> لتفعيل الحدود الأعلى):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>شغّله:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="64"></x-keep></span>الأمان</div><div class="admonitionContent_BuS1"><p>يتلقى خادم Bot API المحلي token البوت في مسار URL (مثل <code>/bot&lt;TOKEN&gt;/getMe</code>) <strong>دون أي مصادقة إضافية</strong>. فأي شخص يستطيع الوصول إلى المنفذ يمكنه التحكم الكامل في بوتك — قراءة كل رسالة يستطيع البوت رؤيتها، وإرسال رسائل باسمه، وما إلى ذلك. اربط الحاوية بـ <code>127.0.0.1</code> و/أو ضع أمامها reverse proxy على شبكة خاصة. <strong>لا تكشف المنفذ 8081 للإنترنت العام أبدًا.</strong></p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-log-the-bot-out-of-the-public-api-one-time">الخطوة 3: تسجيل خروج البوت من API العامة (لمرة واحدة)</h3>
+<p>لا يمكن للبوت أن يكون نشطًا إلا على خادم Bot API <strong>واحد</strong> في كل مرة. فإذا كان بوتك يعمل مسبقًا مع <code>api.telegram.org</code> (وهو ما يكاد يكون مؤكدًا)، فيجب أن تسجّل خروجه من هناك صراحةً قبل أن يقبله الخادم المحلي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>هذه خطوة ترحيل تُنفَّذ مرة واحدة — فلا تكررها عند كل إعادة تشغيل. وبعد <code>logOut</code>، يسلّم Telegram أي رسائل مستلمة عبر الخادم الجديد بدلًا من ذلك.</p>
+<p>تحقق من أن الخادم المحلي يستطيع التواصل مع Telegram نيابةً عن البوت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-point-hermes-at-the-local-server">الخطوة 4: توجيه Hermes إلى الخادم المحلي</h3>
+<p>أضف عناوين URL تحت <code>platforms.telegram.extra</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="65"></x-keep></span>استخدم <code>platforms.telegram.extra</code> وليس <code>telegram.extra</code></div><div class="admonitionContent_BuS1"><p>في الوقت الحالي، لا تُدمج في إعدادات المنصة دمجًا عميقًا إلا الصيغة <code>platforms.&lt;name&gt;.extra</code>. أما المفاتيح الموضوعة مباشرةً تحت كتلة <code>telegram.extra</code> في المستوى الأعلى فتُهمل بصمت.</p></div></div>
+<p>عند ضبط <code>base_url</code>، يقوم Hermes بما يلي:</p>
+<ul>
+<li>يبني عميل python-telegram-bot بحيث يتصل بالخادم المحلي</li>
+<li>يرفع تلقائيًا حده الداخلي لحجم المستندات/الملفات الصوتية من 20 MB → 2 GB</li>
+<li>يعرض الحد الفعّال في رسالة خطأ &quot;too large&quot; (<code>Maximum: 2048 MB.</code>) ليتضح لك الوضع الذي تعمل فيه</li>
+</ul>
+<p>أعد تشغيل gateway وابحث عن سطر سجل يؤكد ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-local_mode--file-access-on-disk">الخطوة 5: <code>local_mode</code> — الوصول إلى الملفات على القرص</h3>
+<p>لدى الخادم المحلي <strong>طريقتان</strong> لتسليم الملفات:</p>
+<ol>
+<li><strong>دون <code>--local</code></strong> (الافتراضي): تُقدَّم الملفات عبر HTTP على <code>/file/bot&lt;TOKEN&gt;/&lt;path&gt;</code>، تمامًا كما في Bot API العامة. ويبقى سقف 20MB ساريًا. وهذا مفيد فقط كحل لمشكلات الشبكة (مثلًا عندما يتعذر الوصول إلى <code>api.telegram.org</code> لكن يمكنك الاستضافة ذاتيًا)؛ وليس ما تريده لرفع حد الحجم.</li>
+<li><strong>مع <code>--local</code></strong> (يُضبط عبر <code>TELEGRAM_LOCAL=1</code> أعلاه): تُكتب الملفات في نظام ملفات الخادم، وتُعيد استجابة <code>getFile</code> <strong>مسارًا مطلقًا</strong> بدلًا من HTTP URL. ويُرفع سقف 20MB. وعندها يجب على Hermes قراءة البيانات <strong>من القرص</strong>، لا عبر HTTP.</li>
+</ol>
+<p>لكي يعمل مسار القراءة من القرص، اضبط <code>local_mode: true</code> في الإعدادات أعلاه، <strong>وكذلك</strong> تأكد من أن عملية Hermes تستطيع قراءة المسار الذي يُعيده الخادم. وهناك سيناريوهان:</p>
+<ul>
+<li><strong>الجهاز نفسه</strong> — يعمل telegram-bot-api و Hermes على الجهاز المضيف نفسه. اربط وحدة تخزين البيانات (bind-mount) بمجلد يستطيع Hermes قراءته (مثل <code>/var/lib/telegram-bot-api</code>)، وتأكد من تطابق ملكية الملفات. إذ تتخلى الحاوية عن صلاحياتها لصالح مستخدمها الداخلي <code>telegram-bot-api</code> (ويختلف uid باختلاف الصورة)؛ وأبسط حل هو إضافة <code>user: &quot;&lt;UID&gt;:&lt;GID&gt;&quot;</code> إلى خدمة compose بحيث تكون الملفات مملوكة لـ uid يعمل به Hermes بالفعل.</li>
+<li><strong>أجهزة مختلفة</strong> — يعمل خادم البوت على جهاز مضيف (مثل NAS أو جهاز افتراضي منفصل) و Hermes على جهاز آخر. ويجب مشاركة مجلد بيانات الخادم مع جهاز Hermes على <strong>المسار المطلق نفسه</strong> الذي يُبلغ عنه الخادم (عادةً <code>/var/lib/telegram-bot-api</code>). ويعمل NFS جيدًا لهذا الغرض؛ أما CIFS/SMB مع إعادة تعيين الربط عبر <code>uid=</code> فهو أيسر إذا كنت لا تريد التعامل مع عدم تطابق uid على مستوى نظام الملفات.</li>
+</ul>
+<p>إذا ضُبط <code>local_mode: true</code> لكن Hermes لم يتمكن من تنفيذ <code>stat</code> على مسار الملف المُعاد (بسبب الصلاحيات أو ربط خاطئ)، فإن python-telegram-bot يعود بصمت إلى طلب <code>getFile</code> عبر HTTP إلى الخادم المحلي — والذي يرد في الوضع <code>--local</code> بـ <code>404 Not Found</code>. ويظهر العَرَض في <code>gateway.log</code> على النحو التالي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>إذا رأيت ذلك، فرفع الحد يعمل لكن مشاركة الملفات لا تعمل. تحقق بتنفيذ <code>ls -la /var/lib/telegram-bot-api/&lt;TOKEN&gt;/voice/</code> من الجهاز المضيف لـ Hermes بالمستخدم الذي يعمل به gateway، وتأكد من إمكانية قراءة ملف واحد بـ <code>cat</code> دون خطأ في الصلاحيات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-test-it">الخطوة 6: الاختبار</h3>
+<p>أرسل إلى البوت ملاحظة صوتية أو ملفًا صوتيًا يزيد حجمه على 20 MB. وتابع ذيل سجل gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>من المفترض أن ترى سطر <code>[Telegram] Cached user voice at /home/&lt;user&gt;/.hermes/cache/audio/...</code> <strong>دون</strong> أي رفض بسبب &quot;too large&quot;. ومع <code>stt.enabled: false</code> (أعلاه)، يصل مسار الملف الصوتي الأصلي بعد ذلك ضمن الرسالة الواردة إلى الوكيل لمعالجته لاحقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-chat-usage">الاستخدام في المحادثات الجماعية</h2>
+<p>يعمل Hermes Agent في المحادثات الجماعية على Telegram مع مراعاة بعض الاعتبارات:</p>
+<ul>
+<li><strong>وضع الخصوصية</strong> يحدد الرسائل التي يستطيع البوت رؤيتها (انظر <a href="#step-3-privacy-mode-critical-for-groups">الخطوة 3</a>)</li>
+<li>يظل <code>TELEGRAM_ALLOWED_USERS</code> ساريًا — فلا يستطيع استدعاء البوت إلا المستخدمون المصرّح لهم، حتى في المجموعات</li>
+<li>يمكنك منع البوت من الرد على أحاديث المجموعة العادية باستخدام <code>telegram.require_mention: true</code></li>
+<li>مع <code>telegram.require_mention: true</code>، تُقبل رسائل المجموعة عندما تكون:
+<ul>
+<li>ردودًا على إحدى رسائل البوت</li>
+<li>إشارات <code>@botusername</code></li>
+<li><code>/command@botusername</code> (صيغة أوامر قائمة البوت في Telegram التي تتضمن اسم البوت)</li>
+<li>مطابقة لإحدى كلمات الإيقاظ (wake words) المضبوطة كتعبيرات regex في <code>telegram.mention_patterns</code></li>
+</ul>
+</li>
+<li>في المجموعات التي تضم عدة بوتات Hermes، يُبقي <code>telegram.exclusive_bot_mentions</code> التوجيه حتميًا. فعندما تشير رسالة صراحةً إلى اسم مستخدم واحد أو أكثر لبوتات Telegram، لا يعالجها إلا الـ profiles الخاصة بالبوتات المُشار إليها؛ بينما تتجاهلها بوتات Hermes الأخرى قبل تنفيذ آليات الرد وكلمات الإيقاظ الاحتياطية. وهذا الخيار مفعّل افتراضيًا.</li>
+<li>يُلتقط تغيير <code>@username</code> الخاص بالبوت في BotFather تلقائيًا — إذ يتبع Hermes الاسم الجديد في توجيه الإشارات دون إعادة تشغيل gateway. كما أن أسماء المستخدمين القابلة للتجميع (Fragment) التي لا تنتهي بـ <code>bot</code> مدعومة أيضًا.</li>
+<li>استخدم <code>telegram.ignored_threads</code> لإبقاء Hermes صامتًا في مواضيع منتدى Telegram محددة، حتى لو كانت المجموعة تسمح في غير ذلك بالردود الحرة أو الردود المُستدعاة بالإشارة</li>
+<li>إذا تُرك <code>telegram.require_mention</code> دون ضبط أو كانت قيمته false، فيحافظ Hermes على السلوك السابق للمجموعات المفتوحة ويرد على رسائل المجموعة العادية التي يستطيع رؤيتها</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-hermes-bots-in-one-group">عدة بوتات Hermes في مجموعة واحدة</h3>
+<p>إذا كنت تشغّل عدة profiles من Hermes في مجموعة Telegram نفسها، فأنشئ token بوت Telegram واحدًا لكل profile وشغّل gateway واحدًا لكل profile. ولا تُعِد استخدام token البوت نفسه في عدة gateways قيد التشغيل؛ فسيرفض Telegram عمليات الاستطلاع المتزامنة للـ token نفسه.</p>
+<p>إعدادات المجموعة الموصى بها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>مع هذا الإعداد، فإن رسالة جماعية مثل <code>@research_bot @ops_bot summarize this</code> لا يعالجها إلا <code>research_bot</code> و <code>ops_bot</code>. وتبقى بوتات Hermes الأخرى في المجموعة صامتة، حتى لو كانت الرسالة ردًا على إحدى رسائلها السابقة أو كانت ستطابق في غير ذلك كلمة إيقاظ مشتركة.</p>
+<p>لا يزال بإمكان بوتين من Hermes يرد كلٌّ منهما على الردود المقتبسة من الآخر أن يدخلا في حلقة لا نهائية مع <code>TELEGRAM_ALLOW_BOTS=all</code>، لأن الرد على البوت يجتاز بوابة <code>require_mention</code> دائمًا. ويؤدي ضبط <code>telegram.bots_require_mention: true</code> (متغير البيئة <code>TELEGRAM_BOTS_REQUIRE_MENTION</code>) إلى إغلاق هذا المسار: فالرسالة الواردة من بوت آخر لا تستدعي ردًا إلا عندما تذكر هذا البوت صراحةً عبر <code>@mentions</code>، بينما تستمر ردود البشر في العمل دون تغيير.</p>
+<p>كما تراقب آلية حماية من الحلقات بين البوتات كل محادثة يُسمح فيها بالرسائل التي تكتبها البوتات (عند ضبط <code>TELEGRAM_ALLOW_BOTS</code> على <code>mentions</code> أو <code>all</code>). فبمجرد وصول 20 رسالة من البوتات إلى محادثة واحدة خلال 5 دقائق، تُهمل رسائل البوتات الإضافية في تلك المحادثة لمدة 10 دقائق ويُسجَّل تحذير واحد؛ أما رسائل البشر فلا تُحتسب ولا تُهمل أبدًا. وتوجد الإعدادات في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>البوت المشروع ذو الحجم الكبير الذي ينشر أكثر من 20 رسالة في محادثة واحدة خلال 5 دقائق يُفعّل آلية الحماية أيضًا؛ لذا ارفع قيمة <code>max_events</code> لذلك الـ gateway.</p>
+<p>يحتفظ نص المحادثة الجماعية وتعليقات الوسائط بكل الإشارات عندما تذكر الرسالة مشاركين آخرين أيضًا (فالرسالة <code>@research_bot , @ops_bot are you both listening?</code> تصل إلى <code>research_bot</code> حرفيًا)؛ أما عندما يكون هذا البوت هو المخاطَب الوحيد، فيُحذف اسمه منها كي تظل الإجابات القصيرة مثل <code>@hermes_bot 2</code> تعمل. كما تحمل أدوار المجموعة اسم مستخدم Telegram الخاص بالبوت ضمن السياق الخاص بكل قناة، ليتمكن النموذج من معرفة أي الإشارات المُبقاة موجّهة إليه. وتظل slash commands تخضع لعملية التنظيف المعتادة الخاصة باستدعاء الأوامر.</p>
+<p>لا تضبط <code>exclusive_bot_mentions: false</code> إلا للمجموعات القديمة التي لا ينبغي فيها للإشارات الصريحة أن تتجاوز محفزات الرد وكلمات الإيقاظ.</p>
+<p>لتشغيل عدة profiles، نفّذ أمر gateway مرة لكل profile. على سبيل المثال:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>لمجموعة صغيرة وثابتة من البوتات، استخدم حلقة shell أو سكربتًا يستدعي <code>hermes gateway &lt;action&gt;</code> للـ profile الافتراضي و <code>hermes -p &lt;profile&gt; gateway &lt;action&gt;</code> لكل profile مسمّى. فهذا أكثر موثوقية من افتراض أن أمرًا واحدًا على مستوى العملية يتحكم في كل profile مسمّى على كل مدير خدمات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting-works-in-dms-but-not-groups">استكشاف الأخطاء وإصلاحها: يعمل في الرسائل المباشرة لكن ليس في المجموعات</h3>
+<p>إذا كان البوت يرد في محادثة خاصة لكنه يبقى صامتًا في مجموعة، فتحقق من هذه
+البوابات بالترتيب:</p>
+<ol>
+<li><strong>التسليم من Telegram:</strong> عطّل وضع الخصوصية في BotFather، أو رقِّ البوت إلى
+مشرف، أو أشِر إلى البوت مباشرةً. فلا يستطيع Hermes الرد على رسائل المجموعة
+التي لا يسلّمها Telegram إلى البوت أصلًا.</li>
+<li><strong>إعادة الانضمام بعد تغيير الخصوصية:</strong> أزل البوت من المجموعة ثم أضفه
+مجددًا بعد تغيير إعدادات الخصوصية في BotFather. فقد يُبقي Telegram على سلوك
+التسليم القديم للعضويات القائمة.</li>
+<li><strong>التفويض في Hermes:</strong> تأكد من أن المرسل مُدرج في
+<code>TELEGRAM_ALLOWED_USERS</code> أو <code>TELEGRAM_GROUP_ALLOWED_USERS</code>، أو اسمح
+بالمحادثة الجماعية عبر <code>TELEGRAM_GROUP_ALLOWED_CHATS</code>.</li>
+<li><strong>مرشّحات الإشارة:</strong> إذا كان <code>telegram.require_mention: true</code> مضبوطًا، فتُتجاهل أحاديث
+المجموعة العادية ما لم تكن الرسالة slash command، أو ردًا على
+البوت، أو إشارة <code>@botusername</code>، أو مطابقة لـ <code>mention_patterns</code> المضبوطة.</li>
+<li><strong>التوجيه بين عدة بوتات:</strong> إذا كانت المجموعة تضم عدة بوتات، فتأكد من أن كل
+profile من Hermes يستخدم token بوت فريدًا، وأبقِ <code>exclusive_bot_mentions</code>
+مفعّلًا ما لم تكن تريد عمدًا سلوك المحفزات المشتركة القديم.</li>
+</ol>
+<p>معرّفات المحادثات السالبة أمر طبيعي في مجموعات Telegram والمجموعات الكبرى (supergroups). وإذا كنت تستخدم
+التفويض على مستوى المحادثة، فضع تلك المعرّفات في <code>TELEGRAM_GROUP_ALLOWED_CHATS</code>، لا في
+قائمة السماح الخاصة بالمستخدمين المرسلين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-group-trigger-configuration">مثال على إعدادات محفزات المجموعة</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>يسمح هذا المثال بجميع المحفزات المباشرة المعتادة، إضافةً إلى الرسائل التي تبدأ بـ <code>chompy</code>، حتى لو لم تستخدم <code>@mention</code>.
+أما الرسائل في موضوعَي Telegram <code>31</code> و <code>42</code> فتُتجاهل دائمًا قبل تنفيذ فحوص الإشارة والردود الحرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes-on-mention_patterns">ملاحظات حول <code>mention_patterns</code></h3>
+<ul>
+<li>تستخدم الأنماط التعبيرات النمطية (regular expressions) في Python</li>
+<li>المطابقة غير حساسة لحالة الأحرف</li>
+<li>تُفحص الأنماط مقابل الرسائل النصية وتعليقات الوسائط معًا</li>
+<li>تُتجاهل أنماط regex غير الصالحة مع تحذير في سجلات gateway بدلًا من تعطّل البوت</li>
+<li>إذا أردت أن يطابق النمط بداية الرسالة فقط، فثبّته باستخدام <code>^</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="private-chat-topics-bot-api-94">مواضيع المحادثات الخاصة (Bot API 9.4)</h2>
+<p>قدّمت Telegram Bot API 9.4 (فبراير 2026) ميزة <strong>Private Chat Topics</strong> — إذ يمكن للبوتات إنشاء سلاسل مواضيع بنمط المنتديات مباشرةً في محادثات الرسائل المباشرة الثنائية، دون الحاجة إلى مجموعة كبرى (supergroup). ويتيح لك ذلك تشغيل عدة مساحات عمل معزولة داخل محادثتك المباشرة الحالية مع Hermes.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-case">حالة الاستخدام</h3>
+<p>إذا كنت تعمل على عدة مشاريع طويلة الأمد، فإن المواضيع تُبقي سياق كلٍّ منها منفصلًا:</p>
+<ul>
+<li><strong>موضوع &quot;Website&quot;</strong> — العمل على خدمة الويب الإنتاجية لديك</li>
+<li><strong>موضوع &quot;Research&quot;</strong> — مراجعة الأدبيات واستكشاف الأوراق البحثية</li>
+<li><strong>موضوع &quot;General&quot;</strong> — مهام متنوعة وأسئلة سريعة</li>
+</ul>
+<p>يحصل كل موضوع على جلسة محادثة وسجل وسياق خاصة به — معزولة تمامًا عن المواضيع الأخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-1">الإعدادات</h3>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="66"></x-keep></span>المتطلبات المسبقة</div><div class="admonitionContent_BuS1"><p>قبل إضافة المواضيع إلى إعداداتك، يجب على المستخدم <strong>تفعيل وضع Topics</strong> في محادثة الرسائل المباشرة مع البوت:</p><ol>
+<li>افتح محادثتك الخاصة مع بوت Hermes في Telegram</li>
+<li>انقر على اسم البوت في الأعلى لفتح معلومات المحادثة</li>
+<li>فعّل <strong>Topics</strong> (مفتاح التبديل الذي يحوّل المحادثة إلى منتدى)</li>
+</ol><p>من دون ذلك، سيسجّل Hermes الرسالة <code>The chat is not a forum</code> عند بدء التشغيل ويتخطى إنشاء المواضيع. وهذا إعداد من جهة عميل Telegram — ولا يستطيع البوت تفعيله برمجيًا.</p></div></div>
+<p>أضف المواضيع تحت <code>platforms.telegram.extra.dm_topics</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<p><strong>الحقول:</strong></p>
+<table><thead><tr><th>الحقل</th><th>مطلوب</th><th>الوصف</th></tr></thead><tbody><tr><td><code>name</code></td><td>نعم</td><td>اسم عرض الموضوع</td></tr><tr><td><code>icon_color</code></td><td>لا</td><td>رمز لون الأيقونة في Telegram (عدد صحيح)</td></tr><tr><td><code>icon_custom_emoji_id</code></td><td>لا</td><td>معرّف الرمز التعبيري المخصص لأيقونة الموضوع</td></tr><tr><td><code>skill</code></td><td>لا</td><td>المهارة التي تُحمَّل تلقائيًا في الجلسات الجديدة ضمن هذا الموضوع</td></tr><tr><td><code>thread_id</code></td><td>لا</td><td>يُملأ تلقائيًا بعد إنشاء الموضوع — لا تضبطه يدويًا</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<ol>
+<li>عند بدء gateway، يستدعي Hermes <code>createForumTopic</code> لكل موضوع لا يملك <code>thread_id</code> بعد</li>
+<li>يُحفظ <code>thread_id</code> في <code>config.yaml</code> تلقائيًا — فتتخطى عمليات إعادة التشغيل اللاحقة استدعاء API</li>
+<li>يُربط كل موضوع بمفتاح جلسة معزول: <code>agent:main:telegram:dm:{chat_id}:{thread_id}</code></li>
+<li>للرسائل في كل موضوع سجل محادثة خاص بها، وعملية تفريغ ذاكرة (memory flush) خاصة، و context window خاصة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="root-dm-handling">التعامل مع الرسائل المباشرة الجذرية</h3>
+<p>افتراضيًا، تُعالَج الرسائل المرسلة إلى المحادثة المباشرة الجذرية (خارج أي موضوع)
+بشكل عادي. اضبط <code>ignore_root_dm: true</code> لتحويل المحادثة المباشرة الجذرية إلى ردهة — إذ تُتجاهل الرسائل
+العادية بصمت لدى المستخدمين الذين لديهم مواضيع رسائل مباشرة مضبوطة، بينما
+تظل أوامر النظام (<code>/start</code>، <code>/help</code>، <code>/status</code>، إلخ) تعمل.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<p>يُجرى التحقق <strong>لكل محادثة على حدة</strong>: فلا تتأثر المحادثة المباشرة الجذرية إلا لدى المستخدمين الذين لديهم إدخال واحد على الأقل في <code>dm_topics</code>.
+أما المستخدمون الذين ليست لديهم مواضيع مضبوطة فلا
+يتأثرون.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-binding">ربط المهارات</h3>
+<p>المواضيع التي تتضمن الحقل <code>skill</code> تُحمّل تلك المهارة تلقائيًا عند بدء جلسة جديدة في الموضوع. ويعمل ذلك تمامًا مثل كتابة <code>/skill-name</code> في بداية المحادثة — إذ يُحقن محتوى المهارة في الرسالة الأولى، وتراه الرسائل اللاحقة ضمن سجل المحادثة.</p>
+<p>على سبيل المثال، الموضوع الذي يتضمن <code>skill: arxiv</code> ستُحمَّل فيه مهارة arxiv مسبقًا كلما أُعيد ضبط جلسته (بعد <code>/new</code> أو <code>/reset</code> صريح).</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="67"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>المواضيع التي أُنشئت خارج الإعدادات (مثلًا باستدعاء Telegram API يدويًا) تُكتشف تلقائيًا عند وصول رسالة الخدمة <code>forum_topic_created</code>. ويمكنك أيضًا إضافة مواضيع إلى الإعدادات أثناء تشغيل gateway — وستُلتقط عند أول إخفاق تالٍ في التخزين المؤقت (cache miss).</p></div></div>

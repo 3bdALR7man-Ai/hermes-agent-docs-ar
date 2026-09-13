@@ -1,0 +1,143 @@
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-is-isolated-per-profile">ما الذي يُعزَل لكل profile</h4>
+<p>مرجع سريع لما يحلّه دور مُضاعَف (multiplexed turn) من profile <strong>خاصٍّ به</strong>
+ولا يشاركه أبدًا مع الافتراضي أو أي شقيق له:</p>
+<table><thead><tr><th>الشأن</th><th>يُحَلّ من</th><th>السلوك عندما يفتقر الـ profile إليه</th></tr></thead><tbody><tr><td>مفاتيح المزوّد، ورموز البوت، ومراجع <code>${VAR}</code> في <code>config.yaml</code></td><td><code>.env</code> الخاص بالـ profile نفسه (نطاق أسراره)</td><td>غير محلول / لا محوّل — لا قيمة الـ profile الافتراضي أبدًا</td></tr><tr><td>التفويض (<code>GATEWAY_ALLOW_ALL_USERS</code>، <code>GATEWAY_ALLOWED_USERS</code>، قوائم السماح لكل منصة وخيارات السماح للجميع)</td><td><code>.env</code> و<code>config.yaml</code> الخاصان بالـ profile المالك</td><td>مغلق — لا يفتح انضمام الـ profile الافتراضي أبدًا بوت profile ثانوي</td></tr><tr><td>نقاط HTTP النهائية (<code>/p/&lt;profile&gt;/api/...</code>، <code>/p/&lt;profile&gt;/webhooks/...</code>، نداءات أحداث المنصة)</td><td><code>API_SERVER_KEY</code> الخاص بالـ profile المسمّى، ومسارات webhook المرتبطة بـ <code>profile:</code>، ومحوّله الخاص</td><td><code>401</code>/<code>404</code>؛ والتسليم من دون محوّل يكون <code>502</code>/<code>503</code>، وليس أبدًا بوت profile آخر</td></tr><tr><td>منصات المنفذ الوارد (<code>/p/&lt;profile&gt;/webhooks/twilio</code>، <code>/p/&lt;profile&gt;/line/webhook</code>، <code>/p/&lt;profile&gt;/api/messages</code>، …)</td><td>محوّل الـ profile المسمّى الخاص وسره (رمز مصادقة Twilio، وسر قناة LINE، وتطبيق Teams، وكلمة مرور BlueBubbles، ...)؛ وتخرج الردود عبر ذلك المحوّل</td><td><code>401</code>/<code>403</code> عند سر خاطئ، و<code>404</code> عندما لا يملك الـ profile محوّلًا كهذا — وليس أبدًا محوّل الـ profile الافتراضي</td></tr><tr><td>إعدادات المحوّل (<code>*_REQUIRE_MENTION</code>، <code>*_REACTIONS</code>، <code>*_PROXY</code>، مضيف/منفذ/رابط webhook، سياسة الخيط/الجلسة/E2EE في Matrix، حدود النسخ الاحتياطي/المرفقات في Discord، وضع رد Buzz، بطاقة وكيل A2A)</td><td><code>.env</code> و<code>config.yaml</code> الخاصان بالـ profile المالك</td><td>الافتراضي الموثّق للمحوّل — وليس أبدًا إعداد الـ profile الافتراضي</td></tr><tr><td>قائمة حظر مرفقات <code>MEDIA:</code></td><td>كل منزل تحت <code>profiles/</code> إضافة إلى المنزل الافتراضي، مُعدَّدة وقت التحقق</td><td>لا يمكن لدور أبدًا أن يُرفق <code>.env</code> أو <code>auth.json</code> أو <code>state.db</code> أو جلسات أو مخازن رموز خاصة بـ profile آخر</td></tr><tr><td>بيئة عملية MCP الفرعية بنمط stdio</td><td>الأساس الآمن + قيم الـ profile المحدَّدة النطاق لأسماء مصادر الأسرار + <code>env:</code> الخاص بالخادم نفسه</td><td>اسم يفتقر إليه الـ profile يكون غائبًا عن العملية الفرعية — لا رجوع إلى الـ profile الافتراضي</td></tr><tr><td>الصادر الخارجي (<code>send_message</code>، إشعارات الإيقاف/إعادة التشغيل/<code>/update</code>، تنبيهات <code>/loop</code>، تسليم webhook المرتبط بـ <code>profile:</code>، رموز <code>github_comment</code>)</td><td>المحوّل المتصل و<code>.env</code> الخاصان بالـ profile نفسه</td><td>فشل واضح؛ لا يُرسَل أبدًا عبر بوت الـ profile الافتراضي</td></tr><tr><td>نطاق اسم الجلسة</td><td><code>agent:&lt;profile&gt;:…</code> (يحافظ الافتراضي على <code>agent:main:…</code>)</td><td>لا يتشارك profileان على المحادثة نفسها التاريخ أبدًا</td></tr><tr><td>السجلات</td><td><code>agent.log</code> / <code>errors.log</code> / <code>gateway.log</code> تحت منزل الـ profile نفسه</td><td>—</td></tr><tr><td>إعدادات sandbox الطرفية (<code>terminal.*</code>، أهداف SSH)</td><td><code>config.yaml</code> الخاص بالـ profile</td><td>الافتراضي الموثّق؛ وإعدادات لا يمكن تحليلها → يُرفَض التنفيذ</td></tr><tr><td>دليل عمل الدور (عندما يكون <code>terminal.cwd</code> غير مضبوط)</td><td>القاعدة نفسها في gateway مستقلة: <code>$HOME</code> لـ backend المحلي، والافتراضي الخاص بـ sandbox في غير ذلك</td><td>ليس أبدًا الدليل الذي أُطلقت منه عملية المضاعِف</td></tr><tr><td>موافقات الأوامر (<code>command_allowlist</code>، اختيارات "always")</td><td><code>config.yaml</code> الخاص بالـ profile نفسه</td><td>لا يمنح اختيار "always" في الـ profile الافتراضي موافقة مسبقة أبدًا لأمر في profile ثانوي؛ ويُحفَظ اختيار الثانوي في إعداداته الخاصة</td></tr><tr><td>ربط ملفات بيانات الاعتماد في sandbox (<code>terminal.credential_files</code>)، و<code>security.redact_secrets</code>، وأعلام محرك/وضع headed في <code>browser.*</code>، و<code>lsp.*</code>، وعلامات سلامة المزوّد المساعِد، و<code>logs/mcp-stderr.log</code></td><td><code>config.yaml</code> / <code>.env</code> الخاصان بالـ profile نفسه</td><td>الافتراضي الموثّق — وليس أبدًا القيمة المخزَّنة مؤقتًا لـ profile الإطلاق</td></tr><tr><td>عملاء بيانات اعتماد Cloud-SDK (عملاء Bedrock boto3 + اكتشاف النماذج، بيانات اعتماد Azure Entra)، والكتالوجات المجلوبة ببيانات اعتماد (DeepInfra، وحدود سياق Copilot، وحدود استدلال Nous، وجهود Ramp Router، ونماذج صور xAI / OpenRouter، و<code>/models</code> الخاصة بالنقطة النهائية المخصَّصة)، وعنوان Camofox VNC، وتوجيه الرؤية المساعِد لـ computer-use، وإرسال مزامنة المهارات، ونص فحص backend البعيد، وتكاليف token الصور المتعلَّمة، و<code>display.skin</code>، وتراجع سك الضيف (guest-mint back-off)، والمهارات المعروضة في الشريط، ومحوّل Yuanbao "النشط"، وعميل Langfuse</td><td><code>.env</code> / <code>config.yaml</code> / <code>&lt;home&gt;/cache</code> الخاصة بالـ profile نفسه</td><td>الافتراضي الموثّق — وليس أبدًا القيمة المخزَّنة مؤقتًا لـ profile الإطلاق أو بيانات اعتماده</td></tr><tr><td>ضوابط البحث في الجلسات (<code>sessions.cjk_fts</code>، <code>sessions.search_slow_ms</code>)</td><td><code>config.yaml</code> الخاص بالـ profile</td><td>الافتراضي الموثّق — وليس أبدًا القيمة المُجسَّرة (bridged) من الـ profile الافتراضي</td></tr><tr><td>وكلاء المنصة (<code>TELEGRAM_PROXY</code>، <code>DISCORD_PROXY</code>، <code>HTTPS_PROXY</code>، …)</td><td><code>.env</code> الخاص بالـ profile نفسه</td><td>اتصال مباشر — وليس أبدًا وكيل الـ profile الافتراضي</td></tr><tr><td>اكتشاف MCP في backend الخاص بـ Desktop/لوحة التحكم</td><td>مرة واحدة لكل منزل profile مخدوم</td><td>الـ profile المختار بعد أن يكون آخر قد بنى وكيلًا بالفعل ما زال يكتشف <code>mcp_servers</code> الخاصة به</td></tr><tr><td>إجراءات لوحة التحكم (<code>hermes -p &lt;name&gt; …</code> التي يولّدها Desktop/لوحة التحكم)</td><td>بيئة عملية فرعية مُنقَّاة مثبَّتة على <code>HERMES_HOME</code> الخاص بذلك الـ profile</td><td>تحمّل العملية الفرعية ملف <code>.env</code> الخاص بها؛ ولا تُورَث رموز ومنافذ profile لوحة التحكم</td></tr><tr><td>ضبط <code>.env</code> الخاص بـ cron (<code>HERMES_CRON_TIMEOUT</code>، النموذج الاحتياطي <code>HERMES_MODEL</code>، <code>HERMES_CRON_MAX_PARALLEL</code>، ملف prefill)، وبيئة العامل الفرعية / Bot Chat</td><td><code>.env</code> الخاص بالـ profile نفسه؛ ولا يرث الأبناء أبدًا إعدادات <code>.env</code> الخاصة بالـ profile الافتراضي أو سياسة <code>TERMINAL_*</code> المُجسَّرة</td><td>افتراضيات cron / رفض النموذج، تمامًا كما في <code>hermes -p &lt;name&gt; gateway run</code> مستقلة</td></tr><tr><td>عمّال Kanban والإشعارات لمهام profile</td><td><code>.env</code> + <code>config.yaml</code> الخاصان بالمكلَّف (تثبيت toolset، وbackend الطرفية، وسياسة الوسائط، ولغة العرض)</td><td>—</td></tr><tr><td>نبضات (ticks) <code>/loop</code>، وبوابة <code>background_process_notifications</code>، و<code>notice_delivery</code>، واستعادة نقاط تحقق العملية الخلفية</td><td><code>state.db</code> / <code>config.yaml</code> / <code>processes.json</code> الخاصة بالـ profile المالك</td><td>—</td></tr></tbody></table>
+<p>ما هو <strong>مشترك</strong> بالتصميم: العملية، وقفلها/PID الخاص بها و<code>gateway_state.json</code>
+(المنزل الافتراضي)، ومستمِع HTTP الواحد، وجدول <code>profile_routes</code>
+(المُعلَن على الـ profile الافتراضي).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-profiles-are-served">أي الـ profiles تُخدَم</h3>
+<p>يخدم <code>gateway.multiplex_profiles: true</code> الـ profile الافتراضي إضافة إلى <strong>كل</strong>
+profile مسمّى حيّ تحت <code>profiles/</code> — لا توجد قائمة استثناء لكل profile.
+(مفتاح <code>gateway.multiplex_profile_allowlist</code> السابق أُلغي؛ يزيله ترحيل
+الإعدادات من <code>config.yaml</code>، وأي profile لا تريد خدمته يُؤرشَف أو يُحذَف بدلًا
+من ذلك — <code>hermes profile delete &lt;name&gt;</code>، أو انقل الدليل خارج
+<code>profiles/</code>.) تترك الـ profiles المحذوفة شاهدًا (tombstone) ولا تُعدَّد أبدًا؛ ولا يُعاد
+إنشاء profile اختفى دليله أبدًا من قِبل دور مخدوم، أو مؤقّت cron، أو توجيه السجلات.</p>
+<p>تتحكم المجموعة المخدومة في بادئات <code>/p/&lt;profile&gt;/</code> الخاصة بـ API وwebhook، وحالة
+التشغيل، وأهلية توجيه الـ profile، وأي profiles يجريها مجدوِل cron
+داخل العملية (يعدّد مؤقّت backend الخاص بـ Desktop المجموعة نفسها ويتنحّى
+لأي profile تخدمه بالفعل بوابة مضاعِفة (multiplexer) عاملة أو بوابته الخاصة). أي
+مضاعِف بُدئ بـ <code>hermes -p &lt;name&gt; gateway run</code> يجري دائمًا مخزن cron الخاص بـ
+profile نفسه أيضًا.</p>
+<p>المجموعة المخدومة <strong>حيّة</strong>. يُخدَم profile أُنشئ أثناء تشغيل المضاعِف
+(<code>hermes profile create</code>، أو لوحة التحكم، أو Desktop، أو TUI) فورًا:
+يُرسل المنشئ إشارة إلى المضاعِف عبر مقبس التحكم (control socket) الخاص به، كما
+يعيد المضاعِف فحص <code>profiles/</code> كل 30 ثانية كإجراء أمان إضافي. تُبنى محوّلات
+الـ profile الجديد بمجرد أن يحمل <code>config.yaml</code>/<code>.env</code> الخاص به رمز بوت
+(عادةً ما ينشئ المنشئون أولًا، ثم يضيفون الرمز)، ويُحدَّث <code>served_profiles</code> في
+<code>gateway_state.json</code> الخاص بالـ profile الافتراضي، ويبلّغ <code>hermes -p &lt;name&gt; gateway status</code> عن أنه مخدوم — من دون إعادة تشغيل، ودون المساس بمحوّلات الـ profiles الأخرى
+وأدوارها الجارية. يوقف حذف profile محوّلاته ويلغي توجيهها بالطريقة نفسها. تظل
+قاعدة رمز واحد لكل مستطلِع (poller) سارية: يُوقَف profile أُضيف على عجل ويعيد استخدام
+رمز profile آخر جانبًا بخطأ <code>duplicate_credential</code>، ولا يُشغَّل أبدًا كمستطلِع ثانٍ.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="routing-shared-bot-chats-to-profiles-profile_routes">توجيه محادثات البوت المشتركة إلى الـ profiles (<code>profile_routes</code>)</h3>
+<p>يختار الـ multiplexing profile لكل <strong>بيانات اعتماد</strong> (رمز البوت الخاص بكل profile)
+أو لكل <strong>بادئة رابط (URL prefix)</strong> (<code>/p/&lt;profile&gt;/</code> لمنصات HTTP). عندما تشترك
+عدة مجتمعات في بوت <strong>واحد</strong> — على سبيل المثال بوت Discord واحد يخدم عدة
+خوادم (guilds) — يمكنك إضافةً إلى ذلك توجيه خوادم/قنوات/خيوط محددة إلى
+profiles مختلفة عبر <code>gateway.profile_routes</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>تُطابَق المسارات من الأكثر تحديدًا فالأقل (<code>thread_id</code> &gt; <code>chat_id</code> &gt; <code>guild_id</code>)،
+ويجب أن تتحقق كل الحقول المعلَنة (AND)، ويطابق مسار مربوط بقناة أيضًا
+الخيوط/منشورات المنتدى التي تكون تلك القناة أصلها. تبقى الرسائل التي لا تطابق
+أي مسار على الـ profile الافتراضي/النشط. يحصل الـ profile الموجَّه إليه على العزل
+الكامل لكل profile الموصوف أعلاه (الإعدادات، والمهارات، والذاكرة، وبيانات
+الاعتماد، ونطاق اسم الجلسة). يعمل التوجيه على كل محوّل منصة، وليس Discord فقط.</p>
+<p>لا ينطبق المسار إلا على الرسائل التي يستقبلها <strong>بوت الـ profile الافتراضي</strong>
+ما لم يسمِّ بوتًا آخر بـ <code>bot_profile: &lt;profile&gt;</code>. تستخدم رسائل Telegram المباشرة (DM)
+<code>chat_id</code> نفسه لكل بوت (معرّف المستخدم)، لذا من دون هذا فإن
+مسار <code>chat_id</code> مقصودًا للبوت المشترك سيلتقط أيضًا رسائل ذلك المستخدم المباشرة
+مع بوت مخصص تابع لـ profile ثانوي. تبقى الرسائل الواصلة إلى بوت خاص
+بـ profile ثانوي داخل ذلك الـ profile:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>يُحسَم التفويض لرسالة موجَّهة دائمًا بواسطة <strong>profile البوت المستقبِل</strong>
+(رمزه وقائمة سماحه)، بما في ذلك المتابَعات المرسَلة أثناء انشغال الوكيل
+والفحوص أثناء الدور مثل <code>/topic</code> أو <code>/stop</code>؛ ولا يحتاج الـ profile الموجَّه إليه
+نفسه أي نسخة من قائمة السماح. يتلقى profile موجَّه إليه لا يملك بوتًا
+خاصًا به أيضًا الإشعارات الخلفية (اكتمالات العمليات، والنبضات، ونتائج التفويض
+غير المتزامن) عبر البوت المشترك بعد إعادة تشغيل الـ gateway.</p>
+<p>على WhatsApp وWhatsApp Cloud، يطابق مسار <code>chat_id</code> عبر أشكال هوية المستخدم
+المختلفة: رقم هاتف مجرد (<code>15551234567</code>)، وJID
+(<code>15551234567@s.whatsapp.net</code>)، وLID (<code>…@lid</code>) — كلها تشير إلى
+الشخص نفسه بمجرد أن يقرنها الجسر (bridge) (نفس التحويل القانوني (canonicalization) الذي
+تستخدمه مفاتيح جلسات المطابقة وقوائم سماح المحوّل بالفعل). يمكنك وضع رقم الهاتف في
+<code>profile_routes</code> وستظل الرسائل المباشرة الواردة تطابق سواء سلّم WhatsApp JID أو
+LID. من دون ربط LID بعد، يظل شكل الرقم يطابق JID (تُحذَف
+اللاحقة) لكنه لا يستطيع حل LID مجهول — يسقط ذلك الوارد
+عندئذٍ إلى الـ profile الافتراضي إلى أن يظهر الربط. محادثات المجموعات
+(<code>…@g.us</code>) ليست هويات مرسِل وتظل تطابق تمامًا. تبقى معرّفات Telegram
+الرقمية دون تغيير.</p>
+<p>يتطلب <code>profile_routes</code> وجود <code>gateway.multiplex_profiles: true</code>؛ ومع
+إيقاف الـ multiplexing تُتجاهَل المسارات. إذا طابق مسار صريح لكنه يستهدف
+profile غير مثبَّت (أو محذوف)، ترفض الـ gateway ذلك الوارد وتسجّل المسار والهدف. ولا تُشغِّل
+الـ profile الافتراضي. أما الحركة التي لا تطابق أي مسار فتحافظ على السلوك
+الافتراضي التاريخي للـ profile.</p>
+<p>تُسلَّم مهام cron التي يملكها profile موجَّه إليه عبر البوت المشترك أيضًا، لكن
+فقط للأهداف التي يربطها مسار مفعَّل بـ <code>chat_id</code>/<code>thread_id</code> بذلك
+الـ profile (يؤهِّل مسار <code>guild_id + chat_id</code> قناته) — لا تُرسَل أبدًا مهمة
+لـ profile موجَّه إليه تستهدف محادثة غير موجَّهة (أو محادثة موجَّهة إلى profile آخر)
+عبر البوت المشترك. لا تؤهِّل المسارات المقتصرة على guild فقط هدف cron؛ أضف
+مسار <code>chat_id</code> لقناة التسليم. لا يحتاج الـ profile الموجَّه إليه إلى
+قسم <code>platforms.&lt;platform&gt;</code> الخاص به لهذا: يأتي تفويض البوت المشترك
+من المسار، لا من إعدادات القمر الصناعي (satellite).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="start-stop-or-restart-all-gateways-at-once">تشغيل أو إيقاف أو إعادة تشغيل كل الـ gateways دفعة واحدة</h2>
+<p>تأتي CLI مزوّدة بأوامر دورة حياة لـ profile واحد. للتصرف عبر كل
+profile، لُفّها في حلقة shell. ضع المقطع أدناه في
+<code>~/.local/bin/hermes-gateways</code> ونفّذ عليه <code>chmod +x</code>:</p>
+<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>ثم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُستهدَف الـ profile <code>default</code> بـ <code>hermes gateway &lt;action&gt;</code> (بلا <code>-p</code>)،
+لا بـ <code>hermes -p default gateway &lt;action&gt;</code>. يتعامل الـ wrapper أعلاه مع كلا الشكلين.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="manage-one-profile">إدارة profile واحد</h2>
+<p>أوامر الاختصار التي يثبّتها كل profile:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>هذه معادِلة لـ <code>hermes -p coder gateway &lt;action&gt;</code> — مفيدة إذا لم يكن اسم
+مستعار لـ profile موجودًا في <code>PATH</code> أو إذا كنت تستهدف الـ profiles ديناميكيًا من
+سكربت.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="service-files">ملفات الخدمة</h2>
+<p>يثبّت كل profile خدمته الخاصة باسم فريد، بحيث لا تتعارض
+التثبيتات أبدًا:</p>
+<table><thead><tr><th>المنصة</th><th>المسار</th></tr></thead><tbody><tr><td>macOS</td><td><code>~/Library/LaunchAgents/ai.hermes.gateway-&lt;profile&gt;.plist</code></td></tr><tr><td>Linux</td><td><code>~/.config/systemd/user/hermes-gateway-&lt;profile&gt;.service</code></td></tr></tbody></table>
+<p>يحافظ الـ profile الافتراضي على الأسماء التاريخية: <code>ai.hermes.gateway.plist</code> /
+<code>hermes-gateway.service</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="viewing-logs">عرض السجلات</h2>
+<p>يكتب كل profile إلى ملفات سجله الخاصة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>بثّ سجل كل profile في آن واحد:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تملك CLI أيضًا عارض سجلات منظَّمًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="identify-whats-actually-running">تحديد ما يعمل فعليًا</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-configuration">تحرير الإعدادات</h2>
+<p>يحتفظ كل profile بإعداداته داخل دليله الخاص:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>يستخدم الـ profile الافتراضي <code>~/.hermes/</code> مباشرةً بالملفات الثلاثة نفسها.</p>
+<p>حرّرها بأي محرر أو عبر CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>بعد تحرير <code>.env</code> أو <code>config.yaml</code>، أعد تشغيل الـ gateway المتأثرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="keeping-the-host-awake">إبقاء الجهاز المضيف مستيقظًا</h2>
+<p>يمكن لعملية الـ gateway أن تعمل طوال اليوم، لكن نظام التشغيل سيحاول
+مع ذلك النوم عند عدم النشاط. نمطان:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos--caffeinate">macOS — <code>caffeinate</code></h3>
+<p><code>caffeinate</code> مدمجة في macOS وتمنع النوم أثناء عملها. لا حاجة إلى تثبيت.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<table><thead><tr><th>الخيار</th><th>الأثر</th></tr></thead><tbody><tr><td><code>-d</code></td><td>حظر نوم الشاشة</td></tr><tr><td><code>-i</code></td><td>حظر نوم النظام عند الخمول (الافتراضي)</td></tr><tr><td><code>-m</code></td><td>حظر نوم القرص</td></tr><tr><td><code>-s</code></td><td>حظر نوم النظام (لأجهزة Mac الموصولة بالتيار الكهربائي فقط)</td></tr><tr><td><code>-u</code></td><td>محاكاة نشاط المستخدم (يمنع قفل الشاشة)</td></tr><tr><td><code>-t N</code></td><td>الخروج تلقائيًا بعد <code>N</code> ثانية</td></tr><tr><td><code>-w P</code></td><td>الخروج عند خروج PID <code>P</code></td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>إغلاق الغطاء ما زال يُنيم الـ Mac</div><div class="admonitionContent_BuS1"><p>لا تستطيع <code>caffeinate</code> تجاوز نوم إغلاق الغطاء المدفوع بالعتاد على أجهزة MacBook.
+للتشغيل والغطاء مغلق، غيّر تفضيلات موفِّر الطاقة/البطارية أو
+استخدم أداة من طرف ثالث.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="linux--systemd-inhibit-or-loginctl">Linux — <code>systemd-inhibit</code> أو <code>loginctl</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>بعد تفعيل lingering، تستمر وحدات مستخدم systemd لديك (بما في ذلك
+<code>hermes-gateway-&lt;profile&gt;.service</code>) في العمل عبر انقطاعات SSH
+وإعادة التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-conflict-safety">أمان تعارض الرموز</h2>
+<p>يجب أن يستخدم كل profile رموز بوت فريدة لكل منصة. إذا شارك
+profileان رمز Telegram أو Discord أو Slack أو WhatsApp أو Signal، ترفض
+الـ gateway الثانية البدء برسالة خطأ تسمّي الـ profile المتعارض. تحت
+<a href="#alternative-one-gateway-for-all-profiles-multiplexing">الـ multiplexing</a> تُوقِف نفس
+القاعدة محوّل الـ profile المكرَّر فقط بينما تستمر الـ gateway المشتركة في
+العمل.</p>
+<p>للتدقيق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>

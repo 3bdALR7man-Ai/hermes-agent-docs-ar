@@ -1,0 +1,102 @@
+<header><h1>تسجيل تطبيق Microsoft Graph</h1></header>
+<p>يقرأ pipeline اجتماعات Teams نصوص الاجتماعات المفرّغة (transcripts) والتسجيلات والملفات المرتبطة بها من Microsoft Graph باستخدام مصادقة <strong>على مستوى التطبيق فقط (app-only)</strong> (أي daemon) — دون تسجيل دخول مستخدم، ودون موافقة تفاعلية لكل اجتماع. ويتطلب ذلك تسجيل تطبيق في Azure AD مع صلاحيات تطبيق (application permissions) حاصلة على موافقة المسؤول (admin consent).</p>
+<p>يرشدك هذا الدليل خلال ما يلي:</p>
+<ol>
+<li>إنشاء تسجيل التطبيق (app registration)</li>
+<li>إنشاء client secret</li>
+<li>منح صلاحيات Graph API التي يحتاجها الـ pipeline</li>
+<li>منح موافقة المسؤول على تلك الصلاحيات</li>
+<li>(اختياري) تقييد نطاق التطبيق بمستخدمين محددين عبر Application Access Policy</li>
+</ol>
+<p>تحتاج إلى <strong>صلاحيات مسؤول الـ tenant</strong> (أو إلى مسؤول يمنح الموافقة نيابةً عنك) لإتمام ذلك. احتفظ بالقيم التي تجمعها — فستضعها في <code>~/.hermes/.env</code> في النهاية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>tenant على Microsoft 365 يتضمن تراخيص Teams Premium أو Teams تُنتج نصوصًا مفرّغة وتسجيلات للاجتماعات</li>
+<li>وصول بصلاحيات المسؤول إلى بوابة Azure على <a href="https://entra.microsoft.com" data-ext>entra.microsoft.com</a></li>
+<li>endpoint عبر HTTPS يمكن الوصول إليه علنًا لاستقبال إشعارات التغيير (change notifications) من Graph (يُعدّ لاحقًا في خطوة مستمع الـ webhook)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-the-app-registration">الخطوة 1: إنشاء تسجيل التطبيق</h2>
+<ol>
+<li>سجّل الدخول إلى <a href="https://entra.microsoft.com" data-ext>entra.microsoft.com</a> بصفتك مسؤول الـ tenant.</li>
+<li>انتقل إلى <strong>Identity → Applications → App registrations</strong>.</li>
+<li>انقر <strong>New registration</strong>.</li>
+<li>املأ الحقول التالية:
+<ul>
+<li><strong>Name:</strong> <code>Hermes Teams Meeting Pipeline</code> (أو أي اسم تتعرّف عليه).</li>
+<li><strong>Supported account types:</strong> <em>Accounts in this organizational directory only (Single tenant)</em> (أي الحسابات ضمن هذا الدليل التنظيمي فقط).</li>
+<li><strong>Redirect URI:</strong> اتركه فارغًا — فالمصادقة على مستوى التطبيق فقط لا تحتاج إليه.</li>
+</ul>
+</li>
+<li>انقر <strong>Register</strong>.</li>
+</ol>
+<p>ستنتقل إلى صفحة النظرة العامة الخاصة بالتطبيق. انسخ قيمتين:</p>
+<ul>
+<li><strong>Application (client) ID</strong> → <code>MSGRAPH_CLIENT_ID</code></li>
+<li><strong>Directory (tenant) ID</strong> → <code>MSGRAPH_TENANT_ID</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-create-a-client-secret">الخطوة 2: إنشاء Client Secret</h2>
+<ol>
+<li>من شريط التنقل الأيسر، افتح <strong>Certificates &amp; secrets</strong>.</li>
+<li>انقر <strong>New client secret</strong>.</li>
+<li><strong>Description:</strong> <code>hermes-graph-secret</code>. <strong>Expires:</strong> اختر قيمة تتوافق مع سياسة التدوير (rotation) لديك (المعتاد من 6 إلى 24 شهرًا).</li>
+<li>انقر <strong>Add</strong>.</li>
+<li>انسخ قيمة العمود <strong>Value</strong> فورًا — فهي لا تُعرض إلا مرة واحدة. هذه القيمة هي <code>MSGRAPH_CLIENT_SECRET</code>.</li>
+</ol>
+<blockquote>
+<p>العمود <strong>Secret ID</strong> ليس هو السر. ما تحتاج إليه هو العمود <strong>Value</strong>.</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-grant-graph-api-permissions">الخطوة 3: منح صلاحيات Graph API</h2>
+<p>يستخدم الـ pipeline الحد الأدنى اللازم من صلاحيات التطبيق. أضف ما تحتاج إليه فقط؛ فكل صلاحية توسّع نطاق ما يستطيع التطبيق قراءته على مستوى الـ tenant بأكمله.</p>
+<ol>
+<li>من شريط التنقل الأيسر، افتح <strong>API permissions</strong>.</li>
+<li>انقر <strong>Add a permission</strong> → <strong>Microsoft Graph</strong> → <strong>Application permissions</strong>.</li>
+<li>أضف من الجدول أدناه الصلاحيات التي تتوافق مع ما تريد أن يفعله الـ pipeline.</li>
+<li>بعد الإضافة، انقر <strong>Grant admin consent for <code>&lt;your tenant&gt;</code></strong>. يجب أن يتحول العمود Status إلى علامة صح خضراء لكل صلاحية.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-for-transcript-first-summaries">مطلوبة للملخّصات المعتمدة على النص المفرّغ أولًا</h3>
+<table><thead><tr><th>الصلاحية</th><th>ما تتيحه للتطبيق</th></tr></thead><tbody><tr><td><code>OnlineMeetings.Read.All</code></td><td>قراءة البيانات الوصفية لاجتماعات Teams عبر الإنترنت (الموضوع، والمشاركون، ورابط الانضمام).</td></tr><tr><td><code>OnlineMeetingTranscript.Read.All</code></td><td>قراءة النصوص المفرّغة للاجتماعات التي يُنشئها Teams.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-for-recording-fallback-when-a-transcript-is-unavailable">مطلوبة للّجوء الاحتياطي إلى التسجيل (حين لا يتوفر نص مفرّغ)</h3>
+<table><thead><tr><th>الصلاحية</th><th>ما تتيحه للتطبيق</th></tr></thead><tbody><tr><td><code>OnlineMeetingRecording.Read.All</code></td><td>تنزيل تسجيلات اجتماعات Teams لمعالجتها عبر STT دون اتصال.</td></tr><tr><td><code>CallRecords.Read.All</code></td><td>تحديد الاجتماعات من سجلات المكالمات حين يكون رابط الانضمام هو المعلوم الوحيد.</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-for-outbound-summary-delivery-graph-mode-only">مطلوبة لإرسال الملخّصات إلى الخارج (في وضع Graph فقط)</h3>
+<p>إذا كانت قيمة <code>platforms.teams.extra.delivery_mode</code> هي <code>graph</code>، ينشر الـ pipeline الملخّصات في قناة أو محادثة على Teams عبر Graph API. تخطَّ هذه الصلاحيات إذا كنت تستخدم وضع التسليم <code>incoming_webhook</code> بدلًا من ذلك.</p>
+<table><thead><tr><th>الصلاحية</th><th>ما تتيحه للتطبيق</th></tr></thead><tbody><tr><td><code>ChannelMessage.Send</code></td><td>نشر رسائل في قنوات Teams باسم التطبيق.</td></tr><tr><td><code>Chat.ReadWrite.All</code></td><td>نشر رسائل في المحادثات الفردية (1:1) والجماعية (فقط إذا ضبطت <code>chat_id</code> كوجهة للتسليم).</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="not-recommended">غير موصى بها</h3>
+<ul>
+<li><code>OnlineMeetings.ReadWrite.All</code> / <code>Chat.ReadWrite</code> بدون <code>.All</code> — نطاقها أوسع مما يحتاجه الـ pipeline.</li>
+<li>الصلاحيات المفوّضة (Delegated permissions) — يستخدم الـ pipeline تدفّق app-only (client-credentials)؛ ولن تعمل الصلاحيات المفوّضة دون تسجيل دخول مستخدم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-recommended-scope-the-app-with-an-application-access-policy">الخطوة 4: (موصى بها) تقييد نطاق التطبيق عبر Application Access Policy</h2>
+<p>افتراضيًا، تمنح صلاحيات التطبيق مثل <code>OnlineMeetings.Read.All</code> التطبيقَ وصولًا إلى <strong>كل</strong> اجتماع في الـ tenant. هذا مقبول في العروض التوضيحية للشركاء وفي tenants التطوير؛ أما في بيئة الإنتاج فستحتاج على الأرجح إلى تقييد المستخدمين الذين يستطيع التطبيق قراءة اجتماعاتهم.</p>
+<p>توفّر Microsoft خاصية <strong>Application Access Policies</strong> في Teams لهذا الغرض تحديدًا. لا تتوفر هذه السياسة إلا عبر PowerShell؛ ولا توجد لها واجهة في البوابة.</p>
+<p>من جلسة PowerShell بصلاحيات المسؤول، مع تثبيت الوحدة MicrosoftTeams والاتصال بها (<code>Connect-MicrosoftTeams</code>):</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>قد يستغرق انتشار السياسة ما يصل إلى 30 دقيقة بعد منحها. تحقّق منها باستخدام:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>بدون هذه السياسة، تصبح اجتماعات <strong>أي</strong> مستخدم قابلة للقراءة — فهذا ما تمنحه الصلاحية تقنيًا. لا تتخطَّ هذه الخطوة في tenant الإنتاج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-write-the-credentials-to-your-env-file">الخطوة 5: كتابة بيانات الاعتماد في ملف env</h2>
+<p>ضع القيم الثلاث التي جمعتها في <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>اضبط أذونات الملف بحيث لا يستطيع أحد غيرك قراءة السر:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-verify-the-token-flow">الخطوة 6: التحقق من تدفّق الـ Token</h2>
+<p>يأتي Hermes مع اختبار سريع (smoke test) لمصادقة Graph. من مجلد تثبيت Hermes لديك:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يطبع التشغيل الناجح سلسلة token طويلة وقاموس حالة (health dict) يُظهر <code>cached: True</code> وقيمة <code>expires_in_seconds</code> قريبة من 3600. أما حالات الفشل فتُنتج <code>MicrosoftGraphTokenError</code> مع رمز خطأ Azure — وأكثرها شيوعًا:</p>
+<table><thead><tr><th>خطأ Azure</th><th>المعنى</th><th>الحل</th></tr></thead><tbody><tr><td><code>AADSTS7000215: Invalid client secret</code></td><td>قيمة السر غير مطابقة أو منتهية الصلاحية.</td><td>أنشئ سرًا جديدًا في الخطوة 2، ثم حدّث <code>.env</code>.</td></tr><tr><td><code>AADSTS700016: Application not found</code></td><td>قيمة <code>MSGRAPH_CLIENT_ID</code> خاطئة أو الـ tenant خاطئ.</td><td>تأكد من أن القيم المأخوذة في الخطوة 1 تعود إلى التطبيق نفسه.</td></tr><tr><td><code>AADSTS90002: Tenant not found</code></td><td>خطأ مطبعي في <code>MSGRAPH_TENANT_ID</code>.</td><td>انسخ Directory (tenant) ID مجددًا من صفحة النظرة العامة للتطبيق.</td></tr><tr><td><code>insufficient_claims</code> عند الاستدعاء (لا عند الحصول على الـ token)</td><td>يُحصَل على الـ token لكن Graph يُرجع 401/403.</td><td>تخطّيت موافقة المسؤول في الخطوة 3، أو أضفت صلاحيات دون إعادة منح الموافقة. عُد إلى API permissions وانقر <strong>Grant admin consent</strong> مجددًا.</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rotating-the-client-secret">تدوير الـ Client Secret</h2>
+<p>لأسرار العملاء في Azure تاريخ انتهاء صلاحية صارم. قبل أن ينتهي سرّك:</p>
+<ol>
+<li>أنشئ client secret ثانيًا في الخطوة 2 دون حذف الأول.</li>
+<li>حدّث <code>MSGRAPH_CLIENT_SECRET</code> في <code>~/.hermes/.env</code> بالقيمة الجديدة.</li>
+<li>أعد تشغيل الـ gateway كي يُلتقط السر الجديد: <code>hermes gateway restart</code>.</li>
+<li>تحقّق باستخدام الاختبار السريع أعلاه.</li>
+<li>احذف السر القديم من بوابة Azure.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="next-steps">الخطوات التالية</h2>
+<p>بعد التحقق من بيانات الاعتماد بنجاح، تابع مع:</p>
+<ul>
+<li><strong>إعداد مستمع الـ webhook</strong> — شغّل منصة الـ gateway <code>msgraph_webhook</code> التي تستقبل إشعارات التغيير من Graph.</li>
+<li><strong>إعدادات الـ pipeline</strong> — اضبط بيئة تشغيل pipeline اجتماعات Teams و CLI الخاص بالمشغّل.</li>
+<li><strong>التسليم إلى الخارج</strong> — اربط الملخّصات لتُرسل مجددًا إلى قناة أو محادثة على Teams.</li>
+</ul>
+<p>ستُنشر تلك الصفحات مع طلبات الـ PR التي تضيف بيئة التشغيل المقابلة. أما إعداد بيانات الاعتماد هذا فهو متطلب مسبق مستقل، ويمكنك إتمامه مسبقًا بأمان.</p>

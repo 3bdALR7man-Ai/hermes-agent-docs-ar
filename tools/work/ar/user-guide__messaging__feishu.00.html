@@ -1,0 +1,219 @@
+<header><h1>إعداد Feishu / Lark</h1></header>
+<p>يتكامل Hermes Agent مع Feishu و Lark كبوت متكامل الميزات. بعد الربط، يمكنك محادثة الوكيل في الرسائل المباشرة أو المحادثات الجماعية، وتلقّي نتائج مهام cron في المحادثة الرئيسية (home chat)، وإرسال النصوص والصور والمقاطع الصوتية ومرفقات الملفات عبر مسار gateway المعتاد.</p>
+<p>يدعم التكامل وضعَي الاتصال كليهما:</p>
+<ul>
+<li><code>websocket</code> — موصى به؛ إذ يفتح Hermes الاتصال الصادر، ولا تحتاج إلى webhook endpoint عام</li>
+<li><code>webhook</code> — مفيد عندما تريد أن يدفع Feishu/Lark الأحداث إلى gateway الخاص بك عبر HTTP</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-hermes-behaves">كيف يتصرف Hermes</h2>
+<table><thead><tr><th>السياق</th><th>السلوك</th></tr></thead><tbody><tr><td>الرسائل المباشرة</td><td>يردّ Hermes على كل رسالة.</td></tr><tr><td>المحادثات الجماعية</td><td>يردّ Hermes فقط عند الإشارة إلى البوت بـ @mention في المحادثة.</td></tr><tr><td>المحادثات الجماعية المشتركة</td><td>افتراضيًا، يُعزل سجل الجلسة لكل مستخدم داخل المحادثة المشتركة.</td></tr></tbody></table>
+<p>يُتحكَّم في سلوك المحادثات المشتركة هذا عبر <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اضبطه على <code>false</code> فقط إذا كنت تريد صراحةً محادثة واحدة مشتركة لكل مجموعة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-create-a-feishu--lark-app">الخطوة 1: أنشئ تطبيق Feishu / Lark</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-scan-to-create-one-command">موصى به: الإنشاء بالمسح (أمر واحد)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>اختر <strong>Feishu / Lark</strong> وامسح رمز QR باستخدام تطبيق Feishu أو Lark على هاتفك. سينشئ Hermes تلقائيًا تطبيق بوت بالصلاحيات الصحيحة ويحفظ بيانات الاعتماد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="alternative-manual-setup">بديل: الإعداد اليدوي</h3>
+<p>إذا لم يكن الإنشاء بالمسح متاحًا، ينتقل المعالج إلى الإدخال اليدوي:</p>
+<ol>
+<li>افتح وحدة تحكم المطوّرين في Feishu أو Lark:
+<ul>
+<li>Feishu: <a href="https://open.feishu.cn/" data-ext>https://open.feishu.cn/</a></li>
+<li>Lark: <a href="https://open.larksuite.com/" data-ext>https://open.larksuite.com/</a></li>
+</ul>
+</li>
+<li>أنشئ تطبيقًا جديدًا.</li>
+<li>في <strong>Credentials &amp; Basic Info</strong>، انسخ <strong>App ID</strong> و <strong>App Secret</strong>.</li>
+<li>فعّل قدرة <strong>Bot</strong> للتطبيق.</li>
+<li>نفّذ <code>hermes gateway setup</code>، واختر <strong>Feishu / Lark</strong>، ثم أدخل بيانات الاعتماد عند المطالبة.</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>حافظ على سرية App Secret، فأي شخص يملكه يستطيع انتحال هوية تطبيقك.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-permissions">ضبط الصلاحيات</h3>
+<p>في وحدة تحكم المطوّرين في Feishu، انتقل إلى <strong>Permission Management</strong> وأضف النطاقات (scopes) التالية. يمكنك استيرادها دفعة واحدة من صفحة الصلاحيات.</p>
+<p><strong>الصلاحيات المطلوبة:</strong></p>
+<table><thead><tr><th>النطاق</th><th>الغرض</th></tr></thead><tbody><tr><td><code>im:message</code></td><td>استقبال الرسائل وقراءتها</td></tr><tr><td><code>im:message:send_as_bot</code></td><td>إرسال الرسائل بصفة البوت</td></tr><tr><td><code>im:resource</code></td><td>الوصول إلى الصور والملفات والمقاطع الصوتية التي يرسلها المستخدمون</td></tr><tr><td><code>im:chat</code></td><td>الوصول إلى البيانات الوصفية للمحادثات/المجموعات</td></tr><tr><td><code>im:chat:readonly</code></td><td>قراءة قائمة المحادثات والعضوية</td></tr></tbody></table>
+<p><strong>الصلاحيات الموصى بها (للحصول على كامل الوظائف):</strong></p>
+<table><thead><tr><th>النطاق</th><th>الغرض</th></tr></thead><tbody><tr><td><code>im:message.reactions:readonly</code></td><td>استقبال أحداث تفاعلات الإيموجي</td></tr><tr><td><code>admin:app.info:readonly</code></td><td>الاكتشاف التلقائي لهوية البوت لتقييد الرد بالإشارة (@mention)</td></tr><tr><td><code>contact:user.id:readonly</code></td><td>تحديد معرّفات المستخدمين لمطابقتها مع قائمة السماح</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configure-events">ضبط الأحداث</h3>
+<p>في <strong>Events and Callbacks</strong>:</p>
+<ol>
+<li>اضبط وضع الاتصال على <strong>Long Connection (WebSocket)</strong> (موصى به) أو اضبط عنوان URL لـ webhook</li>
+<li>في تبويب <strong>Event Configuration</strong>، اشترك في:
+<ul>
+<li><code>im.message.receive_v1</code> — مطلوب لاستقبال الرسائل</li>
+</ul>
+</li>
+<li>في تبويب <strong>Callback Configuration</strong> (وهو تبويب منفصل عن تبويب الأحداث)، اضبط وضع الاتصال نفسه وأضف الـ callback <code>card.action.trigger</code> — وهو مطلوب لأزرار الموافقة ومطالبات التحديث. راجع <a href="#required-feishu-app-configuration">إعدادات تطبيق Feishu المطلوبة</a>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="publish-the-app">نشر التطبيق</h3>
+<p>بعد ضبط الصلاحيات والأحداث، انتقل إلى <strong>Version Management</strong> وانشر إصدارًا جديدًا من التطبيق. لن تسري الصلاحيات حتى يُنشر إصدار ويُعتمد (في تطبيقات المؤسسات، قد يتطلب ذلك موافقة المسؤول).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-choose-a-connection-mode">الخطوة 2: اختر وضع الاتصال</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-websocket-mode">موصى به: وضع WebSocket</h3>
+<p>استخدم وضع WebSocket عندما يعمل Hermes على حاسوبك المحمول أو محطة العمل أو خادم خاص، إذ لا يتطلب عنوان URL عامًا. يفتح Lark SDK الرسمي اتصال WebSocket صادرًا دائمًا ويحافظ عليه مع إعادة الاتصال التلقائية.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><strong>المتطلبات:</strong> يجب تثبيت حزمة Python <code>websockets</code>. يتولى SDK داخليًا إدارة دورة حياة الاتصال ونبضات القلب (heartbeats) وإعادة الاتصال التلقائية.</p>
+<p><strong>آلية العمل:</strong> يشغّل المحوّل (adapter) عميل WebSocket الخاص بـ Lark SDK في خيط تنفيذ (executor thread) في الخلفية. تُمرَّر الأحداث الواردة (الرسائل والتفاعلات وإجراءات البطاقات) إلى حلقة asyncio الرئيسية. وعند انقطاع الاتصال، يحاول SDK إعادة الاتصال تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-webhook-mode">اختياري: وضع Webhook</h3>
+<p>استخدم وضع webhook فقط إذا كنت تشغّل Hermes بالفعل خلف HTTP endpoint يمكن الوصول إليه.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>في وضع webhook، يشغّل Hermes خادم HTTP (عبر <code>aiohttp</code>) ويقدّم endpoint خاصًا بـ Feishu على العنوان:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><strong>المتطلبات:</strong> يجب تثبيت حزمة Python <code>aiohttp</code>.</p>
+<p>يمكنك تخصيص عنوان الربط ومسار خادم webhook:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>عندما يرسل Feishu تحدّي التحقق من عنوان URL (<code>type: url_verification</code>)، يستجيب webhook تلقائيًا حتى تتمكن من إكمال إعداد الاشتراك في وحدة تحكم المطوّرين في Feishu. تُقيَّد الاستجابة للتحدّي بـ <code>FEISHU_VERIFICATION_TOKEN</code> عند ضبطه — إذ تُرفض طلبات التحدّي التي يغيب عنها الـ token أو لا يتطابق، حتى لا يتمكن طرف بعيد غير مصادَق من إثبات سيطرته على endpoint عبر إعادة بيانات تحدٍّ يتحكم فيها مهاجم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-configure-hermes">الخطوة 3: اضبط Hermes</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-a-interactive-setup">الخيار A: الإعداد التفاعلي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>اختر <strong>Feishu / Lark</strong> واملأ الحقول المطلوبة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="option-b-manual-configuration">الخيار B: الإعداد اليدوي</h3>
+<p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>يقبل <code>FEISHU_DOMAIN</code> القيم التالية:</p>
+<ul>
+<li><code>feishu</code> لـ Feishu في الصين</li>
+<li><code>lark</code> لـ Lark الدولي</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-start-the-gateway">الخطوة 4: شغّل Gateway</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>ثم راسل البوت من Feishu/Lark للتأكد من أن الاتصال يعمل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-chat">المحادثة الرئيسية (Home Chat)</h2>
+<p>استخدم <code>/set-home</code> في محادثة على Feishu/Lark لتعيينها قناةً رئيسية (home channel) لنتائج مهام cron والإشعارات العابرة للمنصات.</p>
+<p>يمكنك أيضًا ضبطها مسبقًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-allowlist">قائمة السماح للمستخدمين</h3>
+<p>للاستخدام في بيئة الإنتاج، اضبط قائمة سماح بمعرّفات Feishu Open IDs:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>إذا تركت قائمة السماح فارغة، فقد يتمكن أي شخص يستطيع الوصول إلى البوت من استخدامه. في المحادثات الجماعية، تُطابَق قائمة السماح مع open_id الخاص بالمرسل قبل معالجة الرسالة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webhook-encryption-key">مفتاح تشفير Webhook</h3>
+<p>عند التشغيل في وضع webhook، اضبط مفتاح تشفير لتفعيل التحقق من توقيع حمولات webhook الواردة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تجد هذا المفتاح في قسم <strong>Event Subscriptions</strong> ضمن إعدادات تطبيق Feishu. عند ضبطه، يتحقق المحوّل من كل طلب webhook باستخدام خوارزمية التوقيع التالية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>تُقارَن قيمة الـ hash المحسوبة بالترويسة <code>x-lark-signature</code> باستخدام مقارنة آمنة من هجمات التوقيت (timing-safe). وتُرفض الطلبات ذات التوقيعات غير الصالحة أو المفقودة بالرمز HTTP 401.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>في وضع WebSocket، يتولى SDK نفسه التحقق من التوقيع، لذا يكون <code>FEISHU_ENCRYPT_KEY</code> اختياريًا. أما في وضع webhook، فيُوصى به بشدة لبيئة الإنتاج.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-token">Verification Token</h3>
+<p>طبقة مصادقة إضافية تتحقق من الحقل <code>token</code> داخل حمولات webhook:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تجد هذا الـ token أيضًا في قسم <strong>Event Subscriptions</strong> ضمن تطبيق Feishu. عند ضبطه، يجب أن تحتوي كل حمولة webhook واردة على <code>token</code> مطابق داخل الكائن <code>header</code>. وتُرفض القيم غير المتطابقة بالرمز HTTP 401.</p>
+<p>يمكن استخدام <code>FEISHU_ENCRYPT_KEY</code> و <code>FEISHU_VERIFICATION_TOKEN</code> معًا لتحقيق دفاع متعدد الطبقات (defense in depth).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-message-policy">سياسة رسائل المجموعات</h2>
+<p>يتحكم متغير البيئة <code>FEISHU_GROUP_POLICY</code> في ما إذا كان Hermes يردّ في المحادثات الجماعية وكيفية ذلك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>open</code></td><td>يردّ Hermes على إشارات @mention من أي مستخدم في أي مجموعة.</td></tr><tr><td><code>allowlist</code></td><td>لا يردّ Hermes إلا على إشارات @mention من المستخدمين المُدرجين في <code>FEISHU_ALLOWED_USERS</code>.</td></tr><tr><td><code>disabled</code></td><td>يتجاهل Hermes جميع رسائل المجموعات كليًا.</td></tr></tbody></table>
+<p>في جميع الأوضاع، يجب الإشارة إلى البوت صراحةً بـ @mention (أو @all) في المجموعة قبل معالجة الرسالة. أما الرسائل المباشرة فتتجاوز هذا الشرط دائمًا.</p>
+<p>اضبط <code>FEISHU_REQUIRE_MENTION=false</code> ليقرأ Hermes جميع رسائل المجموعة دون اشتراط @mention:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>للتحكم على مستوى كل محادثة، اضبط <code>require_mention</code> ضمن مدخل في <code>group_rules</code> — راجع <a href="#per-group-access-control">التحكم في الوصول لكل مجموعة</a> أدناه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-identity">هوية البوت</h3>
+<p>يكتشف Hermes تلقائيًا قيمة <code>open_id</code> والاسم المعروض للبوت عند بدء التشغيل. لا تحتاج إلى ضبط هذه القيم يدويًا إلا عندما يتعذّر على الاكتشاف التلقائي الوصول إلى Feishu API، أو عندما يستخدم تطبيقك معرّفات مستخدمين مقيّدة بنطاق المستأجر (tenant-scoped):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-to-bot-messaging">المراسلة بين البوتات</h2>
+<p>افتراضيًا، يتجاهل Hermes الرسائل التي ترسلها بوتات أخرى. فعّل المراسلة بين البوتات عندما تريد أن يشارك Hermes في تنسيق A2A أو يتلقى إشعارات من بوتات أخرى في المجموعة نفسها.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<table><thead><tr><th>القيمة</th><th>السلوك</th></tr></thead><tbody><tr><td><code>none</code></td><td>تجاهل جميع الرسائل الواردة من البوتات الأخرى (الافتراضي).</td></tr><tr><td><code>mentions</code></td><td>القبول فقط عندما يشير البوت الآخر إلى Hermes بـ @mention.</td></tr><tr><td><code>all</code></td><td>قبول كل رسائل البوتات الأخرى.</td></tr></tbody></table>
+<p>يمكن ضبطه أيضًا عبر <code>feishu.allow_bots</code> في <code>config.yaml</code> (وتكون الأولوية لمتغير البيئة عند ضبط الاثنين).</p>
+<p>لا حاجة إلى إضافة البوتات الأخرى إلى <code>FEISHU_ALLOWED_USERS</code> — فقائمة السماح تلك تنطبق على المرسلين من البشر فقط.</p>
+<p>امنح النطاق <code>application:bot.basic_info:read</code> لعرض أسماء البوتات الأخرى؛ وبدونه، تُوجَّه رسائل البوتات الأخرى بشكل صحيح لكنها تظهر بقيمة <code>open_id</code> الخاصة بها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-card-actions">إجراءات البطاقات التفاعلية</h2>
+<p>عندما ينقر المستخدمون على الأزرار أو يتفاعلون مع البطاقات التفاعلية التي يرسلها البوت، يوجّه المحوّل هذه التفاعلات كأحداث أوامر اصطناعية <code>/card</code>:</p>
+<ul>
+<li>تتحول نقرات الأزرار إلى: <code>/card button {&quot;key&quot;: &quot;value&quot;, ...}</code></li>
+<li>تُضمَّن حمولة <code>value</code> الخاصة بالإجراء من تعريف البطاقة بصيغة JSON.</li>
+<li>تُزال تكرارات إجراءات البطاقات ضمن نافذة زمنية مدتها 15 دقيقة لمنع المعالجة المزدوجة.</li>
+</ul>
+<p>تستخدم مطالبات التحديث التي يطلقها gateway بطاقة Feishu أصلية بخياري <code>Yes</code> / <code>No</code> بدلًا من الرجوع إلى ردود نصية عادية. عندما يحتاج <code>hermes update --gateway</code> إلى تأكيد، يسجّل المحوّل الإجابة المختارة في ملف <code>.update_response</code> الخاص بـ Hermes ويستبدل البطاقة مباشرةً بحالة محسومة.</p>
+<p>تُرسَل أحداث إجراءات البطاقات بالنوع <code>MessageType.COMMAND</code>، لذا تمر عبر pipeline معالجة الأوامر المعتاد.</p>
+<p>وهكذا أيضًا تعمل <strong>الموافقة على الأوامر</strong> — فعندما يحتاج الوكيل إلى تنفيذ أمر خطير، يرسل بطاقة تفاعلية تحتوي على الأزرار Allow Once / Session / Always / Deny. ينقر المستخدم على أحدها، فيعيد callback إجراء البطاقة قرار الموافقة إلى الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-feishu-app-configuration">إعدادات تطبيق Feishu المطلوبة</h3>
+<p>تحتاج البطاقات التفاعلية إلى الإعدادات التالية في Feishu Developer Console. والعَرَض المعتاد لوجود نقص هنا هو الخطأ <strong>200340</strong> عند نقر المستخدمين على أزرار البطاقة.</p>
+<ol>
+<li>
+<p><strong>اشترك في callback إجراء البطاقة (وليس كحدث):</strong>
+في <strong>Development Configuration &gt; Events and Callbacks</strong>، افتح تبويب <strong>Callback Configuration</strong> — وهو منفصل عن تبويب <strong>Event Configuration</strong> الذي يوجد فيه <code>im.message.receive_v1</code> — وأضف <code>card.action.trigger</code> ضمن <em>Subscribed Callbacks</em>. إضافته كحدث لا تؤدي إلى تسليم نقرات الأزرار.</p>
+</li>
+<li>
+<p><strong>اضبط وضع تسليم callback:</strong>
+في التبويب نفسه، اختر <strong>Long Connection</strong> عندما يعمل Hermes في وضع <code>websocket</code> (إذ يستقبل Lark SDK الـ callback عبر الاتصال القائم)، أو أدخل عنوان URL للطلب في وضع webhook (وهو endpoint نفسه المستخدم لـ webhook الأحداث، مثل <code>https://your-server:8765/feishu/webhook</code>). يجب أن يتمكن Feishu من الوصول إلى هذا العنوان وحلّه؛ وإلا فستفشل النقرات بالخطأ 200342/200343.</p>
+</li>
+<li>
+<p><strong>فعّل قدرة البطاقات التفاعلية:</strong>
+في <strong>App Features &gt; Bot</strong>، تأكد من تفعيل مفتاح <strong>Interactive Card</strong>.</p>
+</li>
+<li>
+<p><strong>انشر إصدارًا جديدًا من التطبيق:</strong>
+لا تسري تغييرات callback إلا بعد نشر <strong>Version Management &gt; Create version</strong> (واعتماده، في تطبيقات المؤسسات). ووصف Feishu نفسه للخطأ 200340 هو &quot;the application has not configured the card callback address or the configured address is invalid … ensure that you have created and published the latest version of the app&quot;.</p>
+</li>
+</ol>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="23"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>بدون callback منشور للبطاقات، سيظل Feishu قادرًا على <em>إرسال</em> البطاقات التفاعلية بنجاح (فالإرسال لا يتطلب سوى الصلاحية <code>im:message:send</code>)، لكن النقر على أي زر يُرجع الخطأ 200340. تبدو البطاقة وكأنها تعمل — ولا يظهر الخطأ إلا عندما يتفاعل معها المستخدم، ولا تصل النقرة إلى Hermes أبدًا (فلا يُسجَّل شيء)، لأن Feishu يرفضها قبل تسليم الـ callback.</p></div></div>
+<p>يشير رمزا الخطأ 200672 / 200673 إلى أن الـ callback <em>وصل</em> فعلًا إلى Hermes وأن Feishu رفض الاستجابة؛ إذا ظهرا لك، فيُرجى فتح issue مع أسطر <code>gateway.log</code> المطابقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="document-comment-intelligent-reply">الرد الذكي على تعليقات المستندات</h2>
+<p>إلى جانب المحادثات، يستطيع المحوّل أيضًا الرد على إشارات <code>@</code> المتروكة على <strong>مستندات Feishu/Lark</strong>. عندما يعلّق مستخدم على مستند (على نص محدَّد أو على المستند بأكمله) ويشير إلى البوت بـ @mention، يقرأ Hermes المستند إلى جانب سلسلة التعليقات المحيطة، وينشر ردًا مولَّدًا بواسطة LLM مباشرةً في السلسلة.</p>
+<p>بالاعتماد على الحدث <code>drive.notice.comment_add_v1</code>، يقوم المعالج (handler) بما يلي:</p>
+<ul>
+<li>يجلب محتوى المستند والتسلسل الزمني للتعليقات بالتوازي (20 رسالة لسلاسل التعليقات على المستند بأكمله، و12 لسلاسل التعليقات على نص محدَّد).</li>
+<li>يشغّل الوكيل باستخدام toolsets <code>feishu_doc</code> + <code>feishu_drive</code> مقيّدةً بجلسة ذلك التعليق وحده.</li>
+<li>يقسّم الردود إلى أجزاء من 4000 حرف وينشرها كردود ضمن السلسلة.</li>
+<li>يخزّن الجلسات الخاصة بكل مستند مؤقتًا لمدة ساعة واحدة بحدّ أقصى 50 رسالة، حتى تحتفظ التعليقات اللاحقة على المستند نفسه بالسياق.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-tier-access-control">التحكم في الوصول بثلاثة مستويات</h3>
+<p>الردود على تعليقات المستندات <strong>لا تعمل إلا بمنح صريح</strong> — فلا يوجد وضع ضمني للسماح للجميع. تُحدَّد الصلاحيات بالترتيب التالي (أول تطابق هو المعتمد، لكل حقل على حدة):</p>
+<ol>
+<li><strong>مستند محدَّد</strong> — قاعدة مقيّدة بـ token مستند معيّن.</li>
+<li><strong>حرف بدل (Wildcard)</strong> — قاعدة تطابق نمطًا من المستندات.</li>
+<li><strong>المستوى الأعلى</strong> — القاعدة الافتراضية لمساحة العمل.</li>
+</ol>
+<p>تتوفر سياستان لكل قاعدة:</p>
+<ul>
+<li><strong><code>allowlist</code></strong> — قائمة ثابتة من المستخدمين / المستأجرين.</li>
+<li><strong><code>pairing</code></strong> — القائمة الثابتة ∪ مخزن الموافقات وقت التشغيل. مفيدة عند الطرح التدريجي حيث يستطيع المشرفون منح الوصول مباشرةً.</li>
+</ul>
+<p>توجد القواعد في <code>~/.hermes/feishu_comment_rules.json</code> (ومنح الاقتران في <code>~/.hermes/feishu_comment_pairing.json</code>) مع إعادة تحميل فورية (hot-reload) مخزّنة مؤقتًا بحسب وقت التعديل (mtime) — فتسري التعديلات مع حدث التعليق التالي دون إعادة تشغيل gateway.</p>
+<p>CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-feishu-app-configuration-1">إعدادات تطبيق Feishu المطلوبة</h3>
+<p>إضافةً إلى صلاحيات المحادثات والبطاقات الممنوحة بالفعل، أضف حدث تعليقات drive:</p>
+<ul>
+<li>اشترك في <code>drive.notice.comment_add_v1</code> ضمن <strong>Event Subscriptions</strong>.</li>
+<li>امنح النطاقين <code>docs:doc:readonly</code> و <code>drive:drive:readonly</code> حتى يتمكن المعالج من قراءة محتوى المستند.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="meeting-invitation-events">أحداث دعوات الاجتماعات</h2>
+<p>يمكنك دعوة بوت Hermes على Feishu/Lark إلى اجتماع فيديو بالطريقة نفسها التي تدعو بها مشاركًا بشريًا. عندما يستقبل البوت حدث دعوة الاجتماع، يستطيع Hermes أن يبدأ تلقائيًا دورًا للوكيل يحاول فيه الانضمام إلى الاجتماع.</p>
+<p>بالاعتماد على الحدث <code>vc.bot.meeting_invited_v1</code>، يسير التدفق على النحو التالي:</p>
+<ul>
+<li>يدعو مستخدمٌ البوتَ إلى اجتماع فيديو على Feishu/Lark.</li>
+<li>يرسل Feishu/Lark حدث دعوة الاجتماع إلى Hermes.</li>
+<li>يستخرج Hermes صاحب الدعوة وموضوع الاجتماع ورقمه.</li>
+<li>إذا كان صاحب الدعوة مصرّحًا له وفق قائمة السماح أو سياسة الاقتران المعتادة في gateway، يتلقى الوكيل رقم الاجتماع ويحاول الانضمام تلقائيًا.</li>
+<li>إذا كانت الدعوة غير سليمة البنية، أو تعذّر على الوكيل الانضمام، يُسقط Hermes الحدث أو يردّ على صاحب الدعوة بتوضيح موجز.</li>
+</ul>
+<p>تُتجاهَل الدعوات غير سليمة البنية التي لا تتضمن صاحب الدعوة و <code>meeting_no</code> معًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="required-feishu-app-configuration-2">إعدادات تطبيق Feishu المطلوبة</h3>
+<p>إضافةً إلى صلاحيات المحادثات والبطاقات الممنوحة بالفعل، أضف حدث دعوة اجتماع الفيديو:</p>
+<ul>
+<li>اشترك في <code>vc.bot.meeting_invited_v1</code> ضمن <strong>Event Subscriptions</strong>.</li>
+<li>فعّل نطاق صلاحية Video Conferencing الذي تطلبه وحدة تحكم المطوّرين في Feishu/Lark لهذا الحدث.</li>
+<li>أبقِ <code>im:message</code> و <code>im:message:send_as_bot</code> مفعّلين حتى يتمكن Hermes من الرد على صاحب الدعوة.</li>
+<li>تأكد من أن قائمة السماح للمستخدمين أو سياسة الاقتران في gateway تصرّح لصاحب الدعوة. فدعوات الاجتماعات لا تتجاوز فحوصات الوصول المعتادة في gateway.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="media-support">دعم الوسائط</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-receiving">الوارد (الاستقبال)</h3>
+<p>يستقبل المحوّل أنواع الوسائط التالية من المستخدمين ويخزّنها مؤقتًا:</p>
+<table><thead><tr><th>النوع</th><th>الامتدادات</th><th>كيفية المعالجة</th></tr></thead><tbody><tr><td><strong>الصور</strong></td><td>.jpg, .jpeg, .png, .gif, .webp, .bmp</td><td>تُنزَّل عبر Feishu API وتُخزَّن مؤقتًا محليًا</td></tr><tr><td><strong>الصوت</strong></td><td>.ogg, .mp3, .wav, .m4a, .aac, .flac, .opus, .webm</td><td>تُنزَّل وتُخزَّن مؤقتًا؛ ويُستخرج محتوى الملفات النصية الصغيرة تلقائيًا</td></tr><tr><td><strong>الفيديو</strong></td><td>.mp4, .mov, .avi, .mkv, .webm, .m4v, .3gp</td><td>تُنزَّل وتُخزَّن مؤقتًا كمستندات</td></tr><tr><td><strong>الملفات</strong></td><td>.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx وغيرها</td><td>تُنزَّل وتُخزَّن مؤقتًا كمستندات</td></tr></tbody></table>
+<p>تُستخرج أيضًا الوسائط الموجودة في رسائل النص المنسّق (post) وتُخزَّن مؤقتًا، بما في ذلك الصور المضمّنة ومرفقات الملفات.</p>
+<p>بالنسبة إلى المستندات النصية الصغيرة (.txt و .md)، يُحقن محتوى الملف تلقائيًا في نص الرسالة حتى يتمكن الوكيل من قراءته مباشرةً دون الحاجة إلى أدوات.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="outbound-sending">الصادر (الإرسال)</h3>
+<table><thead><tr><th>الدالة</th><th>ما الذي ترسله</th></tr></thead><tbody><tr><td><code>send</code></td><td>رسائل نصية أو رسائل post منسّقة (يُكتشف النوع تلقائيًا بناءً على وجود محتوى markdown)</td></tr><tr><td><code>send_image</code> / <code>send_image_file</code></td><td>ترفع الصورة إلى Feishu، ثم ترسلها كفقاعة صورة أصلية (مع تعليق اختياري)</td></tr><tr><td><code>send_document</code></td><td>ترفع الملف إلى Feishu API، ثم ترسله كمرفق ملف</td></tr><tr><td><code>send_voice</code></td><td>ترفع الملف الصوتي كمرفق ملف في Feishu</td></tr><tr><td><code>send_video</code></td><td>ترفع الفيديو وترسله كرسالة وسائط أصلية</td></tr><tr><td><code>send_animation</code></td><td>تُحوَّل صور GIF إلى مرفقات ملفات (إذ لا يدعم Feishu فقاعات GIF أصلية)</td></tr></tbody></table>
+<p>يجري توجيه رفع الملفات تلقائيًا بناءً على الامتداد:</p>
+<ul>
+<li><code>.ogg</code> و <code>.opus</code> → تُرفع كصوت <code>opus</code></li>
+<li><code>.mp4</code> و <code>.mov</code> و <code>.avi</code> و <code>.m4v</code> → تُرفع كوسائط <code>mp4</code></li>
+<li><code>.pdf</code> و <code>.doc(x)</code> و <code>.xls(x)</code> و <code>.ppt(x)</code> → تُرفع بنوع المستند الخاص بها</li>
+<li>كل ما عدا ذلك → يُرفع كملف stream عام</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="markdown-rendering-and-post-fallback">عرض Markdown والرجوع الاحتياطي من Post</h2>
+<p>عندما يحتوي النص الصادر على تنسيق markdown (عناوين، أو خط عريض، أو قوائم، أو كتل كود، أو روابط، وغيرها)، يرسله المحوّل تلقائيًا كرسالة <strong>post</strong> في Feishu مع وسم <code>md</code> مضمَّن بدلًا من نص عادي، ما يتيح عرضًا منسّقًا في عميل Feishu.</p>
+<p>إذا رفضت Feishu API حمولة post (مثلًا بسبب بنى markdown غير مدعومة)، يرجع المحوّل تلقائيًا إلى الإرسال كنص عادي بعد إزالة تنسيق markdown. يضمن هذا الرجوع الاحتياطي على مرحلتين تسليم الرسائل دائمًا.</p>
+<p>تُرسَل الرسائل النصية العادية (التي لا يُكتشف فيها markdown) بنوع الرسالة البسيط <code>text</code>.</p>

@@ -1,0 +1,191 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-layer--react-query--nanostores">طبقة البيانات — React Query + nanostores</h2>
+<p>تشارك الإضافات <code>QueryClient</code> الوحيد الخاص بالتطبيق، لذا تخزَّن استعلامات الإضافة مؤقتًا وتُنقّى من التكرار وتُستطلع وتُبطَل تمامًا مثل الشاشات الأساسية — لا تبنِ أبدًا حلقة جلب (fetch) يدوية.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>بالنسبة للحالة المشتركة بين مُشغِّل (trigger) ولوحته (panel) — أو حلقة استطلاع — استخدم <code>atom</code> /
+<code>computed</code> — نفس البدائية (primitive) التي يستخدمها <code>host.state</code>. اشترك في الورقة (leaf) التي
+تعرض القيمة باستخدام <code>useValue</code>. لإبطال استعلام من <strong>خارج</strong> React
+(مثلًا وصول إطار عبر <code>ctx.socket</code>)، استورد <code>queryClient</code> المشترك:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-ui-kit-and-theming">طقم واجهة المستخدم (UI Kit) والسمات (Theming)</h2>
+<p>استورد مكوّنات التطبيق الحقيقية مباشرة حتى تكون واجهتك أصيلة (native) افتراضيًا:</p>
+<blockquote>
+<p><code>Button</code>، و<code>Input</code>، و<code>Textarea</code>، و<code>Select*</code>، و<code>Switch</code>، و<code>Checkbox</code>،
+و<code>SegmentedControl</code>، و<code>Tabs*</code>، و<code>Dialog*</code>، و<code>ConfirmDialog</code>، و<code>DropdownMenu*</code>،
+و<code>ContextMenu*</code>، و<code>Popover*</code>، و<code>Tip</code>/<code>Tooltip*</code>، و<code>Badge</code>، و<code>Kbd</code>/<code>KbdGroup</code>،
+و<code>SearchField</code>، و<code>ScrollArea</code>، و<code>Separator</code>، و<code>Skeleton</code>، و<code>GlyphSpinner</code>، و<code>Loader</code>،
+و<code>EmptyState</code>، و<code>ErrorState</code>، و<code>CopyButton</code>، و<code>StatusDot</code>، و<code>LogView</code>، و<code>Codicon</code>،
+و<code>DecodeText</code>.</p>
+</blockquote>
+<p>بالإضافة إلى مساعدات: <code>cn</code> (دمج classes)، و<code>icons.*</code> (مجموعة lucide الخاصة بالتطبيق)، و<code>haptic</code>،
+و<code>profileColor</code> / <code>profileColorSoft</code> (ألوان هوية حتمية)، ومنسّقات الوقت
+<code>relativeTime</code> / <code>fmtDateTime</code> / <code>fmtDayTime</code> / <code>coarseElapsed</code>،
+و<code>useI18n</code> (نصوص محلَّية — تبقى إضافتك قابلة للترجمة)، و
+<code>evaluateRuntimeReadiness</code>.</p>
+<p><strong>صمّم باستخدام متغيرات السمة (theme variables)، ولا تستخدم ألوانًا ثابتة أبدًا.</strong> تجلس اللوحات (panes) بالفعل على
+خلفية محرر التطبيق — اترك الخلفية كما هي واستخدم المتغيرات لكل شيء
+آخر: <code>var(--ui-text-secondary)</code>، و<code>var(--ui-text-tertiary)</code>،
+و<code>var(--ui-text-quaternary)</code>، و<code>var(--ui-stroke-secondary)</code>، و<code>var(--ui-accent)</code>.
+بالنسبة للرسم على canvas، حلّها مرة واحدة باستخدام
+<code>getComputedStyle(canvas).getPropertyValue(&#x27;--ui-accent&#x27;)</code>. هذا ما يجعل
+الإضافة تُعيد تلوين نفسها تلقائيًا مع كل سمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-backend-for-your-plugin">backend لإضافتك</h2>
+<p>إذا احتاجت إضافتك عملًا من جهة الخادم، اشحن ملف Python <code>plugin_api.py</code> واستدعِه
+عبر <code>ctx.rest</code> / <code>ctx.socket</code> — نطاق مقيّد بإضافتك <strong>بحكم البناء</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-package-both-sdks">حزمة واحدة، وSDK لكلا الجانبين</h3>
+<p>الميزة التي تحتاج إلى واجهة desktop <strong>و</strong>كود من جهة الوكيل (إضافة Python، مسارات الـ backend الخاصة بها، مهارات) لا تحتاج إلى الشحن كتثبيتين مترابطين. ضع
+ملف <code>desktop/plugin.js</code> داخل حزمة الوكيل. عندما تحطّ الحزمة في أي
+جذر <code>plugins/</code> محلي (المنزل الافتراضي أو profile)، تنسخ عملية Electron الرئيسية
+هذا النصف إلى <code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/</code> بجانب علامة
+<code>.hermes-package.json</code>، ويحمّله عارض الواجهة (renderer) عبر خط أنابيب مطابق تمامًا
+لباب القرص المستقل (hot reload متضمَّن):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>نصف <code>desktop/plugin.js</code> هو إضافة قرص عادية — نفس العقد، ونفس
+الاستيرادات، ونفس <code>ctx.rest(&#x27;/…&#x27;)</code> الذي يصل إلى <code>plugin_api.py</code> الموجود بجانبه.
+تثبيت أو مشاركة أو إزالة الميزة هو مجلد واحد: تُحدَّث نسخة جذر التطبيق
+عندما يتغير ملف <code>plugin.js</code> المصدر (<code>hermes plugins update</code>، أو
+<strong>Rescan</strong>) وتُزال عندما يختفي مجلد الحزمة. النسخ هو ما
+يجعل النصف الخاص بـ desktop على <strong>مستوى التطبيق</strong>: فهو موجود مرة واحدة، مهما كان عدد
+الـ profiles التي تحمل الحزمة، ولا يظهر أو يختفي أبدًا عندما يبدّل المستخدم
+محدد profile الخاص بالإمكانيات (Capabilities). لا يفحص عارض الواجهة <code>plugins/</code> بنفسه أبدًا.
+تسجّل العلامة اسم الحزمة ومصدرها (ملحق كتالوج أو
+remote git)، وهذا ما يستخدمه زر <strong>Install here</strong> في صفحة الإضافات
+لتثبيت نصف الوكيل في profile آخر.</p>
+<p>ما زال هناك مفتاحا تفعيل ينطبقان، بشكل مقصود، وكلاهما افتراضيًا <strong>معطَّل</strong>: نصف
+desktop يُشحَن كخيار اختياري (opt-in) — يُدرَج ضمن الجرد في <strong>Capabilities → Plugins</strong> لكنه يبقى
+معطَّلًا حتى يبدّله المستخدم — مطابقًا لتقييد <code>plugins.enabled</code> الخاص
+بنصف Python في <code>config.yaml</code> (الحد الأمني أدناه). وضع
+حزمة في <code>~/.hermes/plugins</code> خامل على كل الأسطح حتى يقول المستخدم
+غير ذلك. يتدهور نصف desktop بأمان عندما يكون نصف الـ backend
+معطَّلًا — يعيد <code>ctx.rest</code> أخطاء، لا انهيارات.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>النسخة محلية للجهاز الذي يعمل عليه تطبيق desktop. مقابل
+backend بعيد، لا يمكن الوصول إلى <code>~/.hermes/plugins</code> الخاص بالجهاز البعيد كنظام ملفات —
+فقط الحزم المثبَّتة محليًا تسهم بنصف desktop بهذه الطريقة. بالنسبة
+لـ backend بعيد، يستنسخ حوار التثبيت نصف desktop بشكل منفصل إلى
+<code>desktop-plugins/</code>، تمامًا كما يحدث مع مستودع خاص بـ desktop فقط.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-link">التوزيع برابط تثبيت</h3>
+<p>اشحن مستودع إضافتك (نصف الوكيل، أو نصف desktop، أو كليهما) واربطه باستخدام
+مخطط <code>hermes://</code> — رابط بسيط على موقعك أو في README:</p>
+<div class="language-html codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>يحصل المستخدم على حوار تأكيد (معرّف المستودع، روابط المصدر، فحص لما
+يشحنه المستودع) ويختار المكوّنات قبل تثبيت أي شيء — الروابط العميقة
+لا تُثبّت تلقائيًا أبدًا. <code>force=1</code> يستبدل تثبيتًا موجودًا؛ نُسخ التطوير تستخدم
+<code>hermes-dev://</code>. مرجع الروابط الكامل:
+<a href="/docs/user-guide/features/plugins#one-click-install-links-desktop">روابط التثبيت بنقرة واحدة</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-python-side">جانب Python</h3>
+<p>تعيد إضافات desktop استخدام نقطة تركيب backend الخاصة بإضافة لوحة التحكم. ضع الـ backend في مجلد فرعي
+<code>dashboard/</code> ضمن إضافة Hermes عادية وأعلن عنه في
+<code>manifest.json</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>تُركَّب المسارات تحت <code>/api/plugins/&lt;id&gt;/</code> (<code>GET /api/plugins/&lt;id&gt;/board</code>، …).
+يعمل كود الـ backend داخل عملية gateway، بحيث يمكنه الاستيراد مباشرة من
+قاعدة كود hermes-agent (<code>hermes_state</code>، و<code>hermes_cli.config</code>، …). راجع
+<a href="/docs/user-guide/features/extending-the-dashboard#backend-api-routes">توسيع لوحة التحكم → مسارات API للـ backend</a>
+للمرجع الكامل للـ backend — نقطة التركيب متطابقة.</p>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>backend الخاص بـ Python مقيّد بشكل منفصل</div><div class="admonitionContent_BuS1"><p>تفعيل إضافة في لوحة <strong>Capabilities → Plugins</strong> الخاصة بـ desktop اختيار
+من جانب عارض الواجهة (renderer)؛ وهو <strong>لا</strong> يستورد Python. يُستورد <code>plugin_api.py</code>
+الخاص بإضافة المستخدم فقط عندما تكون الإضافة في قائمة السماح <code>plugins.enabled</code> ضمن
+<code>config.yaml</code> (وليست في <code>plugins.disabled</code>). إضافات المشروع (<code>./.hermes/</code>)
+لا تستورد Python تلقائيًا أبدًا. هذا حد أمني، لا إغفال
+(GHSA-mcfc-hp25-cjv7).</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-it-from-the-plugin">استدعاؤه من الإضافة</h3>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><code>ctx.rest</code> يراعي profile ويرفض اجتياز المسارات (<code>..</code>) بحيث لا يمكنك أبدًا
+التوجّه إلى واجهة API خاصة بإضافة أخرى أو مسار أساسي عبره. <code>PluginRestOptions</code> هو
+<code>{ method?, body?, upload?: { filename, contentType?, bytes }, timeoutMs? }</code>.</p>
+<p><code>ctx.socket</code> يعيد الاتصال تلقائيًا بتراجع تدريجي (backoff) حتى يُستبعَد. <strong>ينحل إلى عملية تجاهل (no-op)
+على remotes بـ OAuth</strong> (تذاكر WS أحادية الاستخدام مُدارة من النواة) — عامِله كمُسرِّع
+فوق الاستطلاع (polling)، لا كبديل عنه. يحتاج كل مستهلك إلى بديل استطلاع
+على أي حال، لأن أي مقبس (socket) قد ينقطع.</p>
+<p>بالنسبة لبيانات على نطاق gateway بأكمله (وليست في نطاقك الخاص)، استخدم <code>host.request</code> (JSON-RPC) و
+<code>host.onEvent</code> (تدفق أحداث gateway) بدلًا من ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="settings-enable-state-and-storage">الإعدادات، وحالة التفعيل، والتخزين</h2>
+<p>كل إضافة — سواء مفعَّلة أم لا — تُدرَج ضمن الجرد في <strong>Capabilities → Plugins</strong>، حيث
+يبدّلها المستخدم حيًا (بلا إعادة تشغيل للتطبيق)، أو يكشف مجلدها، أو يعيد الفحص. اختيار
+المستخدم يُتذكَّر:</p>
+<ul>
+<li>لا اختيار بعد ← <code>defaultEnabled</code> الخاصة بالإضافة نفسها (الافتراضي <code>true</code>). اضبط
+<code>defaultEnabled: false</code> لشحن إضافة اختيارية تبقى معطَّلة حتى
+يشغّلها المستخدم.</li>
+<li>اختيار صريح ← يُحفظ ويُحترَم عبر إعادات التشغيل. إضافة معطَّلة
+تبقى معطَّلة — لا تقاوم ذلك؛ فقد أطفأك المستخدم.</li>
+</ul>
+<p>احفظ حالتك الخاصة باستخدام <code>ctx.storage</code>، بنطاق مُميّز باسم إضافتك
+(<code>hermes.plugin.&lt;id&gt;.*</code>) بحيث لا تستطيع الإضافات قراءة أو إتلاف بيانات بعضها البعض:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bundled-plugins">الإضافات المضمّنة (Bundled)</h2>
+<p>يمكن لإضافة أن تُشحَن ضمن الشجرة عند <code>apps/desktop/src/plugins/&lt;id&gt;/plugin.tsx</code> (تصدير
+افتراضي <code>HermesPlugin</code>). تُكتشَف بواسطة <code>discoverBundledPlugins()</code> عند الإقلاع —
+بلا استيراد، بلا تعديل سجل — وتشارك نفس عقد الجرد + التفعيل/التعطيل الحي
+كإضافة قرص. الفرقان الاثنان:</p>
+<ol>
+<li>تمر عبر بناء Vite الخاص بالتطبيق، لذا يمكنك كتابة <strong>JSX حقيقي</strong> واستيراد
+الـ SDK عبر اسمه المستعار <code>@hermes/plugin-sdk</code>.</li>
+<li>لا تزال مقيَّدة بأدوات lint إلى <code>@hermes/plugin-sdk</code> + <code>react</code> فقط — بلا داخليات <code>@/…</code>
+خاصة بالتطبيق.</li>
+</ol>
+<p>لا تُشحَن إضافات desktop في الشجرة الأساسية اليوم؛ يبقى التطبيق المُشحَن غير مزدحم
+والعروض التوضيحية موجودة في مستودع
+<a href="https://github.com/NousResearch/hermes-example-plugins" data-ext><code>hermes-example-plugins</code></a>
+المصاحب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">النموذج الأمني</h2>
+<p>تُقيَّم الإضافة المحمَّلة كـ ESM في عالم عارض الواجهة (renderer realm) بـ<strong>سلطة كاملة على
+التطبيق</strong> — النسخة الوحيدة (singleton) من React، وكامل الـ SDK (RPC الخاص بـ gateway عبر
+<code>host.request</code>، و<code>ctx.rest</code>، والتخزين، و<code>navigate</code>). العزل الذي يوفّره المحمّل هو
+<strong>عزل الأخطاء فقط</strong>: لا يمكن لإضافة أن تُسقط التطبيق (المساهمات محدودة الأخطاء،
+والمستمعون معزولون)، لكن يمكنها فعل أي شيء يستطيع التطبيق فعله.</p>
+<p>هذا مقبول بالنسبة لمصادر <strong>محلية</strong> — إذ يمكن لملف على القرص أصلًا تشغيل كود على
+جهازك — وهذا سبب أن باب القرص لا يحمّل إلا ملفات محلية كتبتَها أنت
+(أو وكيلك). فحص <code>integrity</code> (<code>sha256-…</code>) الاختياري يثبت فقط أن البايتات
+تطابق تجزئة (hash)؛ ولا <strong>يعزل</strong>. باب مصدر بعيد مستقبلي سيحتاج
+حدًا حقيقيًا (iframe/worker + CSP + تقييد صلاحيات) قبل أن يصبح جاهزًا؛ لا
+تعامل خط الأنابيب هذا كحد ثقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق</h2>
+<ul>
+<li><strong>JSX لا يُحلَّل (parse) في إضافة قرص.</strong> يُحمَّل الملف دون تجميع — استخدم <code>jsx()</code> /
+<code>jsxs()</code> (أو <code>React.createElement</code>)، لا صياغة JSX. (الإضافات المضمّنة مبنية،
+لذا JSX مقبول فيها.)</li>
+<li><strong>ثلاثة معرّفات فقط قابلة للحل (resolve):</strong> <code>@hermes/plugin-sdk</code>، و<code>react</code>،
+و<code>react/jsx-runtime</code>. أي استيراد آخر يُظهر خطأ تحميل فوري.</li>
+<li><strong>لا تستخدم ألوانًا ثابتة أبدًا</strong> (<code>#000</code>، <code>black</code>، <code>rgb(...)</code>). اترك الخلفية
+كما هي؛ واستخدم متغيرات السمة (<code>var(--ui-*)</code>) لكل شيء.</li>
+<li><strong>أشِر فقط إلى ما استوردته.</strong> مكوّن نسيت استيراده (مثل
+<code>StatusDot</code>) يسبب <code>ReferenceError</code> عند العرض — تحقق مرة أخرى من أن كل معرّف في
+استدعاءات <code>jsx()</code> الخاصة بك موجود في سطر الاستيراد.</li>
+<li><strong>اقرأ الحالة بشكل أمري (imperatively) في المعالجات</strong> (<code>$atom.get()</code>)، وليس من إغلاق
+(closure) خاص بالعرض — فالأحداث السريعة ستَرى قيمًا قديمة خلاف ذلك. اشترك (<code>useValue</code>)
+فقط في الورقة (leaf) التي تعرض القيمة.</li>
+<li><strong>يجب أن تتبع لوحات canvas حاويتها</strong> باستخدام <code>ResizeObserver</code> وتُعيد قياس
+canvas (سمتا العرض/الارتفاع، وليس CSS فقط) — فاللوحات تُعاد قياسها باستمرار.</li>
+<li><strong>لا تستطلع أسرع من بضع ثوانٍ</strong> باستخدام <code>host.request</code>؛ فضّل
+<code>host.onEvent</code> / <code>ctx.socket</code> ودع React Query يزيل التكرار.</li>
+<li><strong><code>ctx.socket</code> عملية تجاهل (no-op) على remotes بـ OAuth.</strong> احرص دائمًا على بديل استطلاع.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference">المرجع</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sdk-exports-at-a-glance">صادرات SDK بنظرة سريعة</h3>
+<table><thead><tr><th>الفئة</th><th>الصادرات (Exports)</th></tr></thead><tbody><tr><td>Host</td><td><code>host</code> (<code>.state.*</code>، <code>.notify</code>، <code>.notifyError</code>، <code>.navigate</code>، <code>.onEvent</code>، <code>.logs</code>، <code>.status</code>، <code>.restartGateway</code>، <code>.request</code>)</td></tr><tr><td>عقد الإضافة</td><td><code>HermesPlugin</code>، <code>PluginContext</code>، <code>PluginContribution</code>، <code>PluginStorage</code>، <code>PluginOs</code>، <code>PluginRestOptions</code>، <code>PluginNativeNotificationInput</code>، <code>PluginNotificationAction</code>، <code>HermesOpenTarget</code>، <code>Contribution</code></td></tr><tr><td>ثوابت المنطقة</td><td><code>PANES_AREA</code>، <code>ROUTES_AREA</code>، <code>SIDEBAR_NAV_AREA</code>، <code>STATUSBAR_AREAS</code>، <code>TITLEBAR_AREAS</code>، <code>PALETTE_AREA</code>، <code>KEYBINDS_AREA</code>، <code>THEMES_AREA</code>، <code>COMPOSER_AREAS</code></td></tr><tr><td>حمولات المنطقة</td><td><code>RouteContribution</code>، <code>SidebarNavContribution</code>، <code>StatusbarItem</code>، <code>TitlebarTool</code>، <code>PaletteContribution</code>، <code>KeybindContribution</code>، <code>ComposerMiddleware</code>، <code>ComposerAttachmentProvider</code></td></tr><tr><td>React / الحالة</td><td><code>useValue</code>، <code>atom</code>، <code>computed</code>، <code>useQuery</code>، <code>useMutation</code>، <code>useQueryClient</code>، <code>queryClient</code>، <code>Contribute</code></td></tr><tr><td>السمات (Theming)</td><td><code>useTheme</code>، <code>requestTheme</code>، <code>setAccentOverride</code>، <code>$accentOverride</code>، <code>retintTheme</code>، <code>themeHue</code>، <code>DesktopTheme</code>، <code>DesktopThemeColors</code>، بالإضافة إلى رياضيات OKLCH (<code>hexToOklch</code>، <code>oklchToHex</code>، <code>oklchToSrgb255</code>، <code>mixOklab</code>، <code>maxChroma</code>، <code>hueDelta</code>، <code>contrastRatio</code>، <code>readableOn</code>، <code>normalizeHex</code>)</td></tr><tr><td>طقم واجهة المستخدم (UI kit)</td><td><code>Button</code>، <code>Input</code>، <code>Textarea</code>، <code>Select*</code>، <code>Switch</code>، <code>Checkbox</code>، <code>SegmentedControl</code>، <code>Tabs*</code>، <code>Dialog*</code>، <code>ConfirmDialog</code>، <code>DropdownMenu*</code>، <code>ContextMenu*</code>، <code>Popover*</code>، <code>Tip</code>/<code>Tooltip*</code>، <code>Badge</code>، <code>Kbd</code>/<code>KbdGroup</code>، <code>SearchField</code>، <code>ScrollArea</code>، <code>Separator</code>، <code>Skeleton</code>، <code>GlyphSpinner</code>، <code>Loader</code>، <code>EmptyState</code>، <code>ErrorState</code>، <code>CopyButton</code>، <code>StatusDot</code>، <code>LogView</code>، <code>Codicon</code>، <code>DecodeText</code></td></tr><tr><td>المساعدات</td><td><code>cn</code>، <code>icons</code>، <code>haptic</code>، <code>useI18n</code>، <code>profileColor</code>، <code>profileColorSoft</code>، <code>relativeTime</code>، <code>fmtDateTime</code>، <code>fmtDayTime</code>، <code>coarseElapsed</code>، <code>evaluateRuntimeReadiness</code></td></tr></tbody></table>
+<p>قائمة الصادرات المرجعية الدائمة التحديث هي <code>apps/desktop/src/sdk/index.ts</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agents-the-hermes-desktop-plugins-skill">الوكلاء: مهارة <code>hermes-desktop-plugins</code></h3>
+<p>عندما يكتب وكيل إضافة desktop، عليه تحميل مهارة
+<strong><code>hermes-desktop-plugins</code></strong> المضمّنة — فهي تحمل نفس عقد هذه الصفحة في
+صيغة موجَّهة للوكيل، مع <code>templates/plugin.js</code> جاهز للنسخ. هذه الصفحة هي
+المرجع البشري/الخاص بالمطوّر؛ والمهارة هي قائمة التحقق العملية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>إضافتي لا تظهر.</strong> تأكد أن الملف موجود في
+<code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/plugin.js</code> وأن اسم المجلد يطابق
+<code>id</code> المُصدَّر. نفّذ ⌘K → <strong>Reload desktop plugins</strong>. تحقق من التطبيق بحثًا عن رسالة خطأ منبثقة
+تسمّي الإخفاق، وتابع سجل <code>hermes logs gui -f</code>.</p>
+<p><strong>&quot;unsupported import&quot; عند التحميل.</strong> إضافة القرص لا يجوز أن تستورد سوى
+<code>@hermes/plugin-sdk</code>، و<code>react</code>، و<code>react/jsx-runtime</code>. أزل أي استيراد آخر.</p>
+<p><strong>عنصر <code>jsx</code> لا يعرض شيئًا / يُطلق <code>ReferenceError</code>.</strong> معرّف مستخدَم
+في استدعاء <code>jsx()</code> غير مستورَد. أضفه إلى سطر الاستيراد.</p>
+<p><strong><code>ctx.rest</code> يعيد 404.</strong> الـ backend غير مُركَّب: تأكد من أن
+<code>~/.hermes/plugins/&lt;id&gt;/dashboard/manifest.json</code> يحتوي <code>&quot;api&quot;: &quot;plugin_api.py&quot;</code>،
+وأن الإضافة مدرجة في <code>plugins.enabled</code> ضمن <code>config.yaml</code>، وأعد تشغيل gateway
+(تُركَّب مسارات الـ backend عند بدء التشغيل). تابع <code>~/.hermes/logs/errors.log</code> بحثًا عن
+<code>Failed to load plugin &lt;id&gt; API routes</code>.</p>
+<p><strong><code>ctx.socket</code> لا يُطلَق أبدًا.</strong> على remote بـ OAuth هو عملية تجاهل (no-op) بالتصميم — استخدم
+بديل الاستطلاع الخاص بك. وإلا تحقق من أن الـ backend يعرض
+مسار <code>@router.websocket(...)</code> المطابق تحت نطاقه.</p>
+<p><strong>الألوان تبدو خاطئة بعد تبديل السمة.</strong> لقد استخدمت لونًا ثابتًا. استبدله بـ
+متغير سمة <code>var(--ui-*)</code>.</p>

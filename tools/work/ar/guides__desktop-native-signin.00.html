@@ -1,0 +1,90 @@
+<header><h1>تسجيل الدخول الأصلي على سطح المكتب (RFC 8252)</h1></header>
+<p>عندما يتصل تطبيق Hermes لسطح المكتب بـ<strong>gateway مُقيَّد</strong> (لوحة تحكم
+مستضافة أو مستضافة ذاتيًا خلف مزوّد OAuth)، يمكنه تسجيل الدخول بطريقتين:</p>
+<ol>
+<li><strong>تسجيل دخول أصلي (RFC 8252)</strong> — يفتح التطبيق <strong>متصفح نظامك الحقيقي</strong>،
+وتوافق في المتصفح الذي تثق به بالفعل، ويستلم التطبيق رموزًا (tokens) يخزّنها
+كملفات مقتصرة على المالك فقط في مجلد بيانات المستخدم الخاص به (يمكن تشفيرها اختياريًا
+عبر سلسلة مفاتيح نظام التشغيل — Settings ← Gateway). <strong>بلا webview
+مضمَّن، وبلا ملفات تعريف ارتباط (cookies) جلسة متصفح.</strong> هذا هو الافتراضي كلما
+دعمه gateway.</li>
+<li><strong>تسجيل دخول مضمَّن (احتياطي قديم)</strong> — يفتح التطبيق نافذة متصفح
+صغيرة داخل التطبيق ويلتقط ملف تعريف ارتباط جلسة gateway. يُستخدَم تلقائيًا
+عندما يكون gateway نسخة أقدم لا تعلن عن دعم تسجيل الدخول الأصلي.</li>
+</ol>
+<p>أنت لا تختار بين هذين — يكتشف التطبيق ما يدعمه gateway
+ويختار الأنسب. توضّح هذه الصفحة ما الذي يحدث ولماذا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-native-sign-in">لماذا تسجيل الدخول الأصلي</h2>
+<p>لتضمين متصفح داخل تطبيق أصلي من أجل OAuth عيوب معروفة جيدًا:
+لا تستطيع صفحة تسجيل الدخول رؤية جلسة متصفحك الحالية (فتعيد كتابة
+بيانات الاعتماد وتعيد إجراء المصادقة متعددة العوامل)، وغالبًا ما لا تعمل مديرات كلمات المرور والمفاتيح المرورية (passkeys)،
+ويعتمد التطبيق على قراءة ملف تعريف ارتباط جلسة من webview خاص. RFC
+8252 (&quot;OAuth 2.0 for Native Apps&quot;) هي أفضل ممارسة معتمَدة في الصناعة تتجنّب
+كل ذلك: <strong>نفّذ التفويض في متصفح النظام وسلِّم التطبيق رموزه
+الخاصة.</strong></p>
+<p>بالنسبة إلى Hermes تحديدًا، يعني تسجيل الدخول الأصلي:</p>
+<ul>
+<li><strong>بلا webview مضمَّن.</strong> يحدث التفويض في Safari / Chrome /
+Firefox / Edge — أيًا كان ما تستخدمه — مع بقاء تسجيلات دخولك، وإضافاتك،
+ومفاتيحك المرورية سليمة.</li>
+<li><strong>بلا ملفات تعريف ارتباط جلسة.</strong> يحمل التطبيق <strong>رمز وصول (access token)</strong> OAuth (قصير العمر)
+و<strong>رمز تحديث (refresh token)</strong>، مُخزَّنَين كملفات مقتصرة على المالك — مشفّرة عند
+السكون عبر سلسلة مفاتيح نظام التشغيل لديك (<code>safeStorage</code> الخاص بـ Electron) عند تفعيل مفتاح سلسلة المفاتيح
+الاختياري في Settings ← Gateway. تُصادَق استدعاءات REST وتذاكر WebSocket
+بترويسة <code>Authorization: Bearer</code>، لا بمخزن ملفات تعريف ارتباط.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يتوسّط gateway <strong>(brokers)</strong> عملية التدفّق: فهو خادم التفويض <em>بالنسبة
+إلى</em> تطبيق سطح المكتب، وعميل OAuth <em>بالنسبة إلى</em> مزوّد الهوية الأعلى (Nous
+Portal). هذا مطلوب لأن <code>client_id</code> وروابط إعادة التوجيه المسموح بها لدى المزوّد الأعلى
+مرتبطة بمصدر (origin) gateway نفسه — لا يمكن لتطبيق سطح مكتب أن يكون
+عميلًا مباشرًا لـ Portal. ومع ذلك يحصل سطح المكتب على تجربة RFC 8252
+الكاملة: زوج PKCE خاص به، وإعادة توجيه loopback خاصة به، ورموز يملكها هو.</p>
+<p><strong>يحمي PKCE (RFC 7636)</strong> قفزة loopback: يصبح رمز gateway لمرة واحدة
+عديم الفائدة بلا مُحقِّق الرمز (code verifier)، الذي لا يغادر التطبيق أبدًا. الرمز
+أحادي الاستخدام وقصير العمر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="capability-detection--fallback">اكتشاف القدرات والاحتياط</h2>
+<p>يقرأ سطح المكتب نقطة نهاية gateway العامة <code>/api/status</code>، التي تعلن
+مصفوفة <code>auth_flows</code>:</p>
+<table><thead><tr><th>قيمة <code>auth_flows</code></th><th>المعنى</th></tr></thead><tbody><tr><td><code>[&quot;cookie&quot;, &quot;native_pkce&quot;]</code></td><td>يدعم gateway تسجيل الدخول الأصلي ← يستخدمه التطبيق</td></tr><tr><td><code>[&quot;cookie&quot;]</code></td><td>يدعم gateway التدفّق القديم فقط ← يستخدم التطبيق webview المضمَّن</td></tr><tr><td><em>(الحقل غائب)</em></td><td>gateway أقدم ← يستخدم التطبيق webview المضمَّن</td></tr></tbody></table>
+<p>إذا أُعلِن دعم تسجيل الدخول الأصلي لكنه فشل لسبب محلي — مثل أن أداة أمان
+تحجب مستمِع loopback، أو أغلقت تبويب المتصفح — يعود
+التطبيق <strong>تلقائيًا إلى التدفّق المضمَّن</strong> حتى تتمكّن من تسجيل الدخول رغم ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-lifecycle">دورة حياة الرمز (Token)</h2>
+<ul>
+<li><strong>رمز الوصول (Access token)</strong>: قصير العمر (دقائق). يُرسَل كـ <code>Authorization: Bearer</code> في
+كل استدعاء REST وعند سكّ تذكرة WebSocket.</li>
+<li><strong>رمز التحديث (Refresh token)</strong>: أطول عمرًا، ودوّار. عندما يقترب رمز الوصول من
+الانتهاء، يستدعي التطبيق <code>/auth/native/refresh</code> لتدوير كلا الرمزين، ثم
+يحدّث مخزن رموزه.</li>
+<li><strong>الانتهاء النهائي</strong>: إذا كان رمز التحديث ميتًا (منتهيًا / مُلغى /
+اكتُشف إعادة استخدامه)، يمسح التطبيق رموزه المخزَّنة ويطالب بتسجيل
+دخول جديد.</li>
+<li><strong>تسجيل الخروج</strong>: يمسح كلًّا من الرموز الأصلية المخزَّنة وأي ملف تعريف ارتباط جلسة
+قديم لذلك gateway.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="for-gateway-operators">لمشغّلي gateway</h2>
+<p>يتوفّر تسجيل الدخول الأصلي تلقائيًا على أي gateway مُقيَّد لديه
+مزوّد جلسة تفاعلية مسجَّل. لا حاجة لأي إعداد — مسارات
+<code>/auth/native/*</code> وإعلان <code>auth_flows</code> جزء من نظام مصادقة لوحة
+التحكم الفرعي. يتوسّط مزوّدو OAuth (مثل مزوّد <strong>Nous</strong> المضمَّن)
+إعادة التوجيه إلى مزوّد الهوية الأعلى؛ أما مزوّدو كلمة المرور (مثل إضافة
+<strong>basic-auth</strong> المضمَّنة) فيُنزلون متصفح النظام على نموذج بيانات اعتماد
+<code>/login</code> الخاص بـ gateway بدلًا من ذلك — وهذا ما يتيح لمديرات كلمات مرور
+نظام التشغيل (macOS Passwords، إلخ) ملء النموذج تلقائيًا، وهو أمر لا يستطيع أي
+webview مضمَّن في سطح المكتب تقديمه. بيانات الاعتماد المعتمِدة على رمز فقط (مثل drain) ليست
+تسجيلات دخول تفاعلية ولا تعلن <code>native_pkce</code>.</p>
+<p>نقاط النهاية ذات الصلة (كلها عامة، وضمن التمهيد قبل المصادقة، مثل مسارات
+<code>/auth/*</code> الخاصة بـ OAuth الموجودة):</p>
+<ul>
+<li><code>GET /auth/native/authorize</code> — يبدأ تسجيل الدخول عبر PKCE المتوسَّط</li>
+<li><code>POST /auth/native/token</code> — يستبدل رمز loopback + المُحقِّق (verifier) برموز</li>
+<li><code>POST /auth/native/refresh</code> — يدوّر الرموز انطلاقًا من رمز تحديث التطبيق</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">راجع أيضًا</h2>
+<ul>
+<li><a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a> — نمط استدعاء loopback
+لتفويض OAuth الخاص بالمزوّد/MCP على الأجهزة البعيدة.</li>
+<li><a href="/docs/guides/run-hermes-with-nous-portal">تشغيل Hermes مع Nous Portal</a></li>
+</ul>

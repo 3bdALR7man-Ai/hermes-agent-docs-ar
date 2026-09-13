@@ -1,0 +1,261 @@
+
+<header><h1>Openclaw Migration</h1></header>
+<p>استيراد إعداد OpenClaw (الذاكرة، المهارات) إلى Hermes.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/migration/openclaw-migration</code></td></tr><tr><td>المسار</td><td><code>optional-skills/migration/openclaw-migration</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent (Nous Research)</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux، macos، windows</td></tr><tr><td>الوسوم</td><td><code>Migration</code>، <code>OpenClaw</code>، <code>Hermes</code>، <code>Memory</code>، <code>Persona</code>، <code>Import</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/autonomous-ai-agents/autonomous-ai-agents-hermes-agent"><code>hermes-agent</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="7"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>الانتقال من OpenClaw -&gt; Hermes</h1>
+<p>استخدم هذه المهارة عندما يريد المستخدم نقل إعداد OpenClaw الخاص به إلى Hermes Agent بأقل قدر ممكن من التنظيف اليدوي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-command">أمر CLI</h2>
+<p>لعملية انتقال سريعة وغير تفاعلية، استخدم أمر CLI المدمج:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يُشغّل أمر CLI سكربت الانتقال نفسه الموصوف أدناه. استخدم هذه المهارة (عبر الوكيل) عندما تريد انتقالًا تفاعليًا وموجَّهًا مع معاينات تجربة جافة (dry-run) وحل تعارضات لكل عنصر على حدة.</p>
+<p><strong>الإعداد لأول مرة:</strong> يكتشف معالج <code>hermes setup</code> تلقائيًا وجود <code>~/.openclaw</code> ويعرض الانتقال قبل بدء الإعدادات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-this-skill-does">ما تفعله هذه المهارة</h2>
+<p>تستخدم <code>scripts/openclaw_to_hermes.py</code> من أجل:</p>
+<ul>
+<li>استيراد <code>SOUL.md</code> إلى مجلد Hermes الرئيسي باسم <code>SOUL.md</code></li>
+<li>تحويل ملفَي <code>MEMORY.md</code> و <code>USER.md</code> الخاصَين بـ OpenClaw إلى مُدخلات ذاكرة في Hermes</li>
+<li>دمج أنماط الموافقة على الأوامر في OpenClaw ضمن <code>command_allowlist</code> في Hermes</li>
+<li>ترحيل إعدادات المراسلة المتوافقة مع Hermes مثل <code>TELEGRAM_ALLOWED_USERS</code>، وربط إعدادات مساحة عمل OpenClaw بإعدادات دليل العمل في Hermes</li>
+<li>نسخ مهارات OpenClaw إلى <code>~/.hermes/skills/openclaw-imports/</code></li>
+<li>نسخ ملف تعليمات مساحة عمل OpenClaw اختياريًا إلى مساحة عمل Hermes مُختارة</li>
+<li>محاكاة أصول مساحة العمل المتوافقة مثل <code>workspace/tts/</code> في <code>~/.hermes/tts/</code></li>
+<li>أرشفة المستندات غير السرّية التي ليس لها وجهة مباشرة في Hermes</li>
+<li>إصدار تقرير مُهيكل يسرد العناصر المُرحَّلة والتعارضات والعناصر المتجاوَزة وأسبابها</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-resolution">تحديد المسار</h2>
+<p>يقع السكربت المساعد في دليل هذه المهارة عند:</p>
+<ul>
+<li><code>scripts/openclaw_to_hermes.py</code></li>
+</ul>
+<p>عندما تُثبَّت هذه المهارة من Skills Hub، يكون الموقع المعتاد هو:</p>
+<ul>
+<li><code>~/.hermes/skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py</code></li>
+</ul>
+<p>لا تخمّن مسارًا أقصر مثل <code>~/.hermes/skills/openclaw-migration/...</code>.</p>
+<p>قبل تشغيل السكربت المساعد:</p>
+<ol>
+<li>فضّل المسار المُثبَّت تحت <code>~/.hermes/skills/migration/openclaw-migration/</code>.</li>
+<li>إذا فشل هذا المسار، افحص دليل المهارة المُثبَّتة وحدد مسار السكربت نسبةً إلى ملف <code>SKILL.md</code> المُثبَّت.</li>
+<li>استخدم <code>find</code> فقط كحل احتياطي إذا كان الموقع المُثبَّت مفقودًا أو نُقلت المهارة يدويًا.</li>
+<li>عند استدعاء أداة الطرفية، لا تمرّر <code>workdir: &quot;~&quot;</code>. استخدم دليلًا مطلقًا مثل دليل المستخدم الرئيسي، أو احذف <code>workdir</code> كليًا.</li>
+</ol>
+<p>مع <code>--migrate-secrets</code>، سيستورد السكربت أيضًا مجموعة صغيرة مسموح بها من الأسرار المتوافقة مع Hermes، وهي حاليًا:</p>
+<ul>
+<li><code>TELEGRAM_BOT_TOKEN</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="default-workflow">سير العمل الافتراضي</h2>
+<ol>
+<li>افحص أولًا بتجربة جافة (dry run).</li>
+<li>اعرض ملخصًا بسيطًا لما يمكن ترحيله، وما لا يمكن ترحيله، وما سيُؤرشف.</li>
+<li>إذا كانت أداة <code>clarify</code> متاحة، استخدمها لقرارات المستخدم بدل طلب رد نثري حر.</li>
+<li>إذا وجدت التجربة الجافة تعارضات في أدلة المهارات المستوردة، اسأل عن كيفية التعامل معها قبل التنفيذ.</li>
+<li>اطلب من المستخدم الاختيار بين وضعَي الانتقال المدعومَين قبل التنفيذ.</li>
+<li>اطلب مسار مساحة عمل هدف فقط إذا أراد المستخدم نقل ملف تعليمات مساحة العمل.</li>
+<li>نفّذ الانتقال بالإعداد المسبق (preset) والخيارات المطابقة.</li>
+<li>لخّص النتائج، وخصوصًا:
+<ul>
+<li>ما الذي تم ترحيله</li>
+<li>ما الذي أُرشف للمراجعة اليدوية</li>
+<li>ما الذي تم تجاوزه ولماذا</li>
+</ul>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-interaction-protocol">بروتوكول تفاعل المستخدم</h2>
+<p>يدعم Hermes CLI أداة <code>clarify</code> للمُوجّهات التفاعلية، لكنها محدودة بـ:</p>
+<ul>
+<li>خيار واحد في كل مرة</li>
+<li>حتى 4 خيارات مُحدَّدة مسبقًا</li>
+<li>خيار نص حر تلقائي باسم <code>Other</code></li>
+</ul>
+<p>لا تدعم <strong>هذه الأداة</strong> صناديق اختيار متعددة حقيقية (multi-select) في مُوجّه واحد.</p>
+<p>في كل استدعاء لـ <code>clarify</code>:</p>
+<ul>
+<li>أدرج دائمًا <code>question</code> غير فارغ</li>
+<li>أدرج <code>choices</code> فقط للمُوجّهات القابلة للاختيار الحقيقية</li>
+<li>اجعل <code>choices</code> بين 2 و4 خيارات نصية بسيطة</li>
+<li>لا تُصدر أبدًا خيارات بديلة أو مبتورة مثل <code>...</code></li>
+<li>لا تُضف أبدًا مسافات إضافية أو تنسيقًا زائدًا للخيارات</li>
+<li>لا تُدرج أبدًا حقول نموذج وهمية في السؤال مثل <code>enter directory here</code>، أو أسطر فارغة للتعبئة، أو شرطات سفلية مثل <code>_____</code></li>
+<li>بالنسبة لأسئلة المسار المفتوحة، اطرح الجملة البسيطة فقط؛ يكتب المستخدم إجابته في مُوجّه CLI العادي أسفل اللوحة</li>
+</ul>
+<p>إذا أعاد استدعاء <code>clarify</code> خطأ، افحص نص الخطأ، صحّح البيانات المُرسلة، وأعد المحاولة مرة واحدة بـ <code>question</code> صالح وخيارات نظيفة.</p>
+<p>عندما تكون <code>clarify</code> متاحة وتكشف التجربة الجافة عن أي قرار مطلوب من المستخدم، يجب أن يكون <strong>إجراؤك التالي استدعاء لأداة <code>clarify</code></strong>.
+لا تُنهِ الدور بردّ عادي من المساعد مثل:</p>
+<ul>
+<li>&quot;دعني أعرض الخيارات&quot;</li>
+<li>&quot;ماذا تريد أن تفعل؟&quot;</li>
+<li>&quot;إليك الخيارات&quot;</li>
+</ul>
+<p>إذا كان قرار المستخدم مطلوبًا، اجمعه عبر <code>clarify</code> قبل إنتاج مزيد من النص.
+إذا بقيت عدة قرارات غير محسومة، لا تُدرج رسالة توضيحية من المساعد بينها. بعد استلام رد واحد من <code>clarify</code>، يجب أن يكون إجراؤك التالي عادةً استدعاء <code>clarify</code> المطلوب التالي.</p>
+<p>عامل <code>workspace-agents</code> على أنه قرار غير محسوم كلما أفادت التجربة الجافة بما يلي:</p>
+<ul>
+<li><code>kind=&quot;workspace-agents&quot;</code></li>
+<li><code>status=&quot;skipped&quot;</code></li>
+<li>سبب يحتوي على <code>No workspace target was provided</code></li>
+</ul>
+<p>في هذه الحالة، يجب أن تسأل عن تعليمات مساحة العمل قبل التنفيذ. لا تعامل ذلك بصمت على أنه قرار بالتجاوز.</p>
+<p>بسبب هذا القيد، استخدم مسار القرار المُبسَّط التالي:</p>
+<ol>
+<li>لتعارضات <code>SOUL.md</code>، استخدم <code>clarify</code> بخيارات مثل:
+<ul>
+<li><code>keep existing</code></li>
+<li><code>overwrite with backup</code></li>
+<li><code>review first</code></li>
+</ul>
+</li>
+<li>إذا أظهرت التجربة الجافة عنصرًا واحدًا أو أكثر من نوع <code>kind=&quot;skill&quot;</code> بحالة <code>status=&quot;conflict&quot;</code>، استخدم <code>clarify</code> بخيارات مثل:
+<ul>
+<li><code>keep existing skills</code></li>
+<li><code>overwrite conflicting skills with backup</code></li>
+<li><code>import conflicting skills under renamed folders</code></li>
+</ul>
+</li>
+<li>لتعليمات مساحة العمل، استخدم <code>clarify</code> بخيارات مثل:
+<ul>
+<li><code>skip workspace instructions</code></li>
+<li><code>copy to a workspace path</code></li>
+<li><code>decide later</code></li>
+</ul>
+</li>
+<li>إذا اختار المستخدم نسخ تعليمات مساحة العمل، اطرح سؤال <code>clarify</code> مفتوحًا كمتابعة يطلب <strong>مسارًا مطلقًا</strong>.</li>
+<li>إذا اختار المستخدم <code>skip workspace instructions</code> أو <code>decide later</code>، تابع دون <code>--workspace-target</code>.</li>
+<li>لوضع الانتقال، استخدم <code>clarify</code> بهذه الخيارات الثلاثة:
+<ul>
+<li><code>user-data only</code></li>
+<li><code>full compatible migration</code></li>
+<li><code>cancel</code></li>
+</ul>
+</li>
+<li>تعني <code>user-data only</code>: رحّل بيانات المستخدم والإعدادات المتوافقة، لكن <strong>لا</strong> تستورد الأسرار المسموح بها.</li>
+<li>تعني <code>full compatible migration</code>: رحّل بيانات المستخدم المتوافقة نفسها بالإضافة إلى الأسرار المسموح بها عند وجودها.</li>
+<li>إذا لم تكن <code>clarify</code> متاحة، اطرح السؤال نفسه بنص عادي، لكن قيّد الإجابة مع ذلك إلى <code>user-data only</code> أو <code>full compatible migration</code> أو <code>cancel</code>.</li>
+</ol>
+<p>بوابة التنفيذ:</p>
+<ul>
+<li>لا تُنفّذ ما دام تجاوز <code>workspace-agents</code> الناتج عن <code>No workspace target was provided</code> غير محسوم.</li>
+<li>الطرق الصالحة الوحيدة لحسمه هي:
+<ul>
+<li>يختار المستخدم صراحةً <code>skip workspace instructions</code></li>
+<li>يختار المستخدم صراحةً <code>decide later</code></li>
+<li>يقدّم المستخدم مسار مساحة عمل بعد اختيار <code>copy to a workspace path</code></li>
+</ul>
+</li>
+<li>غياب هدف مساحة عمل في التجربة الجافة ليس بحد ذاته إذنًا بالتنفيذ.</li>
+<li>لا تُنفّذ ما دام أي قرار <code>clarify</code> مطلوب لم يُحسم بعد.</li>
+</ul>
+<p>استخدم أشكال بيانات <code>clarify</code> هذه بالضبط كنمط افتراضي:</p>
+<ul>
+<li><code>{&quot;question&quot;:&quot;Your existing SOUL.md conflicts with the imported one. What should I do?&quot;,&quot;choices&quot;:[&quot;keep existing&quot;,&quot;overwrite with backup&quot;,&quot;review first&quot;]}</code></li>
+<li><code>{&quot;question&quot;:&quot;One or more imported OpenClaw skills already exist in Hermes. How should I handle those skill conflicts?&quot;,&quot;choices&quot;:[&quot;keep existing skills&quot;,&quot;overwrite conflicting skills with backup&quot;,&quot;import conflicting skills under renamed folders&quot;]}</code></li>
+<li><code>{&quot;question&quot;:&quot;Choose migration mode: migrate only user data, or run the full compatible migration including allowlisted secrets?&quot;,&quot;choices&quot;:[&quot;user-data only&quot;,&quot;full compatible migration&quot;,&quot;cancel&quot;]}</code></li>
+<li><code>{&quot;question&quot;:&quot;Do you want to copy the OpenClaw workspace instructions file into a Hermes workspace?&quot;,&quot;choices&quot;:[&quot;skip workspace instructions&quot;,&quot;copy to a workspace path&quot;,&quot;decide later&quot;]}</code></li>
+<li><code>{&quot;question&quot;:&quot;Please provide an absolute path where the workspace instructions should be copied.&quot;}</code></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="decision-to-command-mapping">ربط القرارات بالأوامر</h2>
+<p>اربط قرارات المستخدم بخيارات الأمر بدقة:</p>
+<ul>
+<li>إذا اختار المستخدم <code>keep existing</code> لـ <code>SOUL.md</code>، <strong>لا</strong> تضف <code>--overwrite</code>.</li>
+<li>إذا اختار المستخدم <code>overwrite with backup</code>، أضف <code>--overwrite</code>.</li>
+<li>إذا اختار المستخدم <code>review first</code>، توقّف قبل التنفيذ وراجع الملفات المعنية.</li>
+<li>إذا اختار المستخدم <code>keep existing skills</code>، أضف <code>--skill-conflict skip</code>.</li>
+<li>إذا اختار المستخدم <code>overwrite conflicting skills with backup</code>، أضف <code>--skill-conflict overwrite</code>.</li>
+<li>إذا اختار المستخدم <code>import conflicting skills under renamed folders</code>، أضف <code>--skill-conflict rename</code>.</li>
+<li>إذا اختار المستخدم <code>user-data only</code>، نفّذ بـ <code>--preset user-data</code> و<strong>لا</strong> تضف <code>--migrate-secrets</code>.</li>
+<li>إذا اختار المستخدم <code>full compatible migration</code>، نفّذ بـ <code>--preset full --migrate-secrets</code>.</li>
+<li>أضف <code>--workspace-target</code> فقط إذا قدّم المستخدم صراحةً مسار مساحة عمل مطلقًا.</li>
+<li>إذا اختار المستخدم <code>skip workspace instructions</code> أو <code>decide later</code>، لا تضف <code>--workspace-target</code>.</li>
+</ul>
+<p>قبل التنفيذ، أعد صياغة خطة الأمر الدقيقة بلغة بسيطة وتأكد من مطابقتها لاختيارات المستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-run-reporting-rules">قواعد إعداد التقرير بعد التشغيل</h2>
+<p>بعد التنفيذ، عامل مخرجات JSON الخاصة بالسكربت على أنها المرجع الموثوق.</p>
+<ol>
+<li>اجعل كل الأعداد مبنية على <code>report.summary</code>.</li>
+<li>أدرج عنصرًا تحت &quot;تم ترحيله بنجاح&quot; فقط إذا كانت حالته <code>status</code> بالضبط <code>migrated</code>.</li>
+<li>لا تدّعِ أن تعارضًا حُلّ ما لم يُظهر التقرير أن ذلك العنصر <code>migrated</code>.</li>
+<li>لا تقل إن <code>SOUL.md</code> استُبدل ما لم يكن لعنصر التقرير من نوع <code>kind=&quot;soul&quot;</code> حالة <code>status=&quot;migrated&quot;</code>.</li>
+<li>إذا كانت <code>report.summary.conflict &gt; 0</code>، أدرج قسمًا للتعارضات بدل الإيحاء بالنجاح بصمت.</li>
+<li>إذا اختلفت الأعداد عن العناصر المذكورة، صحّح القائمة لتطابق التقرير قبل الرد.</li>
+<li>أدرج مسار <code>output_dir</code> من التقرير عند توفره ليتمكن المستخدم من فحص <code>report.json</code> و <code>summary.md</code> والنسخ الاحتياطية والملفات المؤرشفة.</li>
+<li>بخصوص فيض الذاكرة أو الملف الشخصي للمستخدم، لا تقل إن العناصر أُرشفت ما لم يُظهر التقرير مسار أرشفة صراحةً. إذا وُجد <code>details.overflow_file</code>، قل إن قائمة الفيض الكاملة صُدّرت هناك.</li>
+<li>إذا استُوردت مهارة تحت مجلد أُعيدت تسميته، أذكر الوجهة النهائية واذكر <code>details.renamed_from</code>.</li>
+<li>إذا كانت <code>report.skill_conflict_mode</code> موجودة، اعتمدها كمرجع موثوق لسياسة تعارض المهارات المستوردة المختارة.</li>
+<li>إذا كان لعنصر ما <code>status=&quot;skipped&quot;</code>، لا تصفه بأنه استُبدل أو نُسخ احتياطيًا أو رُحّل أو حُسم.</li>
+<li>إذا كان <code>kind=&quot;soul&quot;</code> بحالة <code>status=&quot;skipped&quot;</code> وسببها <code>Target already matches source</code>، قل إنه بقي دون تغيير ولا تذكر نسخة احتياطية.</li>
+<li>إذا كان لمهارة مستوردة أُعيدت تسميتها حقل <code>details.backup</code> فارغ، لا تُوحِ بأن مهارة Hermes الموجودة أُعيدت تسميتها أو نُسخت احتياطيًا. قل فقط إن النسخة المستوردة وُضعت في الوجهة الجديدة، وأشر إلى <code>details.renamed_from</code> بوصفه المجلد الموجود مسبقًا الذي بقي في مكانه.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="migration-presets">الإعدادات المسبقة للانتقال (Presets)</h2>
+<p>فضّل هذين الإعدادين المسبقين في الاستخدام العادي:</p>
+<ul>
+<li><code>user-data</code></li>
+<li><code>full</code></li>
+</ul>
+<p>يشمل <code>user-data</code>:</p>
+<ul>
+<li><code>soul</code></li>
+<li><code>workspace-agents</code></li>
+<li><code>memory</code></li>
+<li><code>user-profile</code></li>
+<li><code>messaging-settings</code></li>
+<li><code>command-allowlist</code></li>
+<li><code>skills</code></li>
+<li><code>tts-assets</code></li>
+<li><code>archive</code></li>
+</ul>
+<p>يشمل <code>full</code> كل ما في <code>user-data</code> بالإضافة إلى:</p>
+<ul>
+<li><code>secret-settings</code></li>
+</ul>
+<p>لا يزال السكربت المساعد يدعم <code>--include</code> / <code>--exclude</code> على مستوى الفئة، لكن عامل ذلك كحل احتياطي متقدم لا كتجربة استخدام افتراضية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands">الأوامر</h2>
+<p>تجربة جافة مع اكتشاف كامل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>عند استخدام أداة الطرفية، فضّل نمط استدعاء بمسار مطلق مثل:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تجربة جافة بإعداد user-data المسبق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>تنفيذ انتقال user-data:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تنفيذ انتقال كامل ومتوافق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تنفيذ مع تضمين تعليمات مساحة العمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>لا تستخدم <code>$PWD</code> أو الدليل الرئيسي كهدف لمساحة العمل افتراضيًا. اطلب مسار مساحة عمل صريحًا أولًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-rules">قواعد مهمة</h2>
+<ol>
+<li>نفّذ تجربة جافة قبل الكتابة ما لم يطلب المستخدم صراحةً المتابعة فورًا.</li>
+<li>لا ترحّل الأسرار افتراضيًا. يجب أن تبقى الرموز، وكتل بيانات المصادقة، وبيانات اعتماد الأجهزة، وإعدادات gateway الخام خارج Hermes ما لم يطلب المستخدم صراحةً ترحيل الأسرار.</li>
+<li>لا تستبدل صامتًا أهدافًا غير فارغة في Hermes ما لم يرغب المستخدم صراحةً في ذلك. يحتفظ السكربت المساعد بنسخ احتياطية عند تفعيل الاستبدال.</li>
+<li>قدّم للمستخدم دائمًا تقرير العناصر المتجاوَزة. هذا التقرير جزء من الانتقال، لا إضافة اختيارية.</li>
+<li>فضّل مساحة عمل OpenClaw الرئيسية (<code>~/.openclaw/workspace/</code>) على <code>workspace.default/</code>. استخدم مساحة العمل الافتراضية فقط كحل احتياطي عندما تكون الملفات الرئيسية مفقودة.</li>
+<li>حتى في وضع ترحيل الأسرار، رحّل فقط الأسرار ذات الوجهة الواضحة في Hermes. يجب الإبلاغ عن كتل المصادقة غير المدعومة كمتجاوَزة رغم ذلك.</li>
+<li>إذا أظهرت التجربة الجافة نسخ أصول كبيرًا، أو تعارضًا في <code>SOUL.md</code>، أو مُدخلات ذاكرة فائضة، أشر إلى ذلك بشكل منفصل قبل التنفيذ.</li>
+<li>اجعل <code>user-data only</code> الخيار الافتراضي إذا كان المستخدم غير متأكد.</li>
+<li>أدرج <code>workspace-agents</code> فقط عندما يقدّم المستخدم صراحةً مسار مساحة عمل وجهة.</li>
+<li>عامل <code>--include</code> / <code>--exclude</code> على مستوى الفئة كمخرج طوارئ متقدم، لا المسار العادي.</li>
+<li>لا تُنهِ ملخص التجربة الجافة بسؤال غامض مثل &quot;ماذا تريد أن تفعل؟&quot; إذا كانت <code>clarify</code> متاحة. استخدم بدلًا من ذلك مُوجّهات متابعة مُهيكلة.</li>
+<li>لا تستخدم مُوجّه <code>clarify</code> مفتوحًا عندما يفي مُوجّه اختيار حقيقي بالغرض. فضّل الخيارات القابلة للاختيار أولًا، ثم النص الحر فقط للمسارات المطلقة أو طلبات مراجعة الملفات.</li>
+<li>بعد التجربة الجافة، لا تتوقف أبدًا بعد التلخيص إذا بقي قرار غير محسوم. استخدم <code>clarify</code> فورًا لأعلى قرار حاجز أولوية.</li>
+<li>ترتيب الأولوية لأسئلة المتابعة:
+<ul>
+<li>تعارض <code>SOUL.md</code></li>
+<li>تعارضات المهارات المستوردة</li>
+<li>وضع الانتقال</li>
+<li>وجهة تعليمات مساحة العمل</li>
+</ul>
+</li>
+<li>لا تَعِد بعرض الخيارات لاحقًا في الرسالة نفسها. اعرضها فعليًا باستدعاء <code>clarify</code>.</li>
+<li>بعد الإجابة عن وضع الانتقال، تحقق صراحةً مما إذا كان <code>workspace-agents</code> لا يزال غير محسوم. إن كان كذلك، يجب أن يكون إجراؤك التالي استدعاء <code>clarify</code> الخاص بتعليمات مساحة العمل.</li>
+<li>بعد أي إجابة عبر <code>clarify</code>، إذا بقي قرار مطلوب آخر، لا تسرد ما تقرر للتو. اطرح السؤال المطلوب التالي فورًا.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="expected-result">النتيجة المتوقعة</h2>
+<p>بعد تشغيل ناجح، يجب أن يمتلك المستخدم:</p>
+<ul>
+<li>حالة شخصية Hermes مستوردة</li>
+<li>ملفات ذاكرة Hermes مملوءة بمعرفة OpenClaw المحوَّلة</li>
+<li>مهارات OpenClaw متاحة تحت <code>~/.hermes/skills/openclaw-imports/</code></li>
+<li>تقرير انتقال يُظهر أي تعارضات أو إغفالات أو بيانات غير مدعومة</li>
+</ul>

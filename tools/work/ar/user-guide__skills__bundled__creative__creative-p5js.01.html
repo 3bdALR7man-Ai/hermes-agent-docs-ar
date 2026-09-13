@@ -1,0 +1,105 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="critical-implementation-notes">ملاحظات تنفيذ حرجة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance--disable-fes-first">الأداء — عطّل FES أولًا</h3>
+<p>يضيف نظام Friendly Error System (FES) عبئًا إضافيًا يصل إلى 10 أضعاف. عطّله في كل سكتش إنتاجي:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>في الحلقات الساخنة (particles، عمليات البكسل)، استخدم <code>Math.*</code> بدلًا من أغلفة p5 — أسرع بشكل ملموس:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لا تستخدم <code>console.log()</code> أبدًا داخل <code>draw()</code>. لا تتلاعب بالـ DOM أبدًا داخل <code>draw()</code>. راجع <code>references/troubleshooting.md</code> § Performance.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="seeded-randomness--always">العشوائية المُبذرة (Seeded Randomness) — دائمًا</h3>
+<p>يجب أن يكون كل سكتش توليدي قابلًا لإعادة الإنتاج. نفس البذرة (seed)، نفس المخرجات.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>لا تستخدم <code>Math.random()</code> أبدًا للمحتوى التوليدي — فقط للكود غير المرئي الحساس للأداء. استخدم دائمًا <code>random()</code> للعناصر المرئية. إذا احتجت بذرة عشوائية: <code>CONFIG.seed = floor(random(99999))</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="generative-art-platform-support-fxhash--art-blocks">دعم منصات الفن التوليدي (fxhash / Art Blocks)</h3>
+<p>بالنسبة إلى منصات الفن التوليدي، استبدل مولّد الأرقام العشوائية الزائفة (PRNG) الخاص بـ p5 بالعشوائية الحتمية للمنصة:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>راجع <code>references/export-pipeline.md</code> § Platform Export.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="color-mode--use-hsb">وضع الألوان — استخدم HSB</h3>
+<p>وضع HSB (التدرج اللوني والتشبع والسطوع) أسهل بكثير في التعامل معه من RGB بالنسبة إلى الفن التوليدي:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>لا تكتب قيم RGB خامًا مباشرة في الكود أبدًا. عرّف كائن لوحة ألوان (palette)، واشتقّ التنويعات برمجيًا. راجع <code>references/color-systems.md</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="noise--multi-octave-not-raw">Noise — متعدد الأوكتافات، لا خامًا</h3>
+<p>يبدو <code>noise(x, y)</code> الخام وكأنه كتل ملساء. راكِب الأوكتافات (octaves) للحصول على نسيج طبيعي:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>للأشكال العضوية المتدفقة، استخدم <strong>تحوير المجال (domain warping)</strong>: أعِد تغذية مخرجات noise كإحداثيات إدخال لـ noise. راجع <code>references/visual-effects.md</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="creategraphics-for-layers--not-optional">()createGraphics للطبقات — ليس اختياريًا</h3>
+<p>يبدو التصيير المسطّح بتمريرة واحدة مسطحًا فعلًا. استخدم مخازن مؤقتة خارج الشاشة (offscreen buffers) للتركيب:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance--vectorize-where-possible">الأداء — استخدم التوجيه المتجهي (Vectorize) حيثما أمكن</h3>
+<p>استدعاءات الرسم في p5.js مكلفة. لآلاف الجسيمات (particles):</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>راجع <code>references/troubleshooting.md</code> § Performance.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="instance-mode-for-multiple-sketches">وضع الوهلة (Instance Mode) لعدة سكتشات</h3>
+<p>الوضع العام (Global mode) يلوّث <code>window</code>. للإنتاج، استخدم وضع الوهلة (instance mode):</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>مطلوب عند تضمين عدة سكتشات في صفحة واحدة أو التكامل مع أُطر العمل (frameworks).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="webgl-mode-gotchas">مزالق وضع WebGL</h3>
+<ul>
+<li><code>createCanvas(w, h, WEBGL)</code> — نقطة الأصل في المركز، لا في أعلى اليسار</li>
+<li>محور Y مقلوب (القيم الموجبة تتجه لأعلى في WEBGL، ولأسفل في P2D)</li>
+<li><code>translate(-width/2, -height/2)</code> للحصول على إحداثيات شبيهة بـ P2D</li>
+<li>استخدم <code>push()</code>/<code>pop()</code> حول كل تحويل — تفيض مكدّس المصفوفات (matrix stack) بصمت دون تحذير</li>
+<li><code>texture()</code> قبل <code>rect()</code>/<code>plane()</code> — لا بعده</li>
+<li>Shaders مخصّصة: <code>createShader(vert, frag)</code> — اختبرها على عدة متصفحات</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="export--key-bindings-convention">التصدير — اصطلاح ربط المفاتيح (Key Bindings)</h3>
+<p>يجب أن يتضمن كل سكتش هذه الروابط في <code>keyPressed()</code>:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="headless-video-export--use-noloop">تصدير فيديو بلا واجهة (Headless) — استخدم ()noLoop</h3>
+<p>للتصيير بلا واجهة عبر Puppeteer، <strong>يجب</strong> أن يستخدم السكتش <code>noLoop()</code> في setup. فبدونها، تعمل حلقة الرسم في p5 بحرية بينما تكون التقاطات الشاشة بطيئة — يتسارع السكتش قُدُمًا فتحصل على إطارات مُتخطّاة أو مكرّرة.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>يكتشف السكربت المُرفق <code>scripts/export-frames.js</code> علامة <code>_p5Ready</code> ويستدعي <code>redraw()</code> مرة واحدة لكل التقاط لضمان تطابق دقيق 1:1 بين الإطارات. راجع <code>references/export-pipeline.md</code> § Deterministic Capture.</p>
+<p>لفيديوهات متعددة المشاهد، استخدم بنية المقطع الواحد (per-clip architecture): ملف HTML واحد لكل مشهد، صيّرها كل على حدة، ثم اجمعها باستخدام <code>ffmpeg -f concat</code>. راجع <code>references/export-pipeline.md</code> § Per-Clip Architecture.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-workflow">سير عمل الوكيل</h3>
+<p>عند بناء سكتشات p5.js:</p>
+<ol>
+<li><strong>اكتب ملف HTML</strong> — ملف واحد مستقل بذاته، وكل الكود مضمّن فيه</li>
+<li><strong>افتحه في المتصفح</strong> — <code>open sketch.html</code> (على macOS) أو <code>xdg-open sketch.html</code> (على Linux)</li>
+<li><strong>الأصول المحلية</strong> (الخطوط والصور) تتطلب خادمًا: نفّذ <code>python -m http.server 8080</code> في مجلد المشروع، ثم افتح <code>http://localhost:8080/sketch.html</code></li>
+<li><strong>تصدير PNG/GIF</strong> — أضف اختصارات <code>keyPressed()</code> كما هو موضح أعلاه، وأخبر المستخدم بالمفتاح الذي يضغطه</li>
+<li><strong>التصدير بلا واجهة (Headless)</strong> — <code>node scripts/export-frames.js sketch.html --frames 300</code> لالتقاط الإطارات تلقائيًا (يجب أن يستخدم السكتش <code>noLoop()</code> و <code>_p5Ready</code>)</li>
+<li><strong>تصيير MP4</strong> — <code>bash scripts/render.sh sketch.html output.mp4 --duration 30</code></li>
+<li><strong>التحسين التكراري</strong> — عدّل ملف HTML، ويقوم المستخدم بتحديث المتصفح لرؤية التغييرات</li>
+<li><strong>تحميل المراجع عند الحاجة</strong> — استخدم <code>skill_view(name=&quot;p5js&quot;, file_path=&quot;references/...&quot;)</code> لتحميل ملفات مرجعية محددة عند الحاجة أثناء التنفيذ</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance-targets">أهداف الأداء</h2>
+<table><thead><tr><th>المقياس</th><th>الهدف</th></tr></thead><tbody><tr><td>معدل الإطارات (تفاعلي)</td><td>60 إطارًا/ثانية بثبات</td></tr><tr><td>معدل الإطارات (تصدير متحرك)</td><td>30 إطارًا/ثانية كحد أدنى</td></tr><tr><td>عدد الجسيمات (أشكال P2D)</td><td>5,000-10,000 عند 60 إطارًا/ثانية</td></tr><tr><td>عدد الجسيمات (مخزن بكسل مؤقت)</td><td>50,000-100,000 عند 60 إطارًا/ثانية</td></tr><tr><td>دقة اللوحة (Canvas)</td><td>حتى 3840x2160 (تصدير)، 1920x1080 (تفاعلي)</td></tr><tr><td>حجم الملف (HTML)</td><td>أقل من 100KB (باستثناء مكتبات CDN)</td></tr><tr><td>زمن التحميل</td><td>أقل من 2 ثانية لأول إطار</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="references">المراجع</h2>
+<table><thead><tr><th>الملف</th><th>المحتويات</th></tr></thead><tbody><tr><td><code>references/core-api.md</code></td><td>إعداد اللوحة (Canvas)، نظام الإحداثيات، حلقة الرسم، <code>push()</code>/<code>pop()</code>، المخازن المؤقتة خارج الشاشة، أنماط التركيب، <code>pixelDensity()</code>، التصميم المتجاوب</td></tr><tr><td><code>references/shapes-and-geometry.md</code></td><td>أوليات ثنائية الأبعاد، <code>beginShape()</code>/<code>endShape()</code>، منحنيات Bezier وCatmull-Rom، أنظمة <code>vertex()</code>، أشكال مخصصة، <code>p5.Vector</code>، حقول المسافة الموقّعة (SDF)، تحويل مسارات SVG</td></tr><tr><td><code>references/visual-effects.md</code></td><td>Noise (بيرلين، فراكتالي، domain warp، curl)، حقول التدفق، أنظمة الجسيمات (الفيزياء، السرب flocking، المسارات)، معالجة البكسل، توليد النسيج (stipple، hatch، halftone)، حلقات التغذية الراجعة، الانتشار التفاعلي (reaction-diffusion)</td></tr><tr><td><code>references/animation.md</code></td><td>الرسوم المتحركة القائمة على الإطارات، دوال التسهيل (easing)، <code>lerp()</code>/<code>map()</code>، فيزياء الزنبرك (spring)، آلات الحالة، تسلسل الخط الزمني، التوقيت المبني على <code>millis()</code>، أنماط الانتقال</td></tr><tr><td><code>references/typography.md</code></td><td><code>text()</code>، <code>loadFont()</code>، <code>textToPoints()</code>، الطباعة الحركية (kinetic typography)، أقنعة النص، مقاييس الخط، تحجيم نص متجاوب</td></tr><tr><td><code>references/color-systems.md</code></td><td><code>colorMode()</code>، HSB/HSL/RGB، <code>lerpColor()</code>، <code>paletteLerp()</code>، لوحات ألوان إجرائية، توافق الألوان، <code>blendMode()</code>، تصيير التدرجات، مكتبة لوحات ألوان مُنتقاة</td></tr><tr><td><code>references/webgl-and-3d.md</code></td><td>محرك التصيير WEBGL، الأوليات ثلاثية الأبعاد، الكاميرا، الإضاءة، المواد، الأشكال الهندسية المخصصة، shaders بلغة GLSL (<code>createShader()</code>، <code>createFilterShader()</code>)، الإطارات المؤقتة (framebuffers)، المعالجة اللاحقة</td></tr><tr><td><code>references/interaction.md</code></td><td>أحداث الفأرة، حالة لوحة المفاتيح، إدخال اللمس، عناصر DOM، <code>createSlider()</code>/<code>createButton()</code>، إدخال الصوت (p5.sound FFT/amplitude)، الرسوم المتحركة المدفوعة بالتمرير، أحداث متجاوبة</td></tr><tr><td><code>references/export-pipeline.md</code></td><td><code>saveCanvas()</code>، <code>saveGif()</code>، <code>saveFrames()</code>، الالتقاط الحتمي بلا واجهة، تحويل الإطارات إلى فيديو عبر ffmpeg، CCapture.js، تصدير SVG، بنية المقطع الواحد، تصدير المنصات (fxhash)، مزالق الفيديو</td></tr><tr><td><code>references/troubleshooting.md</code></td><td>تحليل الأداء، ميزانيات لكل بكسل، الأخطاء الشائعة، توافق المتصفحات، تصحيح أخطاء WebGL، مشكلات تحميل الخطوط، مطبّات كثافة البكسل، تسريبات الذاكرة، CORS</td></tr><tr><td><code>templates/viewer.html</code></td><td>قالب عارض تفاعلي: التنقل بين البذور (السابق/التالي/عشوائي/الانتقال إلى)، أشرطة تمرير المعاملات، تنزيل PNG، لوحة متجاوبة. ابدأ من هذا القالب لاستكشاف الفن التوليدي</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="creative-divergence-use-only-when-user-requests-experimentalcreativeunique-output">التباعد الإبداعي (استخدمه فقط عندما يطلب المستخدم مخرجات تجريبية/إبداعية/فريدة)</h2>
+<p>إذا طلب المستخدم مخرجات إبداعية أو تجريبية أو مفاجئة أو غير تقليدية، اختر الاستراتيجية الأنسب وفكّر في خطواتها قبل توليد الكود.</p>
+<ul>
+<li><strong>المزج المفاهيمي (Conceptual Blending)</strong> — عندما يسمي المستخدم شيئين للدمج بينهما أو يريد جماليات هجينة</li>
+<li><strong>SCAMPER</strong> — عندما يريد المستخدم لمسة جديدة على نمط توليدي معروف</li>
+<li><strong>الترابط البعيد (Distance Association)</strong> — عندما يقدّم المستخدم مفهومًا واحدًا ويريد الاستكشاف («اصنع شيئًا عن الزمن»)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conceptual-blending">المزج المفاهيمي</h3>
+<ol>
+<li>سمِّ نظامين مرئيين متمايزين (مثلًا، فيزياء الجسيمات + الخط اليدوي)</li>
+<li>ارسم التطابقات (الجسيمات = قطرات حبر، القوى = ضغط القلم، الحقول = أشكال الحروف)</li>
+<li>امزج بشكل انتقائي — احتفظ بالتطابقات التي تنتج مرئيات ناشئة مثيرة للاهتمام</li>
+<li>اكتب المزيج ككود لنظام موحّد، لا كنظامين متجاورين</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scamper-transformation">تحويل SCAMPER</h3>
+<p>خذ نمطًا توليديًا معروفًا (حقل تدفق، نظام جسيمات، L-system، آلية خلوية) وحوّله بشكل منهجي:</p>
+<ul>
+<li><strong>الاستبدال (Substitute)</strong>: استبدل الدوائر بأحرف نصية، والخطوط بتدرجات لونية</li>
+<li><strong>الدمج (Combine)</strong>: ادمج نمطين (حقل تدفق + voronoi)</li>
+<li><strong>التكييف (Adapt)</strong>: طبّق نمطًا ثنائي الأبعاد على إسقاط ثلاثي الأبعاد</li>
+<li><strong>التعديل (Modify)</strong>: بالِغ في المقياس، حوِّر مساحة الإحداثيات</li>
+<li><strong>الغرض (Purpose)</strong>: استخدم محاكاة فيزيائية للطباعة، أو خوارزمية فرز لتوليد الألوان</li>
+<li><strong>الحذف (Eliminate)</strong>: احذف الشبكة، احذف اللون، احذف التناظر</li>
+<li><strong>العكس (Reverse)</strong>: شغّل المحاكاة بالمقلوب، اعكس مساحة المعاملات</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="distance-association">الترابط البعيد</h3>
+<ol>
+<li>ارتكز على مفهوم المستخدم (مثلًا، «الوحدة»)</li>
+<li>ولّد ترابطات على ثلاث مسافات:
+<ul>
+<li>قريبة (بديهية): غرفة فارغة، شخص واحد، صمت</li>
+<li>متوسطة (مثيرة للاهتمام): سمكة واحدة في سرب تسبح بالاتجاه الخاطئ، هاتف بلا إشعارات، الفجوة بين عربات المترو</li>
+<li>بعيدة (مجرّدة): الأعداد الأولية، المنحنيات المقاربة، لون الساعة 3 فجرًا</li>
+</ul>
+</li>
+<li>طوّر الترابطات متوسطة المسافة — فهي محددة بما يكفي للتصوّر ومفاجئة بما يكفي لتكون مثيرة للاهتمام</li>
+</ol>

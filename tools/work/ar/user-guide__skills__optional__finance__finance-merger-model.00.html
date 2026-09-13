@@ -1,0 +1,91 @@
+
+<header><h1>نموذج الاندماج</h1></header>
+<p>ابنِ مصنفات تحليل الزيادة/التآكل (accretion/dilution) لصفقات الاندماج والاستحواذ في Excel.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/finance/merger-model</code></td></tr><tr><td>المسار</td><td><code>optional-skills/finance/merger-model</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>Anthropic (بتكييف من Nous Research)</td></tr><tr><td>الترخيص</td><td>Apache-2.0</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>finance</code>, <code>m-and-a</code>, <code>merger</code>, <code>accretion-dilution</code>, <code>excel</code>, <code>openpyxl</code>, <code>modeling</code>, <code>investment-banking</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/finance/finance-excel-author"><code>excel-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-pptx-author"><code>pptx-author</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-dcf-model"><code>dcf-model</code></a>, <a href="/docs/user-guide/skills/optional/finance/finance-3-statement-model"><code>3-statement-model</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="0"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment">بيئة التشغيل</h2>
+<p>تفترض هذه المهارة استخدام <strong>openpyxl بلا واجهة رسومية (headless)</strong> — أنت تُنتج ملف .xlsx على القرص.
+اتّبع اصطلاحات مهارة <code>excel-author</code> فيما يخص تلوين الخلايا والصيغ والنطاقات المسمّاة وجداول الحساسية.
+أعد الحساب قبل التسليم: <code>python /path/to/excel-author/scripts/recalc.py ./out/model.xlsx</code>.</p>
+<h1>نموذج الاندماج</h1>
+<p>ابنِ تحليل الزيادة/التآكل (accretion/dilution) لصفقات الاندماج والاستحواذ. يُنمذج تأثير ربحية السهم (EPS) الافتراضية (pro forma)، وحساسيات التآزر (synergies)، وتوزيع سعر الشراء. استخدمه عند تقييم استحواذ محتمل، أو إعداد تحليل نتائج الاندماج لعرض تقديمي (pitch)، أو تقديم المشورة بشأن شروط الصفقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow">سير العمل</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-gather-inputs">الخطوة 1: جمع المدخلات</h3>
+<p><strong>المستحوذ (Acquirer):</strong></p>
+<ul>
+<li>اسم الشركة، سعر السهم الحالي، عدد الأسهم القائمة</li>
+<li>ربحية السهم لآخر اثني عشر شهرًا وللاثني عشر شهرًا القادمة (LTM وNTM EPS) (GAAP والمعدّلة)</li>
+<li>مضاعف السعر إلى الربحية (P/E)</li>
+<li>تكلفة الدين قبل الضريبة، معدل الضريبة</li>
+<li>النقد في الميزانية العمومية، الدين القائم</li>
+</ul>
+<p><strong>الهدف (Target):</strong></p>
+<ul>
+<li>اسم الشركة، سعر السهم الحالي، عدد الأسهم القائمة (إن كانت مُدرجة)</li>
+<li>ربحية السهم أو صافي الدخل لـ LTM وNTM</li>
+<li>قيمة المنشأة أو قيمة حقوق الملكية</li>
+</ul>
+<p><strong>شروط الصفقة:</strong></p>
+<ul>
+<li>سعر العرض لكل سهم (أو العلاوة على السعر الحالي)</li>
+<li>مزيج المقابل: النسبة نقدًا مقابل النسبة أسهمًا</li>
+<li>الدين الجديد المُثار لتمويل الجزء النقدي</li>
+<li>التآزر المتوقع (الإيراد والتكلفة) وجدول التدرج الزمني</li>
+<li>رسوم الصفقة وتكاليف التمويل</li>
+<li>تاريخ الإغلاق المتوقع</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-purchase-price-analysis">الخطوة 2: تحليل سعر الشراء</h3>
+<table><thead><tr><th>البند</th><th>القيمة</th></tr></thead><tbody><tr><td>سعر العرض لكل سهم</td><td></td></tr><tr><td>العلاوة على السعر الحالي</td><td></td></tr><tr><td>قيمة حقوق الملكية</td><td></td></tr><tr><td>زائدًا: صافي الدين المُتحمَّل</td><td></td></tr><tr><td>قيمة المنشأة</td><td></td></tr><tr><td>مضاعف EV/EBITDA الضمني</td><td></td></tr><tr><td>مضاعف P/E الضمني</td><td></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-sources--uses">الخطوة 3: Sources &amp; Uses</h3>
+<table><thead><tr><th>Sources</th><th>$</th><th>Uses</th><th>$</th></tr></thead><tbody><tr><td>دين جديد</td><td></td><td>سعر شراء حقوق الملكية</td><td></td></tr><tr><td>النقد المتاح</td><td></td><td>إعادة تمويل دين الهدف</td><td></td></tr><tr><td>حقوق ملكية جديدة مُصدَرة</td><td></td><td>رسوم الصفقة</td><td></td></tr><tr><td></td><td></td><td>رسوم التمويل</td><td></td></tr><tr><td><strong>الإجمالي</strong></td><td></td><td><strong>الإجمالي</strong></td><td></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-pro-forma-eps-accretion--dilution">الخطوة 4: ربحية السهم الافتراضية (زيادة/تآكل)</h3>
+<p>احسب سنة بسنة (السنة 1-3):</p>
+<table><thead><tr><th></th><th>مستقل (Standalone)</th><th>افتراضي (Pro Forma)</th><th>الزيادة/(التآكل)</th></tr></thead><tbody><tr><td>صافي دخل المستحوذ</td><td></td><td></td><td></td></tr><tr><td>صافي دخل الهدف</td><td></td><td></td><td></td></tr><tr><td>التآزر (بعد الضريبة)</td><td></td><td></td><td></td></tr><tr><td>الفائدة المفقودة على النقد (بعد الضريبة)</td><td></td><td></td><td></td></tr><tr><td>فائدة الدين الجديد (بعد الضريبة)</td><td></td><td></td><td></td></tr><tr><td>إطفاء الأصول غير الملموسة (بعد الضريبة)</td><td></td><td></td><td></td></tr><tr><td>صافي الدخل الافتراضي</td><td></td><td></td><td></td></tr><tr><td>الأسهم الافتراضية</td><td></td><td></td><td></td></tr><tr><td><strong>ربحية السهم الافتراضية</strong></td><td></td><td></td><td></td></tr><tr><td><strong>نسبة الزيادة/(التآكل) %</strong></td><td></td><td></td><td></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-sensitivity-analysis">الخطوة 5: تحليل الحساسية</h3>
+<p><strong>الزيادة/التآكل مقابل التآزر وعلاوة العرض:</strong></p>
+<table><thead><tr><th></th><th>$0M syn</th><th>$25M syn</th><th>$50M syn</th><th>$75M syn</th><th>$100M syn</th></tr></thead><tbody><tr><td>علاوة 15%</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>علاوة 20%</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>علاوة 25%</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>علاوة 30%</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<p><strong>الزيادة/التآكل مقابل مزيج النقد/الأسهم:</strong></p>
+<table><thead><tr><th></th><th>100% نقدًا</th><th>75/25</th><th>50/50</th><th>25/75</th><th>100% أسهمًا</th></tr></thead><tbody><tr><td>السنة 1</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>السنة 2</td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-breakeven-synergies">الخطوة 6: نقطة تعادل التآزر</h3>
+<p>احسب الحد الأدنى من التآزر اللازم لتصبح الصفقة محايدة على ربحية السهم في السنة 1.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-output">الخطوة 7: المخرجات</h3>
+<ul>
+<li>مصنف Excel يتضمن:
+<ul>
+<li>تبويب الافتراضات</li>
+<li>Sources &amp; uses</li>
+<li>قائمة الدخل الافتراضية (pro forma)</li>
+<li>ملخص الزيادة/التآكل</li>
+<li>جداول الحساسية</li>
+<li>تحليل نقطة التعادل</li>
+</ul>
+</li>
+<li>ملخص نتائج اندماج من صفحة واحدة لكتاب العرض (pitch book)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="important-notes">ملاحظات مهمة</h2>
+<ul>
+<li>أظهر دائمًا كلًا من ربحية السهم وفق GAAP والمعدّلة (النقدية) عند الاقتضاء</li>
+<li>صفقات الأسهم: استخدم السعر الحالي للمستحوذ لحساب نسبة التبادل، ولاحظ التآكل الناتج عن الأسهم الجديدة</li>
+<li>أدرِج توزيع سعر الشراء — الشهرة (goodwill) وإطفاء الأصول غير الملموسة مهمّان لربحية السهم وفق GAAP</li>
+<li>التدرج الزمني للتآزر أمر حاسم — غالبًا ما تكون السنة 1 فقط 25-50% من معدل التشغيل الكامل للتآزر</li>
+<li>لا تنسَ الفائدة المفقودة على النقد المستخدَم ومصروف الفائدة الجديد على الدين المُثار</li>
+<li>يجب أن يتطابق معدل الضريبة على تعديلات التآزر والفائدة مع المعدل الحدّي للمستحوذ</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-sources--mcp-first-web-fallback">مصادر البيانات — MCP أولًا، ثم الويب كاحتياطي</h2>
+<p>تذكر الفقرات أدناه &quot;استخدم S&amp;P Kensho MCP / Daloopa MCP / FactSet MCP&quot;. هذه أدوات MCP تجارية للبيانات المالية من سياق إضافة Cowork الأصلية. في Hermes:</p>
+<ul>
+<li><strong>إذا كان لديك أي MCP مُهيّأ للبيانات المالية المنظّمة</strong> (يدعم Hermes MCP — راجع مهارة <code>native-mcp</code>)، فضّله للمقارنات في وقت محدد، والمعاملات السابقة، والملفات التنظيمية.</li>
+<li><strong>خلاف ذلك</strong>، ارجع إلى:
+<ul>
+<li><code>web_search</code> / <code>web_extract</code> على SEC EDGAR (<code>https://www.sec.gov/cgi-bin/browse-edgar</code>) للملفات الأمريكية</li>
+<li>صفحات علاقات المستثمرين في الشركة للبيانات الصحفية وعروض الأرباح</li>
+<li><code>browser_navigate</code> لبوابات البيانات التفاعلية</li>
+<li>بيانات مُقدَّمة من المستخدم (اسأل صراحة عندما لا يتوفر ذلك في السياق)</li>
+</ul>
+</li>
+<li><strong>لا تختلق البيانات أبدًا</strong>. إذا تعذّر توثيق مضاعف أو معاملة سابقة أو رقم من ملف تنظيمي، ضع علامة على الخلية بـ <code>[UNSOURCED]</code> وأبرزها للمستخدم.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="attribution">الإسناد</h2>
+<p>هذه المهارة مُكيَّفة من مجموعة إضافات Claude for Financial Services من Anthropic (Apache-2.0). تمت إزالة مسارات Office-JS / Cowork للـ Excel المباشر (live-Excel)؛ يستهدف هذا الإصدار openpyxl بلا واجهة رسومية عبر اصطلاحات مهارة <code>excel-author</code>. الأصل: <a href="https://github.com/anthropics/financial-services" data-ext>https://github.com/anthropics/financial-services</a></p>
