@@ -59,7 +59,7 @@ case "${1:-check}" in
     log "== build =="
     node build_site.js ../docs
     log "== site checks =="
-    python3 - "$REPO/docs" <<'PY'
+    python3 - "$(cygpath -m "$REPO/docs")" <<'PY'
 import os,re,sys
 from urllib.parse import urlsplit,unquote
 R=sys.argv[1]; files=set(); pages=[]
