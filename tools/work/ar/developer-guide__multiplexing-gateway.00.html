@@ -1,0 +1,268 @@
+<header><h1>Multiplexing Gateway</h1></header>
+<p>يمكن لعملية gateway واحدة خدمة كل profile في التثبيت. الوضع مفعّل
+افتراضيًا (<code>gateway.multiplex_profiles</code> ، الافتراضي <code>true</code>)، وكل ما
+يغيّره يعود فور إيقاف الخيار. يُحسم الخيار <em>غير المضبوط</em> عند الإقلاع
+بواسطة <code>hermes_cli/gateway_multiplex_mode.py::resolve_multiplex_mode</code> ، الذي يجري
+فحص <code>hermes gateway migrate</code> المسبق، ويبقي gateway مستقلًا إذا ظل profile
+ثانوي يشغّل gateway خاصًا به، أو وجد مانع، أو تعذّر ترحيل
+المضيف (راجع &quot;خيار الوضع&quot;). هذا المستند يشرح مبررات التصميم
+المشار إليها من <code>agent/secret_scope.py</code> (&quot;مسار العمل A&quot;): ما يُعزل لكل
+profile وآلية عزله وما يبقى عمدًا
+عامًا للعملية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
+<p>دون multiplexing، تخدم عملية gateway واحدة profile واحدًا فقط —
+<code>.env</code> وجلساته ومهاراته ومحوّلات منصاته — وتشغّل التثبيتات المتعددة profiles
+عملية لكل profile. يجمع multiplexing ذلك في عملية
+واحدة: يحصل profile الافتراضي وكل profile مسمّى مخدوم على
+محوّلاته وأسراره وجلساته ونبضات cron الخاصة، مع مشاركة حلقة أحداث واحدة
+ومستمع HTTP واحد وقفل عملية واحد وواجهة حالة واحدة.</p>
+<p>قيد التصميم الذي يشكّل كل ما أدناه: <strong>يجب ألا تلاحظ أدوار profile A
+حالة profile B مطلقًا</strong>. تُعزل الأسرار ومجلدات home والجلسات ومسارات المحوّلات
+لكل profile؛ وكل ما يتعذّر عزله بعد يفشل بطريقة مغلقة أو
+يُوثّق كقيد معروف في نهاية المستند.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-mode-flag">خيار الوضع</h2>
+<ul>
+<li>الإعداد: <code>gateway.multiplex_profiles</code> (مقبول أيضًا في المستوى الأعلى). يُحلَّل في
+ <code>gateway/config.py</code> بأولوية env &gt; config &gt; غير مضبوط. <code>GatewayConfig</code>
+يبقي الخيار غير المضبوط كـ <code>None</code> (تختبر القارئات صدقه، فيُقرأ كمعطّل)؛
+ <code>load_gateway_config_for_runner</code> يستدعي بعدها <code>resolve_multiplex_mode</code> ، الذي
+يكتب قرار الإقلاع — <code>True</code> في تثبيت افتراضي متعدد profiles وهادئ،
+ <code>False</code> مع سبب مسجّل خلاف ذلك. تمر القيم الصريحة
+حرفيًا؛ ولا تُحسم إعدادات محقونة في <code>GatewayRunner(config=...)</code>.</li>
+<li>تقرأ العمليات الأخرى سجل <code>served_profiles</code> لـ gateway الحي أولًا،
+والخيار الصريح ثانيًا (<code>gateway_multiplex_mode.default_gateway_multiplexes</code>
+/ <code>explicit_multiplex_flag</code>)، لا الافتراضي المدمج مطلقًا: <code>named_profile_served_ by_running_multiplexer</code> وتحذير التسجيل وحماية مستمع لوحة التحكم
+ومحلّل منفذ تشغيل cron وإقلاع الحاوية وخطة الترحيل
+(<code>_read_multiplex_flag</code> ، فيُقرأ الافتراضي غير المضبوط كـ &quot;لم يُفعّل multiplexing بعد&quot;
+ويستمر الجمع).</li>
+<li>تجاوز البيئة: <code>GATEWAY_MULTIPLEX_PROFILES</code> يقبل tokens صريحة للقيم الصحيحة/الخاطئة
+فقط؛ والقيمة الفارغة أو غير المعروفة تعيد &quot;لا تجاوز&quot;، فلا يستطيع سر نشر
+فارغ حجب تفعيل في الإعدادات.</li>
+<li>عند بدء التشغيل، يستدعي <code>GatewayRunner.__init__</code>
+<code>agent.secret_scope.set_multiplex_active(...)</code> مرة واحدة. <code>_MULTIPLEX_ACTIVE</code>
+متغير وحدة عام عادي، لا contextvar: يصف وضع النشر،
+لا قيمة خاصة بكل مهمة. مهمته الوحيدة تفعيل سلوك الفشل المغلق في
+ <code>get_secret()</code>.</li>
+<li>ليس لـ backend لوحة التحكم/Desktop (<code>hermes serve</code>) خيار كهذا، لذا
+ <code>hermes_cli/web_server.py::start_server</code> يستدعي
+ <code>tui_gateway.launch_profile_policy.activate_multi_profile_hosting_eagerly()</code>
+كآخر خطوة إقلاع: يفعّل المضيف الحماية عندما يملك الجهاز أكثر من
+home لـ profile قابل للخدمة، بدلًا من انتظار أول طلب
+ <code>?profile=&lt;other&gt;</code>. التفعيل أحادي الاتجاه، وكل ما كان backend
+قد فعله بالفعل (تفريغ النص المسجّل عند حصاد الخامل والغرف المستضافة و cron)
+لم يُعَد تحديد نطاقه. يعمل أخيرًا لأن التفعيل يجمّد أيضًا
+ <code>os.environ</code> كبيانات اعتماد profile الإطلاق، وتلك اللقطة هي
+المصدر الوحيد لمفاتيح الإطلاق التي لا تملك <code>.env</code> لإعادة البناء منه (systemd
+<code>Environment=</code>, <code>op run</code> و Compose) — المفتاح المحقون أو المدوّر بعد
+التجميد غير مرئي طوال عمر العملية. المضيف ذو profile واحد فعلًا
+لا يفعّل الحماية؛ <code>gateway.multiplex_profiles: false</code> متقاعد ولا
+يُستشار عمدًا هنا (احترامه يخدم profile ثانيًا ببيانات اعتماد
+profile الإطلاق)؛ ومجلد <code>profiles/</code> غير المقروء
+يفشل مغلقًا (يفعّل الحماية)، ويسجّل WARNING.</li>
+<li>مع تفعيل الحماية، يصبح <strong>profile الإطلاق مستأجرًا أيضًا</strong>: متن بلا
+profile موجّه يربط <code>launch_profile_scope_if_multiplexed()</code> بدلًا من
+العمل بلا نطاق على <code>os.environ</code> المحيط. لاحظ ترتيب الأولوية داخل
+ذلك النطاق: <strong><code>.env</code> الخاص بـ home الإطلاق يتقدم على البيئة المجمّدة</strong>، لذا ليس التفعيل
+أشد فقط على مستأجر الإطلاق — لمفتاح مضبوط في كل من
+ <code>os.environ</code> و <code>&lt;launch home&gt;/.env</code> ، كانت القراءة دون نطاق تعيد القيمة المحيطة
+قبل التفعيل، وتعيد قيمة <code>.env</code> بعده. المفاتيح الموجودة في البيئة وحدها
+لا تتأثر.</li>
+<li>المتن الذي لم يعد اسم profile الموجّه فيه يُحل (حُذف أو أُعيدت تسميته
+وسط التشغيل) لا يربط <strong>شيئًا</strong>: تثير قراءات بيانات اعتماده <code>UnscopedSecretError</code>
+بدلًا من الرجوع إلى بيانات profile الإطلاق. سؤال &quot;لمن هذا؟&quot; دون
+إجابة حالة فشل مغلق، لا استعارة مطلقًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scope-composition">تركيب النطاق</h2>
+<p>يركّب كل حدث وارد النطاقين المحليين للسياق نفسيهما قبل تشغيل أي
+كود يملكه profile:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><code>_profile_runtime_scope</code> يغلّف كل نقطة وصل ينفّذ فيها كود يملكه profile:
+تشغيل المحوّل الثانوي والاتصال وإعادة الاتصال ومعالج حدث المنصة
+الرئيسي والمعالجة المسبقة للوارد وحسم <code>/model</code> ومعلومات الجلسة
+ومهام الخلفية ودور الوكيل نفسه. تعمل إعادة تحميل الإعدادات تحت
+نطاق profile الافتراضي لتُحسم إعدادات gateway العامة (<code>#64674</code>)
+باتساق.</p>
+<p>كلا النطاقين <code>contextvars</code> ، فينتقلان إلى خيوط عمّال executor
+عبر <code>copy_context()</code> ويتراجعان حتميًا — لا يُكتب شيء إلى
+ <code>os.environ</code> مطلقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workstream-a-context-local-secret-scope">مسار العمل A: نطاق أسرار محلي للسياق</h2>
+<p><code>agent/secret_scope.py</code> موجود لأن التنفيذ البديهي — جمع كل ملفات
+ <code>.env</code> الخاصة بـ profiles في <code>os.environ</code> — يسرّب مفاتيح profile A إلى أدوار
+profile B وإلى كل عملية فرعية تُطلق باستخدام <code>env=dict(os.environ)</code>.</p>
+<ul>
+<li><code>build_profile_secret_scope(home)</code> يدمج <code>.env</code> الخاص بـ profile مع
+مصادر أسراره المضبوطة، مع تخطي العموميات.</li>
+<li><code>set_secret_scope(mapping)</code> يثبّته للمهمة الحالية.</li>
+<li><code>get_secret(name)</code> يحسم: قائمة السماح العامة → النطاق النشط → الاحتياط.
+الاحتياط هو الجزء الحاسم:
+<ul>
+<li>multiplexing <strong>معطّل</strong>: يقرأ <code>os.environ</code> ، فتعمل gateways ذات profile واحد
+وكل المستدعين خارج gateway كما سابقًا تمامًا؛</li>
+<li>multiplexing <strong>مفعّل</strong>، ودون نطاق مثبّت: <strong>يثير <code>UnscopedSecretError</code></strong>
+بدلًا من قراءة بيئة العملية بصمت. يفشل موضع استدعاء لم يُرحّل
+بوضوح عند ذلك السطر نفسه بدلًا من تسريب قيمة profile
+آخر.</li>
+</ul>
+</li>
+<li>قائمة سماح صغيرة (<code>HERMES_HOME</code>, <code>HERMES_PROFILE</code> وإعدادات proxy
+وإعدادات مستمع <code>API_SERVER_*</code> — دون <code>API_SERVER_KEY</code> عمدًا)
+تبقى عامة لأنها تصف العملية، لا profile.</li>
+<li>سلاسل بيانات الاعتماد الافتراضية<em> لـ Cloud SDK</em> محيطة بحكم تصميمها
+(<code>google.auth.default()</code>, <code>DefaultAzureCredential</code>, <code>boto3.Session()</code> دون
+مفاتيح): كل مصدر تعبره — بيئة العملية وذاكرات CLI المؤقتة وبيانات المثيل
+الوصفية — هو هوية سياق الإطلاق. تحت multiplexing، profile مخدوم
+دون بيانات اعتماد كاملة خاصة به <strong>يُرفض</strong> من
+محوّلات Vertex و Entra ID و Bedrock بدلًا من استخدام تلك الهوية
+مقابل <code>base_url</code> الخاص به؛ وتحتفظ العمليات المستقلة بالسلسلة.</li>
+</ul>
+<p>لأن إعادة تحميل <code>.env</code> عند كل دور لا أثر لها تحت multiplexing، تُلتقط بيانات الاعتماد
+المدوّرة عبر نطاق profile في الدور التالي — لا عبر
+ <code>os.environ</code> مطلقًا. ينطبق ذلك عند حد المحمّل، لا في مساعد إعادة تحميل
+gateway وحده: يتخطى <code>hermes_cli.env_loader.load_hermes_dotenv</code> تحميل
+العملية العام كلما كان multiplexing نشطًا <em>و</em> كان تجاوز
+home لـ profile مثبّتًا (يصله مستدعو وقت الاستيراد و cron وسط الدور)،
+مع استمرار ملء مصادر الأسرار الخارجية لـ profile في لقطته
+الخاصة (<code>#77562</code>). لا يتغير تحميل بدء التشغيل غير المحدد بنطاق.</p>
+<p>تغطي القاعدة نفسها التي تجعل النطاق مرجعًا نقاط وصل <code>os.environ</code> الأخرى
+التي يمكن لدور موجّه الوصول إليها: تُحسم مراجع <code>${VAR}</code> / <code>${env:VAR}</code> في
+ <code>config.yaml</code> الخاص بـ profile عبر <code>get_secret</code> عند تثبيت نطاق
+(<code>#84079</code>)، وتحدّث كتابات <code>.env</code> المنفّذة تحت نطاق (<code>save_env_value</code> ، مثل
+نسخة منح إذن <code>/pair</code>) خريطة النطاق المثبّتة بدلًا من
+بيئة العملية (<code>#88441</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-hermes_home-override">تجاوز HERMES_HOME</h2>
+<p><code>hermes_constants.py</code> يحتفظ بتجاوز محلي للسياق يستشيره
+ <code>get_hermes_home()</code> قبل متغير البيئة <code>HERMES_HOME</code>. كل ما يحسم
+المسارات عبره — الإعدادات و <code>state.db</code> والمهارات والذاكرة و SOUL والجلسات و Kanban
+والأهداف واكتشاف الإضافات وتشغيل MCP — يتبع profile النشط
+تلقائيًا. يوجد <code>get_process_hermes_home()</code> للأصول القليلة على مستوى الجهاز
+التي يجب ألا تتبع التجاوز. يمنح <code>hermes_home_key()</code>
+السجلات الخاصة بكل home مفتاح نطاق ثابتًا. ينطلق تحذير لمرة واحدة (<code>#18594</code>) إذا
+عمل كود خاص بـ profile دون التجاوز حيث يُتوقع وجوده.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-routing">توجيه الوارد</h2>
+<p><code>gateway.profile_routes</code> يربط <code>(platform, user_id, guild_id, chat_id, thread_id)</code> بـ
+profile؛ المطابقة تلازمية والأكثر تحديدًا أولًا، مع مطابقة محادثات سلاسل
+الأبوة لسلاسل الرسائل. لا يعمل التوجيه إلا عند نشاط multiplexing، ويُرفض
+المسار المطابق الذي يكون هدفه خارج المجموعة المخدومة (يُسقط الحدث، ولا يُسلّم خطأ).
+المخطط الكامل وقواعد المطابقة:
+<a href="/docs/user-guide/multi-profile-gateways#routing-shared-bot-chats-to-profiles-profile_routes">توجيه محادثات البوت المشترك إلى profiles</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="serving-selected-profiles">خدمة profiles محددة</h2>
+<p><code>profiles_to_serve(multiplex, profile_allowlist)</code> في <code>hermes_cli/profiles.py</code>
+هو نقطة التحكم الوحيدة في profiles التي يخدمها multiplexer: الافتراضي مع
+كل مجلد profile صالح، مع تصفية اختيارية بقائمة سماح. تفشل قائمة سماح
+غير سليمة بأمان إلى الافتراضي وحده. تقيّد المجموعة المخدومة تشغيل المحوّلات
+ونبضات cron (<code>#69377</code>), <code>/p/&lt;profile&gt;/</code> وقبول HTTP وأهلية المسار
+وواجهة حالة وقت التشغيل. يبقى profile المستبعد مثبّتًا ويمكنه
+تشغيل gateway مستقل خاص به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-profile-persistence">التخزين الدائم لكل profile</h2>
+<p><code>SessionStore</code> لا يربط مقبض قاعدة بيانات عند الإنشاء (<code>#88532</code>). تُحسم مقابض
+قواعد الجلسات وقت الاستدعاء عبر تجاوز HERMES_HOME النشط —
+مقبض مؤقت واحد لكل <code>profiles/&lt;name&gt;/state.db</code> محلول — فتُحفظ الجلسات
+في مخزن profile المالك حتى إذا كان كائن المخزن نفسه مشتركًا.
+تُنشأ مخازن الاقتران لكل profile مخدوم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-bot-session-lanes">مسارات جلسات لكل بوت</h2>
+<p>مفاتيح الجلسات موزعة على فضاءات أسماء profiles (<code>agent:main</code> للافتراضي،
+ <code>agent:&lt;name&gt;</code> لـ profiles المسماة). يحمل كل حدث وارد قيمة مجمّدة واحدة من
+ <code>RoutingIdentity</code> (<code>gateway/session_identity.py</code>)، يحسمها
+ <code>resolve_identity()</code> في معالجات الدخول بالمشغّل، وتُثبت على المصدر
+كخاصية غير مرئية على الاتصال: <code>transport_profile</code> (البوت الذي تلقاه —
+بيانات الاعتماد وقائمة السماح و <code>authorization_home</code>), <code>runtime_profile</code> (profile الموجّه
+الذي ينفّذ — <code>runtime_home</code> والمفتاح <code>namespace</code>, <code>store_path</code>)، ومرجع
+ <code>transport</code> ضعيف إلى المحوّل المستقبِل. تُكتب <code>&quot;default&quot;</code> صراحة؛
+ <code>None</code> لا تعني الافتراضي مطلقًا. تحت multiplexing، يثير مسار إلى profile غير مخدوم
+ <code>IdentityUnresolved</code> ويُسقط الحدث.</p>
+<p>تحمل المحوّلات أيضًا <code>_owner_profile</code> (تُثبت عند إعداد المحوّل،
+قبل أي حدث وارد). يوحّد كل مسار دخول الهوية أولًا
+— يعمل <code>BasePlatformAdapter._canonicalize</code> عند <code>handle_message</code> وتجميع النصوص/الصور/الألبومات
+والمسار المشغول وكل مفتاح جلسة مشتق من المحوّل؛ ومعالجات المشغّل
+الخاصة بـ profile والافتراضية و callback فحص المصادقة وبوابة
+ <code>_handle_message</code> المشتركة تفعل ذلك أيضًا — فلا يُنشأ مفتاح مسار قبل معرفة البوت
+المستقبِل. تجميع النصوص/الوسائط وتتبع الجلسة النشطة وحماية الجلسة المشغولة
+و <code>/stop</code> <code>/new</code> <code>/reset</code> وردود clarify كلها لها مفاتيح لكل مسار، فلا
+يشترك بوتان في محادثة بمسار جلسة، ولا يمكن لأمر تحكم على بوت
+الوصول إلى تشغيل الآخر. يُسقط المسار إلى profile غير مخدوم مع
+WARNING واحد عند أول نقطة وصل يصلها، ولا يُدرج مفتاحه في <code>agent:main</code>. انسخ
+مصدرًا باستخدام <code>session_identity.replace_source</code> لا <code>dataclasses.replace</code> ، وإلا
+تفقد النسخة وسيلة نقلها وهويتها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="intake-vs-delivery-which-bot-acts-on-an-event">الاستقبال مقابل التسليم: أي بوت يعالج الحدث</h2>
+<p>تجيب نقطتا وصل في المشغّل عن السؤالين اللذين يخلط بينهما gateway متعدد profiles
+باستمرار (<code>gateway/authz_mixin.py</code>):</p>
+<ul>
+<li><code>_intake_adapter_for(source)</code> — البوت الذي <strong>تلقى</strong> الحدث. منشأ حي
+فقط: مرجع النقل الذي ثبّته <code>build_source</code> ، أو محوّل
+relay على مستوى العملية للأحداث المُسلَّمة عبر relay، أو المحوّل
+المسجّل حاليًا لـ <code>transport_profile</code> الخاص بالهوية بعد إعادة الاتصال. يقيّد
+سياسة الاستقبال (قنوات Slack المتجاهلة وتقديم relay وإعادة إرسال
+حدث حي في الصف)، ويعيد <code>None</code> لمصدر بلا منشأ
+حي — لا يجوز إعادة قبول صف مستعاد ببوت متخيّل.</li>
+<li><code>_delivery_adapter_for(source)</code> — البوت الذي <strong>يجيب</strong>: الإرسال والتعديل
+والكتابة والتقدم والمنتقيات وخانات الرسائل المعلّقة. البوت المستقبِل كلما
+عُرف؛ وإلا المالك الوحيد لـ <code>(platform, runtime_profile)</code> —
+المحوّل الخاص بالثانوي، أو الأساسي لساتل بوت مشترك، و
+ <code>None</code> للثانوي الذي انقطع بوته (لا يستعير البوت
+الافتراضي مطلقًا).</li>
+</ul>
+<table><thead><tr><th>التوزيع البنيوي</th><th>وقت التشغيل (<code>runtime_profile</code> وفضاء أسماء المفاتيح و home)</th><th>الاستقبال</th><th>التسليم</th></tr></thead><tbody><tr><td>بوت لكل بيانات اعتماد، دون مسار</td><td>profile الخاص بالبوت</td><td>المحوّل المالك</td><td>المحوّل المالك</td></tr><tr><td>بيانات اعتماد مشتركة → ساتل عبر <code>profile_routes</code></td><td>profile الموجّه</td><td>المحوّل المستقبِل (المشترك)</td><td>المحوّل المستقبِل؛ وبعد إعادة التشغيل يظل الساتل يفرّغ عبر الأساسي</td></tr><tr><td>بوت مشترك → profile يملك بوته الخاص</td><td>profile الموجّه</td><td>المحوّل المستقبِل</td><td>المحوّل المستقبِل — تبقى المحادثة مع البوت الذي كتب إليه المستخدم</td></tr><tr><td>بوت يملكه ثانوي → <code>default</code> (<code>bot_profile: &lt;secondary&gt;</code>)</td><td><code>default</code> (<code>agent:main</code> ، و home الافتراضي)</td><td>المحوّل المستقبِل (الثانوي)</td><td>المحوّل المستقبِل</td></tr><tr><td>مصدر مستعاد / اصطناعي، دون منشأ حي</td><td>القيمة المخزّنة <code>source.profile</code></td><td><strong>لا شيء</strong> (فشل مغلق)</td><td>المالك الوحيد لـ <code>(platform, runtime)</code> ، وإلا <code>None</code></td></tr></tbody></table>
+<p>خارج multiplexing، يوجد محوّل واحد لكل منصة، فتعيده نقطتا الوصل
+كلتاهما. يؤكد <code>tests/gateway/test_multiplex_transport_matrix.py</code> كل صف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="restore-relay-callbacks-and-thread-hops">الاستعادة و relay و callbacks والانتقال بين الخيوط</h3>
+<p>يحفظ إدخال التوجيه <code>transport_profile</code> بجانب المفتاح (وعمود
+ <code>sessions.transport_profile</code> في <code>state.db</code>)، فبعد إعادة التشغيل يظل المسار
+المستعاد يعرف البوت الذي تلقاه: يعيد <code>_restored_source(entry)</code>
+تثبيت <code>RoutingIdentity</code> دون محوّل حي، و <code>_delivery_adapter_for</code>
+يسلّم عبر محوّل ذلك البوت أو يفشل مغلقًا — الساتل الموجّه
+عبر البوت الافتراضي يواصل الإجابة منه، والمسار الذي يملكه
+ثانوي لا يرجع مطلقًا إلى بيانات اعتماد البوت الافتراضي. تحمل الإدخالات المكتوبة
+قبل وجود العمود <code>null</code> وتحتفظ باستدلالات البوت المشترك.
+عبر relay، تخبر قيمة <code>metadata.profile</code> في كل إطار صادر (وفضاء أسماء
+مفاتيح <code>follow_up</code>)
+الموصل بالـ profile الذي يوسمه على <code>passthrough_forward</code> التالي، فيبقى ضغط زر بعد slash command موجّه
+في profile نفسه. تلتقط callbacks المؤجّلة (منتقي <code>/model</code>) home الموجّه
+وقت الأمر، وتنسخ انتقالات executor في gateway نطاق ContextVar.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="control-plane">طبقة التحكم</h2>
+<p>لا تصل إضافات Desktop إلى gateway إلا عبر بوابة ws JSON-RPC، لذا
+يوجد تعداد profiles وإعدادها في
+ <code>tui_gateway/methods_profiles.py</code>: <code>profiles.list</code>, <code>profiles.create</code>,
+<code>profiles.describe</code>, <code>profiles.configure</code>, <code>profiles.set_asset</code>,
+<code>profiles.get_asset</code>. تعمل القراءات والكتابات تحت تجاوز HERMES_HOME
+للـ profile الهدف. كتابات الأصول ذرية ومحدودة النوع والحجم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-modes">أنماط الفشل</h2>
+<ul>
+<li>قاتل عند بدء التشغيل: أخطاء إعداد multiplex وتفعيل profile ثانوي لمنصة
+تربط منفذًا (<code>MultiplexConfigError</code>,
+<code>SecondaryPortBindingConfigError</code>) — يملك profile الافتراضي مستمع HTTP
+المشترك الوحيد.</li>
+<li>تخطٍ غير قاتل: يُتخطى محوّل ثانوي واحد سيئ الإعداد مع
+تحذير بدلًا من إسقاط multiplexer.</li>
+<li>فشل مغلق: قراءة <code>get_secret()</code> غير المحددة بنطاق تحت multiplexing تثير استثناء؛ ويُسقط
+حدث موجّه يستهدف profile غير مخدوم؛ ويدخل طلب <code>/p/</code> غير المحدد بنطاق
+نطاق profile الافتراضي (<code>#61276</code>) بدلًا من نطاق غير معرّف.</li>
+<li>فشل مغلق لكل profile: خادم MCP بعيد لا تزال قيم <code>url</code> / <code>headers</code> فيه
+تحمل <code>${VAR}</code> حرفية بعد العرض تحت نطاق profile المالك
+لا يتصل (<code>MCP server &#x27;x&#x27;: ${VAR} in url/headers is not set in this profile&#x27;s .env or secret source</code>)؛ يُعاد عرض المرجع تحت النطاق
+الجديد للمالك عند كل اتصال وإعادة اتصال، فيتعافى عندما
+يوفّر <code>.env</code> لذلك profile أو مصدر أسراره القيمة. تظل خريطة profile الإطلاق
+تتضمن بيئة إطلاقه المجمّدة (تُحسم بيانات اعتماد systemd <code>Environment=</code> /
+<code>op run</code>)؛ ويُحسم الثانوي من ملفاته وحدها.</li>
+<li>بوابات منصات محددة بنطاق: يُقرأ تفعيل A2A (<code>A2A_PORT</code>) و Buzz عبر
+نطاق profile الخاص / قسم <code>platforms.&lt;name&gt;</code> ، فلا يعود متغير بيئة
+في profile الإطلاق يفعّل مستمع وارد في كل ثانوي.</li>
+<li>احتياط: لا يدعم <code>cron.provider</code> الخارجي multiplexing
+فيرجع إلى المؤقّت المدمج مع تحذير.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="known-limitations">القيود المعروفة</h2>
+<p>حالة عامة للعملية لم تُقيّد بنطاق profile بعد:</p>
+<table><thead><tr><th>الواجهة</th><th>الحالة وقت الكتابة</th></tr></thead><tbody><tr><td>اكتشاف MCP وتسجيل الأدوات</td><td>عام للعملية؛ يفوز أول profile يبني وكيلًا بموضع الاكتشاف. تُتابَع سجلات MCP الكاملة لكل profile في <code>#67605</code>.</td></tr><tr><td>بيئة الطرفية / sandbox (<code>TERMINAL_*</code>)</td><td>عامة عبر قائمة السماح؛ تقرأها الأدوات من بيئة العملية.</td></tr><tr><td>سجل الأدوات المدمجة</td><td>الأدوات المدمجة عامة للعملية؛ وتُركّب الأدوات المسجّلة بالإضافات فوقها لكل profile عبر <code>hermes_home_key()</code>.</td></tr><tr><td>سجلات المزوّدين/الإمكانيات</td><td>نمط overlay الهجين نفسه (المتصفح وتوليد الصور و TTS وتحويل الصوت إلى نص وتوليد الفيديو وبحث الويب ومصادر الأسرار).</td></tr><tr><td>مستمع HTTP واستقبال relay وقفل العملية</td><td>واحد لكل عملية، يملكه profile الافتراضي/النشط. ما تزال قيمة <code>runtime_status.json</code> لكل profile تُكتب.</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="non-goals">ما ليس من الأهداف</h2>
+<p>يعزل multiplexing <em>profiles</em>؛ ولا يصادق على <em>المستخدمين
+النهائيين</em> ولا يفوّضهم. profile إعدادات، لا شخص: يثق gateway
+بوسيلة نقله وجدول توجيهه لتحديد profile الذي ينتمي إليه الحدث.
+الهوية على مستوى الطلب والتفويض لكل مستخدم فوق طبقة profile
+خارج نطاق هذا المستند.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/multi-profile-gateways">Gateways متعددة Profiles</a> — دليل للمستخدم، بما فيه <code>profile_routes</code>
+والبديل المستقل لـ gateway واحد لكل profile.</li>
+<li><code>agent/secret_scope.py</code>, <code>hermes_constants.py</code>, <code>gateway/profile_routing.py</code>,
+<code>gateway/run.py</code> (<code>_profile_runtime_scope</code>), <code>hermes_cli/profiles.py</code>
+(<code>profiles_to_serve</code>), <code>gateway/session.py</code>, <code>tui_gateway/methods_profiles.py</code>.</li>
+</ul>

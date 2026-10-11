@@ -1,5 +1,30 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="project-local-skills">المهارات المحلية الخاصة بالمشروع</h2>
+<p>يمكن للمستودعات أن تحمل مهاراتها الخاصة، التي لا تكون نشطة إلا في الجلسات التي تبدأ داخل ذلك المشروع — وهو النمط نفسه الذي تستخدمه أُطر تشغيل الوكلاء الأخرى (agent harnesses) للإعدادات المحلية الخاصة بالمستودع. عندما تشغّل Hermes داخل نسخة git مسحوبة (checkout)، فإنه يبحث عن المهارات في:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>جذر المشروع هو أقرب مجلد أصل يحتوي على <code>.git</code> (وتُحتسب الـ worktrees والوحدات الفرعية submodules).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="trusting-a-project">الوثوق بمشروع</h3>
+<p>المهارات مستندات إجرائية يتبعها الوكيل، لذا فإن Hermes <strong>لا</strong> يحمّلها تلقائيًا من أي مستودعات مستنسخة عشوائية. في المرة الأولى التي تشغّل فيها Hermes داخل مستودع يحتوي على مهارات مشروع، تعرض اللافتة (banner) إشعارًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>امنح الثقة للمستودع مرة واحدة (من داخله، أو بتمرير المسار):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>تُخزَّن الجذور الموثوقة في <code>skills.trusted_project_dirs</code> داخل <code>~/.hermes/config.yaml</code>. واضبط <code>skills.project_discovery: false</code> لإيقاف الميزة كليًا (بلا فحص، وبلا إشعارات).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="precedence">الأولوية</h3>
+<p>مهارات المشروع هي <strong>المستوى الأعلى أولوية</strong>: <code>project → local (~/.hermes/skills/) → skills.create_dir → external_dirs</code>. مهارة مشروع باسم <code>deploy</code> تتجاوز مهارة profile أو مهارة مضمّنة تحمل الاسم نفسه في الجلسات داخل ذلك المستودع — وهذا هو المقصود تحديدًا: فمهارات المستودع المرفقة به تكون لها الغلبة في موطنها، دون المساس بالـ profile العام الخاص بك. وتُوسَم مهارات المشروع بـ <code>[project]</code> في فهرس المهارات لدى الوكيل كي يبقى مصدرها واضحًا.</p>
+<p>وكما هو الحال مع المجلدات الخارجية، تُعامل مجلدات مهارات المشروع على أنها مملوكة للمستودع: فالصيانة الذاتية للمهارات (الـ curator) لا تعدّلها أبدًا، والمهارات الجديدة التي ينشئها الوكيل تُحفظ دائمًا في <code>~/.hermes/skills/</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="duplicate-skill-names">أسماء المهارات المكرّرة</h3>
+<p>تحدد كل واجهة مهارةً باسمها بالطريقة نفسها:</p>
+<ul>
+<li><strong>بين المجلدات</strong>، يفوز المجلد الأعلى أولوية (<code>project → local → skills.create_dir → external_dirs</code>)، بما في ذلك المسار النسبي نفسه (إذا وُجدت <code>productivity/xdup</code> محليًا وخارجيًا، تُحمّل النسخة المحلية). تُخفى النسخة المحجوبة ويُسجّل تحذير.</li>
+<li><strong>داخل مجلد واحد</strong>، لا يُخمّن الاختيار بين مهارتين <em>مختلفتين</em> لهما الاسم نفسه. تُسرد كلتاهما بالمسار النسبي الدقيق (مثل <code>a/one</code> و <code>b/two</code>)، ويفشل تحميل الاسم المجرد بالرسالة <code>Ambiguous skill name dup-demo: use one of a/one, b/two</code>. وهي الرسالة التي تعرضها أيضًا <code>hermes -s dup-demo</code> ومهام cron. أما النسخ المتطابقة لمهارة واحدة (عرض برابط رمزي أو نسخة مطابقة بايتًا ببايت) فيُختار لها المسار الأقل عمقًا.</li>
+</ul>
+<p>تستخدم مهارات الإضافات أسماءها الخاصة <code>plugin:skill</code> ولا تتعارض مع هذه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scan-time-quarantine">العزل وقت الفحص</h3>
+<p>الثقة قرار على مستوى المستودع، لكن محتوى المهارات في المستودع يتغير مع كل <code>git pull</code>. ولسدّ هذه الثغرة، تُفحص كل مهارة مشروع بماسح الأمان نفسه المستخدم في عمليات التثبيت من Skills Hub قبل دخولها الفهرس. والمهارة التي يكون حكم فحصها <strong>خطيرة</strong> (توجيهات حقن الـ prompt، أو أوامر تسريب بيانات الاعتماد، أو حيل النصوص المخفية) تُعزل: فلا تظهر في فهرس المهارات، ولا في <code>skills_list</code> ، ولا في الـ slash commands، وترفض التحميل بالاسم مع رسالة خطأ توضيحية. وتُخزَّن نتائج الفحص مؤقتًا بحسب hash المحتوى ضمن <code>~/.hermes/cache/project_skill_scans/</code> (وليس داخل مستودعك أبدًا)، ويُعاد تشغيلها تلقائيًا عندما يتغير محتوى المهارة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="non-interactive-surfaces-cron-api-acp">الواجهات غير التفاعلية (cron، و API، و ACP)</h3>
+<p>ترث مهام cron والواجهات غير التفاعلية الأخرى قرار الثقة الذي اتخذته تفاعليًا — فهي لا تطلب التأكيد أبدًا ولا تمنح الثقة تلقائيًا أبدًا. ويُحسم جذر المشروع انطلاقًا من مجلد العمل الخاص بالواجهة (<code>workdir</code> الخاص بمهمة cron، عبر الآلية نفسها التي تستخدمها أداة الطرفية). فمهمة cron التي يقع <code>workdir</code> الخاص بها داخل مستودع وثقت به سابقًا تحمّل مهارات المشروع الخاصة بذلك المستودع؛ أما المهمة الموجودة في مستودع غير موثوق أو لم يُتخذ بشأنه قرار فلا تحمّل أي مهارات.</p>
+<p>في TUI و Desktop، يتبع جذر المشروع <strong>مساحة عمل كل جلسة</strong> (المجلد المعروض في الشريط الجانبي / المحدد بمنتقي مساحة العمل)، لذا فإن تشغيل <code>hermes --tui</code> داخل مستودع موثوق يسجّل مهارات المشروع كـ slash commands حتى عندما يبقى <code>terminal.cwd</code> بالقيمة المؤقتة الافتراضية <code>.</code> ؛ وترى كل جلسة من جلستين مفتوحتين في مستودعين مهاراتها الخاصة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-bundles">حزم المهارات (Skill Bundles)</h2>
-<p>حزم المهارات ملفات YAML صغيرة تجمع عدة مهارات تحت slash command واحد. عندما تنفّذ <code>/&lt;bundle-name&gt;</code>، تُحمَّل كل المهارات المدرجة في الحزمة دفعة واحدة — وهذا مفيد عندما تستفيد مهمة معيّنة دائمًا من المجموعة نفسها من المهارات معًا.</p>
+<p>حزم المهارات ملفات YAML صغيرة تجمع عدة مهارات تحت slash command واحد. عندما تنفّذ <code>/&lt;bundle-name&gt;</code> ، تُحمَّل كل المهارات المدرجة في الحزمة دفعة واحدة — وهذا مفيد عندما تستفيد مهمة معيّنة دائمًا من المجموعة نفسها من المهارات معًا.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-example">مثال سريع</h3>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
 <p>ثم في CLI أو أي منصة من منصات الـ gateway:</p>
@@ -20,7 +45,7 @@
 <p>من داخل جلسة محادثة، يسرد <code>/bundles</code> كل الحزم المثبّتة ومهاراتها.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="behavior">السلوك</h3>
 <ul>
-<li><strong>للحزم أولوية على المهارات الفردية</strong> عند تعارض الـ slugs. فإذا سمّيت حزمة <code>research</code> وكانت لديك أيضًا مهارة باسم <code>research</code>، فإن <code>/research</code> يستدعي الحزمة. وهذا مقصود — فقد اخترت الحزمة صراحةً عندما منحتها هذا الاسم.</li>
+<li><strong>للحزم أولوية على المهارات الفردية</strong> عند تعارض الـ slugs. فإذا سمّيت حزمة <code>research</code> وكانت لديك أيضًا مهارة باسم <code>research</code>, <code>/research</code> يستدعي الحزمة. وهذا مقصود — فقد اخترت الحزمة صراحةً عندما منحتها هذا الاسم.</li>
 <li><strong>المهارات المفقودة تُتخطّى ولا تُسبب فشلًا.</strong> إذا أدرجت حزمة المهارة <code>skill-foo</code> ولم تكن قد ثبّتها، تظل الحزمة تحمّل المهارات التي أمكن العثور عليها، ويتلقى الوكيل ملاحظة تسرد ما تم تخطيه.</li>
 <li><strong>تعمل الحزم في كل الواجهات</strong> — CLI التفاعلي، و TUI، ومحادثة لوحة التحكم، وكل منصات الـ gateway (Telegram، و Discord، و Slack، …) — لأن التوجيه مركزي في المكان نفسه الذي تُعالج فيه أوامر المهارات الفردية.</li>
 <li><strong>لا تُبطل الحزم التخزين المؤقت للـ prompt.</strong> إذ تُنشئ رسالة مستخدم جديدة وقت الاستدعاء، بالطريقة نفسها التي يعمل بها <code>/&lt;skill-name&gt;</code> — دون أي تعديل على الـ system prompt.</li>
@@ -28,7 +53,7 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-bundles-beat-installing-each-skill-manually">متى تتفوق الحزم على تثبيت كل مهارة يدويًا</h3>
 <p>استخدم حزمة عندما:</p>
 <ul>
-<li>تقرن دائمًا المهارات نفسها لمهمة متكررة (<code>/backend-dev</code>، <code>/release-prep</code>، <code>/incident-response</code>).</li>
+<li>تقرن دائمًا المهارات نفسها لمهمة متكررة (<code>/backend-dev</code>, <code>/release-prep</code>, <code>/incident-response</code>).</li>
 <li>تريد نموذجًا ذهنيًا أبسط من كتابة عدة استدعاءات <code>/skill</code> متتالية.</li>
 <li>تريد مشاركة &quot;profile مهام&quot; على مستوى الفريق عبر إضافة ملف YAML الخاص بالحزمة إلى مستودع dotfiles مشترك وإنشاء رابط رمزي (symlink) له داخل <code>~/.hermes/skill-bundles/</code>.</li>
 </ul>
@@ -60,13 +85,21 @@
 على مجموعة صغيرة من الملفات المسمّاة حسب الموضوع (جدول قرارات، أو وصفة، أو خصوصيات مزوّد ما)،
 تُوسَّع في مكانها بدلًا من تراكم ملف لكل جلسة. كما لا تعيد المهارات
 ذكر ما هو محمّل مسبقًا في كل دور (ملف <code>AGENTS.md</code> الخاص بالمستودع، ومخططات الأدوات).</p>
-<p>تشغّل <code>skill_manage</code> أداة فحص (linter) استشارية عند <code>create</code> وعند الكتابة في <code>references/</code>،
+<p><code>skill_manage</code> أداة فحص (linter) استشارية عند <code>create</code> ، وعند <code>SKILL.md</code> عمليات الترقيع، وعند <code>references/</code> ،
 وتُرجع نتائجها ضمن نتيجة الأداة. وتوجد قاعدتان مخصصتان لهذا الشكل تحديدًا:
 <code>incident-log-shape</code> (محتوى مكتظ بأرقام الـ PR والـ issues) و <code>references-sprawl</code> (أكثر
-من 60 ملفًا مرجعيًا). وهما تُصدران تحذيرات فقط؛ ولا تمنعان عملية الكتابة أبدًا.</p>
+من 60 ملفًا مرجعيًا)، و <code>oversized-body</code> (عندما يتجاوز متن <code>SKILL.md</code> نحو 24k حرف — إذ إن <code>skill_view</code>
+يحمّل الملف كاملًا ويبقيه في السياق لبقية الجلسة). تحذّر هذه الفحوص؛ ولا
+تمنع الكتابة أبدًا.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="actions">الإجراءات</h3>
-<table><thead><tr><th>الإجراء</th><th>الاستخدام</th><th>المعاملات الرئيسية</th></tr></thead><tbody><tr><td><code>create</code></td><td>مهارة جديدة من الصفر</td><td><code>name</code>، <code>content</code> (ملف SKILL.md كامل)، و <code>category</code> اختياريًا</td></tr><tr><td><code>patch</code></td><td>إصلاحات موجّهة (مُفضَّل)</td><td><code>name</code>، <code>old_string</code>، <code>new_string</code></td></tr><tr><td><code>edit</code></td><td>إعادة كتابة هيكلية كبيرة</td><td><code>name</code>، <code>content</code> (بديل كامل لملف SKILL.md)</td></tr><tr><td><code>delete</code></td><td>إزالة مهارة بالكامل</td><td><code>name</code></td></tr><tr><td><code>write_file</code></td><td>إضافة ملفات داعمة أو تحديثها</td><td><code>name</code>، <code>file_path</code>، <code>file_content</code></td></tr><tr><td><code>remove_file</code></td><td>إزالة ملف داعم</td><td><code>name</code>، <code>file_path</code></td></tr></tbody></table>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="53"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُفضَّل الإجراء <code>patch</code> للتحديثات — فهو أكثر توفيرًا للـ tokens من <code>edit</code> لأن النص المتغيّر وحده يظهر في استدعاء الأداة.</p></div></div>
+<table><thead><tr><th>الإجراء</th><th>الاستخدام</th><th>المعاملات الرئيسية</th></tr></thead><tbody><tr><td><code>create</code></td><td>مهارة جديدة من الصفر</td><td><code>name</code>, <code>content</code> (ملف SKILL.md كامل)، و <code>category</code></td></tr><tr><td><code>patch</code></td><td>إصلاحات موجّهة (مُفضَّل)</td><td><code>name</code>, <code>old_string</code>, <code>new_string</code></td></tr><tr><td><code>patch</code> باستخدام <code>content</code></td><td>إعادة كتابة بنيوية كبيرة (تستبدل SKILL.md كاملًا؛ <code>edit</code> هو الاسم البديل القديم)</td><td><code>name</code>, <code>content</code></td></tr><tr><td><code>delete</code></td><td>إزالة مهارة بالكامل</td><td><code>name</code></td></tr><tr><td><code>write_file</code></td><td>إضافة ملفات داعمة أو تحديثها</td><td><code>name</code>, <code>file_path</code>, <code>file_content</code></td></tr><tr><td><code>remove_file</code></td><td>إزالة ملف داعم</td><td><code>name</code>, <code>file_path</code></td></tr></tbody></table>
+<p>يُعرض كل إجراء بشكل خاص به: موضع النص يخص إجراءً واحدًا فقط
+(<code>content</code> → الإنشاء / إعادة الكتابة الكاملة، <code>new_string</code> → الترقيع الموجّه، <code>file_content</code> →
+write_file). العملية التي تحمل موضع نص خاصًا بإجراء آخر — مثل <code>file_content</code> على
+ <code>create</code> — غير صالحة وفق مخطط الأداة (ولا تنتجها backends المحلية المقيّدة بقواعد grammar)؛
+وإذا وصلت رغم ذلك، تُرفض <strong>قبل تطبيق أي عملية في
+الدفعة</strong>، بخطأ يذكر المفتاح الذي يحتوي النص والمكان الذي يجب نقله إليه.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="53"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُفضَّل الإجراء <code>patch</code> هو الخيار المفضّل للتحديث — فهو أوفر في tokens من إعادة الكتابة الكاملة، لأن استدعاء الأداة لا يتضمن إلا النص المتغيّر.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gating-agent-skill-writes-skillswrite_approval">التحكم في كتابة الوكيل للمهارات (<code>skills.write_approval</code>)</h3>
 <p>افتراضيًا، يكتب الوكيل المهارات بحرية — بما في ذلك من خلال <a href="/docs/user-guide/features/memory#controlling-memory-writes-write_approval">مراجعة التحسين
 الذاتي في الخلفية</a>
@@ -74,8 +107,8 @@
 (مع النماذج الصغيرة التي تسيء تقدير ما تعلّمته، أو في البيئات الآمنة، أو لمجرد
 رغبتك في مراقبة حلقة التحسين الذاتي)، ففعّل شرط الموافقة على الكتابة:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
-<p>عند ضبط <code>write_approval: true</code>، فإن كل عملية كتابة عبر <code>skill_manage</code> (create / edit /
-patch / delete / write_file / remove_file) <strong>تُجهَّز للمراجعة</strong> بدلًا من اعتمادها مباشرةً —
+<p>عند ضبط <code>write_approval: true</code> ، فإن كل عملية كتابة عبر <code>skill_manage</code> كتابة (create / edit /
+patch / delete / write_file / remove_file) تكون <strong>تُجهَّز للمراجعة</strong> بدلًا من اعتمادها مباشرةً —
 فملف SKILL.md أكبر من أن يُراجع ضمن السطر، لذا ينطبق التجهيز بغض النظر عن
 مصدر الكتابة، سواء جاءت من دور أمامي أو من المراجعة في الخلفية.
 تبقى عمليات الكتابة المُجهَّزة محفوظة بعد إعادة التشغيل ضمن <code>~/.hermes/pending/skills/</code>
@@ -84,7 +117,7 @@ patch / delete / write_file / remove_file) <strong>تُجهَّز للمراجع
 <p>تعمل واجهة المراجعة في CLI التفاعلي وعلى منصات المراسلة
 (تُقتطع مخرجات diff في فقاعات المحادثة — اقرأ الـ diff الكامل في CLI أو
 في ملف JSON المعلّق). ولعمليات الكتابة في الذاكرة الشرط نفسه ضمن
-<code>memory.write_approval</code> — راجع <a href="/docs/user-guide/features/memory#controlling-memory-writes-write_approval">التحكم في عمليات الكتابة في الذاكرة</a>.</p>
+ <code>memory.write_approval</code> — راجع <a href="/docs/user-guide/features/memory#controlling-memory-writes-write_approval">التحكم في عمليات الكتابة في الذاكرة</a>.</p>
 <blockquote>
 <p>الإعداد المنفصل <code>skills.guard_agent_created</code> هو ماسح للمحتوى
 (يعتمد على استدلالات الأنماط الخطيرة)، وليس شرطًا للموافقة — والاثنان

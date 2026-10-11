@@ -6,37 +6,61 @@
 <table><thead><tr><th>المنصة</th><th>شجرة إمكانية الوصول (Accessibility tree)</th><th>إرسال الإدخال</th></tr></thead><tbody><tr><td>macOS</td><td>AX (واجهات SkyLight SPIs خاصة)</td><td><code>SLPSPostEventRecordTo</code> — مقيّد بمعرّف العملية (pid)، دون قفز المؤشر</td></tr><tr><td>Windows</td><td>UIAutomation</td><td><code>SendInput</code> + <code>PostMessage</code> — دون سرقة التركيز</td></tr><tr><td>Linux</td><td>AT-SPI (X11 + Wayland)</td><td>XTest (X11) / virtual-keyboard (Wayland)</td></tr></tbody></table>
 <p>النتيجة واحدة على كل المنصات: يستطيع الوكيل قراءة شجرة إمكانية الوصول لأي نافذة ظاهرة، وكذلك إرسال أحداث مُصطنعة إليها دون إحضارها إلى المقدمة، أو تبديل أسطح المكتب الافتراضية، أو تحريك مؤشر نظام التشغيل الحقيقي.</p>
 <p>للاطلاع على العقد الأساسي — <em>لماذا</em> يهم وضع الخلفية، وثابت عدم الإحضار إلى المقدمة (no-foreground invariant)، والتفاصيل الداخلية لإرسال النقرات — راجع <strong><a href="https://cua.ai/docs/explanation/the-no-foreground-contract" data-ext>cua.ai/docs/explanation/the-no-foreground-contract</a></strong>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-machine-it-drives">الجهاز الذي يتحكم فيه</h2>
+<p><code>computer_use</code> يعمل على الجهاز نفسه الذي توجد عليه شاشة البوت، لا على
+الجهاز الذي يشغّل Hermes Desktop أبدًا. في gateway مع <code>terminal.backend: local</code> ، يكون ذلك مضيف gateway. مع طرفية داخل sandbox (<code>docker</code>, <code>ssh</code>,
+<code>singularity</code>)، يعمل driver <strong>داخل sandbox</strong> على الشاشة الخاصة بـ sandbox،
+فلا يمكنه المساس إلا بما تستطيع الطرفية مسّه؛ ويجب أن تحتوي صورة sandbox على
+ <code>cua-driver</code> (<code>nousresearch/hermes-sandbox:desktop</code> يفعل ذلك). لا تستطيع sandboxes من Modal
+و Daytona و Vercel استضافة شاشة بعد، لذا يرفض <code>computer_use</code> مع تلك
+backends إلا إذا فعّل <code>bot_desktop.placement: gateway</code>
+التحكم في المضيف. التفاصيل: <a href="/docs/user-guide/features/bot-screen#where-the-screen-runs">Bot Screen → مكان تشغيل
+الشاشة</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling">التفعيل</h2>
-<p><strong>عمليات التثبيت الجديدة تتضمن المشغّل مسبقًا.</strong> يثبّت مُثبّت Hermes (<code>install.sh</code> / <code>install.ps1</code>) مسبقًا <code>cua-driver</code> (بأفضل جهد؛ مرّر <code>--skip-computer-use</code> / <code>-SkipComputerUse</code> لإلغاء ذلك)، لذا لا يتطلب تفعيل Computer Use سوى تبديل إعداد واحد:</p>
+<p><strong>عمليات التثبيت الجديدة تتضمن المشغّل مسبقًا.</strong> <code>cua-driver</code> مثبّت بإصدار محدد في <code>pm/lock.json</code>
+وهو حزمة PM افتراضية: تثبّته أدوات التثبيت والأمر المجرد <code>hermes pm install</code> و
+ <code>hermes update</code> على كل هدف macOS و Windows و glibc Linux
+(لا ينشر cua-driver إصدارًا لـ musl أو Android). تتضمنه حزمة تطبيق Desktop
+أيضًا. لاستبعاده، مرّر <code>--skip-computer-use</code> على POSIX أو
+ <code>-SkipComputerUse</code> على Windows (أو شغّل <code>hermes pm install --without cua-driver</code>)؛
+يتذكر Hermes الاختيار، ويعكسه <code>hermes pm install cua-driver</code>.</p>
+<p>إذا فشل التنزيل أو استبعدته سابقًا، فإن أيًا من هذه الأوامر يثبّته:</p>
 <ul>
 <li><strong><code>hermes tools</code></strong> → اختر <code>🖱️  Computer Use</code> — يثبّت المشغّل تلقائيًا إن كان لا يزال مفقودًا.</li>
 <li><strong>لوحة التحكم / تطبيق سطح المكتب</strong> → فعّل toolset الخاص بـ Computer Use — إذا كان المشغّل مفقودًا، يبدأ التبديل عملية التثبيت في الخلفية تلقائيًا (تابع التقدم في لوحة الـ toolset).</li>
 </ul>
 <p><strong>البديل اليدوي (لعمليات التثبيت الأقدم، أو عند تخطي خطوة المُثبّت):</strong></p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
-<p>يجلب هذا مُثبّت cua-driver الأصلي (upstream) ويشغّله — <code>install.sh</code> على macOS/Linux، و <code>install.ps1</code> على Windows. استخدم <code>hermes computer-use status</code> للتحقق من التثبيت.</p>
-<p>هل لديك cua-driver مسبقًا؟ يعيد Hermes استخدامه إذا كان يدعم عقد وقت التشغيل 0.20. أثناء الإعداد، وتفعيل الـ toolset، و <code>hermes update</code>، وأول استدعاء لـ <code>computer_use</code> في الجلسة، يفحص Hermes الإصدار المحلي والـ manifest، ويُصلح التثبيت القياسي القديم أو غير المكتمل عبر المُثبّت الأصلي (مرة واحدة على الأكثر لكل جلسة أثناء التشغيل). أما الملف التنفيذي الذي تختاره عبر <code>HERMES_CUA_DRIVER_CMD</code> فيبقى تحت تحكمك، لذا يبلّغ Hermes عن عدم التوافق ويتركه دون تغيير.</p>
+<p>يطلب هذا من PM تجهيز حزمة <code>cua-driver</code> ذات الإصدار المحدد (مع التحقق مقابل
+ <code>pm/lock.json</code>) — ولا يشغّل المُثبّت الأصلي. استخدم
+ <code>hermes computer-use status</code> للتحقق من التثبيت.</p>
+<p>هل لديك cua-driver مسبقًا؟ يعيد Hermes استخدامه إذا كان يدعم عقد وقت التشغيل 0.20. أثناء الإعداد، وتفعيل الـ toolset، و <code>hermes update</code> ، وأول استدعاء لـ <code>computer_use</code> في الجلسة، يفحص Hermes الإصدار المحلي والـ manifest، ويُصلح التثبيت القياسي القديم أو غير المكتمل عبر المُثبّت الأصلي (مرة واحدة على الأكثر لكل جلسة أثناء التشغيل). أما الملف التنفيذي الذي تختاره عبر <code>HERMES_CUA_DRIVER_CMD</code> فيبقى تحت تحكمك، لذا يبلّغ Hermes عن عدم التوافق ويتركه دون تغيير.</p>
 <p>إذا ثبّتَّ Cua Driver أولًا، فإن <code>cua-driver skills install</code> يثبّت حزمة مهارات Cua ضمن <code>~/.cua-driver/skills/cua-driver</code>. الاكتشاف التلقائي في Hermes ميزة مخطط لها لاحقًا في cua-driver، لذا وجّه Hermes حاليًا إلى ذلك المجلد أو أنشئ له رابطًا رمزيًا (symlink) داخل مساحة مهاراتك. يمكنك أيضًا تسجيل أدوات Cua MCP الخام كخادم MCP مخصص، لكن هذا بديل للمستخدمين الذين يحتاجون إلى الواجهة منخفضة المستوى. أما الـ toolset المدمج فيوفّر إجراءات Hermes والإعدادات والموافقات والتشخيصات.</p>
 <p>بعد التثبيت، وأيًّا كان المسار الذي اتبعته، امنح المتطلبات المسبقة المناسبة لمنصتك:</p>
-<table><thead><tr><th>المنصة</th><th>المتطلبات المسبقة</th></tr></thead><tbody><tr><td><strong>macOS</strong></td><td>من System Settings → Privacy &amp; Security → <strong>Accessibility</strong> + <strong>Screen Recording</strong>. امنح الصلاحية للهوية التي يذكرها <code>hermes computer-use doctor</code>. يستخدم الوضع القياسي CuaDriver.app، بينما يستخدم الوضعان المقيّد (bounded) وغير المقيّد (unrestricted) هوية مضيف Hermes.</td></tr><tr><td><strong>Windows</strong></td><td>لا شيء وقت التثبيت. إذا كنت تتحكم عبر SSH (وليس RDP / console)، فستحتاج إلى نمط التشغيل التلقائي (autostart) — راجع <a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>cua.ai/docs/how-to-guides/driver/windows-ssh</a> للاطلاع على الوسيط (proxy) بين Session 0 ↔ Session 1+.</td></tr><tr><td><strong>Linux</strong></td><td>خادم عرض يمكن الوصول إليه: ضبط <code>DISPLAY</code> لـ X11، أو <code>XDG_SESSION_TYPE=wayland</code>. تحتاج جلسات Wayland إلى جسر XWayland لالتقاط الشاشة. ويجب أن يكون AT-SPI مفعّلًا (مفعّل افتراضيًا على GNOME/KDE/Xfce).</td></tr></tbody></table>
+<table><thead><tr><th>المنصة</th><th>المتطلبات المسبقة</th></tr></thead><tbody><tr><td><strong>macOS</strong></td><td>من System Settings → Privacy &amp; Security → <strong>Accessibility</strong> + <strong>Screen Recording</strong>. امنح الصلاحية للهوية التي يذكرها <code>hermes computer-use doctor</code> (CuaDriver، <code>com.trycua.driver</code> ، في كل وضع صلاحيات — يُطلق daemon الخاص بـ driver دائمًا عبر <code>CuaDriver.app</code>).</td></tr><tr><td><strong>Windows</strong></td><td>لا شيء وقت التثبيت. إذا كنت تتحكم عبر SSH (وليس RDP / console)، فستحتاج إلى نمط التشغيل التلقائي (autostart) — راجع <a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>cua.ai/docs/how-to-guides/driver/windows-ssh</a> للاطلاع على الوسيط (proxy) بين Session 0 ↔ Session 1+.</td></tr><tr><td><strong>Linux</strong></td><td>خادم عرض يمكن الوصول إليه: ضبط <code>DISPLAY</code> لـ X11، أو <code>XDG_SESSION_TYPE=wayland</code>. تحتاج جلسات Wayland إلى جسر XWayland لالتقاط الشاشة. ويجب أن يكون AT-SPI مفعّلًا (مفعّل افتراضيًا على GNOME/KDE/Xfce).</td></tr></tbody></table>
 <p>ثم ابدأ جلسة مع تفعيل الـ toolset:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
 <p>أو أضف <code>computer_use</code> إلى الـ toolsets المفعّلة في <code>~/.hermes/config.yaml</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-modes-and-logged-in-browser-profiles">أوضاع الصلاحيات وملفات تعريف المتصفح المسجّل الدخول فيها</h2>
 <p>يربط Hermes تجربة الموافقات الحالية لديه بأوضاع التشغيل الثابتة (immutable) في cua-driver. يُعدّ وضع الصلاحيات والموافقة على manifest القدرات من إعدادات الإطلاق، ولا يمكن تغييرهما بعد بدء الـ runtime:</p>
-<table><thead><tr><th>جلسة Hermes</th><th>وضع cua-driver</th><th>التدخل البشري</th></tr></thead><tbody><tr><td>الموافقات اليدوية أو الذكية (الافتراضي)</td><td><code>standard</code></td><td>موافقات Hermes العادية؛ ويتوقف Cua عند حدّه المحمي</td></tr><tr><td><code>computer_use.permission_mode: bounded</code> + manifest تمت مراجعته</td><td>daemon <code>bounded</code> خاص</td><td>تراجع manifest القدرات وتوافق عليه مرة واحدة، عند الإطلاق</td></tr><tr><td><code>--yolo</code>، أو <code>/yolo</code>، أو <code>approvals.mode: off</code></td><td>daemon <code>unrestricted</code> خاص</td><td>قبول صريح واحد للمخاطر في Hermes؛ دون مطالبات من Cua أثناء التشغيل</td></tr></tbody></table>
-<p>أعمال المتصفح — بما فيها الصفحات في profile مسجّل الدخول فيه — تمر عبر الـ toolset <code>browser</code> (<code>browser_exec</code>)، لا عبر <code>computer_use</code>. أُزيل خيار الاشتراك السابق <code>computer_use.grant_existing_profile</code> مع مسار المتصفح المُنمَّط (typed browser route)؛ وأي مفتاح متبقٍّ منه في config.yaml يُتجاهل.</p>
+<table><thead><tr><th>جلسة Hermes</th><th>وضع cua-driver</th><th>التدخل البشري</th></tr></thead><tbody><tr><td>الموافقات اليدوية أو الذكية (الافتراضي)</td><td><code>standard</code></td><td>موافقات Hermes العادية؛ ويتوقف Cua عند حدّه المحمي</td></tr><tr><td><code>computer_use.permission_mode: bounded</code> + manifest تمت مراجعته</td><td>خاص <code>bounded</code> خاص</td><td>تراجع manifest القدرات وتوافق عليه مرة واحدة، عند الإطلاق</td></tr><tr><td><code>--yolo</code>, <code>/yolo</code> ، أو <code>approvals.mode: off</code></td><td>خاص <code>unrestricted</code> خاص</td><td>قبول صريح واحد للمخاطر في Hermes؛ دون مطالبات من Cua أثناء التشغيل</td></tr></tbody></table>
+<p>أعمال المتصفح — بما فيها الصفحات في profile مسجّل الدخول فيه — تمر عبر الـ toolset <code>browser</code> toolset (<code>browser_exec</code>)، لا عبر <code>computer_use</code>. أُزيل خيار الاشتراك السابق <code>computer_use.grant_existing_profile</code> مع مسار المتصفح المُنمَّط (typed browser route)؛ وأي مفتاح متبقٍّ منه في config.yaml يُتجاهل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bounded-mode-for-repeatable-automation">الوضع المقيّد (Bounded) للأتمتة القابلة للتكرار</h3>
 <p>لأتمتة المتصفح المتكررة (مهام cron، والبحث المجدول على تطبيق يتطلب المصادقة)، يستخدم وضع <code>bounded</code> ملف manifest للقدرات تراجعه مرة واحدة:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
-<p>يحدد الـ manifest التطبيقات، وأنواع ملفات تعريف المتصفح، والأصول (origins) المسموح بها، والأدوات المُنمَّطة التي يمكن للجلسة استخدامها (راجع <a href="https://cua.ai/docs/reference/cua-driver/permission-modes" data-ext>مرجع أوضاع الصلاحيات في cua-driver</a> للاطلاع على الصيغة). يطلق Hermes runtime خاصًا باستخدام <code>--capability-manifest ... --approve-capability-manifest</code>؛ وأي شيء خارج الـ manifest يُرفض افتراضيًا (fails closed) داخل cua-driver. وإذا كان الـ manifest مفقودًا أو تتعذر قراءته، يفشل الأمر بشكل صريح عند بدء الجلسة بدلًا من التراجع بصمت إلى وضع أقل تقييدًا. ولا يزال YOLO على مستوى الجلسة يتجاوز الوضع المقيّد لتلك الجلسة وحدها.</p>
+<p>يحدد الـ manifest التطبيقات، وأنواع ملفات تعريف المتصفح، والأصول (origins) المسموح بها، والأدوات المُنمَّطة التي يمكن للجلسة استخدامها (راجع <a href="https://cua.ai/docs/reference/cua-driver/permission-modes" data-ext>مرجع أوضاع الصلاحيات في cua-driver</a> للاطلاع على الصيغة). يطلق Hermes runtime خاصًا باستخدام <code>--capability-manifest ... --approve-capability-manifest</code> ؛ وأي شيء خارج الـ manifest يُرفض افتراضيًا (fails closed) داخل cua-driver. وإذا كان الـ manifest مفقودًا أو تتعذر قراءته، يفشل الأمر بشكل صريح عند بدء الجلسة بدلًا من التراجع بصمت إلى وضع أقل تقييدًا. ولا يزال YOLO على مستوى الجلسة يتجاوز الوضع المقيّد لتلك الجلسة وحدها.</p>
 <p>على macOS، تُطلَق خدمات daemon الخاصة بالجلسات عبر حزمة <code>CuaDriver.app</code> المثبّتة (كي تُنسب منح الصلاحيات إلى هوية المشغّل نفسه بدلًا من إعادة ضبطها مع كل بناء لـ Hermes)، ويتحقق Hermes من توقيع الكود للحزمة — المعرّف <code>com.trycua.driver</code> بالضبط وفريق التوقيع الرسمي — قبل إطلاقها. إذا بنيت cua-driver من المصدر (دون توقيع)، ففعّل ذلك صراحةً:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
-<p>يمتلك كل ناقل (transport) لـ MCP جلسة دورة حياة خاصة داخل الـ runtime التابع له. واسم الجلسة العام مجرد تسمية لهوية المؤشر والحالة المرتبطة بالجلسة، فهو لا يختار runtime ولا يشاركه ولا يُبقيه قيد التشغيل. يؤدي إيقاف <code>/yolo</code>، أو إعادة ضبط جلسة Hermes أو إغلاقها، أو التنظيف عند الإلغاء، أو خروج العملية، إلى إغلاق جلسة الناقل تلك. ويوقف Hermes أيضًا خدمات الـ runtime الخاصة التي أطلقها للوصول المقيّد أو غير المقيّد. ولا يمكن لمحادثة Hermes واحدة تغيير وضع runtime آخر أو الصلاحيات الممنوحة له. ويستخدم الوضعان المقيّد وغير المقيّد خدمة مضمّنة خاصة تعمل تحت هوية مضيف Hermes.</p>
-<p>تبقى الموافقة <code>smart</code> ضمن الوضع <code>standard</code>: فلا يمكن لتصنيف يجريه LLM أن يحل محل manifest تمت مراجعته.</p>
+<p>يمتلك كل ناقل (transport) لـ MCP جلسة دورة حياة خاصة داخل الـ runtime التابع له. واسم الجلسة العام مجرد تسمية لهوية المؤشر والحالة المرتبطة بالجلسة، فهو لا يختار runtime ولا يشاركه ولا يُبقيه قيد التشغيل. يؤدي إيقاف <code>/yolo</code> ، أو إعادة ضبط جلسة Hermes أو إغلاقها أو تنظيف آثار الإلغاء أو خروج العملية،
+يُغلق جلسة النقل تلك. يوقف Hermes أيضًا أوقات التشغيل الخاصة التي
+أطلقها للوصول المحدود أو غير المقيّد. لا يمكن لمحادثة Hermes واحدة
+تغيير وضع وقت تشغيل آخر أو أذوناته. يستخدم الوضعان المحدود
+وغير المقيّد daemon مضمّنًا خاصًا يُطلق عبر
+ <code>CuaDriver.app</code> على macOS (راجع أعلاه).</p>
+<p><code>smart</code> ضمن الوضع <code>standard</code>: فلا يمكن لتصنيف يجريه LLM أن يحل محل manifest تمت مراجعته.</p>
 <div class="alert alert--warning"><p>لا يحمي وضع YOLO/unrestricted من حقن الـ prompt (prompt injection) أو الإدخال غير المقصود. لا تستخدمه إلا في آلة افتراضية (VM) يمكن الاستغناء عنها، أو مع حسابات وبيانات تتقبّل احتمال اختراقها بالكامل.</p></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-computer-use-doctor--your-first-triage-stop"><code>hermes computer-use doctor</code> — محطتك الأولى لتشخيص المشكلات</h2>
-<p>ينفّذ <code>hermes computer-use doctor</code> أداة MCP المنظّمة <code>health_report</code> في cua-driver ويطبع مصفوفة نتائج لكل فحص. إنها أسرع طريقة لمعرفة <em>سبب</em> عدم عمل إجراء ما.</p>
+<p><code>hermes computer-use doctor</code> أداة MCP المنظّمة <code>health_report</code> في cua-driver ويطبع مصفوفة نتائج لكل فحص. إنها أسرع طريقة لمعرفة <em>سبب</em> عدم عمل إجراء ما.</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <ul>
 <li><strong>رمز الخروج 0</strong> عندما تكون الحالة العامة <code>ok</code> — كل شيء موصول بشكل صحيح.</li>
@@ -48,30 +72,45 @@
 <li><code>--include CHECK</code> — تشغيل الفحوص المذكورة فقط (كرّره لعدة فحوص)</li>
 <li><code>--skip CHECK</code> — تخطي فحص (له الأولوية على <code>--include</code>)</li>
 <li><code>--json</code> — إخراج الحمولة المنظّمة الخام، بنفس شكل استجابة MCP لـ
-<code>tools/call health_report</code></li>
+ <code>tools/call health_report</code> استجابة MCP</li>
 </ul>
 <p>مصفوفة الفحوص تراعي المنصة: تكون <code>bundle_identity</code> / <code>tcc_*</code> بحالة
-<code>skip</code> على Windows و Linux لأن هذه المفاهيم لا تنطبق عليهما.
+ <code>skip</code> على Windows و Linux لأن هذه المفاهيم لا تنطبق عليهما.
 ويفحص <code>ax_capability</code> واجهة AX على macOS، و UIA على Windows، و AT-SPI على Linux — مع تلميح التشخيص المناسب لكل منها عندما يتعذر الوصول إليها.</p>
+<p>في Linux، حيث يكون daemon وحدة مستخدم systemd مكتوبة يدويًا أو إدخال تشغيل تلقائي XDG
+بدلًا من تشغيل تلقائي مُدار، يقرأ doctor تلك
+الوحدات أيضًا: يُبلَّغ عن <code>cua-driver</code> <code>ExecStart</code> يشير إلى مجلد
+ <code>packages/releases/&lt;version&gt;/</code> حُذف أثناء التنظيف كفشل في فحص
+ <code>daemon unit (...)</code> (وجّهه إلى <code>~/.cua-driver/packages/current/cua-driver</code>)،
+والوحدة التي تشغّل <code>cua-driver serve</code> تحصل على فحص <code>daemon (...)</code>
+يتصل بمقبسها — <code>fail</code> عندما لا يستمع شيء (حلقة أعطال،
+متوقف، لم يبدأ قط)، و <code>pass</code> عندما يجيب daemon. إعادة تثبيت
+driver لا تشغّل daemon؛ يفعل ذلك <code>systemctl --user status &lt;unit&gt;</code>.
+<code>hermes computer-use status</code> يطبع سطر daemon المتوقف نفسه ويخرج بالقيمة 1.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-agent-cursor-and-sessions">مؤشر الوكيل والجلسات</h2>
 <p>عندما يعمل الوكيل، سترى <strong>مؤشرًا متراكبًا ملوّنًا</strong> ينزلق عبر الشاشة إلى موضع كل نقرة / كتابة / تمرير. أما مؤشر نظام التشغيل الحقيقي فلا يتحرك أبدًا، إذ يُظهر المؤشر المتراكب مكان عمل الوكيل. يعلن كل تشغيل لـ Hermes عن <strong>اسم جلسة</strong> عام في cua-driver (مثل
-<code>hermes-3a7b9c14d2e8</code>). يسمّي هذا الاسم هوية المؤشر والحالة المرتبطة به، لذا تحصل عمليات التشغيل المتزامنة والـ subagents على مؤشرات مميزة. ويمتلك ناقل MCP جلسة دورة الحياة الخاصة داخل الـ runtime، وليس الاسم العام.</p>
+ <code>hermes-3a7b9c14d2e8</code>). يسمّي هذا الاسم هوية المؤشر والحالة المرتبطة به، لذا تحصل عمليات التشغيل المتزامنة والـ subagents على مؤشرات مميزة. ويمتلك ناقل MCP جلسة دورة الحياة الخاصة داخل الـ runtime، وليس الاسم العام.</p>
 <p>المؤشر المتراكب شكلي فقط — فالالتقاط والنقر والكتابة تعمل جميعها بدونه. يعطّله Hermes تلقائيًا حيث يُعرف أنه يسبب مشكلات: macOS (استهلاك المعالج أثناء الخمول)، و Linux بلا واجهة (headless) / WSL2 / الحاويات، و
 <strong>أسطح مكتب Linux X11</strong> (فالمؤشر المتراكب نافذة بملء الشاشة تبقى دائمًا في المقدمة، ويمكن أن تعلق فوق كل مساحات العمل بعد انتهاء جلسة بشكل غير سليم، فتعطّل الإدخال على سطح المكتب). أما Linux Wayland و Windows فتحتفظان بالمؤشر المتراكب. اضبط
-<code>computer_use.no_overlay: false</code> في <code>config.yaml</code> لفرض تشغيل المؤشر
+ <code>computer_use.no_overlay: false</code> في <code>config.yaml</code> لفرض تشغيل المؤشر
 (أو <code>true</code> لفرض إيقافه) على أي منصة.</p>
 <p>خصّص المؤشر عبر خيارات CLI في <code>cua-driver</code> أو أداة MCP وقت التشغيل
-<code>set_agent_cursor_style</code> — راجع
+ <code>set_agent_cursor_style</code> — راجع
 <a href="https://cua.ai/docs/how-to-guides/driver/personalize-cursor" data-ext>cua.ai/docs/how-to-guides/driver/personalize-cursor</a>
-للقائمة الكاملة (الشكل المدمج <code>arrow</code> مقابل <code>teardrop</code>، أو SVG / PNG / ICO مخصص عبر <code>--cursor-icon</code>، وألوان التدرّج أثناء التشغيل، وهالة التوهّج (bloom)).</p>
+للقائمة الكاملة (الشكل المدمج <code>arrow</code> مقابل <code>teardrop</code> ، أو SVG / PNG / ICO مخصص عبر <code>--cursor-icon</code> ، وألوان التدرّج أثناء التشغيل، وهالة التوهّج (bloom)).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="going-deeper--the-cua-driver-skill-pack">التعمق أكثر — حزمة مهارات cua-driver</h2>
 <p>يُبقي Hermes مهارة الـ wrapper الخاصة به (<code>skills/autonomous-ai-agents/computer-use/SKILL.md</code>)
 مركّزة على سير عمل <code>computer_use</code> من جانب Hermes ومفردات إجراءاته. وللاطلاع على تفاصيل المنصات، ودلالات التسجيل، والتفاعل مع صفحات المتصفح، وغيرها من سلوكيات Cua المتعمقة، ثبّت حزمة المهارات التي يصدرها فريق cua-driver ويصونها مباشرةً:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
-<p>يثبّت الأمر الحزمة ضمن <code>~/.cua-driver/skills/cua-driver</code>. الاكتشاف التلقائي في Hermes ميزة مخطط لها لاحقًا في cua-driver، لذا وجّه Hermes حاليًا إلى ذلك المجلد أو أنشئ له symlink داخل مساحة مهاراتك. يظل الـ wrapper طبقة سير العمل، ويحيل إلى مهارة Cua المثبّتة فيما يخص سلوك المشغّل. تحتوي الحزمة على:</p>
-<table><thead><tr><th>الملف</th><th>الموضوع</th></tr></thead><tbody><tr><td><code>SKILL.md</code></td><td>النواة متعددة المنصات (ثابت اللقطة (snapshot invariant)، وعقد عدم الإحضار إلى المقدمة، وإرسال النقرات، وآليات شجرة AX)</td></tr><tr><td><code>MACOS.md</code></td><td>تفاصيل macOS: عقد عدم الإحضار إلى المقدمة، والتنقل في AXMenuBar، وإرسال النقرات عبر SkyLight، وجسر JS لـ Apple Events</td></tr><tr><td><code>WINDOWS.md</code></td><td>تفاصيل Windows: شجرة UIA، واستضافة UWP / <code>ApplicationFrameHost</code>، وعزل Session 0، ونمط التشغيل التلقائي</td></tr><tr><td><code>LINUX.md</code></td><td>تفاصيل Linux: شجرة AT-SPI، و X11 / Wayland، واكتشاف محاكي الطرفية</td></tr><tr><td><code>RECORDING.md</code></td><td>دلالات تسجيل المسار (trajectory) والفيديو</td></tr><tr><td><code>WEB_APPS.md</code></td><td>نصائح للتفاعل مع صفحات المتصفح</td></tr><tr><td><code>TESTS.md</code></td><td>سير عمل إعادة التشغيل وفق المسار (Replay-by-trajectory)</td></tr></tbody></table>
+<p>يربط الأمر الحزمة بـ <code>~/.hermes/skills/cua-driver</code> (Hermes أحد
+الوكلاء الذين يعرضهم <code>cua-driver skills status</code>). يبقى الغلاف طبقة
+سير العمل: توثّق الحزمة مفردات MCP الخاصة بـ driver
+(<code>get_window_state</code>, <code>element_token</code>, <code>snapshot_id</code>)، التي يترجم إليها الغلاف <code>computer_use</code>
+نيابةً عنك — استمر في استدعاء <code>computer_use(action=...)</code>. تحتوي
+الحزمة على:</p>
+<table><thead><tr><th>الملف</th><th>الموضوع</th></tr></thead><tbody><tr><td><code>SKILL.md</code></td><td>النواة متعددة المنصات (ثابت اللقطة (snapshot invariant)، وعقد عدم الإحضار إلى المقدمة، وإرسال النقرات، وآليات شجرة AX)</td></tr><tr><td><code>MACOS.md</code></td><td>تفاصيل macOS: عقد عدم الإحضار إلى المقدمة، والتنقل في AXMenuBar، وإرسال النقرات عبر SkyLight، وجسر JS لـ Apple Events</td></tr><tr><td><code>WINDOWS.md</code></td><td>تفاصيل Windows: شجرة UIA، واستضافة UWP / <code>ApplicationFrameHost</code> ، وعزل Session 0، ونمط التشغيل التلقائي</td></tr><tr><td><code>LINUX.md</code></td><td>تفاصيل Linux: شجرة AT-SPI، و X11 / Wayland، واكتشاف محاكي الطرفية</td></tr><tr><td><code>RECORDING.md</code></td><td>دلالات تسجيل المسار (trajectory) والفيديو</td></tr><tr><td><code>WEB_APPS.md</code></td><td>نصائح للتفاعل مع صفحات المتصفح</td></tr><tr><td><code>TESTS.md</code></td><td>سير عمل إعادة التشغيل وفق المسار (Replay-by-trajectory)</td></tr></tbody></table>
 <p>هذه <strong>شروحات متعمقة للمنصات، وليست نسخًا مكررة من مهارة Hermes</strong> — فعندما يبلّغ الوكيل بأن &quot;نقرتي على Windows وقعت على العنصر الخطأ&quot;، يقرأ <code>WINDOWS.md</code> للاطلاع على سياق UIA / UWP الذي يوضح السبب وما يجب فعله بشكل مختلف.</p>
-<p>يعرض <code>cua-driver skills status</code> ما هو مثبّت، وأدوات تشغيل الوكلاء (agent harnesses) المرتبطة به. تغطي قائمة الاكتشاف التلقائي اليوم Claude Code و Codex و OpenCode و OpenClaw و Antigravity؛ <strong>أما الاكتشاف التلقائي لـ Hermes فمخطط له كخطوة لاحقة في <code>trycua/cua</code></strong> — وحتى ذلك الحين، شغّل <code>cua-driver skills install</code> مرة واحدة ووجّه أداة التشغيل (harness) لديك إلى المجلد الناتج <code>~/.cua-driver/skills/cua-driver</code> (أو أنشئ له symlink داخل مساحة مهاراتك المعتادة).</p>
+<p><code>cua-driver skills status</code> ما هو مثبّت، وأدوات تشغيل الوكلاء (agent harnesses) المرتبطة به. تغطي قائمة الاكتشاف التلقائي اليوم Claude Code و Codex و OpenCode و OpenClaw و Antigravity؛ <strong>أما الاكتشاف التلقائي لـ Hermes فمخطط له كخطوة لاحقة في <code>trycua/cua</code></strong> — وحتى ذلك الحين، شغّل <code>cua-driver skills install</code> مرة واحدة ووجّه أداة التشغيل (harness) لديك إلى المجلد الناتج <code>~/.cua-driver/skills/cua-driver</code> (أو أنشئ له symlink داخل مساحة مهاراتك المعتادة).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-example">مثال سريع</h2>
 <p>الـ prompt من المستخدم: <em>&quot;ابحث عن أحدث رسالة بريد إلكتروني من Stripe ولخّص ما يطلبونه مني.&quot;</em></p>
 <p>خطة الوكيل (بالشكل نفسه على macOS / Windows / Linux — إذ يستبدل النموذج الاختصار واسم التطبيق المعتادين على كل منصة):</p>
@@ -96,57 +135,37 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="provider-compatibility">توافق المزوّدين</h2>
 <table><thead><tr><th>المزوّد</th><th>يدعم الرؤية؟</th><th>يعمل؟</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Anthropic (Claude Sonnet/Opus 3+)</td><td>✅</td><td>✅</td><td>الأفضل عمومًا؛ SOM + إحداثيات خام.</td></tr><tr><td>OpenRouter (أي نموذج رؤية)</td><td>✅</td><td>✅</td><td>رسائل الأدوات متعددة الأجزاء مدعومة.</td></tr><tr><td>OpenAI (GPT-4+, GPT-5)</td><td>✅</td><td>✅</td><td>مثل ما سبق.</td></tr><tr><td>Google (Gemini 2+)</td><td>✅</td><td>✅</td><td>استدعاء الأدوات والرؤية مدعومان كلاهما.</td></tr><tr><td>vLLM / LM Studio / Ollama محلي (نموذج رؤية)</td><td>✅</td><td>✅</td><td>إذا كان النموذج يدعم محتوى أدوات متعدد الأجزاء.</td></tr><tr><td>النماذج النصية فقط</td><td>❌</td><td>✅ (بقدرات محدودة)</td><td>استخدم <code>mode=&quot;ax&quot;</code> للعمل بشجرة إمكانية الوصول فقط.</td></tr></tbody></table>
 <p>تُرسل لقطات الشاشة مضمّنةً في نتائج الأدوات كأجزاء <code>image_url</code> بأسلوب OpenAI. وبالنسبة إلى Anthropic، يحوّلها المحوّل (adapter) إلى كتل صور أصلية من نوع <code>tool_result</code>. ويأتي نوع MIME للصورة من الحقل الصريح
-<code>mimeType</code> في cua-driver (<code>image/png</code> أو <code>image/jpeg</code>) — دون فحص البايتات السحرية (magic bytes) من جانب العميل.</p>
+ <code>mimeType</code> في cua-driver (<code>image/png</code> أو <code>image/jpeg</code>) — دون فحص البايتات السحرية (magic bytes) من جانب العميل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety">الأمان</h2>
 <p>يطبّق Hermes حواجز حماية متعددة الطبقات:</p>
 <ul>
-<li>تتطلب الإجراءات المؤثرة (click و type و drag و scroll و key و focus_app) موافقة — إما تفاعليًا عبر مربع حوار CLI أو عبر أزرار الموافقة في منصة المراسلة.</li>
+<li>تتطلب الإجراءات التدميرية (click و type و drag و scroll و key و focus_app)
+موافقة عبر البوابة نفسها الخاصة بأوامر الـ shell الخطرة —
+تفاعليًا عبر حوار CLI أو أزرار الموافقة في منصة
+المراسلة. تُعرّف أذونات المرة الواحدة/الجلسة/الدائم بالمفتاح
+ <code>cua:&lt;action&gt;:&lt;background|foreground&gt;</code> وتُحفظ في مخزن
+الجلسة/<code>command_allowlist</code> المشترك (الإذن للعمل الخلفي لا يغطي مطلقًا
+النسخة المرئية في الواجهة). عندما لا يوجد من يجيب — cron
+(<code>approvals.cron_mode</code>) أو الاستعلام الواحد أو المنصات غير المراقَبة أو أي
+تشغيل دون واجهة — يُرفض الإجراء بدلًا من الموافقة التلقائية؛
+ <code>--yolo</code> / <code>/yolo</code> تظل تتجاوز ذلك.</li>
 <li>تركيبات مفاتيح محظورة تمامًا على مستوى الأداة: إفراغ سلة المحذوفات، والحذف القسري، وقفل الشاشة، وتسجيل الخروج، وتسجيل الخروج القسري.</li>
-<li>أنماط كتابة محظورة تمامًا: <code>curl | bash</code>، و <code>sudo rm -rf /</code>، وقنابل fork، وغيرها.</li>
+<li>أنماط كتابة محظورة تمامًا: <code>curl | bash</code>, <code>sudo rm -rf /</code> ، وقنابل fork، وغيرها.</li>
 <li>يخبر system prompt الخاص بالوكيل صراحةً: لا نقر على مربعات حوار الصلاحيات، ولا كتابة لكلمات المرور، ولا اتباع لتعليمات مضمّنة في لقطات الشاشة.</li>
 </ul>
 <p>استخدمه مع <code>approvals.mode: manual</code> في <code>~/.hermes/config.yaml</code> إذا أردت تأكيد كل إجراء.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-efficiency">كفاءة استهلاك الـ tokens</h2>
 <p>لقطات الشاشة مكلفة. لذا يطبّق Hermes أربع طبقات من التحسين:</p>
 <ul>
-<li><strong>إزالة لقطات الشاشة القديمة</strong> — يُبقي محوّل Anthropic آخر 3 لقطات شاشة فقط في السياق؛ وتتحول الأقدم منها إلى عناصر نائبة <code>[screenshot removed to save context]</code>.</li>
+<li><strong>إزالة لقطات الشاشة القديمة</strong> — مع كل مزوّد، ترافق لقطات الشاشة كل
+طلب حتى يتجاوز الحد الموثّق للصور لكل طلب لدى Anthropic
+(20 كتلة صور أو 24 MB من بيانات الصور)؛ ثم تُحوَّل أقدم دفعة إلى عناصر
+ <code>[screenshot removed to save context]</code> مؤقتة. دون الحد
+لا يُعاد كتابة شيء، فتحافظ بادئة ذاكرة الـ prompt المؤقتة على بقائها؛ وعند الحد يصبح
+هناك دور أبطأ واحد لكل دفعة بدلًا من واحد لكل لقطة شاشة. الصور التي ترفقها
+بنفسك تُحتسب ضمن الحد لكنها لا تُزال مطلقًا.</li>
 <li><strong>التقليم ضمن الضغط من جانب العميل</strong> — يكتشف ضاغط السياق نتائج الأدوات متعددة الوسائط ويزيل أجزاء الصور من القديمة منها.</li>
 <li><strong>تقدير الـ tokens مع مراعاة الصور</strong> — تُحتسب كل صورة بنحو 1500 token (السعر الثابت لدى Anthropic) بدلًا من طول أحرفها بترميز base64.</li>
 <li><strong>تحرير السياق من جانب الخادم (Anthropic فقط)</strong> — عند تفعيله، يفعّل المحوّل <code>clear_tool_uses_20250919</code> عبر <code>context_management</code> كي تمسح API الخاصة بـ Anthropic نتائج الأدوات القديمة من جانب الخادم.</li>
 </ul>
 <p>تكلّف جلسة من 20 إجراءً على شاشة بدقة 1568×900 عادةً نحو 30K token من سياق لقطات الشاشة، لا نحو 600K.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
-<ul>
-<li><strong>الأداء.</strong> وضع الخلفية أبطأ من العمل في المقدمة — تستغرق الأحداث الموجّهة عبر إمكانية الوصول نحو 5–20 ms على macOS، ونحو 3–10 ms على Windows UIA، ونحو 5–15 ms على Linux AT-SPI، مقارنةً بالإرسال المباشر عبر HID. لا يُلاحظ ذلك في النقر بسرعة الوكيل، لكنه ملحوظ إذا حاولت تسجيل speed-run.</li>
-<li><strong>لا إدخال لكلمات المرور عبر لوحة المفاتيح.</strong> لدى <code>type</code> أنماط حظر صارمة على حمولات أوامر الـ shell؛ أما كلمات المرور فاستخدم لها الملء التلقائي في النظام (macOS Keychain / Windows Credential Manager / GNOME Keyring / KWallet).</li>
-<li><strong>بعض التطبيقات لا تكشف شجرة إمكانية الوصول.</strong> تطبيقات UWP الحديثة على Windows، و Electron &lt; 28 على Linux، وبعض تطبيقات macOS ذات الرسم المخصص (Logic و Final Cut وبعض الألعاب) لديها أشجار AX شحيحة أو فارغة. ارجع إلى إحداثيات البكسل إذا كانت الشجرة فارغة — أو تخطَّ المهمة كليًا.</li>
-<li><strong>Windows: لا يمكن التحكم في النوافذ ذات الصلاحيات المرتفعة (admin) من وكيل عادي.</strong> يفرض Windows UIPI (User Interface Privilege Isolation) حدودًا بين مستويات السلامة (integrity levels): فلا يمكن لعملية بمستوى Medium (وكيل Hermes الافتراضي) سرد شجرة UIA لنافذة تملكها عملية بمستوى High (Administrator)، ولا حقن إدخال الفأرة فيها. العَرَض: يعيد <code>capture(mode=&#x27;som&#x27;)</code> صفر عناصر، ويبلّغ <code>click(...)</code> بالنجاح دون أن يفعل شيئًا، رغم أن لقطة الشاشة تُعرض بشكل سليم (لأن التقاط GDI يقع أسفل فحص السلامة). تتجاوز أحداث لوحة المفاتيح UIPI جزئيًا، لذا يظل بإمكان Tab / Enter التنقل في مربع حوار مرتفع الصلاحيات. هذا قيد من نظام التشغيل وليس خطأً في cua-driver — وهو يؤثر في كل حزم الأتمتة على Windows. للتحكم في النوافذ مرتفعة الصلاحيات، شغّل وكيل Hermes نفسه بمستوى High (أطلقه من طرفية مرتفعة الصلاحيات)؛ وإلا فاستهدف النوافذ غير المرتفعة الصلاحيات.</li>
-<li><strong>مشكلات نشر خاصة بكل منصة:</strong>
-<ul>
-<li>يستخدم <strong>macOS</strong> واجهات SkyLight SPIs خاصة، وقد تغيّرها Apple في أي تحديث لنظام التشغيل. ويحذّر Hermes عندما يكون cua-driver المثبّت أقدم من الإصدار الذي اختُبر عليه.</li>
-<li>تعمل جلسات SSH على <strong>Windows</strong> في <strong>Session 0</strong>، التي لا تحتوي على سطح مكتب تفاعلي. شغّل Hermes من داخل جلسة RDP / console، أو اضبط مهمة Scheduled Task الخاصة بالتشغيل التلقائي في cua-driver — ستجد الطريقة في
-<a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>windows-ssh</a>.</li>
-<li>يتطلب <strong>Linux</strong> خادم عرض يمكن الوصول إليه. تحتاج الخوادم بلا واجهة إلى Xvfb (<code>Xvfb :99 -screen 0 1920x1080x24</code>) قبل أن يتمكن
-<code>computer_use</code> من الالتقاط أو حقن الأحداث. وتحتاج جلسات Wayland الخالصة إلى جسر XWayland لالتقاط الشاشة (أما مسار الحقن الخاص بـ Wayland في cua-driver فيتعامل مع الإدخال بشكل مستقل).</li>
-</ul>
-</li>
-</ul>
-<p>لأتمتة واجهات المستخدم الرسومية عبر المنصات دون عبء سطح المكتب (ودون إعداد TCC / Session 0 / X11)، يستخدم الـ toolset <code>browser</code> متصفح Chromium حقيقيًا بلا واجهة، وهو الخيار الصحيح لمهام الويب فقط.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
-<p>وضع الصلاحيات والـ manifest (راجع
-<a href="#permission-modes-and-logged-in-browser-profiles">أوضاع الصلاحيات</a> أعلاه):</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
-<p>على Linux، يظل دعم Wayland الأصلي خيارًا يتطلب تفعيلًا صريحًا. يمرّر Hermes هذا التفعيل إلى كل عملية cua-driver، بما في ذلك جلسات الـ gateway، فقط عندما تمتلك تلك العملية أيضًا <code>WAYLAND_DISPLAY</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
-<p>أعد تشغيل الـ gateway العامل بعد تغيير هذا الإعداد.</p>
-<p>تجاوز مسار الملف التنفيذي للمشغّل (للاختبارات / CI / البنايات المحلية):</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<p>استبدل الـ backend بالكامل (للاختبار):</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="telemetry">القياس عن بُعد (Telemetry)</h3>
-<p>يأتي cua-driver في مصدره الأصلي مع قياس عن بُعد مجهول الهوية للاستخدام (PostHog) مفعّل افتراضيًا. <strong>يعطّله Hermes نيابةً عنك</strong> — ففي كل استدعاء لـ cua-driver (الـ backend الخاص بـ MCP، و <code>status</code>، و <code>doctor</code>، والتثبيت) يضبط Hermes
-<code>CUA_DRIVER_RS_TELEMETRY_ENABLED=0</code> في بيئة المشغّل.</p>
-<p>لإعادة التفعيل (والسماح لـ cua-driver باستخدام إعداده الافتراضي وإرسال بيانات القياس)، اضبط ما يلي في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
-<p>عند التفعيل، يبلّغ <code>hermes computer-use doctor</code> بـ <code>telemetry: enabled</code>؛
-وعند الإيقاف (الافتراضي)، يبلّغ بـ <code>telemetry: disabled via CUA_DRIVER_RS_TELEMETRY_ENABLED</code>.</p>

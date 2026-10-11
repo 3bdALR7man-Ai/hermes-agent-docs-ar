@@ -1,0 +1,151 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-conflict-safety">أمان تعارض الـ tokens</h2>
+<p>يجب أن يستخدم كل profile رموز بوت فريدة لكل منصة. إذا شارك
+profileان رمز Telegram أو Discord أو Slack أو WhatsApp أو Signal، ترفض
+الـ gateway الثانية البدء برسالة خطأ تسمّي الـ profile المتعارض. تحت
+<a href="#alternative-one-gateway-for-all-profiles-multiplexing">الـ multiplexing</a> تُوقِف نفس
+القاعدة محوّل الـ profile المكرَّر فقط بينما تستمر الـ gateway المشتركة في
+العمل.</p>
+<p>للتدقيق:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="migrating-from-per-profile-gateways">الترحيل من gateways لكل profile</h2>
+<p>إذا كانت الـ profiles لديك يشغّل كل منها gateway مستقلة حاليًا (وحدة systemd أو
+LaunchAgent لكل profile، من إصدار سابق لاعتماد multiplex وحده)، فإن الفحص المسبق
+عند إقلاع gateway الافتراضية يُبقيها مستقلة حتى تُدمَج البقية (لا تؤدي القيمة الافتراضية غير المضبوطة
+أبدًا إلى ربط مجموعة gateways عاملة بالمنافذ مرتين). يدمجها <code>hermes update</code> نيابةً عنك ما لم
+يمنع ذلك حد فعلي (أدناه)؛ ويُنفَّذ الدمج نفسه بأمر واحد، كما أن إعادة تشغيله
+على جهاز انتقل جزئيًا (خيار مفعّل أو وحدة متبقية أو تعطّل بين الخطوتين)
+تكمل العمل بدل الإبلاغ عن &quot;already multiplexed&quot;:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>لا يوجد أمر عكسي باسم <code>--standalone</code>: فمجموعة gateways مستقلة لكل profile ليست
+وجهة مدعومة. تستمر المجموعة التي يعيقها حد في العمل كما هي، ويحتفظ كل profile
+بـ <code>hermes -p &lt;name&gt; gateway install --force</code> كمساره — أو يستبعد نفسه من gateway
+المضيف باستخدام <code>gateway.standalone: true</code> (راجع <a href="#no-new-per-profile-gateways">لا gateways جديدة لكل profile</a>)، ويلتزم <code>hermes gateway migrate --multiplex</code> بذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker--hermes-cloud-s6-supervised-container">Docker / Hermes Cloud (حاوية بإشراف s6)</h3>
+<p>داخل الصورة الرسمية، يملك كل profile خانة s6
+(<code>/run/service/gateway-&lt;profile&gt;</code>). يسجّل إقلاع الحاوية كل خانة <em>مسمّاة</em> بوصفها متوقفة ويدمج نية التشغيل التلقائي فيها ضمن خانة الجذر، لذا يستخدم الإقلاع الجديد
+multiplex بالفعل. ولم يعد التحديث <strong>في المكان</strong> يحتاج إلى إعادة تشغيل الحاوية
+للوصول إلى الحالة المطلوبة أيضًا: يوقف <code>hermes gateway migrate --multiplex</code> (وكذلك الـ hook الذي يشغّله <code>hermes update</code>) كل خانة مسمّاة ما زالت تعمل (<code>s6-svc -d</code> إضافة إلى ملف <code>down</code> حتى لا تعيدها إعادة تشغيل supervisor)، ويدمج نيتها في خانة
+الجذر وفق القاعدة نفسها المستخدمة عند الإقلاع، ثم يعيد تشغيل خانة الجذر. لا تشكّل
+الخانة المسجّلة بوصفها متوقفة عائقًا أبدًا — بل الخانة التي تعمل فعليًا فقط.
+ما زال هناك أمر واحد لا يستطيع هذا الأمر تنفيذه من الداخل: إنشاء خانة جذر
+لم يسجّلها الإقلاع أصلًا؛ وتُعرِّف هذه الحالة نفسها وتطلب إعادة تشغيل الحاوية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-hermes-update-does">ما الذي يفعله <code>hermes update</code></h3>
+<p>بعد تحديث ناجح، عندما يحتوي التثبيت على profileين أو أكثر، ويشغّل
+profile ثانوي واحد على الأقل gateway خاصة به (عملية حيّة أو خدمة مثبَّتة)
+ويكون <code>gateway.multiplex_profiles</code> معطّلًا، يجري <code>hermes update</code> الفحص المسبق
+نفسه:</p>
+<ul>
+<li><strong>لا شيء يعيقه</strong> → يعمل الترحيل تلقائيًا (بمسار الكود نفسه
+المستخدم في <code>hermes gateway migrate --multiplex --yes</code>) ويطبع ما فعله. هذا
+حتمي (deterministic) ولا يسأل أبدًا، لذا يعمل أيضًا في التحديثات بلا شاشة (headless)/عبر cron.</li>
+<li><strong>شيء يعيقه</strong> → تسرد كتلة تحذير كل عائق مع إصلاحه الدقيق
+والأمر ذي السطر الواحد لتشغيله لاحقًا. لا يتغيّر شيء.</li>
+</ul>
+<p>لا تُرحَّل أبدًا التثبيتات ذات profile واحد (فلا فائدة من ذلك)، ويُترَك
+التثبيت الذي يستخدم الـ multiplexing بالفعل كما هو. لا يفعل <code>hermes update</code> أيضًا
+شيئًا عندما لا تشغّل أي profile ثانوية gateway خاصة بها — فهو لا يبدّل الأوضاع
+أبدًا على تثبيت لم يكن فيه شيء يعمل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="boundaries-hermes-update-never-crosses-on-its-own">حدود لا يتجاوزها <code>hermes update</code> تلقائيًا أبدًا</h3>
+<p>لا يدمج الـ hook غير الخاضع للإشراف إلا الـ profiles التي تشترك في <strong>مستخدم UNIX واحد ونطاق خدمات واحد
+وشجرة <code>profiles/</code> واحدة</strong> — وهي البنية التي ينتجها <code>hermes profile create</code>.
+وجود profile ثانوي مستقل خلف أي من الحدود التالية يوقف المسار التلقائي:</p>
+<table><thead><tr><th>الحد</th><th>مثال</th></tr></thead><tbody><tr><td>اختلاف مدير الخدمات أو النطاق</td><td>الافتراضي على systemd للمستخدم، وثانوي على systemd <strong>للنظام</strong> (أو launchd)، أو الافتراضي منفصل مع ثانوي مُدار بخدمة</td></tr><tr><td>وجود أكثر من وحدة مثبّتة للـ profile</td><td>وحدة للمستخدم <strong>و</strong> وحدة للنظام للـ profile نفسه (يزيل الأمر الصريح كلتيهما)</td></tr><tr><td>اختلاف مستخدم UNIX</td><td>وحدة للنظام لها <code>User=</code> خاص بها، أو gateway حيّة يملكها uid آخر؛ تُعدّ الوحدة النظامية التي لا يستطيع هذا الجهاز تحديد <code>User=</code> فيها — سواء في الثانوي <strong> أو </strong> في الافتراضي — مجهولة الهوية، ولا تُعدّ أبدًا &quot;المستخدم نفسه&quot;</td></tr><tr><td><code>HERMES_HOME</code> خارج <code>&lt;default home&gt;/profiles/</code></td><td>وحدة تثبّت <code>HERMES_HOME=/opt/hermes/profiles/emma</code></td></tr></tbody></table>
+<p>في هذه الحالة، يطبع <code>hermes update</code> الحد الذي وجده مع <code>hermes gateway migrate --multiplex</code>، ولا يغيّر شيئًا — لا تُزال أي وحدة
+وتستمر gateways الخاصة بكل profile في العمل (يظل <code>--force</code> مسارها عندما
+يمنع حد كهذه الحدود الدمج؛ أما profile الخالي منها فيستبعد نفسه باستخدام <code>gateway.standalone: true</code>). يستبدل دمج مثل هذه المجموعة حدًا
+تفرضه النواة (ملكية الملفات و <code>User=</code>) بعزل داخل العملية،
+وهو قرار المشغّل. ويظل الأمر الصريح ينفّذه: تظهر النتائج نفسها
+كتنبيهات <strong></strong> ضمن <code>hermes gateway migrate --multiplex --dry-run</code> حتى تقرأها أولًا، ويتابع <code>--multiplex</code> عند تأكيدك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="opting-out-of-the-automatic-migration">إلغاء الترحيل التلقائي</h3>
+<p>اضبط <code>gateway.auto_multiplex_migration: false</code> على الـ profile <strong>الافتراضي</strong> لمنع
+تشغيل الدمج التلقائي مطلقًا في هذا التثبيت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p><code>hermes update</code> يترك عندئذ gateways الخاصة بكل profile كما هي تمامًا، دون
+مخرجات أو تغييرات، مهما بدا التثبيت مؤهلًا. يوجد الإعداد في
+ملف الإعدادات، لذا يبقى بعد التحديثات — يُتخذ القرار مرة واحدة بدل
+إعادة النظر فيه مع كل إصدار. يُقرأ من الإعدادات الفعلية كبقية
+الإعدادات، لذا تتقدّم القيمة المثبّتة ضمن النطاق المُدار (<code>/etc/hermes/config.yaml</code>)
+على ملف الـ profile نفسه. لا يتحكم إلا في المسار <strong>التلقائي</strong>: يُعدّ <code>hermes gateway migrate --multiplex</code> طلبًا صريحًا ويظل ينفّذ الترحيل
+(وهو الوسيلة المدعومة لتفعيله مجددًا). الإغفال أو قيمة <code>true</code> يُبقيان السلوك
+الافتراضي الموضّح أعلاه.</p>
+<p>الأمر الصريح مختلف: يطبّق <code>hermes gateway migrate --multiplex</code> مع
+profileين أو أكثر ودون <strong>أي</strong> gateway ثانوية مستقلة الخطوة
+الأخيرة المتبقية — فهو يضبط <code>gateway.multiplex_profiles: true</code> ويشغّل gateway الافتراضية أو يعيد تشغيلها.
+لقد طلبت multiplex، فتحصل عليه.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>الاستنساخات لا تحمل القنوات</div><div class="admonitionContent_BuS1"><p><code>hermes profile create --clone</code> رموز بوت المصدر وقوائم سماحه
+خلف الركب (راجع <a href="/docs/user-guide/profiles#messaging-channels-are-never-cloned---clone-channels-to-opt-in">Profiles → قنوات المراسلة لا تُستنسخ أبدًا</a>)،
+بحيث لا تعود مجموعة من الاستنساخات تصطدم بعائق بيانات الاعتماد المكرَّرة أدناه.
+تُوسَم الاستنساخات القديمة التي ما زالت تحملها بواسطة <code>hermes profile list</code>.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-migration-does">ما الذي يفعله الترحيل</h3>
+<ol>
+<li>يوقف الـ gateway المستقلة الخاصة بكل profile ثانوي ويلغي تثبيت
+خدمته (وحدة مستخدم/نظام systemd أو عميل launchd). يُسجَّل ما أُزيل في
+<code>~/.hermes/gateway_migration.json</code> للتراجع.</li>
+<li>يضبط <code>gateway.multiplex_profiles: true</code> ضمن الـ profile
+<strong>الافتراضي</strong> في <code>config.yaml</code> الخاص به.</li>
+<li>يعيد تشغيل الـ gateway الافتراضية — أو يثبّتها ويشغّلها على مدير الخدمة
+نفسه الذي كانت تستخدمه الـ profiles الثانوية، بحيث يبقى الأسطول المُدار
+بـ systemd مُدارًا بـ systemd.</li>
+<li>ينتظر حتى تسجّل الـ gateway الافتراضية <code>served_profiles</code> التي تغطي كل
+profile، ثم يطبع ملخصًا.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="blockers-and-fixes">العوائق وإصلاحاتها</h3>
+<table><thead><tr><th>العائق</th><th>السبب</th><th>الإصلاح</th></tr></thead><tbody><tr><td>يعدّ profileان بيانات اعتماد المنصة نفسها (مثل <code>TELEGRAM_BOT_TOKEN</code> نفسه)</td><td>تحت عملية واحدة، لا يمكن استطلاع رمز بوت إلا مرة واحدة؛ سيُوقِف المضاعِف المكرَّر جانبًا وسيصمت بوت ذلك الـ profile</td><td>أزل الرمز من الـ profile الثاني، أو أبقه في <code>default</code> ووجّه محادثات ذلك الـ profile عبر <a href="#routing-shared-bot-chats-to-profiles-profile_routes"><code>profile_routes</code></a></td></tr><tr><td>يفعّل profile ثانوي منصة ذات منفذ وارد لا يملك <strong>أي</strong> <code>/p/&lt;profile&gt;/</code> على المستمِع الافتراضي</td><td>يتخطى المضاعِف ذلك الـ profile بأكمله (راجع <a href="#2-http-inbound-platforms-are-reached-via-a-pprofile-url-prefix">القاعدة 2</a>)</td><td>عطّل المنصة في ذلك الـ profile (<code>platforms.&lt;name&gt;.enabled: false</code>)، أو شغّل profile مستقلًا: اضبط <code>gateway.standalone: true</code> في <code>config.yaml</code> الخاص به وانتظر إعادة الفحص من المضيف (30 ثانية كحد أقصى)، أو أرسل فعل التحكم <code>rescan-profiles</code> الخاص به. استخدم <code>hermes -p &lt;name&gt; gateway install --force</code> فقط حيث يمنع حد الدمج.</td></tr></tbody></table>
+<p>يعيد فحص بيانات الاعتماد استخدام كشف تعارض الـ gateway نفسه، لذا يطابق حكمه
+ما تفعله الـ multiplexer عند البدء. تُقرأ المنصات ذات المنفذ الوارد التي تملك
+بوابة <code>/p/&lt;profile&gt;/</code> من المحوّلات نفسها (يعلن كل منها
+<code>serves_profile_prefix</code>)، بحيث يظل الفحص المسبق صحيحًا مع اكتساب محوّلات
+HTTP-الوارد الجديدة البادئة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-changes-for-inbound-port-profiles">ما الذي يتغيّر بالنسبة إلى profiles المنفذ الوارد</h3>
+<p>الـ profile الثانوي الذي استخدم <code>api_server</code> أو <code>webhook</code> على منفذه الخاص
+<strong>لا</strong> يُحظَر — لكن رابطه يتغيّر. يطبع الفحص المسبق الرابط الجديد الدقيق،
+مثلًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>يستمر <code>API_SERVER_KEY</code> أو سر webhook الخاص بالـ profile في مصادقة
+الرابط ذي البادئة؛ ولا يتغيّر شيء آخر بشأن المفتاح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="profiles-created-after-the-migration">الـ profiles المُنشأة بعد الترحيل</h3>
+<p>يُخدَم profile أُنشئ أثناء تشغيل المضاعِف من دون إعادة تشغيل (راجع
+أعلاه). يؤكد <code>hermes profile create</code> ذلك عندما يتلقَّط المضاعِف الحيّ الـ
+profile؛ ولا يطبع تذكير <code>hermes gateway restart</code> إلا عندما يتعذّر عليه
+الوصول إلى المضاعِف (على سبيل المثال، gateway بُدئت من إصدار قديم).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-handling-and-resuming">معالجة الفشل والاستئناف</h3>
+<p>الترحيل معاملة ذرّية. تُرفض حالات الفشل التي يمكن توقّعها
+من الخطة (وحدة للنظام يجب أن تعمل بهوية root دون قيمة <code>User=</code> مسجّلة، أو ملف إعدادات يتعذّر إعادة كتابته) قبل إيقاف
+أي gateway خاصة بـ profile. أي فشل بعد كتابة manifest — كتابة
+الخيار أو إيقاف profile ثانوي لاحق أو إزالة وحدته أو تثبيت الافتراضي
+أو تشغيله — يؤدي فورًا إلى التراجع عبر manifest، بحيث لا يُترَك أي
+profile دون gateway. إذا توقفت العملية في أي موضع خلال تلك
+الفترة، يجد الاستدعاء التالي لـ <code>hermes gateway migrate --multiplex</code> أن الخيار مفعّل وأن
+manifest موجود وأنه لا يوجد multiplexer حي يخدم الـ profiles المرحّلة (لا تُحتسَب
+الوحدة الافتراضية المثبّتة لكنها متوقفة)، ويستأنف من manifest بدل
+الإبلاغ عن &quot;already multiplexed&quot;. وجود manifest على القرص يعني دائمًا <em>عدم الاكتمال</em>: فهو سجل استئناف، لا أمر تراجع — لا يوجد عكس باسم <code>--standalone</code>، ولا تعمل آلية التعويض أعلاه إلا داخل
+تطبيق واحد فاشل حتى لا يُترك أي profile دون gateway.</p>
+<p>لا تُغطّى تلقائيًا الحاويات التي يشرف عليها s6 — فهي تصل إلى الحالة المطلوبة عند
+بدء الحاوية التالي (تُسجَّل خانات كل profile بوصفها متوقفة وتستخدم gateway الجذر
+multiplex؛ أما profile ذو <code>gateway.standalone: true</code> فيُقلع خانته الخاصة بناءً على نية
+تشغيله الخاصة). يدمج الأمر Windows Scheduled Tasks. تعرض صفحة
+System في لوحة التحكم الترحيل نفسه كزر عندما يجد الفحص المسبق تثبيتًا
+مؤهّلًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-the-code">تحديث الكود</h2>
+<p><code>hermes update</code> أحدث كود مرة واحدة ويزامن المهارات المضمّنة الجديدة مع
+كل profile:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>يعيد التحديث نفسه تشغيل الـ gateways العاملة؛ وفي تثبيت ما زال يشغّل
+gateway واحدة لكل profile، يعرض التحديث بعدها
+<a href="#migrating-from-per-profile-gateways">الترحيل إلى gateway واحدة مضاعَفة</a> — تلقائيًا عندما لا يعيقه شيء، وإلا فكتحذير يسمّي الحد
+(مستخدم UNIX مختلف، أو <code>HERMES_HOME</code> خارج <code>profiles/</code>) والأمر
+ذي السطر الواحد الذي يمكنك تشغيله بنفسك.</p>
+<p>لا تُستبدَل أبدًا المهارات التي عدّلها المستخدم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="could-not-find-service-in-domain-for-user-gui-501">&quot;Could not find service in domain for user gui: 501&quot;</h3>
+<p>لقد شغّلت <code>hermes gateway start</code> بعد <code>hermes gateway stop</code> سابق. تجري
+<code>stop</code> الخاصة بـ CLI عملية <code>launchctl unload</code> كاملة، والتي تزيل الخدمة من
+سجل launchd. تلتقط CLI هذا الخطأ المحدَّد عند <code>start</code> و
+تعيد تحميل ملف plist تلقائيًا (<code>↻ launchd job was unloaded; reloading service definition</code>). تبدأ الخدمة بشكل طبيعي. لا شيء لإصلاحه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stale-pid-after-a-crash">PID قديم بعد عطل (crash)</h3>
+<p>إذا أظهرت gateway الخاصة بـ profile <code>not running</code> بينما لا تزال عملية حيّة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="forcing-a-hard-reset-of-one-service">فرض إعادة ضبط قسرية (hard reset) لخدمة واحدة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="health-check">فحص السلامة (Health check)</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>

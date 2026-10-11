@@ -1,0 +1,30 @@
+<header><h1>تحديثات حزم macOS</h1></header>
+<p>تستخدم حزم macOS ذات الوسوم <code>electron-updater</code>. وتذكر علامات الإصدارين bundled و Light ذلك المسؤول. ولـ stable و canary هويتان منفصلتان للتطبيق؛ ويُحدّث كل منهما ضمن قناته المضمّنة. وتحتفظ تثبيتات التطوير والتهيئة الأولية بتحديثات النسخة المسحوبة (checkout).</p>
+<p>تحمل البُنى المعدّة لمرة واحدة <code>source: commit-build</code> ولا تحتوي على مُحدِّث. تتضمن هوية حزمتها SHA المختصر للـ commit، بحيث يمكن لبُنى commits مختلفة التعايش. وتوضح عمليات التحقق وطلبات التطبيق أن على المطوّر توفير build جديد. ينطبق ذلك على Desktop و CLI المضمّنة فيه، لا على backend بعيد غير مرتبط يتصل به Desktop.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="feed-contract">عقد الخلاصة</h2>
+<p>يوجد تسجيل القنوات في R2 ضمن <code>releases/channels/NAME.json</code>، لا في خريطة قنوات محفوظة في المستودع. تحدّد حزم القنوات هذا السجل وبيان build المرتبط ببصمته قبل اختيار خلاصة أصلية غير قابلة للتغيير. يحافظ الطلب المقبول على ثبات هوية التطبيق عبر البُنى، ويسجّل commit المصدر منفصلًا عن إصدار الحزمة الأصلي المتزايد.</p>
+<p>تحتفظ العملاء الحالية ذات الوسوم بعناوين URL لخلاصاتها الأصلية. يحسب محوّل <code>apps/desktop/update-feed.cjs</code> العام هذه المسارات القديمة؛ ولا يسجّل القنوات. تكتب أداة البناء URL القديم في <code>app-update.yml</code>؛ ويمكن لـ <code>updates.desktop_feed_base_url</code> توفير URL صريح لقاعدة حاوية التخزين.</p>
+<ul>
+<li>Stable: <code>releases/darwin/stable/stable-mac.yml</code></li>
+<li>Canary: <code>releases/darwin/canary/canary-mac.yml</code></li>
+<li>Light: المسارات نفسها مع <code>light/</code> بين <code>darwin/</code> والقناة.</li>
+<li>النواتج: <code>releases/tag/TAG/FILENAME</code>، وتستخدمها روابط التنزيل والخلاصات معًا.</li>
+<li>نواتج بناء القنوات والبيانات الوصفية الأصلية: <code>releases/channel-builds/BUILD_ID/</code>.</li>
+</ul>
+<p>الإيقاف التدريجي عملية تختلف عن التحديث الأصلي: تشير القناة القديمة إلى وجهة رسمية مؤهلة، لا إلى حزمة ذات اسم مختلف ضمن خلاصتها الأصلية. يجب أن يحافظ إجراء الانتقال الصريح على حالة المستخدم ويتحقق من جاهزية الوجهة قبل إزالة تطبيق المعاينة. يتيح إبقاء بيان الجهة المستقبلة المؤهلة غير قابل للتغيير انتقال معاينة غير متصلة حتى بعد تقدم قناة الوجهة؛ وتتولى الوجهة التحديثات بعد ذلك.</p>
+<p>يبني سير العمل الحالي النسخة bundled على بيئات تشغيل ARM64 و Intel. ولـ Light توجيه منفصل للعملاء والخلاصات، لكن هذا التغيير لا يتضمن مسارًا له في مصفوفة الإصدار.</p>
+<p><code>python -m scripts.releases.r2 finalize</code> يتطلب ملف بيانات وصفية لكل معمارية، باسم <code>arm64-CHANNEL-mac.yml</code> و <code>x64-CHANNEL-mac.yml</code>. ويرفض الإصدارات والنسخ والمعماريات والبصمات الخاطئة وحقول المسارات القديمة غير المتسقة. يُجلب كل ZIP/DMG مشار إليه كتدفق ويُفحص مقابل SHA-512 والحجم الخاصين به. يتحقق النشر من الإصدار المباشر، ويستبدل ETag الخاص به بشروط، ثم يقرأ الخلاصة الناتجة للتحقق. لا يمكن استبدال نواتج macOS ذات الوسم نفسه ببايتات مختلفة. تستخدم الخلاصات القابلة للتغيير <code>Cache-Control: no-store</code>. تحمي سياسة الاحتفاظ بـ canary النواتج و blockmaps التي تشير إليها الخلاصات المباشرة. وتمنع الخلاصة غير القابلة للقراءة عملية التنظيف.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-lifecycle">دورة حياة العميل</h2>
+<p>لا تُنزّل عمليات التحقق شيئًا تلقائيًا. يعيد التطبيق التحقق من الإصدار وينزّله، وينتظر قبول Squirrel.Mac للتطبيق الموقّع. وعندئذٍ فقط يوقف Hermes الـ backends التابعة للتطبيق ويطلب التثبيت وإعادة التشغيل. ولا تؤدي عمليات الإنهاء غير المرتبطة إلى التثبيت. وتترك حالات فشل التنزيل والتحقق الأصلي الـ backends تعمل. ولا يمكن لعمليات التحقق المتزامنة استبدال هدف عملية التطبيق. ولا يعدّل مُحدِّث النسخة المسحوبة الحالي حزمة التطبيق المغلقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="release-environment">بيئة الإصدار</h2>
+<p>توفر بيئة <code>release-signing</code> الحالية:</p>
+<ul>
+<li><code>CSC_LINK</code> و <code>CSC_KEY_PASSWORD</code>: هوية توقيع Developer ID Application.</li>
+<li><code>APPLE_API_KEY_P8</code>، <code>APPLE_API_KEY_ID</code>، <code>APPLE_API_ISSUER</code>: توثيق Apple.</li>
+<li><code>CLOUDFLARE_R2_ACCOUNT_ID</code>، <code>CLOUDFLARE_R2_ACCESS_KEY_ID</code>، <code>CLOUDFLARE_R2_SECRET_ACCESS_KEY</code>: أسرار الوصول إلى حاوية التخزين.</li>
+<li><code>CLOUDFLARE_R2_BUCKET</code>، <code>CLOUDFLARE_R2_PUBLIC_URL</code>: متغيرات المستودع/البيئة.</li>
+</ul>
+<p>يتطلب النشر بيانات اعتماد Apple. يتولى hook الحالي الذي يلي التوقيع التوثيق، لذا يُعطّل مسار التوثيق الثاني في electron-builder. تتحقق بوابة النشر من التوقيع والتذكرة المرفقة وتقييم Gatekeeper. وتنتظر مهمة النشر على Darwin اكتمال البناءين الأصليين وتنفّذ عمليات الكتابة إلى القناة بالتتابع.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification-limits">حدود التحقق</h2>
+<p>تختبر اختبارات الأدوات المساعدة الاستراتيجية وترتيب الأحداث الأصلية والتحقق من الخلاصة والنشر المشروط والاحتفاظ. ولا تثبت تثبيتًا موقّعًا أو استبدال التطبيق فعليًا.</p>
+<p>تندرج مشغّلات تحديث الحزم الأصلية على macOS ضمن <a href="https://github.com/NousResearch/hermes-agent/blob/main/tests/install/BUNDLED_UPDATES.md" data-ext>عائلة التثبيت/التحديث</a> الحالية. تتطلب بوابة stable انتقالات بين حزم موقّعة على كلتا المعماريتين. ويحتاج كل ادعاء قبول إلى تشغيل أصلي ناجح لزوج الحزمتين القديمة والجديدة المعني تحديدًا. ولا تثبت تعريفات سير العمل ونتائج الأدوات المساعدة التاريخية قبول رأس الـ branch الحالي. راجع <a href="/docs/developer-guide/pm-audit-status">حالة تدقيق PM</a> للاطلاع على سجلات الإثبات المحددة النطاق.</p>

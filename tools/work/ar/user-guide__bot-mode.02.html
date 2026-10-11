@@ -1,0 +1,137 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-to-bot-messaging">المراسلة بين الـ Bots</h2>
+<p>تتراسل الـ Bots فيما بينها مع نسبة كل رسالة إلى مُرسِلها، ويمكنك تسليم العمل من أي محادثة:</p>
+<ul>
+<li><strong>@mentions</strong> — اكتب <code>@researcher have a look at this</code> في أي محادثة، وسيساعدك الإكمال التلقائي لـ <code>@</code> في مربع الكتابة (composer) على اختيار الـ Bot المناسب؛ وعند الإرسال تُطابَق الإشارة مع قائمة الأعضاء (roster) الحية، ويُبلَّغ الـ Bot النشط بدقة بمن تقصده (الـ profile، والاسم المألوف، والجهاز بالنسبة إلى الـ Bots الموجودة على اتصالات أخرى). ثم يصوغ الـ Bot رسالته بنفسه ويرسلها باستخدام <code>message_agent</code> — لا يُمرَّر نصك حرفيًا أبدًا، ويعود الرد منسوبًا إلى ذلك الوكيل. أما عنوان البريد الإلكتروني أو <code>@</code> غير المعروف فيمرّ دون أي تغيير. ويمكن الوصول إلى الـ Bots على الأجهزة المتصلة الأخرى بالطريقة نفسها: إذ يمرّر Desktop الرسالة عبر الـ socket الخاص بذلك الاتصال (راجع <em>الـ Bots عبر الأجهزة</em> أدناه).</li>
+<li><strong>تبقى وسوم الـ Bots المُعاد تسميتها متزامنة</strong> — امنح الـ Bot اسمًا مألوفًا (عبر أيقونة القلم في ترويسة محادثته، أو <code>hermes profile rename</code>) ليصبح بالإمكان الإشارة إليه بذلك الاسم: فالـ Bot المسمّى <em>Research Buddy</em> يستجيب لـ <code>@research-buddy</code> (و <code>@researchbuddy</code> أيضًا)، في المحادثات العادية وفي غرف المجموعات على حد سواء. ويقترح الإكمال التلقائي لـ <code>@</code> يعرض الإكمال التلقائي الوسم المعاد تسميته، ويطابق أيضًا عند كتابة اسم profile القديم، الذي يظل يعمل. يشمل ذلك البوت الأساسي: سمّه <em>Maia</em> وستقدّمه prompts أدوار المجموعة باسم <code>@maia</code> ، وتوقّع رسائله بين الوكلاء باسم <code>Message from 🤖 Maia (@hermes)</code> ، ويمكن للزملاء <code>message_agent(target=&quot;maia&quot;)</code> عليه — وتبقى <code>@hermes</code> اسمًا بديلًا صالحًا.</li>
+<li><strong>تظهر Bots البعيدة في الإكمال بعناوينها، من أي محادثة.</strong> يسرد الإكمال التلقائي لـ <code>@</code> Bots على أجهزتك الأخرى المتصلة بمجرد اتصال Desktop — لا تحتاج إلى فتح لوحة Bots أولًا — وتظهر <code>default</code> البعيدة تحت عنوان Bot Mode الخاص بها (<code>@cos-bot</code> لـ default بعيد بعنوان <em>CoS Bot</em>، لا كـ <code>@hermes</code> ثانية). عندما تتطابق وسوم بوتين، يُدرج المنتقي الصيغة المقيّدة بالاتصال (<code>@cos-bot@&lt;connection&gt;</code>)، التي تحدّد بوت ذلك الجهاز بالضبط. تظل الرسالة المرحّلة الموقّعة <code>Message from 🤖 hermes (@hermes@&lt;connection&gt;)</code> تُعرض كإشعار وكيل، لا كنص منك.</li>
+<li><strong>الرسائل المباشرة</strong> — تتضمن كل Bot Chat الأداة <code>message_agent</code>: يراسل الـ Bot زميلًا له باستدعاء <code>message_agent(target=&quot;researcher&quot;, message=&quot;…&quot;)</code>. الهدف اسم profile الزميل أو اسمه الودّي (<code>hermes profile rename</code> أو عنوان Bot Mode — <code>Scribe</code>, <code>Dr. Foo</code>) أو وسم <code>@</code> الذي يدرجه Desktop له (<code>@scribe</code>, <code>@dr-foo</code>, <code>@drfoo</code>); <code>@hermes</code> تعني دائمًا البوت الأساسي. يُطابق اسم profile أولًا، فلا يمكن لاسم بوت ودّي آخر اختطافه؛ ويُرفض الاسم الودّي المشترك بين بوتين مع عرض القائمة بدلًا من التخمين. تتحقق الأداة من الهدف مقابل قائمة الزملاء الحيّة، وتسبق الرسالة تلقائيًا بنسبة <code>Message from 🤖 &lt;friendly name&gt; (@&lt;handle&gt;):</code> للمرسل، وتسلّم إلى Bot Chat المعتمدة للزميل. التسليم <strong>fire-and-forget</strong>: يتلقى المرسل إقرار <em>إرسال</em> (<code>status: queued</code> مع <code>delivery_id</code> — و <code>process_id</code> لعملية التسليم الخلفية — يعني أن الرسالة سُلّمت لتلك العملية، لا أنها وصلت)، وينهي دوره، ويحمل إشعار اكتمال العملية النتيجة — الرد أو فشل التسليم. في الواجهات التي لا يمكنها استقبال إشعارات الاكتمال (جلسة <code>api_server</code> أو مشغّلات المرة الواحدة)، يحمل الإقرار بدلًا من ذلك <code>reply_delivery: poll</code>: يسترد المرسل النتيجة باستخدام <code>process(action=&quot;wait&quot;, session_id=…)</code> قبل إنهاء دوره، وتُحفظ النتيجة أيضًا في نص جلسة المرسل كصف تسليم عند خروج العملية، فلا يُفقد الرد بصمت. يحمل الإشعار الرد كاملًا حتى حد حجم الرسالة (16,000 حرف)؛ ويصل الرد الأطول كذيله مع ذكر مقدار الاقتطاع (تحتوي <code>process(action=&quot;log&quot;, session_id=…)</code> على الباقي). تنتقل الرسالة كمعامل حقيقي (لا يفسّر الـ shell شيئًا — علامات الاقتباس و <code>$(...)</code> و backticks تصل حرفيًا)، ويصوغ الـ Bot رسالته بنفسه بدلًا من تمرير كلماتك. وتشكّل قائمة زملاء الفريق — الأسماء <strong>والأدوار</strong> المأخوذة من عنوان/وصف كل profile — جزءًا من system prompt لكل Bot Chat، بحيث تعرف الـ Bots من يتولى ماذا قبل اختيار المستلم. لا توجد هذه الأداة <strong>إلا</strong> في جلسات Bot Chat الأساسية على التثبيتات التي يديرها Bot Mode؛ أما المحادثات العادية، وجلسات الأعضاء في غرف المجموعات، وجلسات CLI فلا تراها أبدًا.</li>
+</ul>
+<p>تصل الرسائل المحلية أيضًا إلى Bot Chat تبقى مفتوحة في Desktop أو في TUI. يحتفظ الـ backend المستقبِل بالملكية: فهو يقرأ الوارد الدائم (durable ingress) عبر أداة استطلاع الإشعارات (notification poller) الموجودة لديه، ويقبل الرسالة فورًا إن كان خاملًا، أو ينتظر حتى ينتهي الدور الجاري والـ prompts البشرية الموجودة مسبقًا في قائمة الانتظار. إشعار الاستلام <code>queued</code> يؤكد القبول الدائم، <strong>لا</strong> اكتمال الرد. ويحتفظ الـ profile الهدف بمعرّف التسليم وإيصاله ضمن <code>runtime/bot_live_delivery/</code>; <code>settled</code> فتؤكد الاكتمال. لا يُعاد تشغيل الدور المستورد تلقائيًا إذا تعطّل أو أُلغي، ويبقى العمل المعلّق المرتبط بمالك غادر قابلًا للفحص بدلًا من إعادة تشغيله بصمت. لا تُعِد إرسال تسليم نتيجته غير معروفة. تحتفظ الـ backends الأقدم التي تفتقر إلى قدرة التسليم المباشر (live delivery) بسلوك رفض الملكية الحالي؛ أعد تشغيل ذلك الـ backend بعد الترقية.</p>
+<ul>
+<li><strong>البقاء صامتًا</strong> — يمكن لبوت ليس لديه ما يضيفه إنهاء دور بإحدى <a href="/docs/user-guide/messaging/#intentional-silence-tokens">tokens الصمت المتعمّد</a> (<code>[SILENT]</code>, <code>NO_REPLY</code> ، …). تحتفظ Bot Chat بذلك الدور في نصها المسجّل لكنها لا تعرض شيئًا، ويحصل الزميل الذي راسله على رد فارغ بدلًا من token. تُعرض الأدوار الفاشلة والنثر الذي يذكر token فحسب كما هي.</li>
+</ul>
+<p>يُعلّم الـ backend جلسة Bot Chat الأساسية لكل Bot بروتوكول المراسلة تلقائيًا عند بناء الـ prompt — بما في ذلك عندما يفتحها زميل دون واجهة (headless) من CLI. لا تحصل على قسم البروتوكول إلا Bot Chat الأساسية؛ وتبقى جلساتك العادية وملف SOUL.md الخاص بك دون أي تعديل. يتحكم في ذلك الخيار <code>agent.bot_mode_protocol</code> في <code>config.yaml</code> (القيمة الافتراضية: مفعّل):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-actually-makes-a-chat-a-bot-chat">ما الذي يجعل المحادثة Bot Chat فعلًا</h3>
+<p><code>agent.bot_mode_protocol</code> هو المفتاح الرئيسي فقط. قبل حقن قسم البروتوكول — أو أداة <code>message_agent</code> — يجب تحقق شرطين آخرين، وفي تثبيت Desktop تلبي لوحة Bots كليهما فور إنشاء بوت:</p>
+<ol>
+<li><strong>عنوان الجلسة يساوي تمامًا <code>Bot Chat</code>.</strong> العنوان الدقيق هو هوية المحادثة المعتمدة (تستخدمه createCanonicalChat لإضافة Desktop، ويستأنفه <code>hermes -p &lt;bot&gt; chat -c &quot;Bot Chat&quot;</code>)؛ أي عنوان آخر أو جلسة تجريبية بلا عنوان لا تحصل على القسم ولا الأداة.</li>
+<li><strong>profile واحد على الأقل في التثبيت يحمل كتلة <code>ui_meta: { hermes-bots: … }</code> في <code>profile.yaml</code>.</strong> هذه علامة &quot;Bot-Mode-managed&quot; التي تكتبها إضافة Desktop لكل بوت تملكه؛ تفحص البوابة كل profiles، لذا يوسم profile معلَّم واحد التثبيت كله. لا يوجد أمر CLI يكتبها.</li>
+</ol>
+<p>النتيجة العملية: في <strong>تثبيت دون واجهة أو تطبيق Desktop</strong> (مثل gateway مع Telegram)، لا يكتب شيء أي العلامتين، لذا فإن <code>message_agent</code> غير متاح حتى مع تفعيل المفتاح في التوثيق — تتراسل البوتات جيدًا عبر منصة المراسلة، لكن أداة <code>message_agent</code> جهة الوكيل لا تظهر مطلقًا. لتفعيلها دون واجهة، حقّق الشرطين يدويًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>من الدور التالي في Bot Chat تلك، تُلتقط قائمة الزملاء وقسم البروتوكول و <code>message_agent</code> كلها — بما في ذلك عبر <code>hermes -p &lt;bot&gt; chat</code> على جهاز طرفية فقط.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="8"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>التسليم بين البوتات خاص بكل استدعاء: يلتقط البوت المستقبِل الرسالة عند تشغيله التالي. المقاطعة الحيّة لبوت وسط المحادثة عمل مستقبلي.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failed-turns-retry-safely">إعادة محاولة الأدوار الفاشلة بأمان</h3>
+<p>يحافظ التسليم المحلي لمرة واحدة (one-shot) على رمز رفض الجلسة النشطة منفصلًا عن
+رسالته المقروءة للبشر. ينتج <code>SESSION_NOT_OWNED</code> الرمز <code>target_busy</code> ؛ ولا يُوسَم
+سجل التنسيق (coordination registry) غير القابل للقراءة خطأً على أنه مالك آخر. أما إصدارات CLI المحلية
+الأقدم التي لا تحمل علامة الرمز فلا تزال تستخدم صياغة الرفض القديمة.</p>
+<p>يُعاد تنفيذ دور التسليم الفاشل مرة واحدة على الأكثر، وفقط عندما يمكن لإعادة المحاولة أن تفيد فعلًا. فالإخفاقات العابرة (بيئة التشغيل الهدف غير متصلة، أو انتهاء مهلة التسليم، أو حدّ المعدل (rate limit) لدى المزوّد، أو خطأ في الخادم) تعيد تشغيل جلسة Bot Chat نفسها دون تغيير. كذلك يعيد إخفاق تجاوز السياق (context overflow) تشغيل الجلسة نفسها — إذ يضغط الدور المُعاد السجلَّ (transcript) الذي تجاوز الحد عبر مرحلة ضغط السياق المعتادة قبل استدعاء النموذج، فتتسع إعادة المحاولة حيث لم يتسع الدور الأصلي. أما إخفاقات المصادقة والحصة (quota) والإعدادات فلا يُعاد تنفيذها تلقائيًا أبدًا: فالمحاولة الثانية لا تستطيع إصلاحها ولا تفعل سوى استهلاك الحصة، لذا يُعرض الإخفاق فورًا. ولا يبدأ الدور المُعاد جلسة جديدة أبدًا — يبقى سجل Bot Chat وسياقها سليمين.</p>
+<p>عندما لا يكون للهدف مالك Desktop أو TUI حي، يفتح التسليم المحلي
+Bot Chat المعتمدة لذلك profile عبر دور CLI هادئ. يفضّل النقل
+نقطة دخول Hermes بجانب مفسّر Python لوقت تشغيل المرسل، فلا
+تستطيع نسخة <code>hermes</code> غير مرتبطة أو أقدم على <code>PATH</code> للخدمة التقدم عندما
+توجد نقطة الدخول المجاورة. يختار <code>--in ~</code> مجلد العمل؛ ويُحدّد عنوان
+Bot Chat الصريح في قاعدة جلسات profile الهدف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-a-delivery-fails-typed-reasons">عند فشل التسليم: أسباب مصنّفة</h3>
+<p>يحمل دور الـ Bot الفاشل أو التسليم الفاشل عبر الـ relay رمز <code>reason</code> قابلًا للقراءة آليًا إلى جانب نص الخطأ المقروء للبشر، من البداية إلى النهاية: يصنّف الـ gateway الهدف الإخفاق (<code>provider_auth_or_access</code>, <code>provider_quota_limit</code>, <code>provider_rate_limit</code>, <code>provider_server_error</code>, <code>context_overflow</code>, <code>missing_config</code>, <code>model_unavailable</code>, <code>runtime_offline</code>, <code>queued_expired</code>, <code>delivery_timeout</code>, <code>target_busy</code>, <code>unknown</code>)، ويمرّره Desktop، ويُوسَم إشعار الاكتمال لدى الوكيل المُرسِل بـ <code>[reason: &lt;code&gt;]</code> قبل نص الخطأ. يمكن للوكيل المستدعي أن يتفرّع بحسب الرمز — &quot;سجّل الدخول مجددًا&quot; مقابل &quot;أعد المحاولة لاحقًا&quot; — بدلًا من تحليل النص الوصفي الصادر عن المزوّد. وتستخدم شارة needs-attention (يحتاج إلى انتباه) في Desktop الرموز نفسها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="messaging-across-connected-machines-the-desktop-relay">المراسلة عبر الأجهزة المتصلة (Desktop relay)</h3>
+<p>كل gateway تسجّله في <strong>Settings → Connections</strong> — محليًا كان، أو عبر URL بعيد، أو SSH، أو Hermes Cloud، أو docker — هو خط اتصال دائم يُبقيه Desktop مفتوحًا، ويستخدم Bot Mode هذه الخطوط للمراسلة تلقائيًا. دون أي إعداد إضافي:</p>
+<ul>
+<li><strong>تنتشر قوائم الأعضاء من تلقاء نفسها.</strong> أثناء عمل Desktop، يُبلغ دوريًا كل gateway متصل بالوكلاء الموجودين على الاتصالات <em>الأخرى</em>. عندها تدرجهم قائمة زملاء الفريق في كل Bot Chat (&quot;Teammates on OTHER connected machines&quot;)، مع أسمائهم وأدوارهم والجهاز الذي يعملون عليه — وتتحدّث القائمة عندما يظهر وكلاء أو يختفون أو تُغيَّر أسماؤهم (capability epoch).</li>
+<li><strong><code>message_agent</code> إليهم مباشرةً.</strong> يراسل الـ Bot الموجود على حاسوبك المحمول الوكيلَ السحابي باستخدام <code>message_agent(target=&quot;moxie&quot;, …)</code> تمامًا كما يراسل زميلًا محليًا. وإذا وُجد المعرّف (handle) نفسه على عدة أجهزة، فأزِل الالتباس باستخدام <code>target=&quot;moxie@&lt;connection&gt;&quot;</code> (يخبر خطأ الأداة البوت بالصيغ الدقيقة). يُسرد كل زميل باسم الجهاز من <strong>Settings → Connections</strong>، فيقرأ البوت <code>@moxie on Homelab</code> بدلًا من معرّف اتصال مجرد. يمر التسليم عبر Desktop: يضع gateway المرسل الرسالة في الصف، ويرحّلها Desktop إلى gateway اتصال الهدف، وينفّذ البوت الهدف دورًا في Bot Chat المعتمدة — كدورها التالي عندما تكون مفتوحة في Desktop — ويعود الرد للمرسل بإشعار الاكتمال الخلفي نفسه المستخدم للرسائل المباشرة المحلية (العملية المنتظرة له نقطة دخول Hermes، فتبدأ تحت <code>approvals.single_query_mode: deny</code> — الافتراضي لدور رد البوت لمرة واحدة — أيضًا؛ أما المحادثة المفتوحة التي لم تجب ضمن ميزانية التسليم الحي فتذكر بدلًا من ذلك أن الرسالة في صفها؛ لا تعِد الإرسال). تُسلّم رسائل Bots مختلفة بالتوازي، فلا يؤخّر دور طويل لبوت بريد بوت آخر (ولا يجعل عمره يتجاوز <code>bot_mode.envelope_ttl_seconds</code>)؛ وتُسلّم الرسائل إلى البوت <em>نفسه</em> بالترتيب، دورًا واحدًا في كل مرة.</li>
+<li><strong>Desktop هو الناقل.</strong> يعمل التسليم بين الاتصالات ما دام Desktop يعرف الاتصالين ويعمل (فهو يحتفظ بالمقابس وبيانات الاعتماد — لا ترى gateways مصادقة بعضها). إذا أُغلق Desktop وسط التسليم، يُخبر بوت المرسل أن الرد لم يصل بدلًا من تركه معلّقًا؛ والرسالة التي التقطها Desktop ولم يسلّمها للهدف (انقطع بينهما) تُعرض مجددًا في التفريغ التالي — مرة واحدة، وفقط بعد انقضاء مهلة تسليم Desktop الخاصة (نحو 26 دقيقة) دون رد، فلا يُسلَّم دور بطيء لكنه حي مرتين. ينتظر المرسل مدة تكفي لإتمام التسليم الثاني (نحو 52 دقيقة إجمالًا)؛ وإذا لم يصله رد بعد ذلك يُخبر بالسبب <code>delivery_timeout</code>. بينما تنتظر الرسالة المعروضة مجددًا التفريغ، ينطبق <code>bot_mode.envelope_ttl_seconds</code> عليها كما على رسالة جديدة في الصف تمامًا، وأول رد مسجّل للرسالة هو المعتمد. للمراسلة الدائمة بين الأجهزة دون Desktop في المسار، سجّل peer (<code>hermes peer</code> ، أدناه) — ويمكن للمسارين أن يتعايشا.</li>
+<li><strong>قيمة <code>default</code> البعيدة تُعرف بعنوانها.</strong> قيمة <code>default</code> لكل جهاز هي <code>@hermes</code> ، لذا تُعرض النسخة البعيدة — ويمكن الوصول إليها — تحت عنوان Bot Mode بدلًا من ذلك (نسخة <code>default</code> البعيدة بعنوان <em>CoS Bot</em> هي <code>@cos-bot</code> ؛ ودون عنوان، <code>hermes@&lt;connection&gt;</code>)، وتصل الرسالة المباشرة التي ترسلها موقّعة بصيغة الرد الآمنة نفسها، لا بـ <code>@hermes</code> مجردة تشير إلى default الخاص بك.</li>
+<li><strong>يحد سقف 10 دقائق دور الهدف، لا إحالاته.</strong> تمنح الرسالة المرحّلة البوت الهدف 10 دقائق لإكمال دوره. عندما يراسل ذلك الدور زميلًا بنفسه، تبقى عملية التسليم حيّة بعده — بحد <code>terminal.oneshot_completion_wait_seconds</code> — ليصل رد الزميل إلى Bot Chat الخاصة به (ويصبح، إذا وصل في الوقت المناسب، الرد المرحّل عائدًا). لا يُحتسب الانتظار ضمن السقف مطلقًا: يُبلغ المرسل بإجابة الدور المكتمل، لا بكونه <code>delivery_timeout</code> ، وتُترك إحالته لتكتمل.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-initiated-dms-across-machines-hermes-peer">رسائل مباشرة يبدؤها الـ Bot عبر الأجهزة (<code>hermes peer</code>)</h3>
+<p>يمكن للـ Bots على جهاز ما مراسلة الـ Bots الموجودة على <strong>gateway جهاز آخر</strong> دون وجود أي Desktop في المسار. سجّل الـ gateway الآخر بوصفه <em>peer</em> (نظيرًا) (عنوان URL لخادم API الخاص به + <code>API_SERVER_KEY</code>):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>hermes peer dm</code> الرسالة إلى Bot Chat الأساسية للوكيل البعيد عبر خادم API الموجود لدى النظير، وينفّذ هناك دورًا واحدًا للوكيل، ثم يطبع الرد على stdout — فهو المقابل المطابق تمامًا، عبر الأجهزة، للأمر المحلي <code>hermes -p &lt;bot&gt; chat</code> الأمر.</p>
+<p>استخدم <code>peer dm</code> فقط للاستعلامات القصيرة والإيصالات، لأنه يحتفظ باتصال HTTP
+واحد حتى ينتهي الدور. إذا أخذ peer الرسالة لكن امتد الدور بعد ذلك
+الاتصال، تكون الرسالة بالفعل في Bot Chat الخاصة به ويستمر الدور هناك، لذا يذكر
+الأمر ذلك بدقة بدلًا من وصف peer بأنه غير متاح — إعادة الإرسال تشغّل الدور
+مرتين. انتهاء المهلة عند الاتصال يظل يذكر أن peer غير متاح. عندما تكون Bot Chat الخاصة به
+مفتوحة في Desktop، تُسلّم الرسالة للمحادثة المفتوحة وتعمل فيها كدورها التالي —
+يراها كل من يراقب، ويعود الرد عبر الاستدعاء نفسه (يجيب مسار البث
+بالطريقة نفسها، كحدث اكتمال واحد لذلك الدور)؛ إذا ظل الدور يعمل بعد خمس
+دقائق، <code>peer dm</code> إلا للاستعلامات القصيرة وإيصالات الاستلام، لأنه يُبقي اتصال HTTP
+واحدًا مفتوحًا حتى ينتهي الدور. أما للدور الطويل، فيعيد <code>peer run</code> قيمة
+ <code>run_id</code> فورًا؛ استطلع حالته باستخدام <code>peer status</code>. إذا كانت Bot Chat الخاصة بـ peer مفتوحة في Desktop لديه، يكون التشغيل دور تلك المحادثة التالي، وتتبع حالته إثبات المحادثة نفسه. يرث التشغيل
+النص المسجّل لـ Bot Chat المعتمدة، وتتيح قيمة ثابتة من <code>--idempotency-key</code> الثابتُ إعادةَ المحاولة
+تُعيد التشغيل الأصلي بدلًا من بدء عمل مكرر. استخدم <code>peer stop</code>
+مع معرّف التشغيل ذاك تحديدًا لمقاطعته دون استهداف دور آخر.</p>
+<p>بمجرد تسجيل نظير، يتضمن بروتوكول المراسلة الذي تتعلمه كل Bot Chat (<code>agent.bot_mode_protocol</code>) قائمة النظراء تلقائيًا، وتقبل <code>message_agent</code> أهداف النظراء مباشرةً — <code>message_agent(target=&quot;spark/researcher&quot;, …)</code> ، أو <code>target=&quot;spark&quot;</code> للوكيل الرئيسي لدى النظير — وهكذا <strong>تتعلم الـ Bots الخاصة بك من تلقاء نفسها</strong> أن هناك زملاء على أجهزة أخرى وكيف تصل إليهم. يؤدي تسجيل نظير أو إزالته إلى تحديث بروتوكول كل Bot Chat عند رسالتها التالية (capability epoch).</p>
+<p>المتطلبات: يشغّل جهاز النظير منصة الـ gateway المسماة <code>api_server</code> مع مفتاح <code>API_SERVER_KEY</code> قوي؛ أما إمكانية الوصول فهي مسؤولية شبكتك (LAN، أو Tailscale، أو VPN). المفتاح من بيانات الاعتماد ويُخزَّن في <code>~/.hermes/.env</code> باسم <code>HERMES_PEER_&lt;NAME&gt;_KEY</code> ؛ بينما تُخزَّن أسماء النظراء وعناوين URL الخاصة بهم في <code>config.yaml</code> ضمن <code>bot_peers</code>.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="9"></x-keep></span>الوصول في اتجاه واحد (NAT)</div><div class="admonitionContent_BuS1"><p>الروابط بين الـ gateways اتصالات مباشرة من gateway إلى gateway — فـ Desktop هنا أداة
+عرض، وليس relay. يستطيع الـ gateway الموجود خلف NAT منزلي أن يبادر بالاتصال بنظير عام
+(الحاسوب المحمول → VPS: ينجح)، لكن الاتجاه المعاكس لا يملك مسارًا واردًا
+(VPS → المنزل: يفشل) ما لم توفّر شبكتك مسارًا كهذا. إذا امتدت Group Chat عبر
+حدود NAT، فضع سلطة الغرفة (authority) على المضيف الذي يستطيع كل المشاركين
+الوصول إليه (عادةً الـ VPS العام)، أو اربط الشبكتين باستخدام Tailscale/VPN.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="transferring-hosted-room-authority">نقل سلطة الغرفة المستضافة</h3>
+<p>الاستحواذ على السلطة <strong>إجراء استرداد يتولاه المشغّل</strong>، وليس تسليمًا ذريًا (atomic).
+استخدم أساليب JSON-RPC الموجودة <code>groups.promote</code> و <code>groups.demote</code> على
+الـ gateway المناسب. لا توجد أساليب باسم <code>groups.peer.promote</code> أو <code>groups.peer.demote</code> ؛
+ويسرد <code>groups.capabilities</code> الأساليب التي يدعمها الـ gateway لديك.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>اعزل الكاتب القديم قبل الترقية</div><div class="admonitionContent_BuS1"><p>قبل إرسال <code>confirm: true</code> ، تيقّن من أن السلطة السابقة <strong>لا يمكنها
+تثبيت أي كتابة (commit)</strong>، وأبقِ هذا العزل (fence) قائمًا حتى تُخفَّض رتبتها. أوقف
+عملياتها التي تكتب في الغرفة وامنع إعادة تشغيلها تلقائيًا، أو استخدم عزلًا مكافئًا
+على مستوى البنية التحتية. انتهاء مهلة الشبكة، أو قطع اتصال Desktop، أو <code>groups.stop</code>
+ليس دليلًا: فقد يظل الـ gateway القديم يعمل، وإيقاف دورٍ ما لا يُلغي
+سلطة الغرفة. إذا لم تتمكن من إقامة العزل، فلا تُجرِ الترقية.</p></div></div>
+<ol>
+<li>
+<p><strong>تحقق من تغطية النسخة المتماثلة (replica).</strong> على الـ gateway البديل، افحص
+ <code>groups.replica_state</code> باستخدام <code>{&quot;room_id&quot;:&quot;ROOM_ID&quot;}</code> وقارن <code>last_seq</code>
+مع <code>latest_seq</code>. اشترط وجود نسخة متماثلة كاملة قبل أي استحواذ مخطط له؛
+فالترقية نفسها لا تتحقق من هذه التغطية. يُبلغ <code>groups.replicate</code> بالحالة
+ <code>caught_up</code> بعد استيعاب الصفحات التي يعيدها <code>groups.log</code> ؛ ولا يثبت تسجيل النظير
+وحده أن البديل يملك سجل الغرفة. تصف حالة المواكبة (caught-up) آخر صفحة
+جرى نسخها، وليست دليلًا على أن الكاتب القديم قد توقف أو على عدم وجود
+أحداث أحدث. في النقل المخطط له، أوقف الكتّاب مؤقتًا، وانسخ
+حتى المؤشر (cursor) الأخير، ثم حافظ على العزل. أما في التعافي من الكوارث،
+فخذ في الحسبان أي سجل لم يصل إلى النسخة المتماثلة قط.</p>
+</li>
+<li>
+<p><strong>لا تُجرِ الترقية إلا والكاتب القديم معزول.</strong> على البديل:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><code>room_id</code> و <code>confirm: true</code> مطلوبان؛ أما <code>reason</code> فاختياري وقيمته الافتراضية
+ <code>authority-unreachable</code>. التأكيد إقرار منك بأن السلطة السابقة
+لا يمكنها تثبيت أي كتابة، <strong>وليس</strong> طلبًا لعزلها تلقائيًا. من دون
+التأكيد يعيد الاستدعاء الخطأ <code>4118</code>. وتتضمن النتيجة الناجحة
+ <code>authority_gateway_id</code> و <code>authority_epoch</code> (الـ epoch المنسوخ مضافًا إليه واحد).</p>
+</li>
+<li>
+<p><strong>خفّض رتبة السلطة القديمة قبل إعادتها إلى الخدمة.</strong> أبقِ كتّاب الغرفة
+المعتادين لديها معزولين أثناء تطبيق استدعاء RPC هذا عبر اتصال استرداد
+مضبوط على الـ gateway القديم. استبدل معرّف الـ gateway والـ epoch الواردين في المثال
+بالقيم الدقيقة التي أعادتها الترقية الناجحة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>المعاملات الثلاثة كلها مطلوبة. لا تخمّن epoch مستقبليًا: فخفض الرتبة
+يتطلب دليلًا على وجود سلطة أحدث، لا قيمة مختلَقة. يسجّل هذا الإجراء
+ <code>authority.lost</code> ويعتمد السلالة (lineage) المرصودة؛ وتكرار السلالة نفسها
+لا يغيّر النتيجة (idempotent). إذا كان المضيف القديم غير متاح، فأبقِه معزولًا ونفّذ
+هذه الخطوة قبل استعادة كتّابه المعتادين.</p>
+</li>
+<li>
+<p><strong>تحقق وأعد الاتصال.</strong> اقرأ <code>groups.state</code> على كلا الـ gateways وقارن
+ <code>room.authority_gateway_id</code> و <code>room.authority_epoch</code> بنتيجة
+الترقية. يجب أن تُرفض عمليات الإرسال من السلطة القديمة؛ ووجّه العملاء إلى البديل.
+يعزل خفض الرتبة عمليات الكتابة؛ لكنه لا يدمج السجلات ولا يحوّل تلقائيًا
+المخزن المرجعي القديم إلى نسخة متماثلة متزامنة.</p>
+</li>
+</ol>
+<p>إجراء الترقية بينما لا يزال الـ gateway القديم قابلًا للكتابة يسمح لمخزني
+ <code>state.db</code> المستقلين كليهما بقبول الرسائل وتكوين سجلات متباعدة. ولا يؤدي وجود
+epoch أعلى على البديل إلى تعطيل الكاتب القديم عن بُعد؛ كما أن حالة انقسام الدماغ
+(split-brain) لا تشترط تساوي قيم epoch. إذا تباعدت السجلات بالفعل، فاعزل
+الكتّاب واحتفظ بكلا السجلين للاسترداد، بدلًا من افتراض أن
+الترقية أو خفض الرتبة أو إعادة التشغيل (replay) ستدمجها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bots-across-machines">الـ Bots عبر الأجهزة</h2>
+<p>عندما تسجّل عدة backends في <strong>Settings → Connections</strong> — بيئة التشغيل المحلية، أو gateways بعيدة، أو مضيفات SSH، أو نُسخ Hermes Cloud — تعرض قائمة الأعضاء الـ Bots من <strong>كل</strong> مصدر متصل، وبشكل دائم: إذ تُجرَد مصادر SSH دون تشغيل أي شيء على الجهاز البعيد، وتحتفظ الأجهزة التي يتعذر الوصول إليها مؤقتًا بآخر صفوفها المعروفة بدلًا من أن تختفي. وعندما يوجد اسم الـ profile نفسه على عدة مصادر، تُميَّز المعرّفات بالصيغة <code>@name-device</code> (مثلًا <code>@research-homelab</code>). تعيش محادثات الـ Bot وجلساته وذاكرته وروتيناته (routines) على الجهاز الذي يملك الـ profile.</p>
+<p>النقر على Bot من Connections <strong>لا</strong> ينقل نافذتك إلى ذلك الجهاز — ابقَ في محادثتك وأشِر إليه عبر <code>@mention</code> ، أو أجلِسه في محادثة جماعية، أو أنشئ عليه وكلاء جددًا مباشرةً باستخدام أداة الاختيار <strong>Create on</strong>. بهذه الطريقة يتشارك الوكلاء السحابيون والمحليون قائمة أعضاء واحدة: سجّل نسخة Hermes Cloud الخاصة بك وجهازك المكتبي (مثلًا عبر Tailscale أو SSH)، وستتمكن الـ Bots لديهما من مراسلة بعضها والجلوس في الغرف نفسها، مع تشغيل عمل كل وكيل على جهازه الخاص. وتمرّ الرسائل المباشرة بين الـ Bots عبر تلك الأجهزة من خلال Desktop relay تلقائيًا (راجع <em>المراسلة عبر الأجهزة المتصلة</em> أعلاه).</p>
+<p>راجع <a href="/docs/user-guide/multi-connection-desktop">ربط Desktop بعدة نُسخ من Hermes</a> للاطلاع على الدليل الكامل للاتصالات المتعددة.</p>

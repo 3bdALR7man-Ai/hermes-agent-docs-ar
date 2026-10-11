@@ -1,0 +1,65 @@
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="perplexity">Perplexity</h4>
+<p>مفيد عندما تريد نموذجًا يجري البحث الحي في الويب ويضيف الاستشهادات تلقائيًا. يفرض قيودًا صارمة على النماذج المتاحة — راجع <a href="https://www.perplexity.ai/settings/api" data-ext>perplexity.ai/settings/api</a> للقائمة الحالية.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="84"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="85"></x-keep></div></div>
+<p>تحجز Agent API في Perplexity (<code>api: https://api.perplexity.ai/v1</code> مع <code>api_mode: codex_responses</code>) اسمَي الدالتين <code>web_search</code>, <code>search_files</code>, <code>fetch_url</code>, <code>people_search</code> و <code>finance_search</code> لأدواتها المدمجة الخاصة. ويعيد Hermes تسمية أدوات العميل لديه ذات الاسم نفسه إلى <code>hermes_&lt;name&gt;</code> عند النقل، ويعيد ربطها قبل التوزيع، في حلقة الوكيل الرئيسية والاستدعاءات المساعدة (توليد العنوان، والضغط، وتجميع MoA) على السواء — وهي المعالجة نفسها التي تتلقاها endpoints <code>/v1/responses</code> في OpenCode.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiple-providers-in-one-config">عدة مزوّدين في إعدادات واحدة</h4>
+<p>يمكن جمع الوصفات الثلاث — استخدمها كلها معًا وبدّل لكل دور باستخدام <code>/model custom:&lt;name&gt;:&lt;model&gt;</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="86"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="124"></x-keep></span>استكشاف الأخطاء وإصلاحها</div><div class="admonitionContent_BuS1"><ul>
+<li><code>hermes doctor</code> ينبغي ألا يطبع <code>Unknown provider</code> تحذيرات لأي من هذه الأسماء بعد إصلاحات مدقّق CLI في #15083.</li>
+<li>إذا تعذّر الوصول إلى endpoint <code>/v1/models</code> للمزوّد (Perplexity هو المثال الشائع)، يحفظ <code>hermes model</code> النموذج مع تحذير بدل رفضه قطعًا — راجع #15136.</li>
+<li>لتجاوز المزوّدين المسمّين تمامًا واستخدام <code>provider: custom</code> مجردة مع متغير البيئة <code>CUSTOM_BASE_URL</code> ، راجع #15103.</li>
+</ul></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="choosing-the-right-setup">اختيار الإعداد المناسب</h3>
+<table><thead><tr><th>حالة الاستخدام</th><th>الموصى به</th></tr></thead><tbody><tr><td><strong>تريد أن يعمل فحسب</strong></td><td>OpenRouter (الافتراضي) أو Nous Portal</td></tr><tr><td><strong>نماذج محلية وإعداد سهل</strong></td><td>Ollama</td></tr><tr><td><strong>خدمة GPU للإنتاج</strong></td><td>vLLM أو SGLang</td></tr><tr><td><strong>Mac / دون GPU</strong></td><td>Ollama أو llama.cpp</td></tr><tr><td><strong>توجيه متعدد المزوّدين</strong></td><td>LiteLLM Proxy أو OpenRouter</td></tr><tr><td><strong>تحسين التكلفة</strong></td><td>ClawRouter أو OpenRouter مع <code>sort: &quot;price&quot;</code></td></tr><tr><td><strong>أقصى خصوصية</strong></td><td>Ollama أو vLLM أو llama.cpp (محلي تمامًا)</td></tr><tr><td><strong>المؤسسات / Azure</strong></td><td>Azure OpenAI مع endpoint مخصّص</td></tr><tr><td><strong>نماذج ذكاء اصطناعي صينية</strong></td><td>z.ai (GLM)، و Kimi/Moonshot (<code>kimi-coding</code> أو <code>kimi-coding-cn</code>)، و MiniMax، و Xiaomi MiMo، أو Tencent TokenHub (مزوّدون مدعومون أصليًا)</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="125"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يمكنك التبديل بين المزوّدين في أي وقت باستخدام <code>hermes model</code> — دون إعادة تشغيل. ويُحتفَظ بسجل محادثتك وذاكرتك ومهاراتك مهما كان المزوّد الذي تستخدمه.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-api-keys">مفاتيح API اختيارية</h2>
+<table><thead><tr><th>الميزة</th><th>المزوّد</th><th>متغير البيئة</th></tr></thead><tbody><tr><td>استخراج بيانات الويب</td><td><a href="https://firecrawl.dev/" data-ext>Firecrawl</a></td><td><code>FIRECRAWL_API_KEY</code>, <code>FIRECRAWL_API_URL</code></td></tr><tr><td>أتمتة المتصفح</td><td><a href="https://browserbase.com/" data-ext>Browserbase</a></td><td><code>BROWSERBASE_API_KEY</code>, <code>BROWSERBASE_PROJECT_ID</code></td></tr><tr><td>توليد الصور</td><td><a href="https://fal.ai/" data-ext>FAL</a></td><td><code>FAL_KEY</code></td></tr><tr><td>أصوات TTS متميزة</td><td><a href="https://elevenlabs.io/" data-ext>ElevenLabs</a></td><td><code>ELEVENLABS_API_KEY</code></td></tr><tr><td>OpenAI TTS + تفريغ الصوت</td><td><a href="https://platform.openai.com/api-keys" data-ext>OpenAI</a></td><td><code>VOICE_TOOLS_OPENAI_KEY</code></td></tr><tr><td>Mistral TTS + تفريغ الصوت</td><td><a href="https://console.mistral.ai/" data-ext>Mistral</a></td><td><code>MISTRAL_API_KEY</code></td></tr><tr><td>نمذجة المستخدم عبر الجلسات</td><td><a href="https://honcho.dev/" data-ext>Honcho</a></td><td><code>HONCHO_API_KEY</code></td></tr><tr><td>ذاكرة دلالية طويلة الأمد</td><td><a href="https://supermemory.ai" data-ext>Supermemory</a></td><td><code>SUPERMEMORY_API_KEY</code></td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="self-hosting-firecrawl">استضافة Firecrawl ذاتيًا</h3>
+<p>يستخدم Hermes افتراضيًا <a href="https://firecrawl.dev/" data-ext>Firecrawl cloud API</a> للبحث في الويب واستخراج بياناته. إذا كنت تفضّل تشغيل Firecrawl محليًا، يمكنك توجيه Hermes إلى نسخة مستضافة ذاتيًا بدلًا منها. راجع <a href="https://github.com/firecrawl/firecrawl/blob/main/SELF_HOST.md" data-ext>SELF_HOST.md</a> في Firecrawl لتعليمات الإعداد الكاملة.</p>
+<p><strong>ما تحصل عليه:</strong> لا حاجة إلى مفتاح API، ولا حدود معدل، ولا تكلفة لكل صفحة، وسيادة كاملة على البيانات.</p>
+<p><strong>ما تفقده:</strong> تستخدم النسخة السحابية &quot;Fire-engine&quot; المملوك لـ Firecrawl لتجاوز أنظمة مكافحة الروبوتات المتقدمة (Cloudflare، و CAPTCHAs، وتدوير IP). وتستخدم النسخة المستضافة ذاتيًا fetch أساسيًا + Playwright، لذا قد تفشل بعض المواقع المحمية. ويستخدم البحث DuckDuckGo بدل Google.</p>
+<p><strong>الإعداد:</strong></p>
+<ol>
+<li>
+<p>استنسخ وشغّل منظومة Docker لـ Firecrawl (5 حاويات: API و Playwright و Redis و RabbitMQ و PostgreSQL — تتطلب نحو 4-8 GB RAM):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="87"></x-keep></div></div>
+</li>
+<li>
+<p>وجّه Hermes إلى نسختك (لا يلزم مفتاح API):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="88"></x-keep></div></div>
+</li>
+</ol>
+<p>يمكنك أيضًا ضبط <code>FIRECRAWL_API_KEY</code> و <code>FIRECRAWL_API_URL</code> إذا كانت المصادقة مفعّلة في نسختك المستضافة ذاتيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openrouter-provider-routing">توجيه مزوّدي OpenRouter</h2>
+<p>عند استخدام OpenRouter، يمكنك التحكم في توجيه الطلبات عبر المزوّدين. أضف قسم <code>provider_routing</code> إلى <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="89"></x-keep></div></div>
+<p><strong>اختصارات:</strong> ألحق <code>:nitro</code> بأي اسم نموذج للترتيب حسب معدل المعالجة (مثل <code>anthropic/claude-sonnet-4:nitro</code>)، أو <code>:floor</code> للترتيب حسب السعر. تفاصيل كل نموذج: <a href="/docs/user-guide/features/provider-routing#per-model-overrides-models">توجيه المزوّدين (Provider Routing)</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="openrouter-pareto-code-router">OpenRouter Pareto Code Router</h2>
+<p>يوفر OpenRouter موجّهًا تجريبيًا لنماذج البرمجة عند <code>openrouter/pareto-code</code> يوجّه الطلبات تلقائيًا إلى أرخص نموذج يحقق عتبة جودة البرمجة (وفق ترتيب <a href="https://artificialanalysis.ai/" data-ext>Artificial Analysis</a>). اختر هذا النموذج واضبط خيار <code>min_coding_score</code> في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="90"></x-keep></div></div>
+<p>ملاحظات:</p>
+<ul>
+<li><code>min_coding_score</code> لا يُرسَل <strong>إلا</strong> عندما تكون <code>model.model</code> هي <code>openrouter/pareto-code</code>. ولا تؤثر القيمة مع أي نموذج آخر.</li>
+<li>اضبطه على سلسلة فارغة (أو أزل السطر) ليختار OpenRouter أقوى نموذج برمجة متاح — وهو سلوكه الموثَّق عند إغفال كتلة الإضافات.</li>
+<li>الاختيار حتمي لكل درجة في يوم معين، لكن النموذج المختار فعليًا قد يتغير بتحرك حد Pareto (نماذج جديدة، وتحديثات المعايير).</li>
+<li>راجع <a href="https://openrouter.ai/docs/guides/routing/routers/pareto-router" data-ext>وثائق Pareto Router</a> في OpenRouter لسلوك الموجّه الكامل.</li>
+<li>لاستخدام موجّه Pareto Code في <strong>مهمة مساعدة</strong> محددة (الضغط، والرؤية، وغيرها) بدل الوكيل الرئيسي، اضبط <code>extra_body.plugins</code> ضمن تلك المهمة — راجع <a href="/docs/user-guide/configuration#openrouter-routing--pareto-code-for-auxiliary-tasks">النماذج المساعدة → توجيه OpenRouter &amp; Pareto Code للمهام المساعدة</a>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="fallback-providers">المزوّدون الاحتياطيون (Fallback Providers)</h2>
+<p>اضبط سلسلة من المزوّدين الاحتياطيين يجربها Hermes بالترتيب عند فشل النموذج الأساسي (حدود المعدل، وأخطاء الخادم، وإخفاقات المصادقة). والصيغة المعتمدة قائمة <code>fallback_providers:</code> على المستوى الأعلى:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="91"></x-keep></div></div>
+<p>العنصر الذي يسمّي كتلة <code>providers.&lt;name&gt;</code> (<code>provider: my-relay</code> أو <code>provider: custom:my-relay</code>) يرث <code>transport</code> / <code>api_mode</code> لتلك الكتلة حين لا يحدد العنصر قيمة، كي يحتفظ وسيط خاص بـ Responses أو Anthropic-Messages بصيغة نقله المعلنة عند التبديل الاحتياطي. اضبط <code>api_mode</code> في العنصر لتجاوزها.</p>
+<p>تظل dict القديمة ذات الزوج الواحد <code>fallback_model:</code> مقبولة للتوافق مع الإصدارات السابقة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="92"></x-keep></div></div>
+<p>عند التفعيل، يستبدل الخيار الاحتياطي النموذج والمزوّد أثناء الجلسة دون فقد محادثتك. وتُجرَّب السلسلة عنصرًا تلو الآخر؛ ويكون التفعيل مرة واحدة لكل جلسة.</p>
+<p>المزوّدون المدعومون: <code>openrouter</code>, <code>nous</code>, <code>novita</code>, <code>openai-codex</code>, <code>copilot</code>, <code>copilot-acp</code>, <code>anthropic</code>, <code>gemini</code>, <code>qwen-oauth</code>, <code>huggingface</code>, <code>zai</code>, <code>kimi-coding</code>, <code>kimi-coding-cn</code>, <code>minimax</code>, <code>minimax-cn</code>, <code>minimax-oauth</code>, <code>deepseek</code>, <code>nvidia</code>, <code>xai</code>, <code>xai-oauth</code>, <code>ollama-cloud</code>, <code>bedrock</code>, <code>ai-gateway</code>, <code>azure-foundry</code>, <code>opencode-zen</code>, <code>opencode-go</code>, <code>commandcode</code>, <code>commandcode-anthropic</code>, <code>kilocode</code>, <code>xiaomi</code>, <code>arcee</code>, <code>gmi</code>, <code>actual</code>, <code>stepfun</code>, <code>lmstudio</code>, <code>alibaba</code>, <code>alibaba-coding-plan</code>, <code>tencent-tokenhub</code>, <code>tencent-tokenplan</code>, <code>nebius-token-factory</code>, <code>router</code>, <code>custom</code>.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="126"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يُضبط التبديل الاحتياطي حصريًا عبر <code>config.yaml</code> — أو تفاعليًا عبر <code>hermes fallback</code>. وللتفاصيل الكاملة بشأن توقيت التفعيل، وتقدم السلسلة، والتفاعل مع المهام المساعدة والتفويض، راجع <a href="/docs/user-guide/features/fallback-providers">المزوّدون الاحتياطيون (Fallback Providers)</a>.</p></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">راجع أيضًا</h2>
+<ul>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a> — الإعدادات العامة (بنية الأدلة، وأولوية الإعدادات، و terminal backends، والذاكرة، والضغط، وغيرها)</li>
+<li><a href="/docs/reference/environment-variables">متغيرات البيئة (Environment Variables)</a> — مرجع كامل لكل متغيرات البيئة</li>
+</ul>

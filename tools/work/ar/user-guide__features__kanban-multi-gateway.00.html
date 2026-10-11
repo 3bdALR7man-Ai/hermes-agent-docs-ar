@@ -1,0 +1,13 @@
+<header><h1>النشر عبر عدة gateways</h1></header>
+<p>يدعم Hermes تشغيل عدة عمليات gateway بالتزامن — واحدة لكل profile (default و writer و admin و coder و researcher). يفتح كل gateway اتصاله الخاص بواجهات API للمنصات ويسلّم الرسائل إلى المشتركين في profile الخاص به.</p>
+<p>تشمل اشتراكات المهام أيضًا ملاحظات المراجعة. يُسلّم حدث مراجعة <code>changes_requested</code> كإشعار review-BLOCK قابل لاتخاذ إجراء. وتوقظ الاشتراكات التي تستخدم <code>notify+wake</code> أيضًا المحادثة/الخيط/الجلسة الأصلية المحددة لكي يفحص المتحكّم البطاقة الحالية والتشغيل الحالي؛ بينما يظل <code>notify</code> للإشعار السلبي فقط، و <code>wake</code> للإيقاظ فقط. لا تنشئ ملاحظات المراجعة مهمة ولا ترفع حظرها ولا تعيد إدراجها في قائمة الانتظار ولا تعدّلها بأي شكل آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-dispatcher-posture">نهج موزّع واحد</h2>
+<p>يمتلك gateway واحد فقط موزّع kanban. يُبقي gateway المالك <code>kanban.dispatch_in_gateway: true</code> (القيمة الافتراضية)؛ ويضبطه كل gateway آخر على <code>false</code>.</p>
+<p><strong>لماذا يهم ذلك:</strong> للتوزيع مالك واحد لكيلا تتسابق عدة gateways لإطلاق العمل نفسه. أما تسليم الإشعارات فمملوك لكل profile: يستطلع كل gateway فقط اشتراكات profiles التي يستضيف محوّلات منصاتها. يمنع الحجز الذرّي للأحداث التسليم المكرّر عبر عمليات المراقبة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>لا حاجة إلى تغيير على gateway المالك للتوزيع (عادةً profile <code>default</code>). أضف إلى <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أو اضبط متغير البيئة: <code>HERMES_KANBAN_DISPATCH_IN_GATEWAY=false</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-each-gateway-does">ما يفعله كل gateway</h2>
+<table><thead><tr><th>دور gateway</th><th>dispatch_in_gateway</th><th>هل يفتح قواعد بيانات اللوحات المشترَك فيها؟</th><th>الموزّع</th><th>مُرسل الإشعارات</th></tr></thead><tbody><tr><td>default (المالك المؤكّد لقفل التوزيع)</td><td>true (القيمة الافتراضية)</td><td>نعم</td><td>نعم</td><td>profiles المملوكة + الاشتراكات القديمة غير الموسومة</td></tr><tr><td>writer و admin و coder وغيرها</td><td>false</td><td>نعم، عندما يملك profile اشتراكات</td><td>لا</td><td>profiles التي يملكها ذلك gateway</td></tr></tbody></table>
+<p>تستمر gateways غير الموزّعة في تسليم الرسائل لمحوّلات منصاتها الخاصة (Telegram و Discord وغيرها). وهي لا توزّع المهام، وتتجاوز اللوحات التي لا توجد لها اشتراكات مملوكة لـ profiles الخاصة بها.</p>

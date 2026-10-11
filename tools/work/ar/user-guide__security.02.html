@@ -1,11 +1,51 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variable-passthrough">تمرير متغيرات البيئة</h2>
+<p>تزيل كل من <code>execute_code</code> و <code>terminal</code> متغيرات البيئة الحساسة من العمليات الابنة لمنع تسريب بيانات الاعتماد بواسطة كود يولّده LLM. لكن المهارات التي تصرّح بـ <code>required_environment_variables</code> تحتاج بصورة مشروعة إلى الوصول إلى تلك المتغيرات.</p>
+<p>تُمرَّر بيانات اعتماد المنصة الأصلية — متغيرات <code>BUZZ_*</code> التي تستخدمها منصة مراسلة Buzz — إلى عمليات <code>terminal</code> الابنة (تشغيل أمامي وخلفي/PTY) <strong>فقط حين تعمل الجلسة فعليًا كوكيل Buzz</strong>: تكون العملية وكيلًا مُدارًا بـ Buzz-ACP (يضبط<code>BUZZ_MANAGED_AGENT</code> حاضن Buzz Desktop) أو تكون منصة جلسة الـ gateway الحية <code>buzz</code>. يتيح هذا لوكيل منصة Buzz استدعاء CLI الذي تفرضه المنصة (مثل <code>buzz</code>) من أداة الطرفية، بينما تبقى المتغيرات مُزالة في جلسات Telegram/CLI/cron على المضيف نفسه. ولأن <code>_sanitize_subprocess_env</code> يزوّد أيضًا عمال البحث (مثل عملية ddgs الفرعية للبحث في الويب)، والملف التنفيذي لمشغّل computer-use، ومشغّلات سكربتات المستخدم (أوامر bang <code>!</code> ، والأوامر السريعة، وسكربتات cron، وسكربتات ترشيح webhook)، تتلقى تلك العمليات الابنة المتغيرات أيضًا حين تُنشأ من جلسة Buzz. والاستثناء <strong>خاص بالطرفية فقط</strong>: لا ينطبق على <code>execute_code</code>، أو تشغيلات المتصفح/مضيف TUI (<code>hermes_subprocess_env</code>)، أو عمليات Docker/Modal الابنة، أو تسجيل <code>env_passthrough</code> ، التي تبقى معزولة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<p>تسمح آليتان بتمرير متغيرات محددة عبر مرشحات sandbox:</p>
+<p><strong>1. تمرير ضمن نطاق المهارة (تلقائي)</strong></p>
+<p>عندما تُحمَّل مهارة (عبر <code>skill_view</code> أو أمر <code>/skill</code> ) وتصرّح بـ <code>required_environment_variables</code>، تُسجَّل تلقائيًا للتمرير أي من تلك المتغيرات المضبوطة فعليًا في البيئة. والمتغيرات المفقودة (التي ما زالت تحتاج إلى إعداد) <strong>لا</strong> تُسجَّل.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>بعد تحميل هذه المهارة، يُمرَّر <code>TENOR_API_KEY</code> إلى <code>execute_code</code>, <code>terminal</code> (محلي)، <strong>و backends البعيدة (Docker و Modal)</strong> — دون حاجة إلى إعداد يدوي.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>Docker &amp; Modal</div><div class="admonitionContent_BuS1"><p>قبل v0.5.1، كان <code>forward_env</code> في Docker نظامًا منفصلًا عن تمرير المهارات. وقد دُمجا الآن — إذ تُمرَّر متغيرات البيئة المعلنة في المهارة تلقائيًا إلى حاويات Docker و Modal sandboxes دون الحاجة إلى إضافتها يدويًا إلى <code>docker_forward_env</code> .</p></div></div>
+<p><strong>2. تمرير قائم على الإعدادات (يدوي)</strong></p>
+<p>لمتغيرات البيئة التي لا تصرّح بها أي مهارة، أضفها إلى <code>terminal.env_passthrough</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>تنطبق القائمتان على <code>terminal</code>, <code>execute_code</code> وعلى سكربتات cron من نوع <code>no_agent</code> على السواء. ويُمرَّر المتغير المعلن بقيمة الـ profile الذي تعمل له العملية الابنة: حين تخدم عملية واحدة عدة profiles (gateway متعدد profiles، أو Desktop/dashboard backend)، تأتي القيمة المعلنة لكل profile من <code>.env</code> / مصادر الأسرار الخاصة به، لا من بيئة العملية التي ملأها profile الإطلاق، وتُزال بيانات اعتماد <code>.env</code> الخاصة بـ profile الإطلاق من عمليات الـ profile المخدوم الابنة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-file-passthrough">تمرير ملفات بيانات الاعتماد (OAuth tokens وغيرها)</h3>
+<p>تحتاج بعض المهارات إلى <strong>ملفات</strong> (لا متغيرات بيئة فقط) في sandbox — مثلًا يخزّن Google Workspace OAuth tokens في <code>google_token.json</code> ضمن <code>HERMES_HOME</code>للـ profile النشط. وتصرّح المهارات بها في frontmatter:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>عند التحميل، يتحقق Hermes من وجود هذه الملفات في <code>HERMES_HOME</code> للـ profile النشط ويسجّلها للتركيب:</p>
+<ul>
+<li><strong>Docker</strong>: bind mounts للقراءة فقط (<code>-v host:container:ro</code>)</li>
+<li><strong>Modal</strong>: تُركَّب عند إنشاء sandbox + تُزامَن قبل كل أمر (يعالج إعداد OAuth أثناء الجلسة)</li>
+<li><strong>محلي</strong>: لا إجراء مطلوب (الملفات متاحة بالفعل)</li>
+</ul>
+<p>يمكنك أيضًا إدراج ملفات بيانات الاعتماد يدويًا في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>المسارات نسبية إلى <code>~/.hermes/</code>. وتُركَّب الملفات في <code>/root/.hermes/</code> داخل الحاوية. وتقرأ هذه القائمة وحدة <code>tools/credential_files.py</code> (<code>terminal.credential_files</code>) — فهي ضمن كتلة <code>terminal:</code> لكن تحمّلها وحدة ملفات بيانات الاعتماد، لا terminal backend الأساسي، لذا ليست جزءًا من لقطة <code>DEFAULT_CONFIG</code> المضمّنة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="borrowed-cli-logins">تسجيلات دخول CLI المستعارة (Codex CLI و Claude Code)</h3>
+<p>عندما لا يملك Hermes تسجيل دخول صالحًا خاصًا به لـ <code>openai-codex</code> أو <code>anthropic</code>، يمكنه استعارة <code>~/.codex/auth.json</code> من Codex CLI و <code>~/.claude/.credentials.json</code> من Claude Code (أو عنصر Keychain) وتحديثهما نيابةً عنك. وكلاهما يستخدم refresh tokens دوّارة أحادية الاستخدام: بمجرد احتفاظ برنامجَين بعائلة token واحدة، يُبطل أول من يحدثها نسخة الآخر، فيظهر الأمر كأنك &quot;سجّلت الدخول مرة في الطرفية لكن Hermes يواصل الفشل&quot; (أو العكس). إذا شغّلت هذين CLI إلى جانب Hermes، فامنح Hermes تسجيل دخوله الخاص وعطّل التبنّي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>مع تعطيل المفتاح لا يقرأ Hermes هذين الملفين ولا يحدّثهما مطلقًا: يختفي صف <code>claude_code</code> من مجمّع بيانات الاعتماد، ويطبع <code>hermes auth list</code> سطرًا واحدًا يذكر ذلك، ويحمل السجل سطر INFO واحدًا لكل عملية. ولا يتأثر إلا التبنّي التلقائي — فالأمر <code>hermes auth add openai-codex</code> يظل يسأل قبل استيراد تسجيل دخول Codex CLI موجود. ولا تصلح الاستعادة التلقائية أيضًا إلا بيانات الاعتماد التي يحتفظ بها Hermes بالفعل: يُرفض تسجيل دخول Codex CLI/Desktop إلى مساحة عمل ChatGPT مختلفة مع تحذير (أعد المصادقة باستخدام <code>hermes auth add openai-codex</code>)، ولا يُكتب فوق تسجيل دخول تكمله أثناء الاستعادة مطلقًا. أضف تسجيلات دخولك باستخدام <code>hermes auth add anthropic</code> / <code>hermes auth add openai-codex</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-each-sandbox-filters">ما يرشّحه كل Sandbox</h3>
+<table><thead><tr><th>Sandbox</th><th>المرشح الافتراضي</th><th>تجاوز التمرير</th></tr></thead><tbody><tr><td><strong>execute_code</strong></td><td>يحجب المتغيرات التي يحتوي اسمها <code>KEY</code>, <code>TOKEN</code>, <code>SECRET</code>, <code>PASSWORD</code>, <code>CREDENTIAL</code>, <code>PASSWD</code>, <code>AUTH</code> ؛ ولا يسمح إلا بمتغيرات البوادئ الآمنة</td><td>✅ تتجاوز متغيرات التمرير كلا الفحصين</td></tr><tr><td><strong>terminal</strong> (محلي)</td><td>يحجب متغيرات بنية Hermes التحتية الصريحة (مفاتيح المزوّدين، و gateway tokens، ومفاتيح API للأدوات)</td><td>✅ تتجاوز متغيرات التمرير قائمة الحجب</td></tr><tr><td><strong>terminal</strong> (Docker)</td><td>لا متغيرات بيئة للمضيف افتراضيًا</td><td>✅ تُمرَّر متغيرات التمرير + <code>docker_forward_env</code> عبر <code>-e</code></td></tr><tr><td><strong>terminal</strong> (SSH)</td><td>لا متغيرات بيئة للمضيف افتراضيًا</td><td>✅ تُمرَّر متغيرات التمرير عبر <code>SendEnv</code>؛ ويحتاج <code>sshd_config</code> البعيد إلى <code>AcceptEnv</code> مطابق (راجع <a href="/docs/user-guide/configuration#ssh-backend">SSH backend</a>)</td></tr><tr><td><strong>terminal</strong> (Modal)</td><td>لا بيئة/ملفات للمضيف افتراضيًا</td><td>✅ تُركَّب ملفات بيانات الاعتماد؛ وتمرير البيئة عبر المزامنة</td></tr><tr><td><strong>MCP</strong></td><td>يحجب كل شيء عدا متغيرات النظام الآمنة + <code>env</code></td><td>❌ لا يتأثر بالتمرير (استخدم إعدادات MCP <code>env</code> بدلًا منه)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-considerations">اعتبارات الأمان</h3>
+<ul>
+<li>لا يؤثر التمرير إلا في المتغيرات التي تصرّح بها أنت أو مهاراتك صراحةً — ويظل وضع الأمان الافتراضي دون تغيير للكود العشوائي الذي يولّده LLM</li>
+<li>تُركَّب ملفات بيانات الاعتماد <strong>للقراءة فقط</strong> في حاويات Docker</li>
+<li>يفحص Skills Guard محتوى المهارة بحثًا عن أنماط وصول مشبوهة إلى البيئة قبل التثبيت</li>
+<li>لا تُسجَّل المتغيرات المفقودة/غير المضبوطة مطلقًا (لا يمكن تسريب ما ليس موجودًا)</li>
+<li>يجب ألا تُضاف أسرار بنية Hermes التحتية (مفاتيح API للمزوّدين، و gateway tokens) إلى <code>env_passthrough</code> أبدًا — فلها آليات مخصصة. ويُرفض مثل هذا الاسم عند التصريح به، ويتوقف من ذلك الحين تمرير اسم معلن تتبناه لاحقًا منصة عبر محوّل (محوّل إضافة يُسجَّل بعد تحميل المهارة)</li>
+</ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-credential-handling">التعامل مع بيانات اعتماد MCP</h2>
 <p>تتلقى عمليات MCP (Model Context Protocol) الفرعية <strong>بيئة مُرشَّحة</strong> لمنع تسريب بيانات الاعتماد عن طريق الخطأ.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="safe-environment-variables">متغيرات البيئة الآمنة</h3>
 <p>تُمرَّر هذه المتغيرات فقط من المضيف إلى عمليات MCP الفرعية القائمة على stdio:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
 <p>بالإضافة إلى أي متغيرات <code>XDG_*</code>. تُزال <strong>جميع</strong> متغيرات البيئة الأخرى (مفاتيح API، الرموز، الأسرار).</p>
 <p>المتغيرات المُعرَّفة صراحة في إعدادات <code>env</code> الخاصة بخادم MCP تُمرَّر:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="credential-redaction">تنقيح بيانات الاعتماد</h3>
 <p>تُعقَّم رسائل الخطأ من أدوات MCP قبل إعادتها إلى LLM. تُستبدَل الأنماط التالية بـ <code>[REDACTED]</code>:</p>
 <ul>
@@ -16,7 +56,7 @@
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="website-access-policy">سياسة الوصول إلى المواقع</h3>
 <p>يمكنك تقييد المواقع التي يستطيع الوكيل الوصول إليها عبر أدواته الخاصة بالويب والمتصفح. هذا مفيد لمنع الوكيل من الوصول إلى الخدمات الداخلية، أو لوحات الإدارة، أو أي عناوين URL حساسة أخرى.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 <p>عند طلب رابط محجوب، تُعيد الأداة خطأً يوضح أن النطاق محجوب بموجب السياسة. تُطبَّق قائمة الحظر عبر <code>web_search</code>، و<code>web_extract</code>، و<code>browser_navigate</code>، وجميع الأدوات القادرة على التعامل مع عناوين URL.</p>
 <p>انظر <a href="/docs/user-guide/configuration#website-blocklist">قائمة حظر المواقع</a> في دليل الإعدادات لكل التفاصيل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ssrf-protection">الحماية من SSRF</h3>
@@ -25,28 +65,33 @@
 <li><strong>الشبكات الخاصة</strong> (RFC 1918): <code>10.0.0.0/8</code>، <code>172.16.0.0/12</code>، <code>192.168.0.0/16</code></li>
 <li><strong>Loopback</strong>: <code>127.0.0.0/8</code>، <code>::1</code></li>
 <li><strong>Link-local</strong>: <code>169.254.0.0/16</code> (يشمل بيانات التعريف السحابية عند <code>169.254.169.254</code>)</li>
-<li><strong>CGNAT / مساحة العناوين المشتركة</strong> (RFC 6598): <code>100.64.0.0/10</code> (شبكات Tailscale، وWireGuard الافتراضية الخاصة)</li>
+<li><strong>CGNAT / مساحة العناوين المشتركة</strong> (RFC 6598): <code>100.64.0.0/10</code> (شبكات Tailscale، و WireGuard الافتراضية الخاصة)</li>
 <li><strong>أسماء مضيفي بيانات التعريف السحابية</strong>: <code>metadata.google.internal</code>، <code>metadata.goog</code></li>
 <li><strong>العناوين المحجوزة، والبثّ المتعدد (multicast)، وغير المُحدَّدة</strong></li>
 </ul>
 <p>الحماية من SSRF مفعّلة دائمًا للاستخدام المُتاح على الإنترنت، وتُعامَل إخفاقات DNS باعتبارها محجوبة (fail-closed). تُعاد سلاسل إعادة التوجيه للتحقق عند كل قفزة لمنع الالتفافات القائمة على إعادة التوجيه.</p>
+<p>يغطي الحارس نفسه عمليات الجلب التي يأتي URL لها من طرف بعيد لا منك: عناوين الصور/الفيديو التي يعيدها مزوّد التوليد، وعناوين الصور المرجعية التي يقدمها نموذج للتحرير، و pet spritesheets وبيان petdex، وعناصر خريطة موقع skills.sh. ويُرفض مزوّد أو فهرس يوجه أحدها إلى عنوان خاص أو عنوان بيانات وصفية قبل فتح أي اتصال؛ ولا يتأثر <code>base_url</code> الخاص بالمزوّد الذي يضبطه المشغّل — فالتنزيل المجلوب مباشرةً من <code>base_url</code> المضبوط لديك (endpoint محتوى فيديو OpenRouter) يتجاوز فحص فئة العناوين الخاصة وحده في القفزة الأولى، بينما يظل حد بيانات السحابة الوصفية مطبقًا وتُعاد مراجعة أي إعادة توجيه يصدرها بالكامل — ويحتاج مزوّد توليد صور مستضاف على LAN لديك إلى <code>security.allow_private_urls: true</code> (أدناه) كي تُخزَّن محليًا عناوين URL الخاصة بـ <em>النتائج</em> التي يعيدها.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="intentionally-allowing-private-urls">السماح المتعمَّد بعناوين URL خاصة</h4>
-<p>بعض الإعدادات تحتاج فعلًا وصولًا إلى عناوين URL خاصة/داخلية — الشبكات المنزلية التي تُحلِّل <code>home.arpa</code> إلى مساحة RFC 1918، وendpoints Ollama/llama.cpp المحصورة بالشبكة المحلية، والويكي الداخلي، وتصحيح بيانات التعريف السحابية، وما شابه. لهذه الحالات يوجد خيار تعطيل عام:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>بعض الإعدادات تحتاج فعلًا وصولًا إلى عناوين URL خاصة/داخلية — الشبكات المنزلية التي تُحلِّل <code>home.arpa</code> إلى مساحة RFC 1918، و endpoints Ollama/llama.cpp المحصورة بالشبكة المحلية، والويكي الداخلي، وتصحيح بيانات التعريف السحابية، وما شابه. لهذه الحالات يوجد خيار تعطيل عام:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
 <p>عند تفعيله، لم تعد أدوات الويب والمتصفح وجلب عناوين URL الخاصة بالرؤية وتنزيلات وسائط الـ gateway ترفض وجهات RFC 1918 / loopback / link-local / CGNAT / بيانات التعريف السحابية. <strong>هذا حدّ ثقة متعمَّد</strong> — فعِّله فقط على الأجهزة حيث يكون تشغيل الوكيل عناوين URL عشوائية مُحقَنة عبر prompt injection ضد الشبكة المحلية خطرًا مقبولًا. أما gateways المواجهة للعموم فيجب أن تُبقيه معطَّلًا.</p>
 <p>حماية substring المضيف (التي تحجب حيل نطاقات Unicode المشابهة حتى عندما يكون عنوان IP الأساسي عامًا) تبقى مفعّلة بغضّ النظر عن هذا الإعداد.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tirith-pre-exec-security-scanning">فحص أمان Tirith قبل التنفيذ</h3>
-<p>يدمج Hermes <a href="https://github.com/sheeki03/tirith" data-ext>tirith</a> لفحص الأوامر على مستوى المحتوى قبل التنفيذ. يكتشف Tirith تهديدات لا تُدركها مطابقة الأنماط وحدها:</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-proxy-fake-ip-ranges">نطاقات fake-ip للـ proxy المحلي</h4>
+<p>يجيب TUN proxy بوضع fake-ip (Mihomo/Clash <code>fake-ip</code>، أو Surge enhanced mode) عن DNS بعنوان من كتلته الخاصة — <code>198.18.0.0/15</code> (اختبارات الأداء RFC 2544) افتراضيًا — لكل اسم خارج مرشحه. وهذه الإجابات علامات proxy، لا مضيفًا داخليًا، لذا يرفض حارس IP الخاص لولا ذلك كل جلب صادر على مثل هذا المضيف: تفشل <code>web_extract</code>وتنزيلات مرفقات المنصات ووسيط المتصفح كلها برسالة <em>URL targets a private or internal
+network address</em> ولا يصل الطلب إلى الشبكة أصلًا. صرّح بالكتلة للسماح بمرور العلامة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>فارغة افتراضيًا، وأضيق من <code>allow_private_urls</code>: لا تُستثنى إلا الكتل المعلنة، وينبغي أن تكون نطاقات يملكها الـ proxy المحلي (يظل الاتصال يتجه إليه، وهو يحدد الهدف الحقيقي بنفسه)، وتبقى وجهات loopback و RFC 1918 و link-local و CGNAT وبيانات السحابة الوصفية محجوبة — ويُتجاهَل عنصر يتداخل مع إحدى تلك الفئات (بما فيه <code>0.0.0.0/0</code>
+أو <code>::/0</code>) مع تحذير بدل توسيع الحارس. وعلى مضيف ذي مزوّد متصفح سحابي، تتوقف العلامة المعلنة أيضًا عن اعتبارها خاصة بالنسبة إلى
+<code>browser.auto_local_for_private_urls</code>، كي تبقى تلك الصفحات متجهة إلى المتصفح السحابي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="content-level-command-checks">فحوص الأوامر على مستوى المحتوى</h3>
+<p>يعلّم كاشف الأوامر الخطرة أيضًا صيغتين على مستوى المحتوى تفوتهما قائمة الأفعال التدميرية:</p>
 <ul>
-<li>انتحال روابط URL شبيهة (homograph) (هجمات النطاقات المُدوَّلة)</li>
-<li>أنماط التمرير عبر أنبوب إلى مفسّر (<code>curl | bash</code>، <code>wget | sh</code>)</li>
-<li>هجمات حقن الـ terminal</li>
+<li>جسم طلب <code>curl</code>/<code>wget</code> يحمل سرًا: متغير باسمه دلالة على سر (<code>-d &quot;k=$OPENAI_API_KEY&quot;</code>) أو ملف بيانات اعتماد (<code>-F file=@.env</code>,
+<code>-T ~/.ssh/id_rsa</code>, <code>--post-file=/etc/passwd</code>)، أو ملف بيانات اعتماد يُمرَّر بأنبوب إلى أمر <code>curl</code>/<code>wget</code>يرفع البيانات. وترويسة <code>Authorization</code> استخدام API عادي ولا تُعلَّم.</li>
+<li>محارف تحكم Unicode غير مرئية أو ثنائية الاتجاه (مسافات صفرية العرض، وتجاوزات اتجاه من اليمين إلى اليسار، وعوازل)، تجعل الأمر الذي توافق عليه مختلفًا عن المنفَّذ. ولا تُعلَّم تسلسلات وصل emoji.</li>
 </ul>
-<p>يُثبَّت Tirith تلقائيًا من إصدارات GitHub عند أول استخدام مع تحقق من مجموع تحقق SHA-256 (وتحقق من مصدر cosign إذا كان cosign متاحًا).</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
-<p>عندما يكون <code>tirith_fail_open</code> مضبوطًا على <code>true</code> (الافتراضي)، تستمر الأوامر إذا لم يكن tirith مُثبَّتًا أو انتهت مهلته. اضبطه على <code>false</code> في البيئات عالية الأمان لحجب الأوامر عندما يكون tirith غير متاح.</p>
-<p>يشحن Tirith ثنائيات جاهزة لـ Linux (x86_64 / aarch64) وmacOS (x86_64 / arm64). على المنصات التي لا يتوفر لها ثنائي جاهز (Windows وغيرها)، يُتخطَّى tirith بصمت — وتستمر حماية مطابقة الأنماط في العمل، ولا يُظهر CLI شريط "غير متاح". لاستخدام tirith على Windows، شغّل Hermes تحت WSL.</p>
-<p>يتكامل حكم Tirith مع مسار الموافقة: الأوامر الآمنة تمرّ، بينما الأوامر المشبوهة والمحجوبة على حدّ سواء تُثير موافقة المستخدم مع نتائج tirith كاملة (الخطورة، العنوان، الوصف، البدائل الأكثر أمانًا). يمكن للمستخدمين الموافقة أو الرفض — والخيار الافتراضي هو الرفض للحفاظ على أمان السيناريوهات غير المراقَبة.</p>
+<p>يمر كلاهما بتدفق الموافقة العادي مثل كل نمط خطير آخر.</p>
+<p>كانت الإصدارات السابقة تضم ماسح tirith الخارجي هنا. وقد أُزيل؛ وتُسقط الترقية إعدادات <code>security.tirith_*</code> ولا تفعّل شيئًا بدلها.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-file-injection-protection">الحماية من حقن ملفات السياق</h3>
 <p>تُفحَص ملفات السياق (AGENTS.md، .cursorrules، SOUL.md) بحثًا عن حقن الـ prompt قبل إدراجها في system prompt. يتحقق الفاحص من:</p>
 <ul>
@@ -61,7 +106,10 @@
 والتنفيذ عبر نثر أدوار غير مترابط مفصول بفواصل. هذه الأنماط
 استدلالية (heuristics)، وليست كشفًا للنية الدلالية.</p>
 <p>الملفات المحجوبة تُظهر تحذيرًا:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>يُعامَل ملفك الخاص <code>SOUL.md</code> في <code>HERMES_HOME</code> بصورة مختلفة: إنه ملف كتبته أنت (تتطلب كتابة أدوات الملفات فيه موافقتك، ولا تقدمه نسخ المشاريع المسحوبة مطلقًا)، لذا فإن تطابقًا لدى الماسح فيه <strong>لا يحجب الملف</strong>. ويسجّل Hermes تحذيرًا يذكر النمط المطابق، ويحمّل الملف كالمعتاد، ويُدرجه <code>/context</code> بصيغة
+<code>⚠ SOUL.md … loaded — matched prompt-injection pattern(s); review the file</code>. يتيح ذلك لملف هوية
+<em>يوثّق</em> عبارة هجومية (إرشادات أمان مثل &quot;محتوى يطلب منك تجاهل التعليمات السابقة&quot;) أن يواصل العمل؛ وإذا لم تكتب النص المعلَّم، فعامل التحذير كإشارة إلى أن شيئًا آخر حرّر الملف. ولا يمتد الاستثناء إلى <code>SOUL.md</code> الذي توزعه توزيعة profile: <code>hermes profile install &lt;git-url&gt;</code> و <code>hermes profile update</code> ينسخان <code>SOUL.md</code> من طرف ثالث إلى مجلد الـ profile الرئيسي دون فحص أو prompt موافقة، لذا حين يملك <code>distribution.yaml</code> الملف يظل تطابق الماسح يحجبه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="best-practices-for-production-deployment">أفضل الممارسات لنشر الإنتاج</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-deployment-checklist">قائمة تحقق نشر Gateway</h3>
 <ol>
@@ -77,39 +125,24 @@
 <li><strong>حافظ على التحديث</strong> — شغّل <code>hermes update</code> بانتظام للحصول على تصحيحات الأمان</li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="securing-api-keys">تأمين مفاتيح API</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="network-isolation">عزل الشبكة</h3>
 <p>للحصول على أقصى قدر من الأمان، شغّل الـ gateway على جهاز أو VM منفصل. اضبط <code>terminal.backend: ssh</code> في <code>config.yaml</code>، ثم زوّد تفاصيل المضيف عبر متغيرات البيئة في <code>~/.hermes/.env</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
-<p>تعيش تفاصيل اتصال SSH في <code>.env</code> (وليس <code>config.yaml</code>) حتى لا تُدرَج أو تُشارَك مع تصديرات الـ profile. هذا يبقي اتصالات مراسلة الـ gateway منفصلة عن تنفيذ أوامر الوكيل.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="supply-chain-advisory-checking">فحص إشعارات سلسلة التوريد</h2>
-<p>يأتي Hermes مزوَّدًا بفاحص إشعارات مدمج يُبلغ عن حزم Python في venv النشط التي تطابق كتالوجًا منسَّقًا من الإصدارات المعروف اختراقها (ديدان سلسلة التوريد مثل تسميم <code>mistralai 2.4.6</code> في مايو 2026). التنفيذ موجود في <code>hermes_cli/security_advisories.py</code>.</p>
-<p>كيف يعمل:</p>
-<ul>
-<li><strong>شريط بدء تشغيل CLI.</strong> يُطبَع تحذير من سطر واحد إذا طابق أي إشعار، مع إشارة إلى <code>hermes doctor</code> للحصول على المعالجة الكاملة.</li>
-<li><strong><code>hermes doctor</code>.</strong> يُظهر كل إشعار نشط مع تفاصيل الإصدار وتعليمات معالجة من 2-4 خطوات.</li>
-<li><strong>بدء تشغيل Gateway.</strong> يُسجَّل في <code>gateway.log</code>؛ وتحصل أول رسالة تفاعلية على شريط تنبيه قصير للمشغّل.</li>
-</ul>
-<p>يحمل كل إشعار معرّفًا ثابتًا. بمجرد أن تقرأه وتتخذ إجراءً بشأنه يمكنك رفضه نهائيًا:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
-<p>يُحفَظ الإقرار في <code>config.security.acked_advisories</code> ويبقى بعد إعادة التشغيل. الإشعارات القديمة لا تُزال <strong>عمدًا</strong> من الكتالوج — إبقاؤها يُبقي التثبيتات الجديدة مُنبَّهة بشأن الإصدارات المُسمَّمة تاريخيًا التي قد تظل مخبَّأة في مرآة (mirror) خاصة.</p>
-<p>الفحص نفسه قائم على المكتبة القياسية فقط ويعمل من استعلام <code>importlib.metadata.version()</code> واحد لكل إشعار، لذا فمن الآمن تشغيله عند كل بدء تشغيل.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lazy-install-of-optional-dependencies">التثبيت الكسول للاعتماديات الاختيارية</h3>
-<p>تعتمد ميزات كثيرة (Mistral TTS، وElevenLabs، وذاكرة Honcho، وBedrock، وSlack، وMatrix، …) على حزم Python لا يحتاجها كل مستخدم. يُثبِّت Hermes هذه الحزم <strong>كسوليًا</strong> عند أول استخدام بدلًا من تثبيتها استباقيًا تحت <code>hermes-agent[all]</code>. التنفيذ موجود في <code>tools/lazy_deps.py</code>.</p>
-<p>المفاضلة التي تحلّها هذه الآلية:</p>
-<ul>
-<li><strong>الهشاشة.</strong> عندما تصبح اعتمادية متعدية لإحدى الإضافات الاختيارية (extra) غير متاحة على PyPI (حُجرت لاحتوائها برمجيات خبيثة، أو سُحبت، أو تعطّل رفعها)، يفشل تحليل <code>[all]</code> بأكمله وتتراجع التثبيتات الجديدة بصمت إلى مستوى مُجرَّد — وتخسر أكثر من 10 إضافات غير مرتبطة دفعة واحدة. التثبيت الكسول يعزل كل backend بحيث لا تستطيع اعتمادية واحدة مُسمَّمة كسر ميزات غير مرتبطة بها.</li>
-<li><strong>التضخم.</strong> المستخدم الذي يتحدث مع مزوّد واحد فقط لن يسحب بعد الآن مئات الحزم التي لن يستوردها أبدًا.</li>
-</ul>
-<p>كيف يعمل:</p>
-<ol>
-<li>تستدعي وحدة backend الدالة <code>ensure(&quot;feature.name&quot;)</code> في أعلى مسار أول استيراد لها.</li>
-<li>إذا كانت الاعتماديات مفقودة، تتحقق <code>ensure</code> من <code>security.allow_lazy_installs</code> في <code>config.yaml</code> (الافتراضي <code>true</code>) وتُشغِّل <code>pip install</code> مُقيَّدًا بنطاق venv للمواصفات المسموح بها.</li>
-<li>إذا فشل التثبيت أو عطّل المستخدم التثبيتات الكسولة، يُطلق الاستدعاء <code>FeatureUnavailable</code> مع stderr الفعلي لـ pip وإشارة إلى <code>hermes tools</code>.</li>
-</ol>
-<p>ضمانات الأمان التي يفرضها <code>tools/lazy_deps.py</code>:</p>
-<table><thead><tr><th>الضمان</th><th>ماذا يعني</th></tr></thead><tbody><tr><td>مُقيَّد بنطاق venv فقط</td><td>التثبيتات تستهدف <code>sys.executable</code> في venv النشط — أبدًا Python الخاص بالنظام</td></tr><tr><td>من PyPI بالاسم فقط</td><td>تقبل المواصفات صيغة <code>&quot;package&gt;=1.0,&lt;2&quot;</code>. لا <code>--index-url</code>، ولا <code>git+https://</code>، ولا مسارات file: — فملف <code>config.yaml</code> خبيث لا يمكنه إعادة توجيه التثبيت</td></tr><tr><td>قائمة سماح</td><td>فقط المواصفات الموجودة في خريطة <code>LAZY_DEPS</code> ضمن الشجرة يمكن تثبيتها عبر هذا المسار. خطأ إملائي في اسم ميزة لا يمنح دلالات "ثبّت أي شيء"</td></tr><tr><td>خيار تعطيل</td><td>اضبط <code>security.allow_lazy_installs: false</code> لتعطيل التثبيتات وقت التشغيل بالكامل. مفيد للشبكات المقيَّدة أو مواقف الأمان الصارمة</td></tr><tr><td>لا إعادة محاولة صامتة</td><td>تظهر الإخفاقات كـ <code>FeatureUnavailable</code> — لا تخزين مؤقت لحالة سيئة، ولا عواصف إعادة محاولة</td></tr></tbody></table>
-<p>لتعطيل التثبيتات وقت التشغيل:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
-<p>عند التعطيل، ستُخبر backends التي تحتاج اعتماديات اختيارية المستخدمَ بتشغيل التثبيت يدويًا (<code>pip install …</code>) أو اختيار backend مختلف عبر <code>hermes tools</code>.</p>
+<p>توجد تفاصيل اتصال SSH في <code>.env</code> (لا <code>config.yaml</code>) كي لا تُعتمَد في المستودع أو تُشارَك مع صادرات profiles. ويُبقي ذلك اتصالات المراسلة في الـ gateway منفصلة عن تنفيذ أوامر الوكيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tls-certificate-trust">الثقة بشهادات TLS</h2>
+<p>يهيّئ Hermes أداة التحقق الخاصة بالمنصة عبر <code>truststore</code>. وتستخدم Windows مخزن شهاداتها، ويستخدم macOS خدمات الثقة النظامية، ويستخدم Linux مسارات الثقة النظامية في OpenSSL. وإذا فشلت التهيئة، يسجّل Hermes الإخفاق ويعود إلى قيم OpenSSL الافتراضية.</p>
+<p>لـ TLS proxy مؤسسي، ثبّت شهادته الجذرية وفق إجراء الثقة لنظام التشغيل في مؤسستك. ولم يعد محدِّد المزوّد في Hermes يختار الثقة عبر <code>HERMES_CA_BUNDLE</code> أو التدرج القديم لمتغيرات بيئة CA. وقد تملك العمليات الفرعية المعزولة إعدادات CA منفصلة خاصة بها.</p>
+<p>وقد أُزيل معه حارس شهادات بدء التشغيل السابق: فلم يعد Hermes يتحقق من <code>HERMES_CA_BUNDLE</code> / <code>SSL_CERT_FILE</code> / <code>REQUESTS_CA_BUNDLE</code> /
+<code>CURL_CA_BUNDLE</code> عند الإطلاق، لذا لا يوجد <code>SSLConfigurationError</code> ولا يؤثر مخرج
+<code>HERMES_SKIP_SSL_GUARD</code> . <code>HERMES_CA_BUNDLE</code> ما زال يُحترم في تدفق تسجيل دخول Nous Portal وحده (<code>hermes login</code>، أو خياره
+<code>--ca-bundle</code> )؛ وتظل المتغيرات القياسية <code>SSL_CERT_FILE</code> / <code>REQUESTS_CA_BUNDLE</code> / <code>CURL_CA_BUNDLE</code> مقروءة من استدعاءات <code>requests</code>/<code>urllib</code> العادية التي تنفّذها بعض الأدوات (ومن
+<code>pip</code>, <code>uv</code>, <code>curl</code>و Node)، لذا يفشل الآن مسار قديم في أحدها عند الاستدعاء الذي يستخدمه لا عند بدء التشغيل. أصلح المتغير هناك أو ألغِ ضبطه.</p>
+<p>يمكن لمزوّد مخصّص التصريح بـ <code>ssl_ca_cert</code> لـ endpoint الخاص به. وتستبدل تلك الحزمة ثقة المنصة للمحادثة، والبيانات الوصفية للنماذج، وفحوص كتالوجها. وينتج الملف المفقود تحذيرًا والعودة إلى ثقة المنصة.
+<code>ssl_verify: false</code> يعطّل التحقق من الشهادات وهو غير آمن للشبكات غير الموثوقة. لا تستخدمه كحل دائم لشهادة جذرية مؤسسية مفقودة.</p>
+<p>يفصل عملاء HTTP للمزوّد إعدادات proxy عن اختيار الشهادات. ولا يستطيع مسار ملف CA قديم في البيئة منع أولئك العملاء من البدء. ولا تُرسل بيانات اعتماد فهرس PM إلا إلى أصل HTTPS الدقيق لها؛ ولا تتلقاها إعادات التوجيه إلى أصل آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trusted-by-placement">نقاط توسعة موثوقة بمجرد وضعها</h2>
+<p>تخضع معظم أكواد الأطراف الثالثة التي يستطيع Hermes تشغيلها لقائمة سماح صريحة: تتطلب الإضافات العامة <code>plugins.enabled</code>، وتتطلب shell hooks موافقة عند أول استخدام (أو <code>hooks_auto_accept</code>)، وتُدرَج خوادم MCP في الإعدادات. وهناك واجهة واحدة مختلفة عمدًا:</p>
+<table><thead><tr><th>نقطة التوسعة</th><th>تُحمَّل من</th><th>تُحمَّل عند</th><th>الاختيار الصريح</th></tr></thead><tbody><tr><td><a href="/docs/user-guide/features/hooks#gateway-event-hooks">hooks أحداث الـ gateway</a></td><td><code>&lt;profile home&gt;/hooks/&lt;name&gt;/</code> (<code>HOOK.yaml</code> + <code>handler.py</code>)</td><td>بدء الـ gateway (<code>HookRegistry.discover_and_load()</code>)، لكل profile مخدوم</td><td><strong>وضع الدليل.</strong> لا عنصر <code>plugins.enabled</code> ولا prompt؛ ولا يتجاوزها <code>HERMES_SAFE_MODE</code> .</td></tr></tbody></table>
+<p>يستورد الـ gateway كل دليل hook صالح داخل العملية، بصلاحياته نفسها. وهذا العقد الموثّق (منذ <code>3988c3c245f</code>)، لا سهو: فمجلد الـ profile الرئيسي إعدادات يملكها المشغّل، ومن يستطيع الكتابة فيه يستطيع بالفعل تشغيل كود بصفتك عبر shell hooks في <code>config.yaml</code> أو تحرير <code>plugins.enabled</code>، لذا لن تضيف بوابة موافقة مستقلة لـ <code>hooks/</code> إلا تعقيدًا دون تغيير حد الثقة. تعامل مع محتويات <code>~/.hermes/hooks/</code> مثل محتويات <code>config.yaml</code> — راجع <code>handler.py</code> قبل وضعه، وأدرج <code>ls ~/.hermes/hooks/</code> كلما دقّقت بقية مجلد الـ profile الرئيسي (الدليل ليس ضمن <a href="#file-write-safety">قائمة حجب المسارات المحمية</a>، لذا هو حالة عادية قابلة للكتابة). التفاصيل الكاملة: <a href="/docs/user-guide/features/hooks#gateway-hook-trust">نموذج الثقة لـ gateway hooks</a>.</p>

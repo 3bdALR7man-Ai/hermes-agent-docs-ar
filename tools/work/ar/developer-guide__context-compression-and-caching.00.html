@@ -1,7 +1,33 @@
 <header><h1>ضغط السياق والتخزين المؤقت (Caching)</h1></header>
 <p>يستخدم Hermes Agent نظام ضغط مزدوجًا إلى جانب التخزين المؤقت للـ prompt لدى Anthropic (prompt caching) لإدارة استهلاك context window بكفاءة عبر المحادثات الطويلة.</p>
 <p>ملفات المصدر: <code>agent/context_engine.py</code> (ABC)، <code>agent/context_compressor.py</code> (المحرّك الافتراضي)،
-<code>agent/prompt_caching.py</code>، <code>gateway/run_turn.py</code> (تنظيف الجلسات)، <code>agent/compression_facade.py</code> (ابحث عن <code>_compress_context</code>)</p>
+ <code>agent/prompt_caching.py</code>, <code>gateway/run_turn.py</code> (تنظيف الجلسات)، <code>agent/compression_facade.py</code> (ابحث عن <code>_compress_context</code>)</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bedrock-context-window-cache">التخزين المؤقت لـ context window في Bedrock</h2>
+<p>تحديد سياق Bedrock في <code>agent/model_metadata.py</code> يستخدم ترتيب الأولوية التالي:</p>
+<ul>
+<li><strong>تتقدم التجاوزات الصريحة.</strong> تتقدم أطوال السياق المضبوطة على التخزين المؤقت
+والفحوص والجدول الثابت.</li>
+<li><strong>تستمر الحدود التي يؤكدها المزوّد.</strong> يبقى الفحص الناجح أو الحد المتعلَّم
+من خطأ مزوّد مرجعًا معتمدًا، حتى إذا كان دون الجدول الثابت.
+يستخدم الضاغط القيمة نفسها بعد إعادة التشغيل.</li>
+<li><strong>تُعاد مراجعة الإدخالات القديمة.</strong> ليس للإدخالات القياسية القديمة منشأ،
+وقد تكون نتائج فحص أو قيمًا احتياطية. لا يحدّد حجمها أيهما هي.</li>
+<li><strong>تستخدم الفحوص الفاشلة الجدول الحالي دون حفظه.</strong> للفشل
+فترة تهدئة في الذاكرة مدتها خمس دقائق، مقيّدة بـ Hermes home و endpoint والنموذج
+والمنطقة. يتيح انقضاؤها أو إبطال التخزين المؤقت صراحة محاولة أخرى.</li>
+</ul>
+<p>يبقى التخزين المؤقت في <code>context_length_cache.yaml</code> تحت Hermes home النشط.
+<code>context_lengths</code> يحتفظ بقيم قياسية للقارئات القديمة. تربط خريطة إضافية
+ <code>bedrock_confirmed_v1</code> كل مفتاح مؤكد بقيمته الدقيقة في
+عملية الكتابة الذرية نفسها. تمسح الكتابات العامة منشأ ذلك المفتاح. قد تُسقط الكاتبات الأقدم
+الخريطة الإضافية، ما يسبب إعادة التحقق عند الترقية مجددًا.
+يبقى الملف قابلًا للقراءة بعد الرجوع لإصدار أقدم، لكن تعود قواعد التحديد لوقت التشغيل الأقدم.</p>
+<p>القيمة الاحتياطية الثابتة لـ <code>xai.grok-4.6</code> (بما فيه profiles
+inference من <code>global.</code> و <code>us.</code>) هي 500,000 token بحسب
+<a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-6.html" data-ext>بطاقة النموذج لدى AWS</a>.
+هذا خاص بـ Bedrock، لا نافذة xAI API المباشرة. تظل قواعد الضغط
+الحالية سارية: دون حجز للمخرجات أو سقف tokens صريح، ينتج عن
+أرضية عتبة 75% للنافذة الصغيرة محفّز عند 375,000 token لهذه النافذة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluggable-context-engine">محرّك سياق قابل للاستبدال (Pluggable Context Engine)</h2>
 <p>تُبنى إدارة السياق على الفئة المجرّدة <code>ContextEngine</code> ABC (<code>agent/context_engine.py</code>). المحرّك المدمج <code>ContextCompressor</code> هو التطبيق الافتراضي، لكن يمكن للإضافات (plugins) استبداله بمحرّكات بديلة (مثل Lossless Context Management).</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
@@ -14,7 +40,7 @@
 </ul>
 <p>يعتمد اختيار المحرّك على الإعدادات عبر <code>context.engine</code> في <code>config.yaml</code>. ترتيب التحديد:</p>
 <ol>
-<li>التحقق من المجلد <code>plugins/context_engine/&lt;name&gt;/</code></li>
+<li>التحقق من المجلد <code>plugins/context_engine/&lt;name&gt;/</code> المجلد</li>
 <li>التحقق من نظام الإضافات العام (<code>register_context_engine()</code>)</li>
 <li>الرجوع إلى المحرّك المدمج <code>ContextCompressor</code></li>
 </ol>
@@ -50,7 +76,7 @@ tokens دقيقة يبلغ عنها API.</p>
 والإكمال (completion) الأخيرة لدى المزوّد، مضافًا إليها تقدير تقريبي للرسائل المُضافة منذ
 تلك الاستجابة فقط. تحدّد المرساة سجل المحادثة (transcript) المُسعَّر عبر بصمة (fingerprint)
 للمحتوى، لذا تصمد أمام إعادة قراءة gateway للسجل من قاعدة البيانات في كل
-دور، كما تُحفَظ في صف الجلسة بحيث تستعيدها عملية جديدة (<code>--resume</code>،
+دور، كما تُحفَظ في صف الجلسة بحيث تستعيدها عملية جديدة (<code>--resume</code> ،
 و <code>serve</code> لكل دور في desktop) ما دام السجل الدائم
 مطابقًا. ويمسحها كلٌّ من الضغط، وإعادة ضبط الجلسة، والضغط الأصلي في codex (codex-native compaction).</p>
 <p>بالنسبة إلى <strong>بوابتَي العتبة عند بدء الدور وقبل استدعاء API</strong> في المحرّك المدمج، وعند غياب
@@ -87,27 +113,67 @@ context window بأكملها أو تتجاوزها: فحجم التقدير ل�
 قرارًا صريحًا بشأن السياسة: إما قبول بدائل الاستمرارية (liveness fallbacks) الموثّقة،
 أو استبدالها بأدلة من المزوّد مع تحديد السلوك للمزوّدين الذين
 لا يُرجعون بيانات الاستهلاك أبدًا. أما مجرد تعطيل كل الصيانة غير المرتبطة بمرساة فليس مكافئًا لذلك.</p>
-<p>يغطي <code>evals/token_accounting/replay_gates.py</code> تضخّم التقدير دون حدود النافذة وبعد تجاوزها،
+<p><code>evals/token_accounting/replay_gates.py</code> تضخّم التقدير دون حدود النافذة وبعد تجاوزها،
 وضوابط تجاوز العتبة الحقيقي، ومراسي إعادة التحميل/الاستعادة، والتعافي المحلي عبر HTTP
 من التجاوز ومن غياب بيانات الاستهلاك، مع ضغط حقيقي لكن بنص ملخّص محلي ثابت.
 هذه فحوص مُبرمجة لتدفق التحكم، وليست دليلًا على مُقسِّم tokens (tokenizer) لدى المورّدين أو على الفوترة.</p>
-<p>تُسهم كتل المزوّدين المعتمة (<code>encrypted_content</code> في عناصر reasoning / compaction
-لدى Codex) بصفر في كل تقدير محلي؛ ولا يُسعّرها إلا الاستهلاك الحقيقي.</p>
+<p>تُسهم كتل المزوّدين المعتمة (<code>encrypted_content</code> على عناصر الاستدلال / الضغط في Codex) تساهم بـ 0 في كل تقدير محلي؛ ولا يسعّرها إلا الاستخدام الفعلي.</p>
 <p>تُسعَّر الصور بتكلفة الصورة الواحدة <strong>المُستخلصة من بيانات استهلاك المزوّد</strong>
 (<code>agent/image_token_cost.py</code>)، لا بمعادلة المورّد: ففي استجابة أدخل فيها الفارق
 منذ المرساة السابقة N صورة، يكون الفرق المتبقي بين قيمة
-<code>prompt_tokens</code> الحقيقية والإسقاط النصي فقط مساويًا لـ N × سعر المزوّد. تُحفظ
+ <code>prompt_tokens</code> الحقيقية والإسقاط النصي فقط مساويًا لـ N × سعر المزوّد. تُحفظ
 القيمة لكل <code>model@host</code> في <code>~/.hermes/cache/image_token_costs.json</code>
 وتُربط لكل دور بحيث يستخدم مقدِّر التشغيل، وجولة ميزانية الذيل، وتنظيف
 gateway الرقمَ نفسه. وقبل أول دور يتضمن رؤية (vision)، تُطبَّق قيمة افتراضية ثابتة
 قدرها 1,500.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-cooldown-and-provider-proven-overflow">فترة التهدئة بعد الفشل والتجاوز الذي يثبته المزوّد</h4>
-<p>تُفعِّل محاولة تلخيص فاشلة أو متوقفة <strong>فترة تهدئة بعد الفشل</strong> لكل جلسة
-(تتصاعد 60s → 300s → 900s، وتُحفظ في <code>state.db</code>). وأثناء تفعيلها،
-يُؤجَّل الضغط العادي الذي تُطلقه العتبة حتى لا يعيد backend تلخيص معطّل
-المحاولة في كل دور. ومع ذلك، يُجري مساران محاولةً حقيقية:</p>
+<p>تُفعِّل محاولة تلخيص فاشلة أو متوقفة <strong>فترة تهدئة بعد الفشل</strong>
+(تتصاعد 60s → 300s → 900s، ولا تقل قط عن
+ <code>compression.context_timeout_seconds</code> ، وتُحفظ في <code>state.db</code>). ما دامت
+مفعّلة، يؤجّل الضغط العادي الناتج عن العتبة حتى لا يعيد backend ملخّص معطّل
+الانطلاق عند كل دور. تتصاعد حالات انتهاء المهلة والتوقف على
+عدّاد واحد؛ والملخّص الذي ينتهي بـ <code>finish_reason=length</code> (بلغ سقف المخرجات،
+ويُحفظ النص المسجّل) يتصاعد على عدّاده الخاص عبر الدرجات نفسها
+60s → 300s → 900s، فلا يستطيع دور لاحق — مثل اكتمال تفويض غير متزامن
+بعد انقضاء التهدئة — إعادة إرسال الطلب المحدود نفسه كل 30 ثانية (#69637).
+تبقى أخطاء فك JSON والبث المغلق والمحتوى الفارغ على تهدئة ثابتة 30 s. تشغّل ثلاثة مسارات
+محاولة فعلية رغم ذلك:</p>
 <ul>
 <li>الأمر اليدوي <code>/compress</code> (<code>force=True</code>) — يمسح فترة التهدئة ويعيد المحاولة.</li>
+<li>إعادة محاولة <code>fallback_chain</code> في الدور نفسه بعد توقف المسار الرئيسي — لا يجوز
+أن تمنعها تهدئة التوقف الخاصة بالمسار الرئيسي الملغى (<code>bypass_cooldown</code>).
+إذا فشل استدعاء الملخّص لذلك المسار المثبّت، يظل compress() يعتمد
+ملخّصه الاحتياطي الحتمي (الافتراضي <code>abort_on_summary_failure: false</code>)؛
+ويقول السجل حينئذ &quot;committed a deterministic fallback summary&quot;، لا
+&quot;recovered&quot;.</li>
+<li><strong>توقف متكرر → احتياط حتمي.</strong> يحفظ التوقف الأول
+النص المسجّل ويفعّل التهدئة، ويتيح لمسار LLM إعادة المحاولة بعد انقضائها.
+عندما يتوقف المسار <em>مجددًا</em> بينما لا يزال فشل من فئة التوقف على
+السلم (<code>_consecutive_timeout_failures &gt;= 1</code>)، ينتهي سلم المحاولة بدرجة
+حتمية: يُعاد تشغيل العامل مع تجاوز LLM الملخّص
+(تثبيت <code>DETERMINISTIC_SUMMARY_ROUTE</code>)، ويعتمد الملخّص الاحتياطي الثابت
+عبر pipeline العادي للعقد/fence/watermark — التدهور نفسه الذي يحصل عليه
+استدعاء ملخّص فاشل — بدلًا من &quot;continuing without compression&quot;
+والعودة إلى البث الصامت نفسه عند كل دور (#112420).
+<code>abort_on_summary_failure: true</code> ما يزال يلغي العملية (لا يُسقط شيء). يعيد الضغط المُعتمد
+ربط الضاغط ويصفّر عداد السلم، فتمنح كل دورة ضغط
+مسار LLM توقفًا واحدًا قبل التصعيد؛ ويظل صف التهدئة
+المحفوظ يضبط وتيرة المحاولات عبر الأدوار وإعادة التشغيل.</li>
+<li><strong>مزوّد الملخّص مثقل → إلغاء وحفظ النص المسجّل.</strong> عندما يفشل استدعاء
+الملخّص بخطأ زيادة حمل المزوّد (<code>overloaded</code>, <code>at capacity</code> ،
+HTTP 529)، وتفشل أيضًا محاولة النموذج الرئيسي لمرة واحدة، يلغي compress()
+ويحافظ على النص المسجّل دون تغيير بدلًا من اعتماد
+الاحتياط الحتمي؛ ويذكر التحذير زيادة الحمل
+(<code>failure_class=summary_overload_failure</code>)، ويعيد <code>/compress</code> المحاولة مرة
+تتعافى السعة. أخطاء المصادقة/الحصة والشبكة والمحتوى الفارغ
+تلغي بالفعل بالطريقة نفسها. زيادة الحمل <em>المستمرة</em> تتصاعد (#123167): بعد 3
+إلغاءات متتالية بسبب زيادة الحمل في جلسة واحدة، لا تعود زيادة الحمل
+تُحتسب نهائية، ويعتمد compress() الاحتياط الحتمي
+(<code>failure_class=summary_overload_degraded</code>) — فقد محدود في النافذة الوسطى
+بدلًا من السماح للنص المسجّل بالنمو إلى <code>compression_exhausted</code>
+وإعادة ضبط gateway تلقائية تسقط الجلسة كلها. يصفّر الملخّص الناجح
+الميزانية؛ ويظل <code>abort_on_summary_failure: true</code> يلغي كل محاولة
+إلغاءً صارمًا.</li>
 <li><strong>التجاوز الذي يثبته المزوّد</strong> — عندما يرفض المزوّد نفسه الطلب
 بخطأ في طول السياق، يتجاهل مسار التعافي فترة التهدئة لمحاولة واحدة
 محدودة (<code>max_compression_attempts</code>) دون مسحها. فالتأجيل
@@ -115,151 +181,50 @@ gateway الرقمَ نفسه. وقبل أول دور يتضمن رؤية (visio
 الفشل التالي سُلّم التصعيد (#100661). وإذا فشلت تلك المحاولة،
 تُسجَّل فترة التهدئة بشكل عادي.</li>
 </ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
-<p>تُقرأ جميع إعدادات الضغط من <code>config.yaml</code> تحت المفتاح <code>compression</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameter-details">تفاصيل المعاملات</h3>
-<table><thead><tr><th>المعامل</th><th>القيمة الافتراضية</th><th>النطاق</th><th>الوصف</th></tr></thead><tbody><tr><td><code>threshold</code></td><td><code>0.50</code></td><td>0.0-1.0</td><td>يبدأ الضغط عندما تصبح tokens الـ prompt ≥ <code>threshold × context_length</code></td></tr><tr><td><code>model_thresholds</code></td><td><code>{}</code></td><td>map</td><td>تجاوزات لقيمة <code>threshold</code> لكل نموذج. تُطابَق المفاتيح كسلاسل فرعية (substring) مع اسم النموذج (تفوز أطول مطابقة)؛ ولا تنطبق مفاتيح <code>&quot;&lt;provider&gt;:&lt;substring&gt;&quot;</code> إلا على ذلك المزوّد. ولا يزال الحد الأدنى للسياقات الصغيرة مطبّقًا فوق ذلك (انظر أدناه)</td></tr><tr><td><code>target_ratio</code></td><td><code>0.20</code></td><td>0.10-0.80</td><td>يتحكم في ميزانية tokens لحماية الذيل: <code>threshold_tokens × target_ratio</code> (في وضع legacy فقط — يستخدم <code>lean</code> حدّه الخاص)</td></tr><tr><td><code>tail_mode</code></td><td><code>lean</code></td><td><code>lean</code>، <code>legacy</code></td><td>سياسة الاحتفاظ بالذيل. يحتفظ <code>legacy</code> بذيل حرفي بحجم <code>target_ratio</code> (~100K+ tokens في النماذج ذات النوافذ الكبيرة). أما <code>lean</code> فيحتفظ بذيل محدود بنسبة <code>2.5% × context window</code> (حد أدنى 10K وحد أقصى 25K)، وينقل الاستمرارية بدلًا من ذلك عبر الملخّص: سجل جلسة مفصّل يحافظ على المعرّفات (يُنتَج بطلب التلخيص الواحد نفسه — إذ يُجري ضغط lean استدعاء LLM مساعدًا واحدًا بالضبط لكل محاولة)، وفهرس مراسٍ مُستخرج آليًا (أرقام PR، وقيم SHA، والمسارات، ونصوص الأخطاء — عبر regex، دون إعادة صياغة أبدًا)، وكل رسالة مستخدم حقيقية مقتبسة حرفيًا (بميزانية تبدأ بالأحدث)، ومؤشر استعادة عبر <code>session_search</code> كي يتمكن الوكيل من الوصول مجددًا إلى أي شيء أُزيل بالتلخيص. تُؤخذ عيّنات موزّعة بالتساوي من المناطق كبيرة الحجم لإدخالها إلى المُلخِّص (مع علامات حذف صريحة) بدلًا من إطلاق استدعاءات إضافية. النتيجة في جلسات حقيقية بحجم 500K token: الاحتفاظ بنحو ~49K مقابل ~162K، مع استرجاع أعلى عند اقترانه بالاستعادة (راجع <code>evals/compaction/results/</code>). وتُختزل نتائج الأدوات القديمة داخل ذيل lean إلى بذور (stubs) من سطر واحد تحمل مؤشر استعادة</td></tr><tr><td><code>protect_last_n</code></td><td><code>20</code></td><td>≥1</td><td>الحد الأدنى لعدد الرسائل الأخيرة التي تُحفظ دائمًا</td></tr><tr><td><code>min_tail_user_messages</code></td><td><code>1</code></td><td>≥1</td><td>الحد الأدنى لعدد رسائل المستخدم الحقيقية (القابلة للتنفيذ) المضمون بقاؤها في الذيل غير المضغوط. القيمة <code>1</code> = مرساة آخر رسالة مستخدم الحالية (قيمة افتراضية تحافظ على السلوك الحالي). ارفعها مثلًا إلى <code>3</code> للاحتفاظ بآخر 3 أدوار حقيقية للمستخدم حرفيًا حتى عندما تملأ مخرجات الأدوات الضخمة ميزانية tokens الذيل. لا تُحتسب ضمن N أبدًا أصداء المنصة الفارغة، ولا رسائل تسليم الضغط (compaction handoffs)، ولا صفوف المتابعة الاصطناعية. ويتقدّم هذا الضمان على ميزانية tokens الذيل — فقد يتجاوز الذيل الميزانية عندما تسحب المرساة نقطة القطع إلى الخلف</td></tr><tr><td><code>protect_first_n</code></td><td><code>3</code></td><td>(مُثبّت في الكود)</td><td>يُحفظ الـ system prompt + التبادل الأول دائمًا</td></tr><tr><td><code>idle_compact_after_seconds</code></td><td><code>0</code></td><td>≥0 ثانية</td><td>اختياري التفعيل: يُجري الضغط مسبقًا عندما تُستأنف جلسة بعد خمول لهذا العدد من الثواني (0 = معطّل). يتخطى الضغط عندما يكون السياق ≤ threshold × target_ratio؛ ويراعي حواجز فترة التهدئة/منع التذبذب (anti-thrash)/القفل</td></tr><tr><td><code>codex_gpt55_autoraise</code></td><td><code>true</code></td><td>bool</td><td>يرفع نقطة التشغيل إلى 85% لـ gpt-5.4/5.5/5.6 و gpt-6 Astra على مسار ChatGPT Codex OAuth (انظر أدناه). اضبطه على <code>false</code> للإبقاء على قيمة <code>threshold</code> العامة</td></tr><tr><td><code>codex_gpt55_autoraise_notice</code></td><td><code>true</code></td><td>bool</td><td>يعرض إشعار الرفع التلقائي لـ Codex gpt-5.5 لمرة واحدة. اضبطه على <code>false</code> للإبقاء على الرفع التلقائي إلى 85% مع إخفاء اللافتة</td></tr><tr><td><code>codex_app_server_auto</code></td><td><code>native</code></td><td><code>native</code>، <code>hermes</code>، <code>off</code></td><td>وضع ضغط الـ thread لجلسات Codex app-server (انظر أدناه)</td></tr><tr><td><code>codex_responses_native</code></td><td><code>false</code></td><td>bool</td><td>تفعيل اختياري للضغط من جهة الخادم لدى OpenAI على Responses API. لا يعمل إلا مع نماذج عائلة gpt-5.6 على OpenAI API المباشر أو اشتراك ChatGPT Codex (انظر أدناه)</td></tr><tr><td><code>codex_responses_compact_threshold</code></td><td><code>null</code></td><td><code>null</code> أو عدد صحيح موجب</td><td>تتبع القيمة <code>null</code> نقطة تشغيل الضغط المحلية المحدّدة مع هامش أمان قدره 8,192 token. أما العدد الصحيح الموجب فيبقى قيمة مطلقة ولا يُخفَّض إلا عند الضرورة. وتؤدي القيم غير الصالحة إلى السلوك التلقائي. ويرجع الوضع التلقائي إلى <code>200000</code> عند عدم وجود نقطة تشغيل محلية صالحة للاستخدام</td></tr><tr><td><code>in_place</code></td><td><code>true</code></td><td>bool</td><td>إجراء الضغط على معرّف الجلسة نفسه بدلًا من التدوير إلى معرّف جديد (انظر أدناه)</td></tr></tbody></table>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="in-place-compaction-single-stable-session-id">الضغط في المكان (معرّف جلسة واحد ثابت)</h3>
-<p>مع <code>compression.in_place: true</code> (القيمة الافتراضية)، <strong>يعيد الضغط كتابة قائمة الرسائل الحية على معرّف الجلسة نفسه</strong>: يُعاد بناء الـ system prompt، ويُستبدل الجزء الأوسط بملخّصه، وتُؤرشف أدوار ما قبل الضغط أرشفةً ناعمة تحت المعرّف نفسه (<code>active=0, compacted=1</code> في مخزن الجلسات) — وتبقى قابلة للبحث عبر <code>session_search</code> وقابلة للاستعادة، ولا تُحذف أبدًا. لا توجد سلسلة <code>parent_session_id</code> ولا إعادة ترقيم <code>name #N</code>؛ إذ تحتفظ المحادثة الواحدة بمعرّف دائم واحد طوال عمرها. وقد قضى ذلك على مجموعة الأخطاء المرتبطة بتدوير الجلسات (فقدان حالة <code>/goal</code>، والجلسات اليتيمة، وفجوات البحث عبر الحدود).</p>
-<p>يرصد المستهلكون الوضعَ بدلًا من مقارنة معرّفات الجلسات:</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="attempt-telemetry">قياسات المحاولات</h4>
+<p>كل استدعاء <code>compress_context</code> يعود يسجّل سطر INFO واحدًا بلا محتوى،
+ <code>context compression attempt telemetry: {...}</code> (المسجّل
+ <code>agent.conversation_compression</code>). لا يحمل قط نص رسائل أو نص ملخّص
+أو موضوع التركيز أو رسائل خطأ.</p>
 <ul>
-<li>يحمل الحدث <code>session:compress</code> القيمتين <code>in_place: true/false</code> و <code>old_session_id</code> (سلسلة فارغة في وضع in-place، لعدم وجود معرّف قديم).</li>
-<li>يعيد gateway ضبط خط الأساس لمعالجة سجل المحادثة بناءً على العلامة <code>_last_compaction_in_place</code> لدى الوكيل، المستقلة عن التدوير، لا بناءً على مقارنة تغيّر المعرّف.</li>
+<li><code>trigger_source</code> يسمّي سبب تشغيل المحاولة: <code>manual</code>, <code>idle</code>,
+<code>turn_start_threshold</code>, <code>engine_preflight</code>, <code>pre_api</code>, <code>post_tool</code>,
+<code>gateway_hygiene</code> أو <code>overflow</code>. المستدعي التلقائي الذي لا يمرّر تسمية
+تكون قيمته <code>auto</code> ؛ والرفض قبل بدء أي محاولة (امتلاء المجمّع) تكون قيمته
+ <code>unknown</code>.</li>
+<li><code>route</code> تكون قيمته <code>hermes</code> للضاغط المحلي و <code>codex_app_server</code> عندما يملك
+خيط Codex الضغط.</li>
+<li><code>commit_status</code> تكون قيمته <code>committed</code>, <code>aborted</code>, <code>failed</code>, <code>skipped</code> أو <code>blocked</code>.
+محاولة <code>blocked</code> رفضتها حماية تلقائية؛ وتسمّي قيمة <code>failure_class</code>
+الحماية (<code>blocked:cooldown</code>, <code>blocked:structural_backoff</code>,
+<code>blocked:ineffective</code>). تحت عقد الجلسة، <code>session_ownership_lost</code>
+(<code>skipped</code>) يعني أن مسارًا آخر دوّر الجلسة بالفعل، و
+ <code>session_ownership_unreadable</code> / <code>cooldown_state_unreadable</code> (<code>aborted</code>)
+تعني أن الحالة تعذّرت قراءتها. <code>empty_transcript</code> (<code>aborted</code>) يعني أن
+المحرك لم يُعد رسائل، فلم يُعتمد شيء.</li>
+<li><code>attempt_id</code> يسمّي هذه المحاولة، و <code>session_id</code> يسمّي الجلسة التي بدأت
+فيها، حتى إذا تبنّت المحاولة بعدها جلسة فرعية مدوّرة أو تراجعت
+بعد بدء محاولة أحدث (احتياط توقف). المحاولة
+التي تتوقف قبل تشغيل الضاغط أو تتراجع عن حالتها تسجّل
+ <code>method: none</code> دون أعداد tokens، ولا تسجّل أرقام محاولة سابقة أبدًا.</li>
+<li><code>method</code> يبيّن كيف أُنتج الملخّص: <code>llm_summary</code>,
+<code>aux_fallback_main</code> (فشل نموذج الملخّص وكتبه النموذج الرئيسي)،
+ <code>deterministic_fallback</code> (ملخّص مراسٍ ثابتة؛ <code>items_dropped</code> يحصي
+الرسائل المستبدلة)، <code>provider</code> (Codex) أو <code>none</code>.</li>
+<li><code>messages_before</code> / <code>messages_after</code> و <code>tokens_before</code> / <code>tokens_after</code> /
+<code>tokens_reclaimed</code> تصف النص المسجّل الذي عبر حد الاعتماد،
+بما فيه صفوف ذيل <code>/compress here N</code> المحفوظة ومراسي الحدود.
+المرشح المرفوض أو المتراجع عنه لم يصل قط إلى النص المسجّل، لذا لا يتضمن
+سجله <code>messages_after</code>, <code>tokens_after</code>, <code>tokens_reclaimed</code> أو
+ <code>items_dropped</code>.
+<code>token_count_method: estimate_rough</code> يصفها كتقديرات تقريبية للرسائل وحدها
+(دون system prompt ومخططات الأدوات)، لتكون المقارنة بين
+قيم من النوع نفسه. <code>tool_results_pruned</code> و <code>reasoning_items_pruned</code> يحصيان
+المحاولات الحتمية التي نُفّذت قبل الملخّص وبعده.</li>
 </ul>
-<p>اضبط <code>in_place: false</code> لاستعادة المسار القديم القائم على التدوير، حيث يُنشئ كل ضغط معرّف جلسة جديدًا مرتبطًا بالمعرّف السابق عبر <code>parent_session_id</code>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-feasibility-and-tail-retention">جدوى النموذج المساعد والاحتفاظ بالذيل</h3>
-<p>يمكن لنموذج ضغط مساعد أصغر أن يخفض نقطة تشغيل الضغط الفعلية دون
-تغيير سياسة الذيل المختارة. ففي وضع <code>lean</code> تبقى ميزانية الاختيار مبنية
-على <strong>context window الخاصة بالنموذج الرئيسي</strong>: 2.5%، محصورة بين 10K و25K token. فمثلًا،
-يحتفظ نموذج رئيسي بسعة 1M مع نموذج مساعد بسعة 512K بميزانية اختيار قدرها 25K حتى عندما
-تخفض الجدوى نقطة تشغيله من 850K إلى 512K. أما وضع <code>legacy</code> الصريح فيعيد بدلًا من ذلك
-حساب <code>threshold_tokens × target_ratio</code> (102,400 token عند 512K × 0.20).
-هذه ميزانيات لاختيار الذيل، وليست حدودًا صارمة على السياق المضغوط كله:
-فالرسائل المحمية، ومحاذاة الحدود، والملخّصات، والمراسي قد تضيف tokens.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-model-threshold-overrides">تجاوزات العتبة لكل نموذج</h3>
-<p>يتيح لك <code>compression.model_thresholds</code> تشغيل الضغط عند نقاط مختلفة
-بحسب النموذج النشط — وهو مفيد عند التبديل بين نماذج ذات context windows
-مختلفة جدًا (فمثلًا يمكن لنموذج بسياق 1M أن يتأخر في الضغط، بينما ينبغي
-لنموذج 128K أن يضغط مبكرًا):</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
-<p>قواعد التحديد:</p>
-<ul>
-<li>تُطابَق المفاتيح <strong>كسلاسل فرعية</strong> مع اسم النموذج؛ و<strong>يفوز أطول
-مفتاح مطابق</strong> (يتفوّق <code>glm-5.2-1M</code> على <code>glm-5.2</code> للنموذج <code>glm-5.2-1M</code>).</li>
-<li>يمكن أن تكون المفاتيح <strong>مقيّدة بمزوّد</strong> بالصيغة <code>&quot;&lt;provider&gt;:&lt;substring&gt;&quot;</code> (مثل
-<code>&quot;openai-codex:astra&quot;: 0.85</code>). لا يُطابِق المفتاح المقيّد إلا عندما يكون مزوّد
-الجلسة هو ذلك المسار، لذا فإن المعرّف (slug) نفسه حين يُقدَّم بنافذة مختلفة
-في مكان آخر (OpenRouter، أو Nous، أو OpenAI مباشرةً) يحتفظ بقيمة <code>threshold</code> العامة.
-يعتمد الترتيب على السلسلة الفرعية للنموذج فقط، لذا يظل <code>&quot;astra-900k&quot;</code> متفوقًا على
-<code>&quot;openai-codex:astra&quot;</code> بالنسبة إلى خيار 900K؛ ويتفوّق المفتاح المقيّد على المفتاح المجرّد
-الذي يحمل السلسلة الفرعية نفسها.</li>
-<li>عند عدم مطابقة أي مفتاح (أو إذا كانت الخريطة فارغة)، تُطبَّق قيمة <code>threshold</code> العامة.</li>
-<li>يُعاد تحديد التجاوز عند كل تبديل عبر <code>/model</code>؛ والتبديل إلى نموذج
-لا يطابقه أي مفتاح يعيد استخدام قيمة <code>threshold</code> العامة.</li>
-<li><strong>يظل الحد الأدنى للسياقات الصغيرة مطبّقًا فوق</strong> التجاوزات (بالرفع فقط):
-فالنماذج ذات context windows الأقل من 512K يُرفع حدها الأدنى إلى <code>0.75</code>، لذا يُرفع
-التجاوز الأدنى من هذا الحد إلى <code>0.75</code>، بينما يفوز التجاوز الأعلى منه
-(مثل <code>0.80</code>).</li>
-</ul>
-<p>يمكن لمحرّكات السياق في الإضافات إعادة استخدام منطق التحديد نفسه عبر
-<code>from agent.context_compressor import resolve_model_threshold</code>؛ أما المحرّكات التي
-تعيد تعريف <code>update_model()</code> فتمتلك سياسة الضغط الخاصة بها وقد تتجاهل
-الخريطة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="codex-gpt-5x--astra-threshold-autoraise">الرفع التلقائي للعتبة في Codex gpt-5.x / Astra</h3>
-<p>يفرض backend الخاص بـ ChatGPT Codex OAuth على gpt-5.4/5.5/5.6 و gpt-6 Astra حدًّا صارمًا لـ context window قدره <strong>272K</strong>
-(بينما يتيح المعرّف نفسه 1.05M على API المباشر لدى OpenAI وعلى OpenRouter، و400K على
-GitHub Copilot). وعند نقطة التشغيل الافتراضية 50%، سيبدأ الضغط عند ~136K —
-أي نصف النافذة التي يستطيع النموذج استخدامها فعليًا. عندما يكون المسار النشط هو Codex
-OAuth (<code>provider: openai-codex</code>) والنموذج من إحدى تلك العائلات (يطابق Astra
-أي معرّف يحتوي على <code>astra</code>؛ وتُستثنى متغيرات الاختيار <code>-900k</code> الاختيارية
-لأنها تفتح النافذة الأوسع أصلًا)، يرفع Hermes
-نقطة التشغيل إلى <strong>85%</strong> (~231K) ويعرض إشعارًا يتضمن أمر إلغاء التفعيل. يُعرض
-الإشعار مرة واحدة لكل profile — إذ تسجّل علامة تحت <code>$HERMES_HOME</code>
-(<code>.codex_gpt55_autoraise_notice</code>) أنه عُرض، فلا تعيد عمليات تهيئة الوكيل/الجلسة المتكررة
-(مثل كل رسالة واردة إلى gateway) عرضه؛ وإذا تغيّرت العتبة المرفوعة
-لاحقًا يُعاد الإشعار مرة واحدة. لا يتأثر إلا هذا المسار تحديدًا؛
-فالنماذج نفسها على أي مزوّد آخر تحتفظ بقيمة <code>threshold</code> العامة الخاصة بك. للعودة إلى
-القيمة العامة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
-<p>للإبقاء على الرفع التلقائي إلى 85% مع إخفاء الإشعار الذي يظهر لمرة واحدة فقط:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="codex-large-context--900k-picker-variants-opt-in">متغيرات <code>-900k</code> ذات السياق الكبير في Codex (تفعيل اختياري)</h3>
-<p><em>يُعلن</em> backend الخاص بـ ChatGPT Codex عن نافذة 272K لعائلتي gpt-5.4 و
-gpt-5.6 (Sol/Terra/Luna)، لكنه يقبل فعليًا ~911K token من المدخلات
-لحسابات اشتراك ChatGPT (تحقّقنا من ذلك مباشرةً في أغسطس 2026). يُبقي Hermes
-<strong>قيمة 272K المُعلنة افتراضيًا</strong> للمعرّفات الأساسية — فالنافذة الأكبر تعني
-tokens أكثر لكل طلب واستنزافًا أسرع بكثير لحصة الاشتراك، لذا فالنافذة
-الكبيرة اختيارية التفعيل حصرًا.</p>
-<p>لاستخدام النافذة الكبيرة، اختر متغير <code>-900k</code> الصريح في <code>/model</code> (مثل
-<code>gpt-5.6-sol-900k</code>، و <code>gpt-5.6-terra-900k</code>، و <code>gpt-5.6-luna-900k</code>، و
-<code>gpt-5.4-900k</code>). هذه أسماء مستعارة (aliases) على جانب Hermes: تُزال اللاحقة قبل
-إرسال معرّف النموذج إلى backend، ويعاملها احتساب التسعير/الاستهلاك
-على أنها النموذج الأساسي. أما المعرّفات التي تفرض فعلًا 272K (gpt-5.5، gpt-5.4-mini)
-فليس لها متغير <code>-900k</code>.</p>
-<p>تتبع عتبات الضغط حجم النافذة: تحصل المعرّفات الأساسية (272K) على <strong>الرفع التلقائي
-إلى 85%</strong> الموصوف أعلاه، بينما تحتفظ متغيرات <code>-900k</code> بقيمة
-<code>compression.threshold</code> العامة الخاصة بك (الافتراضية 50%، ~450K) — فالرفع التلقائي موجود لمنع
-هدر نافذة صغيرة، وهو ما لا تحتاجه نافذة 900K.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="codex-app-server-thread-compaction">ضغط الـ thread في Codex app-server</h3>
-<p>تختلف جلسات Codex app-server (<code>api_mode: codex_app_server</code> — بيئة تشغيل codex CLI/agent)
-عن كل المسارات الأخرى: فوكيل codex يمتلك سياق الـ thread
-الأساسي، لذا لا يستطيع المُلخِّص المساعد في Hermes تقليصه — إذ إن إعادة كتابة
-النسخة المحلية المطابقة من سجل المحادثة تترك الـ thread الحقيقي ينمو دون حدود حتى إعادة ضبط
-صارمة للسياق. في بيئة التشغيل هذه، يمر الضغط بدلًا من ذلك عبر الآلية الخاصة بـ app-server:</p>
-<ul>
-<li>يطلب الضغط اليدوي (<code>/compress</code>) من app-server ضغط الـ thread
-(<code>thread/compact/start</code>) وينتظر اكتمال دور الضغط.</li>
-<li>يُتحكَّم في الضغط التلقائي عبر <code>compression.codex_app_server_auto</code>:
-تتيح القيمة الافتراضية <code>native</code> لـ app-server تحديد موعد الضغط، ويسجّل Hermes
-أحداث الضغط الناتجة (عدّادات الضغط، وأحداث
-الجلسة). اضبطها على <code>hermes</code> لتدع عتبة الضغط في Hermes تُطلق
-ضغط app-server، أو على <code>off</code> لتعطيل الضغط التلقائي الذي يبدؤه Hermes
-بالكامل (وقد يظل codex يُجري الضغط بآليته الأصلية).</li>
-</ul>
-<p>لا يُعاد أبدًا كتابة سجل المحادثة المحلي في Hermes على بيئة التشغيل هذه — إذ يسجّل state.db
-حدّ الضغط بينما يبقى السجل المرئي سليمًا. أما جميع المسارات
-الأخرى (بما فيها جلسات محادثة Codex OAuth) فتحتفظ بمُلخِّص الضغط في Hermes.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="native-responses-compaction-gpt-56-on-direct-openai--codex-subscription">الضغط الأصلي في Responses (gpt-5.6 على OpenAI المباشر / اشتراك Codex)</h3>
-<p>يدعم Responses API لدى OpenAI الضغط من جهة الخادم: عندما يتضمن الطلب
-<code>context_management: [{type: &quot;compaction&quot;, compact_threshold: N}]</code> ويتجاوز
-المُدخل المُعدّ N token، يقلّم الخادم السياق الأقدم إلى عنصر مُخرج
-<code>compaction</code> مشفّر ومعتم. يلتقط Hermes هذا العنصر في ملحق إعادة التشغيل (replay sidecar)
-الموجود لرسالة المساعد، ويعيد إرساله في الأدوار
-اللاحقة بديلًا عن السجل المُقلَّم — ما يتيح استرجاعًا طويل المدى دون
-تمرير تلخيص من جهة العميل، مع توافق مع ZDR (<code>store: false</code>، ودون
-<code>previous_response_id</code>).</p>
-<p>فعّله اختياريًا عبر <code>compression.codex_responses_native: true</code>. البوابة ضيقة
-عمدًا، ويُعاد التحقق منها في كل طلب:</p>
-<ul>
-<li><strong>النماذج:</strong> عائلة gpt-5.6 فقط. تفشل النماذج الأخرى من جهة الخادم عند
-وجود الحقل (يُرجع gpt-5.1/5.2 خطأ HTTP 500 أو يوقف البث — ولا يوجد
-رفض منظّم يمكن التراجع بناءً عليه، وقد تحقّقنا من ذلك مباشرةً في أغسطس 2026).</li>
-<li><strong>المسارات:</strong> <code>api.openai.com</code> (مفتاح OpenAI API) أو backend الخاص بـ ChatGPT Codex
-(OAuth لاشتراك Codex) فقط. لا يرى xAI، ولا GitHub/Copilot، ولا OpenRouter، ولا الوسطاء (relays)، ولا
-الخوادم المحلية هذا الحقل أبدًا.</li>
-</ul>
-<p>يبقى كل ما عدا ذلك في الضغط دون تغيير: يظل الضاغط المحلي
-مفعّلًا بوصفه المالك الاحتياطي (تُحصر العتبة الأصلية عند ~8K token أسفل
-نقطة التشغيل المحلية بحيث يضغط الخادم أولًا)، ويؤدي الرفض المنظّم للحقل من المزوّد
-إلى تعطيل الضغط الأصلي للجلسة وإعادة إرسال
-الطلب بدونه. أما تبديل الجلسة إلى نموذج أو مسار غير مؤهل
-فيوقف إرسال الحقل ببساطة — وتُسقَط نقاط التحقق الملتقطة من
-إعادة التشغيل عبر حاجز الجهات المُصدِرة المتقاطعة (cross-issuer guard) الحالي عند تغيّر endpoint.</p>
-<p>افتراضيًا، يستمد <code>compression.codex_responses_compact_threshold: null</code>
-العتبة الأصلية من نقطة التشغيل المحلية المحدّدة. فمثلًا، نقطة تشغيل محلية
-قدرها 765,000 تختار 756,808. اضبط عددًا صحيحًا موجبًا للحفاظ على عتبة مطلقة
-مثل 200,000. تختار القيم غير الصالحة السلوك التلقائي. وإذا لم توجد
-نقطة تشغيل محلية صالحة للاستخدام، يستخدم الوضع التلقائي 200,000. الحد الأدنى لدى المزوّد
-هو 1,024 token، لذا لا يمكن لنقطة تشغيل محلية صغيرة على نحو غير معتاد، تساوي هذا الحد أو تقل عنه،
-أن تحافظ على الترتيب الصارم الذي يضمن أن يسبق الضغطُ الأصلي غيرَه.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="computed-values-for-a-200k-context-model-at-defaults">القيم المحسوبة (لنموذج بسياق 200K مع القيم الافتراضية)</h3>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>تُشتق العتبة من context window الخاصة بالنموذج الرئيسي</div><div class="admonitionContent_BuS1"><p>تساوي <code>threshold_tokens</code> دائمًا <code>threshold × context_length</code>، حيث <code>context_length</code>
-هي context window الخاصة <strong>بنموذج الوكيل الرئيسي</strong> — وليست أبدًا الخاصة بالنموذج المساعد/نموذج
-التلخيص. في نموذج بسعة 262,144 token وبالقيمة الافتراضية <code>0.50</code>، تكون العتبة
-<code>262,144 × 0.50 = 131,072</code>. وكون هذا الرقم قريبًا من &quot;سياق 128K&quot; الشائع
-مجرد مصادفة ناتجة عن النسبة المئوية، لا دليل على أن نافذة النموذج المساعد
-هي ما يُطلق الضغط. فـ context window الخاصة بالنموذج المساعد مسألة منفصلة — راجع
-التحذير &quot;طول سياق نموذج التلخيص&quot; أدناه لمعرفة كيف تؤثر في إمكانية إنتاج
-ملخّص، لا في توقيت بدء الضغط.</p></div></div>
+<p>المقياس المشترك الاختياري <code>hermes.compression.count</code> يحتفظ بالمحفزات العامة
+(<code>auto</code>, <code>manual</code>, <code>overflow</code>)، ولا يحصي إلا المحاولات التي شغّلها الضاغط المحلي؛
+وتظهر المحاولات المحظورة والموجّهة إلى Codex في سطر السجل وحده. عند نشاط
+وقت تشغيل NeMo Relay، يُصدر السجل نفسه، مع محاولات الضغط المصغّر
+والتنقيحات الاستباقية المعتمدة، أيضًا كعلامة <code>hermes.compaction</code> (راجع
+<a href="/docs/developer-guide/relay-shared-metrics#compaction-marks">المقاييس المشتركة لـ NeMo Relay</a>).</p>

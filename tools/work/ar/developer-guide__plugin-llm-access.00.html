@@ -43,7 +43,7 @@
 <p><code>provider=</code> و <code>model=</code> مستقلان، ويتبعان البنية نفسها المستخدمة في الإعدادات الرئيسية للمضيف (<code>model.provider</code> + <code>model.model</code>). اضبط <code>model=</code> وحده لاستخدام المزوّد النشط لدى المستخدم مع نموذج مختلف عليه. واضبط كليهما لتبديل المزوّد بالكامل. وأيٌّ من الوسيطين دون تفعيل صريح من المشغّل يُطلق <code>PluginLlmTrustError</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="complete_structured"><code>complete_structured()</code></h3>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
-<p>المدخلات عبارة عن كتل نصية أو كتل صور ذات أنواع محددة (تُرمَّز البايتات الخام بـ base64 تلقائيًا في صورة <code>data:</code> URL). عند تمرير <code>json_schema</code> أو <code>json_mode=True</code>، يطلب المضيف مخرجات JSON عبر <code>response_format</code>، ويحللها محليًا كخيار احتياطي، ويتحقق منها وفق المخطط الخاص بك إذا كانت <code>jsonschema</code> مثبّتة.</p>
+<p>المدخلات عبارة عن كتل نصية أو كتل صور ذات أنواع محددة (تُرمَّز البايتات الخام بـ base64 تلقائيًا في صورة <code>data:</code> URL). عند تمرير <code>json_schema</code> أو <code>json_mode=True</code> ، يطلب المضيف مخرجات JSON عبر <code>response_format</code> ، ويحللها محليًا كخيار احتياطي، ويتحقق منها وفق المخطط الخاص بك إذا كانت <code>jsonschema</code> مثبّتة.</p>
 <ul>
 <li><code>result.content_type == &quot;json&quot;</code> — <code>result.parsed</code> كائن Python يطابق المخطط الخاص بك.</li>
 <li><code>result.content_type == &quot;text&quot;</code> — فشل التحليل أو التحقق؛ افحص <code>result.text</code> للاطلاع على استجابة النموذج الخام.</li>
@@ -55,19 +55,30 @@
 <p>مرّر <code>task=</code> إلى أيٍّ من أشكال الاستدعاء الأربعة عندما تحتاج الإضافة إلى مسار مساعد (auxiliary) خاص بها ومُعدّ مسبقًا. سجّل تلك المهمة أثناء إعداد الإضافة؛ وتُطبَّق القيم الافتراضية للإضافة إلى أن يتجاوز المشغّل المزوّد والنموذج الخاصين بها في <code>auxiliary.&lt;task&gt;</code>:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
-<p>يمكن للإضافات توفير قيم افتراضية لتسجيل المزوّد/النموذج لمهامها الخاصة. وتتجاوز إعدادات المشغّل في <code>auxiliary.&lt;task&gt;</code> هذه القيم الافتراضية وتتحكم في خيار النشر. لا يمكن للإضافة استخدام مهمة إلا إذا سجّلتها بنفسها؛ وتفشل أسماء المهام غير المعروفة أو التابعة لغيرها قبل استدعاء المزوّد. يُعدّ <code>allow_task_override: true</code> منحًا صريحًا من المشغّل لاستخدام المهام المساعدة المدمجة في Hermes؛ ولا يسمح باستخدام مهام إضافة أخرى. أغفل <code>task=</code> (أو استخدم <code>&quot;auto&quot;</code>) للإبقاء على المزوّد/النموذج الرئيسي النشط.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="result-attributes">خصائص النتيجة</h3>
+<p>يمكن للإضافات توفير قيم افتراضية لتسجيل المزوّد/النموذج لمهامها الخاصة. وإعدادات المشغّل في <code>auxiliary.&lt;task&gt;</code> تتجاوز تلك القيم الافتراضية وتحكم اختيار النشر. والمهمة المسجّلة موضع من الدرجة الأولى في كل واجهات تعيين النماذج: إذ يسردها محدّد <code>hermes model</code> → <em>Configure auxiliary models</em>، وصفحة Models في لوحة التحكم، و Settings → Models → Auxiliary في Desktop (بعد المهام المدمجة، تحت <code>display_name</code> الخاص بالإضافة)، ويمكن تثبيتها أو إعادة ضبطها أو وسمها كتثبيت مزوّد متقادم مثل أي مهمة مدمجة. ولا يمكن لإضافة استخدام إلا مهمة سجّلتها بنفسها؛ وتفشل أسماء المهام المجهولة أو التابعة لغيرها قبل استدعاء المزوّد. <code>allow_task_override: true</code> هو منح صريح من المشغّل لاستخدام المهام المساعدة المدمجة في Hermes؛ ولا يجيز مهام إضافة أخرى. أغفل <code>task=</code> (أو استخدم <code>&quot;auto&quot;</code>) للاحتفاظ بالمزوّد/النموذج الرئيسي النشط.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="inheriting-a-built-in-slot">وراثة موضع مدمج</h4>
+<p><code>inherit_from</code> يسمّي مهمة مساعدة مدمجة (<code>compression</code> أو <code>mcp</code> أو <code>vision</code> أو ...) أو مهمة سجّلتها إضافتك (أو إضافة حُمّلت قبلها) بالفعل. ثم تستخدم مهمتك نموذج ذلك الموضع إلى أن يثبّت المشغّل نموذجًا على مهمتك مباشرةً:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<ul>
+<li><strong>يُحدَّد عند كل قراءة، ولا يُنسخ عند التسجيل.</strong> غيّر <code>auxiliary.compression</code> (من CLI أو لوحة التحكم أو Desktop أو <code>config.yaml</code>)، ويتبعه المصنِّف في استدعائه التالي لكل profile.</li>
+<li><strong>الأولوية:</strong> الأساس الموروث، ثم <code>defaults</code> الخاص بالإضافة، ثم كتلة <code>auxiliary.&lt;task&gt;</code> الخاصة بالمشغّل.</li>
+<li><strong>يسود التثبيت الذي يحدده المشغّل بوصفه مسارًا كاملًا.</strong> بمجرد أن تضبط <code>auxiliary.classifier</code> مزوّدًا غير <code>auto</code> أو نموذجًا أو <code>base_url</code> ، يأتي المزوّد والنموذج و endpoint والمفتاح وجهد الاستدلال جميعًا من تلك الكتلة؛ ولا يُمزَج بها شيء من مسار الأساس. وتكون <code>provider: auto</code> مع نموذج فارغ بمعنى &quot;لا تفضيل&quot;، لذا تظل المهمة تتبع أساسها (وهذا ما يكتبه &quot;Reset all&quot; وزر Desktop <em>Follow &lt;base&gt;</em>).</li>
+<li><strong>لا يعطّل أساس غير صحيح الإضافة أبدًا.</strong> فقيمة <code>inherit_from</code> غير المعروفة أو التي تشير إلى نفسها تسجّل تحذيرًا، وتُسجَّل المهمة دون وراثة.</li>
+</ul>
+<p>تعرض إعدادات Models مهمةً وارثة غير مثبّتة بالشكل <em>inherits Compression · &lt;provider · model&gt;</em>، وتعيد <code>GET /api/model/auxiliary</code> القيمة <code>inherit_from</code> مع <code>effective</code>
+<code>{provider, model, base_url}</code> في هذه الصفوف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="result-attributes">خصائص النتيجة</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
 <p>يحمل <code>usage</code> القيم <code>input_tokens</code> و <code>output_tokens</code> و <code>total_tokens</code> و <code>cache_read_tokens</code> و <code>cache_write_tokens</code> و <code>cost_usd</code> عندما يُرجع المزوّد هذه الحقول.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trust-gate">بوابة الثقة (Trust gate)</h2>
-<p>السلوك الافتراضي مغلق عند الإخفاق (fail-closed). في غياب كتلة الإعدادات <code>plugins.entries</code>، يمكن للإضافة:</p>
+<p>السلوك الافتراضي مغلق عند الإخفاق (fail-closed). في غياب كتلة الإعدادات <code>plugins.entries</code> ، يمكن للإضافة:</p>
 <ul>
 <li>تشغيل أيٍّ من الدوال الأربع مع المزوّد والنموذج النشطين لدى المستخدم،</li>
 <li>ضبط الوسائط التي تشكّل الطلب (<code>temperature</code> و <code>max_tokens</code> و <code>timeout</code> و <code>system_prompt</code> و <code>purpose</code> و <code>messages</code> و <code>instructions</code> و <code>input</code> و <code>json_schema</code>)،</li>
 </ul>
 <p>…وهذا كل شيء. تُطلق الوسائط <code>provider=</code> و <code>model=</code> و <code>agent_id=</code> و <code>profile=</code> الخطأ <code>PluginLlmTrustError</code> إلى أن يفعّلها المشغّل صراحةً. وبالمثل، لا يمكن لـ <code>task=</code> أن تستخدم إلا المهمة المساعدة المسجّلة للإضافة، ما لم يمنح المشغّل <code>allow_task_override</code> لمهمة مدمجة.</p>
 <p><strong>معظم الإضافات لا تحتاج إلى هذا القسم أبدًا.</strong> فالإضافة التي تكتفي باستدعاء <code>ctx.llm.complete(messages=...)</code> دون أي تجاوزات تعمل مع ما هو نشط لدى المستخدم دون أي إعدادات. ولا تكون الكتلة التالية ذات صلة إلا عندما تريد إضافة ما تحديدًا تثبيت نموذج أو مزوّد مختلف عمّا يستخدمه المستخدم.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
 <p>معرّف الإضافة هو الحقل <code>name:</code> في ملف manifest بالنسبة إلى الإضافات المسطّحة، أو المفتاح المشتق من المسار بالنسبة إلى الإضافات المتداخلة (<code>image_gen/openai</code> و <code>memory/honcho</code> وغيرها).</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-gate-enforces">ما تفرضه البوابة</h3>
 <table><thead><tr><th>التجاوز</th><th>القيمة الافتراضية</th><th>مفتاح الإعدادات</th></tr></thead><tbody><tr><td><code>provider=</code></td><td>مرفوض</td><td><code>allow_provider_override: true</code></td></tr><tr><td>↳ قائمة السماح (allowlist)</td><td>—</td><td><code>allowed_providers: [...]</code></td></tr><tr><td><code>model=</code></td><td>مرفوض</td><td><code>allow_model_override: true</code></td></tr><tr><td>↳ قائمة السماح (allowlist)</td><td>—</td><td><code>allowed_models: [...]</code></td></tr><tr><td><code>agent_id=</code></td><td>مرفوض</td><td><code>allow_agent_id_override: true</code></td></tr><tr><td><code>profile=</code></td><td>مرفوض</td><td><code>allow_profile_override: true</code></td></tr><tr><td>المهمة المدمجة <code>task=</code></td><td>مرفوض</td><td><code>allow_task_override: true</code></td></tr></tbody></table>
@@ -75,8 +86,8 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-gate-does-not-need-to-enforce">ما لا تحتاج البوابة إلى فرضه</h3>
 <ul>
 <li>الوسائط التي تشكّل الطلب — <code>temperature</code> و <code>max_tokens</code> و
-<code>timeout</code> و <code>system_prompt</code> و <code>purpose</code> و <code>messages</code> و <code>instructions</code> و
-<code>input</code> و <code>json_schema</code> و <code>schema_name</code> و <code>json_mode</code> — مسموح بها دائمًا؛ فهي لا تختار بيانات اعتماد ولا مسارات.</li>
+ <code>timeout</code> و <code>system_prompt</code> و <code>purpose</code> و <code>messages</code> و <code>instructions</code> و
+ <code>input</code> و <code>json_schema</code> و <code>schema_name</code> و <code>json_mode</code> — مسموح بها دائمًا؛ فهي لا تختار بيانات اعتماد ولا مسارات.</li>
 <li>يعني وضع الرفض الافتراضي أن الإضافة غير المُعدّة لا تزال قادرة على أداء عمل مفيد — فهي تعمل ببساطة مع المزوّد والنموذج النشطين. ولا يحتاج المشغّلون إلى التفكير في <code>plugins.entries</code> إلا للإضافات التي تريد توجيهًا أدق.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-the-host-owns">ما يتولاه المضيف</h2>
@@ -96,7 +107,7 @@
 <li><strong>بنية الطلب.</strong> <code>messages</code> للمحادثة، و <code>instructions</code> + <code>input</code> للمخرجات المنظّمة. الإضافة تبني الـ prompt؛ والمضيف ينفّذه.</li>
 <li><strong>المخطط.</strong> أي بنية تريد استلامها. لا يستنتجها المضيف نيابةً عنك.</li>
 <li><strong>معالجة الأخطاء.</strong> تُطلق <code>complete_structured()</code> الخطأ <code>ValueError</code> عند المدخلات الفارغة وعند فشل التحقق من المخطط. ويُطلَق <code>PluginLlmTrustError</code> عندما ترفض بوابة الثقة تجاوزًا ما. وأي خطأ آخر (أخطاء 5xx من المزوّد، أو عدم إعداد بيانات اعتماد، أو انتهاء المهلة) يُطلق ما تُطلقه
-<code>auxiliary_client.call_llm()</code>.</li>
+ <code>auxiliary_client.call_llm()</code>.</li>
 <li><strong>التكلفة.</strong> يعمل كل استدعاء على حساب المزوّد المدفوع لدى المستخدم. لا تستدعِ <code>complete()</code> في حلقة لكل رسالة gateway دون التفكير في استهلاك tokens.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-this-fits-in-the-plugin-surface">موقع هذه الواجهة ضمن واجهات الإضافات</h2>

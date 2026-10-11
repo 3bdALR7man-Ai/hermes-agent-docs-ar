@@ -16,7 +16,7 @@
 <li><code>providers/</code> — نقاط دخول ABC + السجلّ (<code>ProviderProfile</code> و <code>register_provider</code> و <code>get_provider_profile</code> و <code>list_providers</code>)</li>
 <li><code>plugins/model-providers/&lt;name&gt;/</code> — إضافات لكل مزوّد على حدة (مضمّنة) تُصرّح <code>api_mode</code> و <code>base_url</code> و <code>env_vars</code> و <code>fallback_models</code> وتُسجّل نفسها في السجلّ عند أول وصول. إضافات المستخدم في <code>$HERMES_HOME/plugins/model-providers/&lt;name&gt;/</code> تتجاوز (override) الإضافات المضمّنة التي تحمل الاسم نفسه.</li>
 </ul>
-<p>تُعيد <code>get_provider_profile()</code> في <code>providers/</code> كائن <code>ProviderProfile</code> لمعرّف مزوّد معطى. يستدعي <code>runtime_provider.py</code> هذه الدالة وقت الحلّ للحصول على <code>base_url</code> القانوني، وقائمة أولويات <code>env_vars</code>، و <code>api_mode</code>، و <code>fallback_models</code> دون الحاجة إلى تكرار تلك البيانات في عدة ملفات. تكفي إضافة إضافة جديدة تحت <code>plugins/model-providers/&lt;your-provider&gt;/</code> (أو <code>$HERMES_HOME/plugins/model-providers/&lt;your-provider&gt;/</code>) تستدعي <code>register_provider()</code> ليلتقطها <code>runtime_provider.py</code> — دون الحاجة إلى فرع في المُحلِّل نفسه.</p>
+<p><code>get_provider_profile()</code> في <code>providers/</code> تعيد كائن <code>ProviderProfile</code> لمعرّف مزوّد محدد. يستدعي <code>runtime_provider.py</code> هذه الدالة وقت تحديد المزوّد للحصول على <code>base_url</code> المعتمد، وقائمة أولوية <code>env_vars</code>، و <code>api_mode</code>، و <code>fallback_models</code> دون الحاجة إلى تكرار تلك البيانات في عدة ملفات. تكفي إضافة إضافة جديدة تحت <code>plugins/model-providers/&lt;your-provider&gt;/</code> (أو <code>$HERMES_HOME/plugins/model-providers/&lt;your-provider&gt;/</code>) تستدعي <code>register_provider()</code> ليلتقطها <code>runtime_provider.py</code> — دون الحاجة إلى فرع في المُحلِّل نفسه.</p>
 <p>إذا كنت تحاول إضافة مزوّد استدلال (inference) من الدرجة الأولى، اقرأ <a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a> ودليل <a href="/docs/developer-guide/model-provider-plugin">إضافات مزوّدي النماذج</a> إلى جانب هذه الصفحة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="chat-completions-reasoning-shapes">أشكال الاستدلال (reasoning) في chat-completions</h2>
 <p>يمكن للمُرحِّلات (relays) المتوافقة مع OpenAI أن تُعيد <code>reasoning</code> أو <code>reasoning_content</code>
@@ -26,11 +26,17 @@
 الشظايا بمسافاتها البيضاء الصريحة؛ ولا يضيف التطبيع أي فاصل داخل الحقل. يحتفظ المسار
 الرئيسي وتسجيل Relay بفواصل الفقرات الموجودة بين عناوين الاستدلال الغامقة الكاملة.
 يبقى الاستدلال منفصلًا عن الإجابة المرئية.</p>
+<p><code>delta.reasoning_details</code> قائمة من سجلات المزوّد المعتمة. يضيف كل من التدفق
+الرئيسي وتسجيل Relay هذه السجلات بترتيب وصولها دون
+تسطيح محتوياتها أو دمجها أو إعادة كتابتها. يمكن للمزوّدين إرسال سجلات كاملة
+في delta الأخيرة أو عبر عدة deltas؛ ويُحذف الحقل من الأجزاء
+التي لا تحتوي سجلات جديدة. تمر السجلات المجمّعة عبر تطبيع الاستجابة
+وتخزين رسائل المساعد إلى إعادة تشغيل الجلسة، بما في ذلك الحمولات الموقّعة المتداخلة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="resolution-precedence">أولوية الحلّ (Resolution precedence)</h2>
 <p>على مستوى عالٍ، يستخدم حلّ المزوّد:</p>
 <ol>
 <li>طلب CLI/تشغيل صريح</li>
-<li>إعدادات النموذج/المزوّد في <code>config.yaml</code></li>
+<li><code>config.yaml</code>إعدادات النموذج/المزوّد في </li>
 <li>متغيرات البيئة</li>
 <li>الإعدادات الافتراضية الخاصة بالمزوّد أو الحلّ التلقائي</li>
 </ol>
@@ -134,7 +140,8 @@
 <p>يستخدم Codex مسار Responses API منفصلًا:</p>
 <ul>
 <li><code>api_mode = codex_responses</code></li>
-<li>حلّ بيانات اعتماد مخصّص ودعم مخزن مصادقة (auth store) مخصّص</li>
+<li>تحديد مخصّص لبيانات الاعتماد ودعم مخزن المصادقة</li>
+<li>الجلسة المستأنفة التي تُرفَض عناصر استدلال Codex المتبقية فيها (<code>encrypted_content</code>) — بالخطأ 400 <code>invalid_encrypted_content</code> أو الخطأ 401 <code>token_expired</code> — تُصلح نفسها بحذف العناصر المخزّنة مؤقتًا وإعادة الإرسال مرة واحدة، قبل أي تجديد لبيانات الاعتماد أو تدوير للمجمّع. يستمر إرسال الاستدلال الذي يُنشأ بعد الحذف؛ ولا يتوقف إرسال الاستدلال إلا عند رفض ثانٍ في الجلسة نفسها</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-model-routing">توجيه النموذج المساعد (auxiliary)</h2>
 <p>يمكن للمهام المساعدة مثل:</p>
@@ -187,8 +194,8 @@
 <li>
 <p><strong>مسار الإعدادات</strong>:</p>
 <ul>
-<li>CLI: يقرأ سلسلة الاحتياط عبر <code>hermes_cli/fallback_config.get_fallback_chain()</code> ← يمرّرها إلى <code>AIAgent(fallback_model=...)</code></li>
-<li>Gateway: تقرأ <code>gateway/run_config_loaders.py._load_fallback_model()</code> ملف <code>config.yaml</code> ← تمرّرها إلى <code>AIAgent</code></li>
+<li>CLI: يقرأ سلسلة الاحتياط عبر <code>hermes_cli/fallback_config.get_fallback_chain()</code> → يمرّرها إلى <code>AIAgent(fallback_model=...)</code></li>
+<li>Gateway: تقرأ <code>gateway/run_config_loaders.py._load_fallback_model()</code> ملف <code>config.yaml</code> → تمرّرها إلى <code>AIAgent</code></li>
 <li>التحقق: يجب أن يكون مفتاحا <code>provider</code> و <code>model</code> غير فارغين، وإلا يُعطَّل الاحتياط</li>
 </ul>
 </li>
@@ -198,19 +205,17 @@
 <li><strong>تفويض Subagent</strong> (<code>tools/delegate_tool.py</code>): يرث subagent مزوّد الوالد لكن ليس إعدادات الاحتياط</li>
 <li><strong>المهام المساعدة</strong>: تستخدم سلسلة اكتشاف تلقائي مستقلة خاصة بها للمزوّد (راجع توجيه النموذج المساعد أعلاه)</li>
 </ul>
-<p>مهام cron <strong>تدعم</strong> الاحتياط: تقرأ <code>run_job()</code> قيمة <code>fallback_providers</code> (أو
-<code>fallback_model</code> القديمة) من <code>config.yaml</code> وتمرّرها إلى <code>AIAgent(fallback_model=...)</code>،
-بما يطابق نمط <code>_load_fallback_model()</code> الخاص بـ gateway. راجع <a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a>.</p>
+<p>مهام cron غير المثبّتة على نموذج<strong> تدعم </strong> الاحتياط: يقرأ <code>run_job()</code> قيمة <code>fallback_providers</code> (أو
+<code>fallback_model</code> القديمة) من <code>config.yaml</code> وتمرّرها إلى <code>AIAgent(fallback_model=...)</code>، بما يطابق نمط <code>_load_fallback_model()</code> الخاص بـ gateway. أما المهمة التي تمتلك <code>provider</code> / <code>model</code> / <code>base_url</code> خاصة بها فلا تحصل على سلسلة احتياطية، وفق القاعدة نفسها المطبّقة على وكيل فرعي مفوَّض مثبّت على نموذج. راجع <a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-coverage">تغطية الاختبارات</h3>
 <p>يُختبَر سلوك الاحتياط عبر عدة مجموعات اختبار:</p>
 <ul>
-<li><code>tests/run_agent/test_fallback_credential_isolation.py</code> — عزل بيانات الاعتماد بين النموذج الأساسي والاحتياطي</li>
-<li><code>tests/hermes_cli/test_fallback_cmd.py</code> — أمر CLI الخاص بـ <code>/fallback</code></li>
-<li><code>tests/gateway/test_fallback_eviction.py</code> — إخلاء gateway للمزوّدين الفاشلين</li>
+<li><code>tests/agent/test_fallback_credential_isolation.py</code> — عزل بيانات الاعتماد بين النموذج الأساسي والاحتياطي</li>
+<li><code>tests/hermes_cli/test_fallback_cmd.py</code> — أمر CLI الخاص بـ <code>/fallback</code> في CLI</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
 <ul>
 <li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
 <li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
-<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق والتخزين المؤقت (Caching)</a></li>
+<li><a href="/docs/developer-guide/context-compression-and-caching">ضغط السياق &amp; التخزين المؤقت للـ Prompt</a></li>
 </ul>

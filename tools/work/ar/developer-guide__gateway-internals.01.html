@@ -1,0 +1,32 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiplexed-profiles">Profiles متعددة في عملية واحدة</h2>
+<p>مع <code>gateway.multiplex_profiles: true</code> ، تخدم عملية واحدة profile الافتراضي وكل مجلد حي تحت <code>profiles/</code> (<code>hermes_cli/profiles.py::profiles_to_serve(multiplex=True)</code>). <code>os.environ</code> وتحتفظ متغيرات الوحدات العامة بقيم profile الخاص بـ <strong>الإطلاق</strong>، لذا يربط كل نشاط لـ profile ثانوي نطاقه صراحة — profile يجمع home + نطاق الأسرار + نطاق الطرفية:</p>
+<table><thead><tr><th>النشاط</th><th>الربط</th></tr></thead><tbody><tr><td>دور موجّه</td><td><code>gateway/run.py::_profile_runtime_scope(home)</code> عبر <code>run_turn.py::_profile_scope_for_source</code></td></tr><tr><td>تحرير الوكيل / إخلاؤه (TTL و LRU وضغط الذاكرة)</td><td><code>gateway/run_agent_cache.py::_run_release_in_profile_scope</code></td></tr><tr><td>الإيقاف</td><td><code>gateway/run_shutdown.py::_finalize_session</code></td></tr><tr><td>تسليم الوسائط بعد الدور</td><td><code>gateway/platforms/base.py::_media_delivery_scope</code></td></tr><tr><td>نبضة cron</td><td><code>cron/scheduler_provider.py::_profile_cron_scope(home)</code> (مؤقّت واحد، و profiles بالتتابع)</td></tr><tr><td>العمليات الفرعية (عمّال <code>hermes -p X</code> وأدوار relay و drivers المتصفحات)</td><td><code>tools/environments/local.py::served_profile_child_env</code></td></tr><tr><td>خيوط الخلفية</td><td><code>agent/memory_provider.py::spawn_context_thread</code></td></tr></tbody></table>
+<p>تفشل قراءة الأسرار بطريقة مغلقة (يثير <code>agent.secret_scope.get_secret</code> الاستثناء <code>UnscopedSecretError</code>) فقط بعد <code>set_multiplex_active(True)</code> ، الذي يضبطه gateway و cron و <code>gateway migrate</code> و backend الخاص بـ Desktop/لوحة التحكم <code>serve</code>. لا يصل YAML الخاص بالمحوّل إلى <code>os.environ</code> في multiplex: يملأ <code>gateway/platforms/_shared.py::apply_yaml_bridge</code> قيمة <code>PlatformConfig.extra</code> ويتخطى الكتابة إلى environ تحت نطاق profile ثانوي؛ وتقرأ البوابات عبر <code>platform_gate_env</code>. تعمل منصات الاستقبال المشترك (WhatsApp bridge و Relay) على profile الافتراضي وحده؛ وإذا فعّل profile ثانوي إحداها، يُسجّل ذلك مرة ويُثبت في حالة وقت التشغيل (<code>run_adapters.py::_note_unserved_secondary_platform</code>). العزل لكل profile كما يراه المستخدم: <a href="/docs/user-guide/multi-profile-gateways#what-is-isolated-per-profile">Gateways متعددة Profiles § ما يُعزل لكل profile</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mid-run-plugin-loading">تحميل الإضافات أثناء التشغيل</h2>
+<p>الإضافات التي تُحمّل بعد اتصال المحوّلات (التثبيت/التفعيل من CLI أو Desktop أو لوحة التحكم أو
+ <code>plugins.manage</code> ؛ إعادة اكتشاف قسرية تُطلقها أداة) تعيد توصيل معالجات المنصات دون إعادة التشغيل
+(#87770). المكونات، وكلها في <code>gateway/run_plugin_rewire.py</code>:</p>
+<ul>
+<li><strong>مستمع الاكتشاف</strong> — <code>_start_recover_previous_run</code> يشترك بـ <code>PluginManager.on_plugin_loaded</code> لـ
+profile الإطلاق، ويفعل <code>_load_secondary_profile_config</code> ذلك لكل profile مخدوم. ينطلق الحدث من داخل
+ <code>discover_and_load</code> (لا من RPC مطلقًا) للإضافات المحمّلة حديثًا؛ وينتقل callback إلى حلقة gateway
+باستخدام <code>call_soon_threadsafe</code>.</li>
+<li><strong>إعادة توصيل ثابتة الأثر عند التكرار</strong> — <code>BasePlatformAdapter.rewire_plugin_handlers()</code> يعيد قراءة
+ <code>get_platform_handler_factories(platform)</code> ويشغّل فقط المصانع التي لم تُوصل بعد على العميل الأصلي
+الحي (بالمفتاح <code>(plugin, qualname)</code> لأن إعادة التحميل القسرية تعيد كائنات دوال جديدة). يرفع Telegram
+المعالجات المضافة قبل معالجات الجوهر الشاملة؛ ويعيد Slack أيضًا تسجيل callbacks الخاصة بـ
+ <code>register_slack_action_handler</code> المفقودة مرة لكل <code>AsyncApp</code>.</li>
+<li><strong><code>reload-plugins</code> فعل التحكم</strong> — تطلب عمليات أخرى (<code>hermes plugins install</code>, <code>hermes serve</code>) من
+gateway الجاري إعادة فحص home المطلوب (والمخدوم) قسرًا؛ وتتضمن الإجابة <code>plugins</code> و
+ <code>activations</code> و <code>adapters_rewired</code> لكل إضافة، ليتمكن المستدعي من قول &quot;نشطة الآن&quot; بصدق.</li>
+<li><strong>حدود النطاق</strong> — المعالجات فقط. تنتظر أدوات الإضافة المتأخرة وأقسام system prompt الخاصة بها الجلسة
+التالية (ثابت ذاكرة الـ prompt المؤقتة)؛ وتنتظر خوادم MCP المحمولة <code>mcp.reload</code>. لا يُفصل شيء عند التعطيل.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></li>
+<li><a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a></li>
+<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+<li><a href="/docs/user-guide/messaging/">Messaging Gateway (دليل المستخدم)</a></li>
+</ul>

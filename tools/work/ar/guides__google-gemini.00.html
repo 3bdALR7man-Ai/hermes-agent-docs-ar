@@ -21,11 +21,11 @@
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <p>يكتشف Hermes هذا الـ endpoint وينشئ محوّله (adapter) الأصلي الخاص بـ Gemini. داخليًا، يبقي Hermes حلقة الوكيل بصيغة رسائل OpenAI، ثم يترجم كل طلب إلى مخطط (schema) Gemini الأصلي:</p>
 <ul>
-<li><code>messages[]</code> ← Gemini <code>contents[]</code></li>
-<li>الـ system prompts ← Gemini <code>systemInstruction</code></li>
-<li>مخططات الأدوات ← Gemini <code>functionDeclarations</code></li>
-<li>نتائج الأدوات ← أجزاء Gemini <code>functionResponse</code></li>
-<li>استجابات البث ← أجزاء stream بصيغة OpenAI لحلقة Hermes</li>
+<li><code>messages[]</code> → Gemini <code>contents[]</code></li>
+<li>الـ system prompts → Gemini <code>systemInstruction</code></li>
+<li>مخططات الأدوات → Gemini <code>functionDeclarations</code></li>
+<li>نتائج الأدوات → أجزاء Gemini <code>functionResponse</code></li>
+<li>استجابات البث → أجزاء stream بصيغة OpenAI لحلقة Hermes</li>
 </ul>
 <p>تُترجم مصفوفات نوع معامل الأداة مثل <code>&quot;type&quot;: [&quot;number&quot;, &quot;null&quot;]</code>
 إلى النوع القياسي (scalar) في Gemini مع صيغة <code>nullable</code>. أما الاتحادات متعددة الأنواع فتحتفظ بكل
@@ -38,11 +38,25 @@
 <p>لجلسات وكيل Hermes، يُفضَّل استخدام endpoint Gemini الأصلي أعلاه. يتضمّن Hermes محوّل Gemini أصليًا يتيح له تعيين استخدام الأدوات متعدد الأدوار، ونتائج استدعاء الأدوات، والبث، والمدخلات متعددة الوسائط، وبيانات استجابة Gemini الوصفية مباشرة إلى واجهة <code>generateContent</code> في Gemini. يبقى الـ endpoint المتوافق مع OpenAI مفيدًا عندما تحتاج تحديدًا إلى التوافق مع واجهة OpenAI.</p>
 <p>إذا سبق أن ضبطت <code>GEMINI_BASE_URL</code> على عنوان <code>/openai</code>، فأزله أو غيّره:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تُطبَّع عناوين URL الأساسية التي تقتصر على جذر المضيف في مضيف Google تلقائيًا: إذا لم ينتهِ URL بمقطع لإصدار API (<code>v1beta</code>, <code>v1alpha</code>, <code>v1</code>، ...)، يضيف Hermes <code>/v1beta</code> نيابةً عنك، لذا يعمل <code>GEMINI_BASE_URL=https://generativelanguage.googleapis.com</code>
+مثلما لو كتبت اللاحقة <code>/v1beta</code> صراحةً. وينطبق التطبيع نفسه على عنوان Gemini TTS الأساسي (<code>tts.gemini.base_url</code>). ولا تسلك طلبات المحادثة مسار Gemini الأصلي إلا عندما يشير العنوان الأساسي إلى
+<code>generativelanguage.googleapis.com</code> أو مضيف Vertex AI express أدناه؛ أما proxy على مضيف آخر فيُعامل كـ endpoint متوافق مع OpenAI، لذا اضبطه باستخدام URL بأسلوب
+<code>/openai</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vertex-ai-express-mode-keys">مفاتيح Vertex AI Express Mode</h3>
+<p>تصدر Google الآن مفاتيح ذات بادئة <code>AQ.…</code>لكلٍّ من <strong>الخدمتين</strong> Google AI Studio و Vertex AI express mode (يُلغى تدريجيًا تنسيق Studio القديم <code>AIza…</code> )، لذا لم تعد بادئة المفتاح تحدد خدمته. ولا يعيد Hermes التوجيه استنادًا إلى شكل المفتاح مطلقًا: يحدد العنوان الأساسي المضبوط الخدمة. اضبط <code>GEMINI_API_KEY</code> واترك
+<code>GEMINI_BASE_URL</code> دون ضبط لمضيف AI Studio الافتراضي؛ واضبط <code>GEMINI_BASE_URL</code> على
+<code>https://aiplatform.googleapis.com</code> (مع <code>/v1beta1</code>أو بدونها) لمفتاح Vertex AI express mode، وسيكمل Hermes العنوان إلى صيغة <code>publishers/google</code> . ولا تقبل كل خدمة إلا مفاتيحها — ويعني <code>403 PERMISSION_DENIED</code> عادةً أن اقتران المفتاح/المضيف متبادل بين الخدمتين، ويضيف Hermes إرشادات تذكر الخدمة الأخرى. ولا يُعاد كتابة عنوان أساسي على أي مضيف آخر (proxy) مطلقًا. ومفاتيح Express منفصلة عن
+<a href="/docs/guides/google-vertex">مزوّد Vertex AI</a>القائم على OAuth، والذي لا يحتاج إلى مفتاح API.</p>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>ملاحظة ترقية لمستخدمي مفاتيح express الحاليين</div><div class="admonitionContent_BuS1"><p>كانت إصدارات Hermes السابقة تكتشف البادئة <code>AQ.</code> وتعيد توجيه هذه المفاتيح إلى
+<code>aiplatform.googleapis.com</code> تلقائيًا، لذا كان الإعداد الموثَّق هو &quot;اضبط
+<code>GEMINI_API_KEY</code> على مفتاح express واترك <code>GEMINI_BASE_URL</code> دون ضبط&quot;. وقد أُزيلت إعادة التوجيه التلقائية: عند ترك <code>GEMINI_BASE_URL</code> دون ضبط، يتجه الآن كل طلب — المحادثة، و
+<code>hermes doctor</code>، و TTS — إلى مضيف AI Studio، ويحصل مفتاح Vertex express على <code>403 PERMISSION_DENIED</code> هناك. أضف <code>GEMINI_BASE_URL=https://aiplatform.googleapis.com</code>
+إلى <code>~/.hermes/.env</code> (أو اضبط <code>base_url</code> لدى المزوّد) مرة واحدة ثم أعد التشغيل.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-models">النماذج المتاحة</h2>
 <p>تعرض قائمة اختيار <code>hermes model</code> نماذج Gemini الموجودة في سجل مزوّدي Hermes. من الخيارات الشائعة:</p>
 <table><thead><tr><th>النموذج</th><th>المعرّف (ID)</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Gemini 3.8 Flash</td><td><code>gemini-3.8-flash</code></td><td>أقدر نموذج Flash للأعمال البرمجية والوكيلية طويلة المدى</td></tr><tr><td>Gemini 3.7 Flash</td><td><code>gemini-3.7-flash</code></td><td>التوازن الافتراضي الموصى به بين السرعة والقدرة والفهم متعدد الوسائط</td></tr><tr><td>Gemini 3.1 Pro Preview</td><td><code>gemini-3.1-pro-preview</code></td><td>أقدر نموذج في التفكير المنطقي والرياضيات والبرمجة</td></tr><tr><td>Gemini 3.5 Flash Lite</td><td><code>gemini-3.5-flash-lite</code></td><td>الخيار الأسرع والأقل تكلفة للمهام الخفيفة</td></tr><tr><td>Gemini 2.5 Flash</td><td><code>gemini-2.5-flash</code></td><td>نموذج سريع من الجيل السابق يتمتع بقدرات تفكير (thinking)</td></tr><tr><td>Gemini 2.5 Pro</td><td><code>gemini-2.5-pro</code></td><td>نموذج تفكير معقّد من الجيل السابق</td></tr></tbody></table>
 <p>تتغيّر إتاحة النماذج مع الوقت. إذا اختفى نموذج ما أو لم يكن مفعّلًا لمفتاحك، شغّل <code>hermes model</code> مرة أخرى واختر نموذجًا من القائمة الحالية.</p>
-<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>معرّفات النماذج (Model IDs)</div><div class="admonitionContent_BuS1"><p>استخدم معرّفات نماذج Gemini الأصلية مثل <code>gemini-3.7-flash</code>، وليس معرّفات بأسلوب OpenRouter مثل <code>google/gemini-3.7-flash</code>، عند ضبط <code>provider: gemini</code>.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>معرّفات النماذج</div><div class="admonitionContent_BuS1"><p>استخدم معرّفات نماذج Gemini الأصلية مثل <code>gemini-3.7-flash</code>، لا معرّفات بأسلوب OpenRouter مثل <code>google/gemini-3.7-flash</code>، عندما يكون <code>provider: gemini</code>.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="latest-aliases">أحدث الأسماء المستعارة (Aliases)</h3>
 <p>تنشر Google أسماء مستعارة متحرّكة لعائلتَي Gemini Pro و Flash. يفيدك <code>gemini-pro-latest</code> و <code>gemini-flash-latest</code> عندما تريد أن تُحدِّث Google النموذج تلقائيًا دون تغيير إعدادات Hermes لديك. لاحظ أن رسوم استخدامك قد تتأثر إذا فرضت النماذج الأحدث أسعارًا مختلفة.</p>
 <table><thead><tr><th>الاسم المستعار</th><th>يتتبّع حاليًا</th><th>ملاحظات</th></tr></thead><tbody><tr><td><code>gemini-pro-latest</code></td><td>أحدث نموذج Gemini Pro</td><td>الأفضل عندما تريد النموذج الافتراضي الحالي لـ Pro من Google</td></tr><tr><td><code>gemini-flash-latest</code></td><td>أحدث نموذج Gemini Flash</td><td>الأفضل عندما تريد النموذج الافتراضي الحالي لـ Flash من Google</td></tr></tbody></table>
@@ -67,7 +81,7 @@
 <li>ما إذا كان يمكن تحديد بيانات اعتماد المزوّد المُعدّة</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-messaging-platforms">Gateway (منصات المراسلة)</h2>
-<p>يعمل Gemini مع جميع منصات gateway الخاصة بـ Hermes (Telegram وDiscord وSlack وWhatsApp وLINE وFeishu وغيرها). اضبط Gemini كمزوّدك، ثم ابدأ الـ gateway كالمعتاد:</p>
+<p>يعمل Gemini مع جميع منصات gateway الخاصة بـ Hermes (Telegram و Discord و Slack و WhatsApp و LINE و Feishu وغيرها). اضبط Gemini كمزوّدك، ثم ابدأ الـ gateway كالمعتاد:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
 <p>يقرأ الـ gateway ملف <code>config.yaml</code> ويستخدم إعدادات مزوّد Gemini نفسها.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>

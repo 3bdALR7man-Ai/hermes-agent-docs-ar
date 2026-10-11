@@ -43,24 +43,25 @@
 <p>استخدمها عندما تكون وحدة العمل واضحة (ملف، نقطة نهاية endpoint، سجل) وعدد
 الوحدات أكبر مما يتسع له سياق واحد. تجاوزها لأقل من نحو 10 وحدات أو للسلاسل
 المتسلسلة <bdi class="term">(serial)</bdi>. لحملة إعادة هيكلة أو إصلاح على hermes-agent نفسه، حمّل
-<code>hermes-agent</code> (سير عمل التطوير) إلى جانبها؛ هذه المهارة مسؤولة عن شكل التفريع
+ <code>hermes-agent</code> (سير عمل التطوير) إلى جانبها؛ هذه المهارة مسؤولة عن شكل التفريع
 فقط.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة<a href="#prerequisites" class="hash-link" aria-label="رابط مباشر إلى المتطلبات المسبقة" title="رابط مباشر إلى المتطلبات المسبقة" translate="no">​</a></h2>
 <ul>
-<li><code>delegate_task</code> متاحة و<code>delegation.max_concurrent_children</code> مضبوطة بحجم يناسب
+<li><code>delegate_task</code> متاحة و <code>delegation.max_concurrent_children</code> مضبوطة بحجم يناسب
 الموجة (الافتراضي 10؛ يرفض وقت التشغيل قائمة <code>tasks=[]</code> أكبر من ذلك برسالة
 خطأ واضحة بدل وضعها في قائمة انتظار). <code>delegation.max_spawn_depth &gt;= 2</code> فقط إذا
 كان على الأبناء التفريع بأنفسهم.</li>
+</ul>
+<ul>
 <li>دليل تشغيل قابل للكتابة يُستنتج من مجلد temp الخاص ببيئة الطرفية
-(<code>$TMPDIR</code>، وإلا مجلد temp الخاص بالمنصة). لا تستخدم أبدًا مسارًا حرفيًا مثل <code>/tmp</code>:
-فـ Termux لا يملك <code>/tmp</code>، و Windows الأصلي يتعطل معه. استخدم <code>&lt;tmp&gt;/wf_&lt;name&gt;_&lt;uuid&gt;/</code>،
+(<code>$TMPDIR</code> ، أو مجلد الملفات المؤقتة للمنصة عند غيابه). لا تستخدم أبدًا المسار الحرفي <code>/tmp</code> ، و Windows الأصلي يتعطل معه. استخدم <code>&lt;tmp&gt;/wf_&lt;name&gt;_&lt;uuid&gt;/</code> ،
 فريدًا لكل تشغيل، بحيث لا يترك تشغيل سابق منقطع مخرجات قديمة قد تُقرأ خطأً.</li>
-<li><code>execute_code</code> للطبقة الحتمية <bdi class="term">(deterministic)</bdi> (لا توجد بداخلها سوى <code>web_search</code>، و<code>web_extract</code>،
-و<code>read_file</code>، و<code>write_file</code>، و<code>search_files</code>، و<code>terminal</code>، و<code>patch</code><bdi>).</bdi></li>
+<li><code>execute_code</code> للطبقة الحتمية <bdi class="term">(deterministic)</bdi> (لا توجد بداخلها سوى <code>web_search</code> ، و <code>web_extract</code> ،
+و <code>read_file</code> ، و <code>write_file</code> ، و <code>search_files</code> ، و <code>terminal</code> ، و <code>patch</code><bdi>).</bdi></li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل<a href="#how-to-run" class="hash-link" aria-label="رابط مباشر إلى كيفية التشغيل" title="رابط مباشر إلى كيفية التشغيل" translate="no">​</a></h2>
 <p>طبقتان، مفصولتان بحد فعلي في القدرات:</p>
-<table><thead><tr><th></th><th>الطبقة A - سكربت <code>execute_code</code></th><th>الطبقة B - دفعة <code>delegate_task</code></th></tr></thead><tbody><tr><td>تُستخدم من أجل</td><td>العمل الحتمي <bdi class="term">(DETERMINISTIC)</bdi>: جلب N عنوان URL، تحليل N ملف، تشغيل N أمر، بناء N مخرج بنمط <bdi class="term">(template)</bdi>، بناء بيانات وصفية <bdi class="term">(manifests)</bdi>، دمج المخرجات</td><td>عمل يعتمد على حكم LLM: التصنيف، المراجعة، اتخاذ القرار، الكتابة، التفنيد، إعادة هيكلة وحدة واحدة</td></tr><tr><td>يحتوي</td><td>الحلقة، والتفرّع الشرطي، والمتغيرات الوسيطة</td><td>لا شيء؛ استدعاء واحد بقائمة <code>tasks=[...]</code>، كل مهمة وكيل معزول قائم بذاته</td></tr><tr><td>الأدوات</td><td>مجموعة الـ sandbox أعلاه؛ لا يمكنها استدعاء <code>delegate_task</code></td><td>toolsets الوالد، موروثة دون تغيير (بلا تضييق لكل مهمة)؛ يفقد الأبناء <code>delegate_task</code> و<code>clarify</code> و<code>memory</code> و<code>send_message</code> و<code>cronjob_manage</code></td></tr><tr><td>التزامن <bdi class="term">(Concurrency)</bdi></td><td>خاص بك (<code>ThreadPoolExecutor</code>، دفعات)</td><td>محدود بـ <code>delegation.max_concurrent_children</code></td></tr><tr><td>التكلفة</td><td>استدعاءات الأدوات فقط</td><td>شجرة وكيل كاملة لكل مهمة؛ تتضاعف خطيًا</td></tr></tbody></table>
+<table><thead><tr><th></th><th>الطبقة A - سكربت <code>execute_code</code> سكربت</th><th>الطبقة B - دفعة <code>delegate_task</code> دفعة</th></tr></thead><tbody><tr><td>تُستخدم من أجل</td><td>العمل الحتمي <bdi class="term">(DETERMINISTIC)</bdi>: جلب N عنوان URL، تحليل N ملف، تشغيل N أمر، بناء N مخرج بنمط <bdi class="term">(template)</bdi>، بناء بيانات وصفية <bdi class="term">(manifests)</bdi>، دمج المخرجات</td><td>عمل يعتمد على حكم LLM: التصنيف، المراجعة، اتخاذ القرار، الكتابة، التفنيد، إعادة هيكلة وحدة واحدة</td></tr><tr><td>يحتوي</td><td>الحلقة، والتفرّع الشرطي، والمتغيرات الوسيطة</td><td>لا شيء؛ استدعاء واحد بقائمة <code>tasks=[...]</code> ، كل مهمة وكيل معزول قائم بذاته</td></tr><tr><td>الأدوات</td><td>مجموعة الـ sandbox أعلاه؛ لا يمكنها استدعاء <code>delegate_task</code></td><td>toolsets الوالد، موروثة دون تغيير (بلا تضييق لكل مهمة)؛ يفقد الأبناء <code>delegate_task</code> و <code>clarify</code> و <code>memory</code> و <code>send_message</code> و <code>cronjob_manage</code></td></tr><tr><td>التزامن <bdi class="term">(Concurrency)</bdi></td><td>خاص بك (<code>ThreadPoolExecutor</code> ، دفعات)</td><td>محدود بـ <code>delegation.max_concurrent_children</code></td></tr><tr><td>التكلفة</td><td>استدعاءات الأدوات فقط</td><td>شجرة وكيل كاملة لكل مهمة؛ تتضاعف خطيًا</td></tr></tbody></table>
 <p>نفّذ الجزء الحتمي في الطبقة A أولًا، وفرّع فقط الخطوة التي لا مفر من اعتمادها
 على LLM في الطبقة B، ثم اجمع النتائج على الوالد.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-first-results-re-enter-as-messages">الخلفية أولًا: النتائج تعود كرسائل<a href="#background-first-results-re-enter-as-messages" class="hash-link" aria-label="رابط مباشر إلى الخلفية أولًا: النتائج تعود كرسائل" title="رابط مباشر إلى الخلفية أولًا: النتائج تعود كرسائل" translate="no">​</a></h3>
@@ -69,18 +70,16 @@
 قراءة <code>out_*.csv</code> في السطر التالي مباشرة بعد الاستدعاء. أنهِ ما لا يعتمد على
 الأبناء، أعطِ حالة من سطر واحد، وأنهِ دورك <bdi class="term">(END YOUR TURN)</bdi>؛ ثم تصرّف مع كل رسالة
 نتيجة عند وصولها. رسالة متابعة عادية من المستخدم لا تُلغي الأبناء؛ بينما
-<code>/stop</code> و<code>/new</code> والخروج من العملية تُلغيهم. التفويض الصادر من subagent منسّق
+ <code>/stop</code> و <code>/new</code> والخروج من العملية تُلغيهم. التفويض الصادر من subagent منسّق
 <bdi class="term">(orchestrator)</bdi> (بعمق &gt; 0) هو وحده المتزامن <bdi class="term">(synchronous)</bdi>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع<a href="#quick-reference" class="hash-link" aria-label="رابط مباشر إلى مرجع سريع" title="رابط مباشر إلى مرجع سريع" translate="no">​</a></h2>
 <ul>
 <li>يجب أن تكون الوحدة قابلة للإجابة دون مخرجات الوحدات الشقيقة، وإلا فهي متسلسلة <bdi class="term">(serial)</bdi>.</li>
-<li>البيانات الوصفية <bdi class="term">(Manifest)</bdi>: وحدة واحدة في كل سطر في <code>&lt;run&gt;/manifest.jsonl</code>؛ اطبع العدد ودليل التشغيل.</li>
-<li>لكل ابن: نحو 8-12 تعديلًا آليًا، أو نحو 2-3 آلاف سطر قراءة، أو نحو 50-70 كيلوبايت
-من المجموعة النصية <bdi class="term">(corpus)</bdi>؛ حدّد الحجم حسب أكبر وحدة. توضع المخرجات المُهيكلة في
-ملفات، لا أبدًا في حقل <code>summary</code> (يُقتطع تحت الحمل)؛ وتُفضَّل الأسطر المفصولة
+<li>البيانات الوصفية <bdi class="term">(Manifest)</bdi>: وحدة واحدة في كل سطر في <code>&lt;run&gt;/manifest.jsonl</code> ؛ اطبع العدد ودليل التشغيل.</li>
+<li>لكل وكيل فرعي: نحو 8-12 تعديلًا آليًا، أو نحو 2-3k سطر للقراءة، أو نحو 50-70 KB من المجموعة النصية؛ حدّد الحجم بحسب أكبر وحدة. وتذهب المخرجات المنظَّمة إلى الملفات، لا إلى حقل <code>summary</code> (يُقتطع تحت الحمل)؛ وتُفضَّل الأسطر المفصولة
 بفواصل على JSON.</li>
 <li>يتحقق الوالد من عدد الملفات وحداثتها لكل تشغيل قبل الدمج.</li>
-<li>الابن "المتوقف" عادة ما يكون قد أنهى كتابته؛ تحقق من نظام الملفات أولًا.</li>
+<li>الابن &quot;المتوقف&quot; عادة ما يكون قد أنهى كتابته؛ تحقق من نظام الملفات أولًا.</li>
 <li>شريحة محدودة أولًا (دليل واحد، 20 سجلًا)، أبلغ عن تكلفة الـ tokens، ثم وسّع النطاق.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء<a href="#procedure" class="hash-link" aria-label="رابط مباشر إلى الإجراء" title="رابط مباشر إلى الإجراء" translate="no">​</a></h2>
@@ -89,19 +88,19 @@
 <li>حلّل العمل إلى وحدات مستقلة.</li>
 <li>يكتب تمرير الطبقة A المبدئي البيانات الوصفية <bdi class="term">(manifest)</bdi>.</li>
 <li>حدّد حجم الأجزاء وفق الحدود أعلاه؛ ولمهام أكثر من
-<code>max_concurrent_children</code>، أصدر موجات محدودة بنفسك.</li>
-<li>الطبقة B: استدعاء واحد لـ <code>delegate_task(tasks=[...])</code>؛ كل مهمة تقرأ شريحتها، وتكتب
-<code>&lt;run&gt;/out_&lt;i&gt;.csv</code>، وتطبع كلمة حالة، ثم تتوقف.</li>
+ <code>max_concurrent_children</code> ، أصدر موجات محدودة بنفسك.</li>
+<li>الطبقة B: استدعاء واحد لـ <code>delegate_task(tasks=[...])</code> ؛ كل مهمة تقرأ شريحتها، وتكتب
+ <code>&lt;run&gt;/out_&lt;i&gt;.csv</code> ، وتطبع كلمة حالة، ثم تتوقف.</li>
 <li>أنهِ الدور. مع وصول رسائل النتائج، اقرأ الملفات وتحقق منها وادمجها؛ ويبقى
 التوليف الشامل على الوالد.</li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="adversarial-convergence-finding-quality-work">التقارب التنافسي (عمل بجودة الاستنتاجات)<a href="#adversarial-convergence-finding-quality-work" class="hash-link" aria-label="رابط مباشر إلى التقارب التنافسي (عمل بجودة الاستنتاجات)" title="رابط مباشر إلى التقارب التنافسي (عمل بجودة الاستنتاجات)" translate="no">​</a></h3>
 <ol>
 <li>محاولات مستقلة: نفس السؤال يُوجَّه إلى N من الأبناء <bdi class="term">(2-4)</bdi> بصياغات مختلفة
-في كل <code>context</code>، يكتب كل منهم ادعاءً واحدًا في كل سطر إلى
-<code>&lt;run&gt;/attempt_&lt;i&gt;.md</code>. ادعاءات محددة المكان وقابلة للدحض فرديًا فقط
-("<code>POST /api/users/:id/role</code> في <code>src/routes/users.ts:142</code> لا يوجد بها فحص للدور")؛
-لا يمكن للمُفنِّد <bdi class="term">(refuter)</bdi> دحض عبارة "طبقة المصادقة بها مشاكل".</li>
+في كل <code>context</code> ، يكتب كل منهم ادعاءً واحدًا في كل سطر إلى
+ <code>&lt;run&gt;/attempt_&lt;i&gt;.md</code>. ادعاءات محددة المكان وقابلة للدحض فرديًا فقط
+(&quot;<code>POST /api/users/:id/role</code> في <code>src/routes/users.ts:142</code> لا يوجد بها فحص للدور&quot;)؛
+لا يمكن للمُفنِّد <bdi class="term">(refuter)</bdi> دحض عبارة &quot;طبقة المصادقة بها مشاكل&quot;.</li>
 <li>ادمج وأزل التكرار على الوالد؛ ودوّن عدد مرات الاتفاق لكل ادعاء.</li>
 <li>المُفنِّدون: دفعة ثانية تُكلَّف بدحض كل ادعاء بأدلة مضادة،
 وإصدار <code>claim_idx|survives|counter_evidence</code>. أعطهم المصادر، لا منطق
@@ -111,7 +110,7 @@
 لا تضيف جولة أي ناجين، بحد أقصى 3 جولات.</li>
 </ol>
 <p>الآلية نفسها تحمي الوالد من افتراضاته الخاطئة: عندما تعطي الأبناء قاعدة
-تجريبية ("كل هدف تصحيح على واجهة <bdi class="term">(facade)</bdi> هو وصلة ميتة")، اطلب منهم دحضها
+تجريبية (&quot;كل هدف تصحيح على واجهة <bdi class="term">(facade)</bdi> هو وصلة ميتة&quot;)، اطلب منهم دحضها
 بالأدلة قبل التصرف بناءً عليها. أربع فرق فعلت ذلك فحوّلت إعادة كتابة شاملة
 لـ 647 موقعًا إلى 59 إصلاحًا حقيقيًا ووفّرت أكثر من 130 اختبارًا ناجحًا.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="campaign-shape-dozens-of-workers-several-waves-hours">شكل الحملة (عشرات العمال، عدة موجات، ساعات)<a href="#campaign-shape-dozens-of-workers-several-waves-hours" class="hash-link" aria-label="رابط مباشر إلى شكل الحملة (عشرات العمال، عدة موجات، ساعات)" title="رابط مباشر إلى شكل الحملة (عشرات العمال، عدة موجات، ساعات)" translate="no">​</a></h3>
@@ -135,8 +134,8 @@ corpora) واكتب ملف <code>BRIEF.md</code> واحدًا مشتركًا ب�
 commits على فرعه، لم ينهِ عمله؛ ابحث عن فروعه الفرعية أو أعد نشره باستخدام
 worktree والفرق <bdi class="term">(diff)</bdi> الخاصين بسلفه.</li>
 <li>الدمج لكل جولة: جمّد SHA أساسيًا، أعد ترتيب <bdi class="term">(rebase)</bdi> الفروع النظيفة آليًا،
-وأعطِ كل فرع متعارض عامل rebase خاصًا به ("سلوك main هو الفائز، يُعاد تطبيقه
-داخل البنية الجديدة")، وادمج على فرع تكامل واحد، وشغّل مجموعة الاختبارات
+وأعطِ كل فرع متعارض عامل rebase خاصًا به (&quot;سلوك main هو الفائز، يُعاد تطبيقه
+داخل البنية الجديدة&quot;)، وادمج على فرع تكامل واحد، وشغّل مجموعة الاختبارات
 الكاملة على الشجرة المدمجة. التصادمات التي نجح فيها كل فرع بمفرده تظهر هنا
 فقط. تتفرّع الجولة التالية من الالتزام <bdi class="term">(commit)</bdi> المُدمَج بحيث لا يمكن لعمالها
 التعارض مع بعضهم.</li>
@@ -144,7 +143,7 @@ worktree والفرق <bdi class="term">(diff)</bdi> الخاصين بسلفه.<
 يساوي صفرًا لكل فرع. يواصل العمال الالتزام <bdi class="term">(commit)</bdi> بعد دمج طرفهم؛ وقد
 تُركت 168 commit عبر ست شرائح مرة على هذا النحو.</li>
 <li>تشغيلات الاختبار: مُشغِّل واحد فقط على الجهاز، خلف ملف قفل <bdi class="term">(lock file)</bdi>، بقيمة
-<code>-j</code> عالية. المُشغِّلات المتوازية العديدة بقيمة <code>-j</code> منخفضة كانت أبطأ وقتلت
+ <code>-j</code> عالية. المُشغِّلات المتوازية العديدة بقيمة <code>-j</code> منخفضة كانت أبطأ وقتلت
 مجموعات عمليات بعضها البعض. تُعاد تجربة الملفات الفاشلة <bdi class="term">(red)</bdi> على worktree نظيف
 لـ <code>origin/main</code> في نفس الـ venv؛ مجموعات الإخفاقات المتطابقة لكل ملف موجودة
 مسبقًا وليست ناتجة عنك.</li>
@@ -153,11 +152,11 @@ worktree والفرق <bdi class="term">(diff)</bdi> الخاصين بسلفه.<
 بلا commits، ثم يلتزم الوالد بالدمج مرة واحدة. لا تُشغَّل CI أبدًا على PR
 متعارض، لذا أعد دمج main قبل كل push.</li>
 <li>ضمان الجودة الحي <bdi class="term">(Live QA)</bdi> موجة قائمة بذاتها: فرقة واحدة لكل واجهة، مع
-<code>HERMES_HOME</code> معزول، وتوقّع مكتوب قبل الفحص، وأدلة على القرص، وتقرير فقط، ولا
+ <code>HERMES_HOME</code> معزول، وتوقّع مكتوب قبل الفحص، وأدلة على القرص، وتقرير فقط، ولا
 يُحتسب انحدارًا <bdi class="term">(regression)</bdi> سوى فرق بين PR و main. اختبارات الوحدة الناجحة
 فاتها P0 واحد (مسار كود بعد تسجيل الدخول لم يغطّه أي اختبار).</li>
 <li>ادعاءات المراجع تُعامَل معاملة ادعاءات الأبناء نفسها: قارن A/B مقابل الأساس
-قبل "استعادة" أي شيء. سلوك عدة فروقات مراجعة صيغت بثقة كان كذلك أصلًا على
+قبل &quot;استعادة&quot; أي شيء. سلوك عدة فروقات مراجعة صيغت بثقة كان كذلك أصلًا على
 الأساس.</li>
 <li>يحتاج إعادة تشغيل الوالد إلى <code>HANDOFF.md</code>: سبب توقفه، وأي المقابض <bdi class="term">(handles)</bdi> ميتة،
 وبطاقة أداء لكل فرع (فرق LOC، فحص الاستيراد smoke، الاختبارات الموجّهة)، ونص
@@ -171,11 +170,11 @@ worktree والفرق <bdi class="term">(diff)</bdi> الخاصين بسلفه.<
 <li>الوعد بديمومة الخلفية لأيام من <code>delegate_task</code>: فهي محصورة بالدور <bdi class="term">(turn-scoped)</bdi>
 وتموت مع العملية. الرسم البياني الدائم = سرب Kanban؛ لمرة واحدة = <code>cronjob</code>.</li>
 <li>الوثوق بـ <code>summary</code> للمحتوى، أو بـ <code>status=completed</code> للاكتمال.</li>
-<li>نفس الصياغة في كل محاولة "مستقلة": فتنهار إلى إجابة واحدة.</li>
+<li>نفس الصياغة في كل محاولة &quot;مستقلة&quot;: فتنهار إلى إجابة واحدة.</li>
 <li><code>git stash</code> في أي مكان داخل حملة worktree: <code>refs/stash</code> مشترك بين جميع
 الـ worktrees وسيسحب عامل آخر تعديلاتك. قارن عبر worktree مؤقت بدلًا من ذلك.</li>
-<li>الإبلاغ عن بلوغ الهدف بينما الرقم الصادق أقل. قل "16% حتى الآن، وهذا هو
-المسار إلى 30%" وشغّل الجولة التالية.</li>
+<li>الإبلاغ عن بلوغ الهدف بينما الرقم الصادق أقل. قل &quot;16% حتى الآن، وهذا هو
+المسار إلى 30%&quot; وشغّل الجولة التالية.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق<a href="#verification" class="hash-link" aria-label="رابط مباشر إلى التحقق" title="رابط مباشر إلى التحقق" translate="no">​</a></h2>
 <ul>

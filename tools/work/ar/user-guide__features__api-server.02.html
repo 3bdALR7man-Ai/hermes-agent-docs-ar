@@ -1,0 +1,23 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compatible-frontends">الواجهات الأمامية المتوافقة</h2>
+<p>تعمل أي واجهة أمامية تدعم صيغة OpenAI API. التكاملات المختبرة/الموثّقة:</p>
+<table><thead><tr><th>الواجهة الأمامية</th><th>النجوم</th><th>طريقة الاتصال</th></tr></thead><tbody><tr><td><a href="/docs/user-guide/messaging/open-webui">Open WebUI</a></td><td>126k</td><td>يتوفر دليل كامل</td></tr><tr><td>LobeChat</td><td>73k</td><td>endpoint مزوّد مخصص</td></tr><tr><td>LibreChat</td><td>34k</td><td>endpoint مخصص في librechat.yaml</td></tr><tr><td>AnythingLLM</td><td>56k</td><td>مزوّد OpenAI عام (Generic)</td></tr><tr><td>NextChat</td><td>87k</td><td>متغير البيئة BASE_URL</td></tr><tr><td>ChatBox</td><td>39k</td><td>إعداد API Host</td></tr><tr><td>Jan</td><td>26k</td><td>إعدادات النموذج البعيد</td></tr><tr><td>HF Chat-UI</td><td>8k</td><td>OPENAI_BASE_URL</td></tr><tr><td>big-AGI</td><td>7k</td><td>endpoint مخصص</td></tr><tr><td>OpenAI Python SDK</td><td>—</td><td><code>OpenAI(base_url=&quot;http://localhost:8642/v1&quot;)</code></td></tr><tr><td>curl</td><td>—</td><td>طلبات HTTP مباشرة</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-user-setup-with-profiles">إعداد متعدد المستخدمين باستخدام Profiles</h2>
+<p>لمنح عدة مستخدمين نسخة Hermes معزولة خاصة بكل منهم (إعدادات وذاكرة ومهارات منفصلة)، استخدم <a href="/docs/user-guide/profiles">الـ profiles</a>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>يُعلن خادم API الخاص بكل profile تلقائيًا عن اسم الـ profile بوصفه معرّف النموذج:</p>
+<ul>
+<li><code>http://localhost:8643/v1/models</code> → النموذج <code>alice</code></li>
+<li><code>http://localhost:8644/v1/models</code> → النموذج <code>bob</code></li>
+</ul>
+<p>في Open WebUI ، أضف كلًّا منها كاتصال منفصل. ستعرض القائمة المنسدلة للنماذج <code>alice</code> و <code>bob</code> كنموذجين مختلفين، يعتمد كلٌّ منهما على نسخة Hermes معزولة تمامًا. راجع <a href="/docs/user-guide/messaging/open-webui#multi-user-setup-with-profiles">دليل Open WebUI</a> لمزيد من التفاصيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>تخزين الاستجابات</strong> — تُحفظ الاستجابات المخزّنة (الخاصة بـ <code>previous_response_id</code>) في SQLite وتبقى بعد إعادة تشغيل gateway. الحد الأقصى 100 استجابة مخزّنة (مع الإزالة وفق LRU).</li>
+<li><strong>لا يوجد رفع للملفات</strong> — الصور المضمّنة مدعومة على كلٍّ من <code>/v1/chat/completions</code> و <code>/v1/responses</code>، لكن الملفات المرفوعة (<code>file</code>, <code>input_file</code>, <code>file_id</code>) ومدخلات المستندات غير المصوّرة غير مدعومة عبر API.</li>
+<li><strong>عملاء OpenAI البسيطة ما زالت ترى اسمًا مستعارًا</strong> — <code>/v1/models</code> عن
+الاسم المستعار الثابت لـ Hermes (<code>hermes-agent</code> أو اسم الـ profile النشط). أما العملاء
+الأغنى بالميزات فيمكنها إرسال تجاوزات صريحة لـ <code>provider</code> / <code>model_options</code> في الطلبات.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="proxy-mode">Proxy Mode</h2>
+<p>يعمل خادم API أيضًا كـ backend لوضع <strong>وضع proxy في gateway</strong>. فعندما تُضبط نسخة Hermes gateway أخرى بـ <code>GATEWAY_PROXY_URL</code> يشير إلى خادم API هذا، فإنها تُعيد توجيه جميع الرسائل إليه بدلًا من تشغيل وكيلها الخاص. وهذا يتيح عمليات نشر مقسّمة — مثل حاوية Docker تتولى Matrix E2EE وتمرّر الرسائل إلى وكيل يعمل على الجهاز المضيف.</p>
+<p>راجع <a href="/docs/user-guide/messaging/matrix#proxy-mode-e2ee-on-macos">Proxy Mode في Matrix</a> للاطلاع على دليل الإعداد الكامل.</p>

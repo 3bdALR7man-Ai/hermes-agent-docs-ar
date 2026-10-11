@@ -53,9 +53,8 @@ CDP في الـ backend لكل مهمة متصفح، وبإظهار مربعات
 وهي متساوية الأثر (idempotent).</li>
 <li><strong>الإيقاف:</strong> عند تفكيك الجلسة أو تنفيذ <code>/browser disconnect</code>. يُلغي مهمة asyncio،
 ويغلق اتصال WebSocket، ويتخلّص من الحالة.</li>
-<li><strong>إعادة الربط:</strong> إذا تغيّر CDP URL (أعاد المستخدم الاتصال بنسخة Chrome جديدة)،
-يُوقَف المشرف القديم ويُشغَّل مشرف جديد — ولا يُعاد استخدام الحالة أبدًا
-بين endpoints مختلفة.</li>
+<li><strong>انقطاع endpoint:</strong> بعد ارتباط ناجح، يعيد المشرف الاتصال مع تأخير متزايد (≤10 s)، لكنه يتوقف بعد <code>MAX_POST_ATTACH_RECONNECT_FAILURES</code> من الإخفاقات المتتالية — تحذير أخير واحد، ثم يخرج الخيط وتُحذف المدخلة من السجل. لذا لا يترك Chrome محلي متوقف (انتهت مهمته) خيطًا يواصل إعادة المحاولة؛ ويبدأ استدعاء المتصفح التالي مشرفًا جديدًا.</li>
+<li><strong>إعادة الربط:</strong> إذا تغيّر CDP URL (أعاد المستخدم الاتصال بـ Chrome جديد)، يُوقف المشرف القديم ويُبدأ آخر جديد — لا تُعاد الحالة بين endpoints أبدًا.</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dialog-policy">سياسة مربعات الحوار</h3>
 <p>يمكن ضبطها عبر <code>config.yaml</code> تحت المفتاح <code>browser.dialog_policy</code>:</p>
@@ -70,9 +69,21 @@ CDP في الـ backend لكل مهمة متصفح، وبإظهار مربعات
 سير العمل مغادرة الصفحة بسلاسة).</li>
 </ul>
 <p>السياسة محدّدة لكل مهمة؛ ولا توجد تجاوزات لكل مربع حوار على حدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trusted-plugin-cdp-access">وصول الإضافات الموثوقة إلى CDP</h2>
+<p>يمكن لكود الإضافات داخل العملية إرسال أوامر CDP خام عبر اتصال المشرف الخاص بمهمة بواسطة استدعاء عام واحد، بدلًا من الكتابة في جدول استدعاءات المشرف الخاص أو socket الخاص به:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<ul>
+<li><code>SUPERVISOR_REGISTRY.capture(task_id, *, timeout=10.0) -&gt; CapturedCDP</code> يثبّت WebSocket الحالي للمشرف وجلسة الصفحة الافتراضية المرتبطة به. لا يبدأ مشرفًا ولا يعيد الاتصال به أو توجيه تركيزه أبدًا.</li>
+<li><code>CapturedCDP.call(method, params=None, *, session_id=None, timeout=10.0, before_send=None) -&gt; dict</code> يعيد رد CDP الخام (<code>{&quot;id&quot;, &quot;result&quot;}</code>). <code>session_id=None</code> يستهدف endpoint المتصفح (<code>Target.*</code>)؛ مرّر <code>page_session_id</code> أو جلسة ربطتها بنفسك لنطاقات الصفحة. يثير رد خطأ CDP الاستثناء <code>RuntimeError</code>؛ وعدم الرد ضمن مهلة <code>timeout</code> محدودة يثير <code>TimeoutError</code>. تقيد المهل المحدودة قبول قائمة الانتظار بموعد نهائي رتيب. قيمة <code>timeout=None</code> تحتفظ بالرد حتى الاستجابة أو إغلاق الاتصال؛ ويمكن لمالكي عملية الحصول الاحتفاظ بمعرّفات ارتباط متأخرة للتنظيف بعد موعدهم الخارجي النهائي. يحجب الاستدعاء خيطه، لذا استدعِه من خيط عامل، لا من حلقة الأحداث الخاصة بالمشرف أبدًا.</li>
+<li><code>CapturedCDP.is_valid()</code> تظل true حتى يعيد المشرف الاتصال، أو يتوقف، أو يُستبدل في السجل. بعدها يثير كل <code>call</code> الاستثناء <code>CapturedCDPInvalid</code>، بما فيه استدعاء كان جاريًا عند انقطاع socket. لا يتبع handle المشرف إلى اتصال جديد أبدًا: التقطه مجددًا وأعد فحص أي حالة تعتمد عليها.</li>
+<li><code>page_session_id</code> هي جلسة الصفحة الافتراضية عند الالتقاط. لا يغيّرها <code>focus_page</code> لاحق على المشرف.</li>
+<li>الجلسات التي تربطها (<code>Target.attachToTarget</code>) تقع مسؤولية فصلها عليك. يُسقط الرد الذي يصل بعد <code>timeout</code>، لذا قد يترك ارتباط انتهت مهلته جلسةً مرتبطةً حتى يُغلق الاتصال. استخدم <code>timeout=None</code> مع عامل حصول محتفَظ به لتملّك الردود المتأخرة وفصلها، بدلًا من تخمين مهلة كبيرة.</li>
+<li><code>before_send</code> مدقق موثوق متزامن لا يحجب التنفيذ، يعمل على حلقة المشرف مباشرةً قبل الإرسال. أعِد <code>None</code>، أو أثِر استثناءً للرفض؛ لا تستدعِ APIs الالتقاط/CDP منه. لا يلغي أوامر أُرسلت بالفعل.</li>
+</ul>
+<p>هذه نقطة توسعة موثوقة داخل العملية. لا تمنح شيئًا لا تستطيع Python داخل العملية الوصول إليه أصلًا، ولا تفرض سياسة للأصل أو الموافقة أو ملكية الهدف: على إضافة تتصرف في الصفحات فرض سياستها الخاصة. لا تُتاح كأداة للنموذج، ولا تملك مفتاح إعدادات.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-surface">الواجهة المتاحة للوكيل</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser_dialog-tool">أداة <code>browser_dialog</code></h3>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
 <ul>
 <li><code>action=&quot;accept&quot;</code> / <code>&quot;dismiss&quot;</code> → يستجيب لمربع الحوار المحدَّد أو لمربع الحوار المعلّق الوحيد (إلزامي)</li>
 <li><code>prompt_text=...</code> → النص الذي يُمرَّر إلى مربع حوار <code>prompt()</code></li>
@@ -83,7 +94,7 @@ CDP في الـ backend لكل مهمة متصفح، وبإظهار مربعات
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser_snapshot-extension">امتداد <code>browser_snapshot</code></h3>
 <p>يضيف ثلاثة حقول اختيارية إلى مخرجات اللقطة الحالية عندما يكون هناك مشرف
 مرتبط:</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
 <ul>
 <li>
 <p><strong><code>pending_dialogs</code></strong> — مربعات الحوار التي تحجب حاليًا خيط JS الخاص بالصفحة.
@@ -125,10 +136,11 @@ URL الموقَّع، بينما يحافظ اتصال المشرف طويل ا
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-layout">تنظيم الملفات</h2>
 <ul>
 <li><code>tools/browser_supervisor.py</code> — <code>CDPSupervisor</code>، <code>SupervisorRegistry</code>، <code>PendingDialog</code>، <code>FrameInfo</code></li>
-<li><code>tools/browser_dialog_tool.py</code> — معالج أداة <code>browser_dialog</code></li>
-<li><code>tools/browser_tool.py</code> — hook البدء في <code>browser_navigate</code>، ودمج <code>browser_snapshot</code>، وإعادة الارتباط في <code>/browser connect</code>، وتفكيك الجلسة في <code>_cleanup_browser_session</code></li>
+<li><code>tools/browser_supervisor_capture.py</code>، <code>CapturedCDP</code>، <code>CapturedCDPInvalid</code>، ونقطة وصول CDP للإضافات الموثوقة وراء <code>SUPERVISOR_REGISTRY.capture</code></li>
+<li><code>tools/browser_dialog_tool.py</code> — معالج أداة <code>browser_dialog</code> معالج الأداة</li>
+<li><code>tools/browser_tool.py</code> — hook البدء في <code>browser_navigate</code> hook بدء، و <code>browser_snapshot</code> دمج، و <code>/browser connect</code> إعادة ارتباط، و <code>_cleanup_browser_session</code> إنهاء</li>
 <li><code>toolsets.py</code> — يسجّل <code>browser_dialog</code> في <code>browser</code> و <code>hermes-acp</code> و <code>hermes-api-server</code> والـ toolsets الأساسية (بشرط إمكانية الوصول إلى CDP)</li>
-<li><code>hermes_cli/config.py</code> — القيم الافتراضية لـ <code>browser.dialog_policy</code> و <code>browser.dialog_timeout_s</code></li>
+<li><code>hermes_cli/config.py</code> — القيم الافتراضية لـ <code>browser.dialog_policy</code> و <code>browser.dialog_timeout_s</code> القيم الافتراضية</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="non-goals">خارج النطاق</h2>
 <ul>

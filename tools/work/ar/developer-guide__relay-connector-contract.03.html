@@ -1,0 +1,36 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-gateway-side-platform-behavior-controls-enterprise">8. ضوابط سلوك المنصة من جهة Gateway (المؤسسات)</h2>
+<p>تضبط عمليات النشر المؤسسية سلوك المنصة التي تتقدّمها الواجهة على جانب GATEWAY،
+ضمن <code>platforms.relay.extra.&lt;platform&gt;</code> — وهي مجموعة فرعية مدعومة من الخيارات
+الأصلية لتلك المنصة. لا تُقرأ كتلة المنصة الأصلية (مثل <code>platforms.slack</code>)
+في مسار relay؛ بل يتلقى connector <em>نتيجة</em> هذه
+الضوابط كبيانات وصفية للإطارات (§4) وينفّذها آليًا — ولا يحمل
+سياسة خاصة به لسلوك المنصة.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تحديد القيمة: يتقدّم كائن <code>extra.&lt;platform&gt;</code> المتداخل → يُستخدم المفتاح المسطّح القديم ضمن <code>extra</code> كقيمة احتياطية → ثم القيمة الافتراضية. مصدر الحقيقة: <code>RelayAdapter._effective_reply_in_thread</code> (<code>gateway/relay/adapter.py</code>).
+تُحوَّل أنواع القيم بالطريقة نفسها تمامًا التي يستخدمها محوّل Slack الأصلي — تُعدّ <code>1/true/yes/on</code> (دون حساسية لحالة الأحرف وبعد حذف المسافات الطرفية) تفعيلًا، وكل ما عداها تعطيلًا — لذا فإن
+قيمة <code>&quot;false&quot;</code> المحاطة بعلامتي اقتباس في YAML تعطّل الخيار بدل تفسيرها كسلسلة نصية
+صحيحة منطقيًا.</p>
+<p>الضوابط الحالية (Slack):</p>
+<table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>الأثر</th></tr></thead><tbody><tr><td><code>reply_in_thread</code></td><td><code>true</code></td><td><code>true</code>: سلسلة لكل رسالة — تؤسس كل رسالة DM على المستوى الأعلى سلسلة خاصة بها (تحمل الحالة والتقدّم والمطالبات والرد النهائي كلها قيمة <code>metadata.thread_id</code> نفسها). <code>false</code>: DM مسطّحة مستمرة — لا تحمل إطارات مسار الإرسال أي مرساة لسلسلة (تُزال، لا تُترك دون تحديد)، مع جلسة مشتركة واحدة لكل DM.</td></tr><tr><td><code>dm_top_level_threads_as_sessions</code></td><td><code>true</code></td><td>خيار استثنائي لتحقيق التكافؤ مع السلوك الأصلي (يحاكي <code>platforms.slack.extra.dm_top_level_threads_as_sessions</code>). <code>true</code>: في وضع السلسلة لكل رسالة، تحدد كل رسالة DM على المستوى الأعلى جلسة خاصة بها، فتعمل الرسائل المتزامنة بالتوازي. <code>false</code>: يُحتفَظ بوضع الردود في سلاسل، لكن تُتجاوَز بصمة الجلسة — فتظل جلسة DM واحدة مستمرة (سلوك steer/queue القديم). لا تأثير له في الوضع المسطّح الذي يحتفظ دائمًا بجلسة واحدة مستمرة.</td></tr></tbody></table>
+<p>تحمل إطارات الكتابة/الحالة دائمًا مرساة triggering-ts عند معرفتها
+(إظهار النشاط غير مشروط في كلا الوضعين): سطر الحالة في Slack
+خاص بالسلسلة، وفي الوضع المسطّح يضمن حذف المرساة من جانب الإرسال
+ألا تتسرّب مرساة الحالة أبدًا إلى موضع الرد. لدلالات المفتاح
+الأصلي، راجع <a href="/docs/user-guide/messaging/slack">Slack</a>.</p>
+<p>ينطبق تحديد مرساة السلسلة على كل مسارات الإرسال — النص (<code>send</code>) والوسائط
+(<code>send_media</code>) على السواء — عبر نقطة تحكّم واحدة
+(<code>RelayAdapter._apply_slack_thread_anchor</code>). تخرج إطارات الوسائط عبر مُرسِل Slack نفسه
+من جهة connector، وهو يضع الرسائل في سلاسل وفق <code>metadata.thread_id</code> وحدها، لذا
+يُحدَّد ارتباط المرفق بالطريقة نفسها المستخدمة للرد النصي: يُرفَع إلى
+البيانات الوصفية في وضع السلسلة لكل رسالة، ويُحذَف في الوضع المسطّح.</p>
+<p>تسري التغييرات عند إعادة تشغيل gateway؛ ولا يتدخل connector في ذلك.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-versioning-policy">9. سياسة الإصدارات</h2>
+<ul>
+<li><code>contract_version</code> عدد صحيح؛ زِد قيمته <strong>فقط</strong> للتغييرات الإضافية خلال
+المرحلة التجريبية (حقول اختيارية جديدة وقيم <code>op</code> جديدة).</li>
+<li>يتطلب التغيير غير المتوافق (إعادة تسمية حقل أو حذفه أو تغيير دلالته)
+تحديثًا منسقًا لكلا المستودعين وزيادة رقم الإصدار.</li>
+<li>يشير أول PR للـ connector إلى SHA الخاص بـ commit لهذا الملف
+الذي يستند إليه في التنفيذ.</li>
+</ul>

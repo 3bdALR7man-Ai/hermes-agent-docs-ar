@@ -1,20 +1,42 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="redirecting-the-agent-mid-turn">إعادة توجيه الوكيل في منتصف الدور</h2>
+<p>أثناء عمل الوكيل، يمكنك إرسال تصحيح دون بدء دور جديد:</p>
+<ul>
+<li><strong>اكتب رسالة جديدة + Enter</strong> — يعيد توجيه الدور النشط باستخدام تصحيحك</li>
+<li><strong><code>Ctrl+C</code></strong> — قاطع العملية الحالية (اضغط مرتين خلال 2s لفرض الخروج)</li>
+<li>يبقى عمل الأدوات المكتمل والاستدلال المعروض مسبقًا في السياق</li>
+<li>تصل الأداة قيد التشغيل إلى نقطة توقف آمنة قبل تطبيق التصحيح</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="busy-input-mode">وضع الإدخال أثناء الانشغال (Busy Input Mode)</h3>
+<p>يتحكم مفتاح الإعدادات <code>display.busy_input_mode</code> فيما يحدث عند الضغط على Enter أثناء عمل الوكيل:</p>
+<table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>&quot;interrupt&quot;</code> (الافتراضي)</td><td>تعيد رسالتك توجيه الدور النشط. يُعاد بدء توليد النموذج مع الحفاظ على الاستدلال المعروض والعمل المكتمل. ويُنقل أمر الطرفية الجاري في المقدمة إلى الخلفية (دون إنهائه — وستتلقى إشعارًا عند اكتماله) حتى تُقرأ رسالتك فورًا؛ أما الأدوات الأخرى قيد التشغيل فتنتهي أولًا</td></tr><tr><td><code>&quot;queue&quot;</code></td><td>توضع رسالتك في قائمة الانتظار بصمت وتُرسل كدور تالٍ بعد أن ينتهي الوكيل</td></tr><tr><td><code>&quot;steer&quot;</code></td><td>تُحقن رسالتك في التشغيل الحالي عبر <code>/steer</code>، فتصل إلى الوكيل بعد استدعاء الأداة التالي — دون مقاطعة، ودون دور جديد</td></tr></tbody></table>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>يُجهّز وضع <code>&quot;queue&quot;</code> دور متابعة منفصلًا. أما <code>&quot;steer&quot;</code> فينتظر دائمًا حدّ نتيجة الأداة التالية. ويستجيب الوضع الافتراضي <code>&quot;interrupt&quot;</code> بشكل أسرع أثناء توليد النموذج مع تجنب إلغاء أداة قيد التشغيل؛ إذ يُسلَّم أمر <code>terminal</code> طويل يعمل في المقدمة (عملية بناء، أو أداة استطلاع poller) إلى الخلفية حتى يرى الوكيل رسالتك فورًا بدلًا من انتظار انتهاء الأمر. استخدم <code>/stop</code> عندما تريد إلغاء الدور والعمل الجاري في المقدمة. وتعود القيم غير المعروفة إلى <code>&quot;interrupt&quot;</code>.</p>
+<p>لدى <code>&quot;steer&quot;</code> سلوكان احتياطيان تلقائيان: إذا لم يكن الوكيل قد بدأ بعد، أو إذا كانت هناك صور مرفقة، تعود الرسالة إلى سلوك <code>&quot;queue&quot;</code> حتى لا يُفقد شيء.</p>
+<p>مهما كان الوضع، فإن <code>/queue &lt;prompt&gt;</code> يضع دور متابعة في قائمة الانتظار صراحةً، وتعمل <code>/queue list</code>, <code>/queue rm N</code>, <code>/queue edit N …</code> و <code>/queue move A B</code> على قائمة الانتظار المعلّقة فورًا، حتى أثناء التشغيل. يعرض جزء العمل الحي ما ينتظر.</p>
+<p>يمكنك تغييره داخل CLI أيضًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>تلميح الاستخدام الأول</div><div class="admonitionContent_BuS1"><p>في المرة الأولى التي تضغط فيها Enter أثناء عمل Hermes، يطبع Hermes تذكيرًا من سطر واحد يشرح إعداد <code>/busy</code>. لا يظهر هذا التذكير إلا مرة واحدة لكل تثبيت؛ ويسجّل <code>onboarding.seen.busy_input_prompt</code> في <code>config.yaml</code> أنه قد عُرض. احذف هذا المفتاح لرؤية التلميح مجددًا.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="suspending-to-background">التعليق والنقل إلى الخلفية</h3>
+<p>على أنظمة Unix، اضغط <strong><code>Ctrl+Z</code></strong> لتعليق Hermes ونقله إلى الخلفية — تمامًا مثل أي عملية في الطرفية. تطبع الـ shell رسالة تأكيد:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>اكتب <code>fg</code> في الـ shell لاستئناف الجلسة من حيث توقفت تمامًا. هذه الميزة غير مدعومة على Windows.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-progress-display">عرض تقدّم الأدوات</h2>
 <p>يعرض CLI مؤشرات متحركة أثناء عمل الوكيل:</p>
 <p><strong>حركة التفكير</strong> (أثناء استدعاءات API):</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
-<p><strong>سجل تنفيذ الأدوات:</strong></p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><strong>سجل تنفيذ الأدوات:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <p>تنقّل بين أوضاع العرض باستخدام <code>/verbose</code>: <code>off → new → all → verbose</code>. ويمكن أيضًا تفعيل هذا الأمر لمنصات المراسلة — راجع <a href="/docs/user-guide/configuration#display-settings">الإعدادات</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-preview-length">طول معاينة الأدوات</h3>
 <p>يتحكم مفتاح الإعدادات <code>display.tool_preview_length</code> في الحد الأقصى لعدد الأحرف المعروضة في أسطر معاينة استدعاءات الأدوات (مثل مسارات الملفات وأوامر الطرفية). القيمة الافتراضية هي <code>0</code>، وتعني عدم وجود حد — فتُعرض المسارات والأوامر كاملة.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
 <p>يفيد هذا في الطرفيات الضيقة أو عندما تحتوي وسائط الأدوات على مسارات ملفات طويلة جدًا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-management">إدارة الجلسات</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resuming-sessions">استئناف الجلسات</h3>
 <p>عند الخروج من جلسة CLI، يُطبع أمر الاستئناف:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
 <p>خيارات الاستئناف:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
 <p>يستعيد الاستئناف سجل المحادثة الكامل من SQLite. يرى الوكيل جميع الرسائل السابقة واستدعاءات الأدوات والردود — تمامًا كما لو أنك لم تغادر قط.</p>
 <p>استخدم <code>/title My Session Name</code> داخل المحادثة لتسمية الجلسة الحالية، أو <code>hermes sessions rename &lt;id&gt; &lt;title&gt;</code> من سطر الأوامر. واستخدم <code>hermes sessions list</code> لتصفح الجلسات السابقة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-storage">تخزين الجلسات</h3>
@@ -28,15 +50,15 @@
 <p>تحتفظ بعض محوّلات المراسلة (adapters) أيضًا بملفات نصوص المحادثات لكل منصة إلى جانب قاعدة البيانات، لكن CLI نفسه يستأنف الجلسات من مخزن جلسات SQLite.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-compression">ضغط السياق</h3>
 <p>تُلخَّص المحادثات الطويلة تلقائيًا عند الاقتراب من حدود السياق:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
 <p>عند بدء الضغط، تُلخَّص الأدوار الوسطى بينما يُحتفظ دائمًا بأول 3 أدوار وآخر 20 دورًا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-sessions">الجلسات في الخلفية</h2>
 <p>شغّل prompt في جلسة منفصلة في الخلفية بينما تواصل استخدام CLI لأعمال أخرى:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
-<p>يؤكد Hermes المهمة فورًا ويعيد إليك سطر الإدخال:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>يؤكد Hermes المهمة فورًا ويعيد إليك سطر الإدخال:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
-<p>يُطلق كل prompt عبر <code>/bg</code> <strong>جلسة وكيل منفصلة تمامًا</strong> في خيط daemon:</p>
+<p>يُطلق كل prompt عبر <code>/bg</code> ينشئ <strong>جلسة وكيل منفصلة تمامًا</strong> في خيط daemon:</p>
 <ul>
 <li><strong>محادثة معزولة</strong> — لا يعرف الوكيل العامل في الخلفية شيئًا عن سجل جلستك الحالية. فهو لا يتلقى إلا الـ prompt الذي تقدّمه.</li>
 <li><strong>الإعدادات نفسها</strong> — يرث الوكيل العامل في الخلفية من الجلسة الحالية النموذج، والمزوّد، والـ toolsets، وإعدادات الاستدلال (reasoning)، والنموذج الاحتياطي (fallback).</li>
@@ -45,7 +67,7 @@
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="results">النتائج</h3>
 <p>عندما تنتهي مهمة تعمل في الخلفية، تظهر النتيجة كلوحة في الطرفية:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
 <p>إذا فشلت المهمة، فسترى إشعار خطأ بدلًا من ذلك. وإذا كان <code>display.bell_on_complete</code> مفعّلًا في إعداداتك، يرن جرس الطرفية عند انتهاء المهمة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="use-cases">حالات الاستخدام</h3>
 <ul>
@@ -53,7 +75,7 @@
 <li><strong>معالجة الملفات</strong> — &quot;/bg حلّل جميع ملفات Python في هذا المستودع واذكر أي مشكلات أمنية&quot; بينما تواصل محادثة</li>
 <li><strong>التحقيقات المتوازية</strong> — ابدأ عدة مهام في الخلفية لاستكشاف زوايا مختلفة في وقت واحد</li>
 </ul>
-<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لا تظهر الجلسات العاملة في الخلفية في سجل محادثتك الرئيسية. فهي جلسات مستقلة لكل منها معرّف مهمة خاص بها (مثل <code>bg_143022_a1b2c3</code>).</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لا تظهر الجلسات العاملة في الخلفية في سجل محادثتك الرئيسية. فهي جلسات مستقلة لكل منها معرّف مهمة خاص بها (مثل <code>bg_143022_a1b2c3</code>).</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quiet-mode">الوضع الهادئ (Quiet Mode)</h2>
 <p>يعمل CLI افتراضيًا في الوضع الهادئ الذي:</p>
 <ul>
@@ -62,4 +84,4 @@
 <li>يُبقي المخرجات نظيفة وسهلة الاستخدام</li>
 </ul>
 <p>للحصول على مخرجات تصحيح الأخطاء (debug):</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>

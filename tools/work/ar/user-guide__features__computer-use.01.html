@@ -1,3 +1,43 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li><strong>الأداء.</strong> وضع الخلفية أبطأ من العمل في المقدمة — تستغرق الأحداث الموجّهة عبر إمكانية الوصول نحو 5–20 ms على macOS، ونحو 3–10 ms على Windows UIA، ونحو 5–15 ms على Linux AT-SPI، مقارنةً بالإرسال المباشر عبر HID. لا يُلاحظ ذلك في النقر بسرعة الوكيل، لكنه ملحوظ إذا حاولت تسجيل speed-run.</li>
+<li><strong>لا إدخال لكلمات المرور عبر لوحة المفاتيح.</strong> لدى <code>type</code> أنماط حظر صارمة على حمولات أوامر الـ shell؛ أما كلمات المرور فاستخدم لها الملء التلقائي في النظام (macOS Keychain / Windows Credential Manager / GNOME Keyring / KWallet).</li>
+<li><strong>بعض التطبيقات لا تكشف شجرة إمكانية الوصول.</strong> تطبيقات UWP الحديثة على Windows، و Electron &lt; 28 على Linux، وبعض تطبيقات macOS ذات الرسم المخصص (Logic و Final Cut وبعض الألعاب) لديها أشجار AX شحيحة أو فارغة. ارجع إلى إحداثيات البكسل إذا كانت الشجرة فارغة — أو تخطَّ المهمة كليًا.</li>
+<li><strong>Windows: لا يمكن التحكم في النوافذ ذات الصلاحيات المرتفعة (admin) من وكيل عادي.</strong> يفرض Windows UIPI (User Interface Privilege Isolation) حدودًا بين مستويات السلامة (integrity levels): فلا يمكن لعملية بمستوى Medium (وكيل Hermes الافتراضي) سرد شجرة UIA لنافذة تملكها عملية بمستوى High (Administrator)، ولا حقن إدخال الفأرة فيها. العَرَض: يعيد <code>capture(mode=&#x27;som&#x27;)</code> صفر عناصر، ويبلّغ <code>click(...)</code> بالنجاح دون أن يفعل شيئًا، رغم أن لقطة الشاشة تُعرض بشكل سليم (لأن التقاط GDI يقع أسفل فحص السلامة). تتجاوز أحداث لوحة المفاتيح UIPI جزئيًا، لذا يظل بإمكان Tab / Enter التنقل في مربع حوار مرتفع الصلاحيات. هذا قيد من نظام التشغيل وليس خطأً في cua-driver — وهو يؤثر في كل حزم الأتمتة على Windows. للتحكم في النوافذ مرتفعة الصلاحيات، شغّل وكيل Hermes نفسه بمستوى High (أطلقه من طرفية مرتفعة الصلاحيات)؛ وإلا فاستهدف النوافذ غير المرتفعة الصلاحيات.</li>
+<li><strong>Windows: <code>hermes computer-use doctor</code> يفشل برسالة &quot;Access is denied&quot; بينما تعمل الأداة.</strong> لا يمكن تشغيل cua-driver المثبَّت تحت <code>C:\Program Files\WindowsApps</code> بمفسّر venv الخاص بـ Hermes (WinError 5 من <code>CreateProcess</code>)، رغم أن الـ shell يعثر على الملف التنفيذي نفسه دون مشكلة. يعرض doctor ذلك الآن كتفسير تشخيصي بدلًا من traceback. أصلحه مرة واحدة: أعد التثبيت بالمُثبّت الأصلي (داخل profile مستخدمك)، أو اضبط <code>HERMES_CUA_DRIVER_CMD</code> على نسخة خارج <code>WindowsApps</code>.</li>
+<li><strong>محاذير النشر الخاصة بكل منصة:</strong>
+<ul>
+<li>يستخدم <strong>macOS</strong> واجهات SkyLight SPIs خاصة، وقد تغيّرها Apple في أي تحديث لنظام التشغيل. ويحذّر Hermes عندما يكون cua-driver المثبّت أقدم من الإصدار الذي اختُبر عليه.</li>
+<li>تعمل جلسات SSH على <strong>Windows</strong> في <strong>Session 0</strong>، التي لا تحتوي على سطح مكتب تفاعلي. شغّل Hermes من داخل جلسة RDP / console، أو اضبط مهمة Scheduled Task الخاصة بالتشغيل التلقائي في cua-driver — ستجد الطريقة في
+<a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>windows-ssh</a> يتضمن الخطوات.</li>
+<li>يتطلب <strong>Linux</strong> يتطلب خادم عرض يمكن الوصول إليه. تحصل الخوادم دون واجهة على واحد من <a href="/docs/user-guide/features/bot-screen">Bot Screen</a>: سطح مكتب Xfce لكل profile عبر TigerVNC، يُبث إلى Hermes Desktop، حيث يمكنك تولّي التحكم لتسجيل الدخول و 2FA. تبدأه من جزء Screen في Desktop أو <code>hermes computer-use screen start</code>؛ ولا يبدأ عند الاستخدام الأول (أول استدعاء <code>computer_use</code> أو استخدام متصفح ذي واجهة) إلا حين يُضبط <code>bot_desktop.auto_start: true</code> (معطّل افتراضيًا). تحتاج جلسات Wayland الخالصة إلى جسر XWayland لالتقاط الشاشة (يتعامل مسار حقن Wayland في cua-driver مع الإدخال بصورة مستقلة).</li>
+</ul>
+</li>
+</ul>
+<p>لأتمتة واجهات المستخدم الرسومية عبر المنصات دون عبء سطح المكتب (ودون إعداد TCC / Session 0 / X11)، يستخدم الـ toolset <code>browser</code> متصفح Chromium حقيقيًا بلا واجهة، وهو الخيار الصحيح لمهام الويب فقط.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
+<p>وضع الصلاحيات والـ manifest (راجع
+<a href="#permission-modes-and-logged-in-browser-profiles">أوضاع الصلاحيات</a> أعلاه):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>على Linux، يظل دعم Wayland الأصلي خيارًا يتطلب تفعيلًا صريحًا. يمرّر Hermes هذا التفعيل إلى كل عملية cua-driver، بما في ذلك جلسات الـ gateway، فقط عندما تمتلك تلك العملية أيضًا <code>WAYLAND_DISPLAY</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أعد تشغيل الـ gateway العامل بعد تغيير هذا الإعداد.</p>
+<p>تجاوز مسار الملف التنفيذي للمشغّل (للاختبارات / CI / البنايات المحلية):</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="windows-auto-start-opt-in">التشغيل التلقائي على Windows (اختياري)</h3>
+<p>على Windows، يمكن أن يعمل cua-driver من مهمة مجدولة عند كل إقلاع (<code>cua-driver-serve</code>) فيكون مستمعًا بالفعل عندما يحتاجه Hermes. هذه المهمة <strong>اختيارية</strong>: افتراضيًا، يبدأ Computer Use برنامج التشغيل عند الطلب لكل جلسة — تمامًا كما على macOS و Linux — ولا تُسجَّل مهمة مجدولة عند تثبيت toolset أو تفعيلها (#97389).</p>
+<p>اضبط هذا في <code>config.yaml</code> للاشتراك (تُسجَّل المهمة — أو تُصلَح — في المرة التالية التي يُثبَّت فيها برنامج التشغيل أو تُفعَّل toolset):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تحتاج إلى ذلك عند التحكم في Windows عبر SSH: لا تمتلك Session 0 سطح مكتب تفاعليًا، فلا يستطيع برنامج تشغيل عند الطلب الوصول إليه (يتضمن <a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>windows-ssh</a> الخطوات). إذا كانت المهمة موجودة وأردت إزالتها، فأزلها باستخدام <code>cua-driver autostart disable</code> (أو <code>schtasks /Delete /TN cua-driver-serve</code>) من shell بصلاحيات مرتفعة — لا يعيد Hermes تسجيلها عندما يكون <code>computer_use.autostart</code> بقيمة false.</p>
+<p>استبدل برنامج التشغيل بالكامل: يحدّد <code>computer_use.backend</code> في <code>config.yaml</code> المزوّد النشط الوحيد (<code>cua</code>، الافتراضي، أو إضافة مزوّد مثبّتة؛ راجع <a href="/docs/developer-guide/plugins#computer-use-backend-plugins">إضافات backend لـ Computer Use</a>).
+<code>hermes tools</code> → Computer Use يسرد كل مزوّد مثبّت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="telemetry">القياس عن بُعد (Telemetry)</h3>
+<p>يأتي cua-driver في مصدره الأصلي مع قياس عن بُعد مجهول الهوية للاستخدام (PostHog) مفعّل افتراضيًا. <strong>يعطّله Hermes نيابةً عنك</strong> — ففي كل استدعاء لـ cua-driver (الـ backend الخاص بـ MCP، و <code>status</code>، و <code>doctor</code>، والتثبيت) يضبط Hermes
+<code>CUA_DRIVER_RS_TELEMETRY_ENABLED=0</code> في بيئة المشغّل.</p>
+<p>لإعادة التفعيل (والسماح لـ cua-driver باستخدام إعداده الافتراضي وإرسال بيانات القياس)، اضبط ما يلي في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>عند التفعيل، يبلّغ <code>hermes computer-use doctor</code> بـ <code>telemetry: enabled</code>؛
+وعند الإيقاف (الافتراضي)، يبلّغ بـ <code>telemetry: disabled via CUA_DRIVER_RS_TELEMETRY_ENABLED</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing-against-a-local-cua-driver-build">الاختبار باستخدام بناء محلي لـ cua-driver</h2>
 <p>عندما تطوّر cua-driver نفسه — أو تريد اختبار إصلاح لم يُصدر بعد — وجّه Hermes إلى ملف تنفيذي بنيته من المصدر بدلًا من الإصدار المنشور. يحدد Hermes موقع المشغّل عبر
 <code>shutil.which(&quot;cua-driver&quot;)</code> و<strong>لا يفرض
@@ -31,7 +71,7 @@
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes--gotchas">ملاحظات ومزالق</h3>
 <ul>
-<li><strong>يُطلق Hermes وسيط stdio من نوع <code>cua-driver mcp</code>.</strong> في الجلسة العادية يتصل هذا الوسيط بخدمة daemon القياسية على الجهاز (وقد يشغّلها). أما في وضع YOLO الصريح في Hermes، فيمتلك Hermes بدلًا من ذلك عملية فرعية خاصة <code>cua-driver serve --embedded</code>
+<li><strong>يُطلق Hermes وسيط stdio من نوع <code>cua-driver mcp</code> كـ stdio proxy.</strong> في الجلسة العادية يتصل هذا الوسيط بخدمة daemon القياسية على الجهاز (وقد يشغّلها). أما في وضع YOLO الصريح في Hermes، فيمتلك Hermes بدلًا من ذلك عملية فرعية خاصة <code>cua-driver serve --embedded</code>
 ويوجّه الوسيط إلى الـ socket أو الـ named pipe الخاص بها. ولا يزال نمط autostart/UIAccess على Windows مهمًا للإدخال التفاعلي في Session 1+ عبر SSH — راجع قسم القيود.</li>
 <li><strong>الملف التنفيذي المقفل على Windows.</strong> قد تحتفظ خدمة daemon <code>cua-driver-serve</code> العاملة بالملف
 <code>cua-driver.exe</code> وتمنع استبداله عند إعادة البناء.
@@ -49,12 +89,14 @@
 شغّل <code>hermes computer-use install</code> لجلب الملف التنفيذي لـ cua-driver، أو
 شغّل <code>hermes tools</code> وفعّل toolset الخاص بـ Computer Use.</p>
 <p><strong>النقرات تبدو بلا أثر</strong> — التقط الشاشة وتحقق. قد تكون هناك نافذة منبثقة (modal) لم ترها تحجب الإدخال. أغلقها باستخدام <code>escape</code> أو زر الإغلاق.</p>
+<p><strong>macOS: تعرض System Settings أن CuaDriver في وضع ON، لكن <code>hermes computer-use permissions status</code> / <code>doctor</code> يبلّغان بأن Accessibility أو Screen Recording غير ممنوحة</strong> — التفويض المخزَّن قديم. تربط macOS كل صف صلاحية بمتطلب توقيع كود التطبيق؛ ويتوقف صف كُتب لإصدار CuaDriver أقدم عن المطابقة بعد تحديث برنامج التشغيل، ولا تعيد تبديلة الخيار كتابته. أعد ضبط الصفوف المتأثرة وامنح الصلاحيات مجددًا:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
 <p><strong>فهارس العناصر قديمة</strong> — فهارس SOM صالحة فقط حتى عملية
 <code>capture</code> التالية. أعد الالتقاط بعد أي إجراء يغيّر الحالة. يحمل الـ wrapper قيم <code>element_token</code> مبهمة لاكتشاف الفهارس القديمة — لذا سترى خطأً صريحًا بدلًا من نقرة خاطئة.</p>
 <p><strong>&quot;blocked pattern in type text&quot;</strong> — النص الذي حاولت كتابته عبر <code>type</code>
 يطابق قائمة أنماط الـ shell الخطرة. قسّم الأمر أو أعد النظر فيه.</p>
 <p><strong>التقاطات فارغة على Linux</strong> — <code>DISPLAY</code> غير مضبوط، أو أنك تعمل على Wayland خالص دون جسر XWayland. سيشير <code>hermes computer-use doctor</code>
-إلى ذلك بـ <code>ax_capability: fail</code> مع التلميح <code>Set DISPLAY (X11)…</code>.</p>
+إلى ذلك بـ <code>ax_capability: fail</code> مع التلميح <code>Set DISPLAY (X11)…</code> كتلميح.</p>
 <p><strong>التقاطات فارغة على Windows عبر SSH</strong> — أنت في Session 0 (جلسة الخدمات). تحكّم مباشرةً من RDP / console، أو اضبط نمط التشغيل التلقائي — راجع
 <a href="https://cua.ai/docs/how-to-guides/driver/windows-ssh" data-ext>cua.ai/docs/how-to-guides/driver/windows-ssh</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>

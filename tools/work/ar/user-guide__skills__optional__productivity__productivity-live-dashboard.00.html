@@ -1,0 +1,74 @@
+
+<header><h1>Live Dashboard</h1></header>
+<p>أنشئ لوحات تحكم ذاتية التحديث من مصادر حية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/productivity/live-dashboard</code></td></tr><tr><td>المسار</td><td><code>optional-skills/productivity/live-dashboard</code></td></tr><tr><td>الإصدار</td><td><code>0.2.0</code></td></tr><tr><td>المؤلف</td><td>Teknium (teknium1), Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>dashboards</code>, <code>monitoring</code>, <code>status</code>, <code>automation</code>, <code>reporting</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/bundled/productivity/productivity-product-price-monitor"><code>product-price-monitor</code></a>, <a href="/docs/user-guide/skills/bundled/research/research-competitor-news-monitor"><code>competitor-news-monitor</code></a>, <a href="/docs/user-guide/skills/bundled/email/email-email-inbox-triage"><code>email-inbox-triage</code></a>, <a href="/docs/user-guide/skills/bundled/productivity/productivity-google-workspace"><code>google-workspace</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="1"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>Live Dashboard</h1>
+<p>حوّل جملة واحدة — &quot;أنشئ لوحة تحكم لطلبات التأشيرات لدينا، وحدّثها يوميًا من سلاسل البريد الإلكتروني وموقع حالة الطلب&quot; — إلى صفحة حالة دائمة ذاتية التحديث. يصف المستخدم ما يريد رؤيته؛ وتحدد أنت عقد البيانات، وتنشئ لوحة HTML مكتفية ذاتيًا، وتتحقق من تحديث حي واحد، ثم تُجدول tick المتكرر.</p>
+<p>يُنفّذ الإعداد مرة واحدة في المقدمة؛ ويُنفَّذ التحديث المتكرر كـ tick <code>cronjob</code>. ويعرض تثبيت هذه المهارة مسحًا يوميًا لكل لوحات التحكم عبر <code>/suggestions</code> (blueprint في frontmatter).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>&quot;أنشئ لوحة تحكم لـ &lt;المشروع/العملية&gt; وأبقها محدَّثة.&quot;</li>
+<li>&quot;أريد مكانًا واحدًا لرؤية حالة &lt;الصفقات / الطلبات / الأخطاء / الشحنات&gt;.&quot;</li>
+<li>&quot;تابع &lt;الشيء&gt; عبر بريدي الإلكتروني و &lt;الموقع&gt; وأرني وضعه.&quot;</li>
+<li>&quot;أرني لوحة تحكم &lt;slug&gt;.&quot; (إعادة عرض/معاينة لوحة موجودة)</li>
+<li>يعمل tick cron للوحة تحكم موجودة (الخطوات 5-7).</li>
+</ul>
+<p>لا تستخدمها لأسئلة حالة لمرة واحدة (أجب مباشرة)، أو عتبات السعر/الإتاحة لعنصر واحد (استخدم <code>product-price-monitor</code>)، أو متابعة أخبار الشركات (استخدم <code>competitor-news-monitor</code>).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<ul>
+<li>موصل مصدر واحد على الأقل تقرأ منه اللوحة: البريد/التقويم عبر <code>himalaya</code> أو <code>google-workspace</code>، والمواقع عبر <code>web_extract</code> أو <code>browser_navigate</code>، والملفات المحلية عبر <code>read_file</code>. إذا لم يُعدّ أي مصدر، فأعد الاتفاق على المصادر في الخطوة 1 قبل كتابة أي مُخرج.</li>
+<li><code>cronjob</code> للـ tick المتكرر.</li>
+<li>اختياري: أداة <code>desktop_preview</code> (جلسات تطبيق Hermes Desktop). عند وجودها ضمن toolset تُعرض لوحات التحكم في لوحة المعاينة داخل التطبيق؛ وإلا يُعطى المستخدم مسار الملف.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--setup-foreground-once">الإجراء — الإعداد (في المقدمة، مرة واحدة)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-define-the-dashboard-contract">1. حدد عقد لوحة التحكم</h3>
+<p>استخلص من جملة المستخدم: غرض اللوحة في سطر واحد، والكيانات المتابَعة (الصفوف)، وحقول كل كيان (الأعمدة/المؤشرات)، ومعنى &quot;يحتاج اهتمامًا&quot;، والمصادر التي يُقرأ منها كل حقل، ووتيرة التحديث. اسأل عن كل ما هو غامض — فاللوحة التي تتابع مستوى تفصيل خاطئًا عديمة القيمة. تُنجز الخطوة عندما يسمّي كل حقل في اللوحة المصدر الذي سيُقرأ منه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-verify-each-source-with-one-live-read">2. تحقق من كل مصدر بقراءة حية واحدة</h3>
+<p>لكل مصدر، نفّذ الآن قراءة واحدة محدودة في المقدمة: البريد/التقويم عبر مهارات الموصلات (<code>himalaya</code>, <code>google-workspace</code>)، والمواقع عبر <code>web_extract</code> أو <code>browser_navigate</code>، والملفات المحلية عبر <code>read_file</code>. سجّل ما أمكن استرجاعه فعلًا — تظهر هنا حواجز المصادقة والصلاحيات الناقصة والنتائج الفارغة، لا في أول تشغيل مجدول. احذف المصادر التي تفشل أو استبدلها. تُنجز الخطوة عندما يعيد مصدر كل حقل بيانات حقيقية أو يُعاد الاتفاق عليه صراحة مع المستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-build-the-dashboard-artifact">3. أنشئ مُخرج لوحة التحكم</h3>
+<p>اكتب ملفين تحت <code>dashboards/&lt;slug&gt;/</code> في الدليل الرئيسي لـ Hermes (الدليل نفسه الذي يحمل <code>config.yaml</code>؛ ولا تفترض موضعًا ثابتًا مطلقًا):</p>
+<ul>
+<li><code>dashboard.json</code> — العقد بالإضافة إلى الحالة الحالية: الغرض، والكيانات، وقيم كل حقل، ومصدر كل حقل + طابع وقت الاسترجاع، وقائمة <code>needs_attention</code>، وسجل تغييرات (للإلحاق فقط، والأحدث أولًا).</li>
+<li><code>index.html</code> — صفحة HTML واحدة مكتفية ذاتيًا (CSS مضمّن، دون طلبات خارجية) تعرض الحالة: ترويسة بالغرض ووقت آخر تحديث، وقسم &quot;Needs attention&quot; في الأعلى، وجدول الكيانات، وقائمة التغييرات الحديثة. أعد توليدها من <code>dashboard.json</code> في كل تحديث؛ ولا تعدّل حالة HTML يدويًا مطلقًا.</li>
+</ul>
+<p>املأ الملفين من قراءات الخطوة 2، ثم اعرض النتيجة (الخطوة 8). تُنجز الخطوة عندما تعرض الصفحة البيانات الحية وتحمل كل قيمة فيها طابع وقت استرجاع في <code>dashboard.json</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-schedule-the-refresh">4. جدوِل التحديث</h3>
+<p>لا تُجدول tick إلا بعد نجاح الخطوة 3. إذا كان المسح اليومي لكل لوحات التحكم من <code>/suggestions</code> مجدولًا بالفعل وكانت وتيرته مناسبة، فسيلتقط هذه اللوحة — اذكر ذلك وتوقف. وإلا أنشئ مهمة خاصة باللوحة يسمّي prompt الخاص بها ملف الحالة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>اختر وتيرة تحترم حدود معدل المصادر. تُنجز الخطوة عند وجود مهمة تغطي هذه اللوحة ويسمّي prompt الخاص بها مسار ملف الحالة (أو المسح).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--tick-each-scheduled-run">الإجراء — Tick (كل تشغيل مجدول)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="5-re-read-sources-and-diff">5. أعد قراءة المصادر وقارن</h3>
+<p>حمّل <code>dashboard.json</code> (للمسح: كل <code>dashboards/*/dashboard.json</code>، واحدًا بعد آخر)، وأعد قراءة كل حقل من مصدره المسمّى، واحسب فرقًا على مستوى الحقول مقارنة بالحالة المخزّنة. فشل قراءة مصدر يعني حالة غير معروفة: احتفظ بآخر قيمة سليمة، وعلّم الحقل كقديم مع وقت الفشل، ولا تستبدل بيانات سليمة بخطأ مطلقًا. تُنجز الخطوة عندما يكون كل حقل محدَّثًا أو دون تغيير أو معلّمًا صراحة كقديم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="6-update-state-and-re-render">6. حدّث الحالة وأعد العرض</h3>
+<p>طبّق الفرق على <code>dashboard.json</code>: حدّث القيم والطوابع الزمنية، وألحق التغييرات الجوهرية بسجل التغييرات، وأعد حساب <code>needs_attention</code> وفق قواعد الاهتمام في العقد. أعد توليد <code>index.html</code> من الحالة المحدَّثة، ثم اعرض النتيجة (الخطوة 8). تُنجز الخطوة عندما يتفق JSON و HTML ، ويوجد إدخال سجل التغييرات لهذا التشغيل (أو يُسجّل التشغيل دون تغيير).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-deliver-on-material-change-else-stay-silent">7. أرسل عند تغيير جوهري، وإلا التزم الصمت</h3>
+<p>إذا تضمن الفرق تغييرات جوهرية أو عناصر جديدة تحتاج اهتمامًا، فأرسل ملخصًا قصيرًا: ما تغير، وما يحتاج اهتمامًا، ومكان اللوحة. وإلا فأجب بـ <code>[SILENT]</code> — دون ضجيج &quot;ما زلت أتابع&quot; ما لم يطلب المستخدم موجزًا دوريًا. تُنجز الخطوة عندما يطابق التسليم الفرق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure--show-the-dashboard-after-every-build-or-re-render-and-on-request">الإجراء — عرض لوحة التحكم (بعد كل إنشاء أو إعادة عرض، وعند الطلب)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-render-where-the-user-can-see-it">8. اعرضها حيث يستطيع المستخدم رؤيتها</h3>
+<ul>
+<li>جلسة Desktop/GUI (<code>desktop_preview</code> ضمن toolset): <code>desktop_preview(action=&quot;open&quot;, url=&lt;absolute path to index.html&gt;, label=&lt;dashboard purpose&gt;)</code> كي تُعرض الصفحة مباشرة في لوحة المعاينة بجوار المحادثة؛ وأعد فتحها بعد كل إعادة عرض كي تُظهر اللوحة الحالة الجديدة.</li>
+<li>أي جلسة أخرى (CLI ، أو تطبيق مراسلة، أو tick cron دون GUI): أبلغ عن المسار المطلق لـ <code>index.html</code> واعرض فتحه حيث تسمح المنصة.</li>
+</ul>
+<p>تُنجز الخطوة عندما يرى المستخدم الصفحة المعروضة أو يُبلَّغ بمكانها الدقيق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
+<ul>
+<li>إنشاء الصفحة قبل التحقق من المصادر — فتظهر إخفاقات المصادقة عند تشغيل دون مراقبة.</li>
+<li>استبدال آخر قيم سليمة معروفة بصفحة خطأ أو قراءة فارغة.</li>
+<li>عرض الحالة في HTML وحده — <code>dashboard.json</code> هو المرجع المعتمد؛ و HTML إسقاط له.</li>
+<li>إرسال تنبيه في كل تحديث بدلًا من التغيير الجوهري.</li>
+<li>متابعة مستوى تفصيل خاطئ (لكل سلسلة محادثة بينما يفكر المستخدم لكل طلب).</li>
+<li>ترميز مسار Hermes الرئيسي ثابتًا — حدده من التثبيت العامل (الدليل الذي يحمل <code>config.yaml</code>) واكتب مسارات مطلقة في prompts cron.</li>
+<li>استدعاء <code>desktop_preview</code> خارج جلسة Desktop — فهي لا تكون ضمن toolset إلا لجلسات GUI ؛ واستخدم المسار بدلًا منها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul class="contains-task-list containsTaskList_mC6p">
+<li class="task-list-item"><x-keep id="2"></x-keep> يسمّي كل حقل في اللوحة مصدره، ونجح كل مصدر في قراءة واحدة في المقدمة قبل الجدولة.</li>
+<li class="task-list-item"><x-keep id="3"></x-keep> <code>dashboard.json</code> و <code>index.html</code> موجودان ومتفقان؛ وتحمل كل قيمة طابع وقت استرجاع.</li>
+<li class="task-list-item"><x-keep id="4"></x-keep> علّمت القراءات الفاشلة الحقول كقديمة دون إتلاف آخر حالة سليمة معروفة.</li>
+<li class="task-list-item"><x-keep id="5"></x-keep> لا تُرسل ticks إلا عند تغيير جوهري؛ وتكون التشغيلات دون تغيير <code>[SILENT]</code>.</li>
+<li class="task-list-item"><x-keep id="6"></x-keep> يعيد سجل التغييرات بناء تاريخ اللوحة من ملف الحالة وحده.</li>
+<li class="task-list-item"><x-keep id="7"></x-keep> عُرضت اللوحة في لوحة المعاينة (Desktop) أو أُبلغ بمسارها (غيره).</li>
+</ul>

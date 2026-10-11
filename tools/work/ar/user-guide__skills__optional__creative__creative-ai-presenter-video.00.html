@@ -1,0 +1,164 @@
+
+<header><h1>Ai Presenter Video</h1></header>
+<p>أنشئ فيديو مقدّم بالذكاء الاصطناعي متحققًا منه انطلاقًا من سكربت + صورة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/creative/ai-presenter-video</code></td></tr><tr><td>المسار</td><td><code>optional-skills/creative/ai-presenter-video</code></td></tr><tr><td>الإصدار</td><td><code>1.0.0</code></td></tr><tr><td>المؤلف</td><td>cclank (<a href="https://github.com/cclank/lanshu-create-ai-presenter-video" data-ext>https://github.com/cclank/lanshu-create-ai-presenter-video</a>)، نقله Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>video</code>, <code>presenter</code>, <code>avatar</code>, <code>lipsync</code>, <code>tts</code>, <code>captions</code>, <code>creative</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/creative/creative-hyperframes"><code>hyperframes</code></a>, <a href="/docs/user-guide/skills/optional/creative/creative-kanban-video-orchestrator"><code>kanban-video-orchestrator</code></a>, <a href="/docs/user-guide/skills/optional/creative/creative-comfyui"><code>comfyui</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>AI Presenter Video</h1>
+<p>حوّل موضوعًا (أو سكربت مكتملًا) وصورة واحدة لمقدّم بالغ مأذون باستخدامها
+إلى فيديو كامل يقوده المقدّم وجاهز للنشر: سرد مثبت، وتوليد avatar
+مع ضمان جودة تزامن الشفاه، وتسميات توضيحية، وتحرير حتمي، وترميزات
+master/مشاركة موحّدة مستوى الصوت، وتقارير قبول آلية ومرئية.</p>
+<p>استخدم هذه المهارة لفيديوهات مقدّم جديدة، وكذلك لمتابعة مهمة فيديو
+مقدّم موجودة أو مراجعتها أو إضافة تسميات أو إصلاح تزامن الشفاه أو إعادة تصديرها.
+سير العمل محايد تجاه المزوّد: اختر إمكانيات التوليد مما
+يتاح فعلًا في الجلسة (نماذج فيديو/صور FAL عبر
+ <code>image_generate</code> وإضافة video-gen، و TTS عبر <code>text_to_speech</code> ، و ASR عبر
+أدوات whisper/STT، و ffmpeg لكل ما هو حتمي).</p>
+<blockquote>
+<p>منقول من cclank/lanshu-create-ai-presenter-video (MIT). احتُفظ بمتن الأصل
+حرفيًا من حيث الجوهر في <code>references/</code> ؛ وتوجد تكييفات Hermes في
+ملف hub هذا. السكربتات حتمية (دون شبكة أو بيانات اعتماد).</p>
+</blockquote>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-adaptations-read-first">تكييفات Hermes (اقرأ أولًا)</h2>
+<ul>
+<li>
+<p><strong>تحديد مجلد المهارة</strong> — ثبّت الأصل مسار مهارات وكيله في الكود.
+في Hermes، يوسّع المحمّل <code>${HERMES_SKILL_DIR}</code> إلى مجلد تثبيت هذه
+المهارة، لذا يستخدم كل أمر أدناه ذلك token مباشرة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>لا تستمر متغيرات الـ shell بين استدعاءات الأدوات — أعد لصق الإسناد
+(أو المسار الموسّع) في كل استدعاء طرفية يستخدمه.</p>
+</li>
+<li>
+<p><strong>مطابقة الإمكانيات</strong> — حيث تقول المراجع &quot;إمكانية توليد
+صوت&quot;، استخدم <code>text_to_speech</code> (OpenAI/Edge/ElevenLabs بحسب إعدادات المستخدم)؛
+&quot;توليد المقدّم/avatar&quot; → عائلات image-to-video من FAL (Kling و Wan
+و MiniMax H3 وغيرها) عبر أدوات الفيديو المضبوطة، أو endpoint لـ avatar/lipsync
+يستطيع المستخدم الوصول إليه؛ &quot;ASR بتوقيت الكلمات&quot; → whisper عبر أدوات STT
+أو <code>faster-whisper</code> في venv؛ &quot;مركّب حتمي&quot; → filtergraphs من ffmpeg
+أو مهارة <code>hyperframes</code> عند تثبيتها (يتضمن مرجع التحرير
+قسم HyperFrames يطابقها مباشرة).</p>
+</li>
+<li>
+<p><strong>ضمان الجودة المرئية</strong> — نفّذ خطوات &quot;المراجعة المرئية بالسرعة العادية&quot; باستخدام
+ <code>vision_analyze</code> على ورقة اللقطات المُولّدة والإطارات المأخوذة كعينات
+(الهوية وتوقيت الفم واليدين والرمش والاستمرارية). تأتي الفحوص الرقمية
+من مخرجات ffprobe للسكربتات.</p>
+</li>
+<li>
+<p><strong>الموافقة على التوليد المدفوع</strong> — توليد avatar/TTS البعيد قابل للفوترة.
+اتبع قواعد التشغيل في الأصل: قبل أول استدعاء مدفوع، اذكر
+الأصول المرفوعة والثواني المطلوبة والتكلفة المعروفة وحجم التجربة الأولية وسقف
+إعادة المحاولة، واحصل على موافقة المستخدم الصريحة. لا ترفع صورة المقدّم
+إلى مزوّد بعيد قبل أن تكون <code>remote_upload_approved</code> صحيحة في
+ <code>job.json</code>.</p>
+</li>
+<li>
+<p><strong>توجد خيارات الموافقة تحت <code>input</code></strong> — <code>rights_confirmed</code>,
+<code>adult_presenter_confirmed</code>, <code>remote_upload_approved</code> ، و
+ <code>voice_clone_approved</code> داخل كائن <code>input</code> في <code>job.json</code> (تضبطها خيارات
+init؛ ويجب أن يستهدف التحرير اليدوي <code>input.*</code> ، لا جذر المهمة).
+<code>manual_input_review.*</code> يقع في الجذر. يميّز <code>preflight.py</code> بين
+ <code>errors</code> (حظر كل شيء) و <code>remote_blockers</code> (حظر التوليد
+البعيد فقط) — يمكن أن يستمر عمل السكربتات/الصوت المحلي مع حظر البعيد.</p>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="workflow">سير العمل</h2>
+<ol>
+<li>
+<p><strong>ابدأ مهمة أو استأنفها.</strong> مهمة جديدة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>استخدم <code>--script</code> لملف سكربت موجود؛ الخيارات الأخرى: <code>--voice-sample</code>,
+<code>--supporting-media</code>, <code>--width</code>, <code>--height</code>, <code>--fps</code>, <code>--watermark</code>,
+<code>--cta</code>. لمهمة موجودة، اقرأ <code>job.json</code> وتقارير QA واستأنف من
+أول حالة غير مكتملة — لا تعِد توليد العمل المقبول مطلقًا.</p>
+</li>
+<li>
+<p><strong>مراجعة المدخلات يدويًا.</strong> انظر فعلًا إلى صورة المقدّم
+(<code>vision_analyze</code>) واستمع إلى أي عينة صوت؛ وسجّل النتائج بضبط
+قيم <code>manual_input_review</code> المنطقية في <code>job.json</code> ، مثل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>ثم طبّق البوابة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>لا تتابع إلا عند <code>ok: true</code> ؛ ولا تنفّذ توليدًا بعيدًا إلا عند
+ <code>remote_ready: true</code>. ملاحظة: يحدّث preflight أيضًا <code>job.json</code> في مكانه
+(يسجّل مسار التقرير) — أعد قراءته بعد التشغيل بدلًا من تحرير
+نسخة قديمة.</p>
+</li>
+<li>
+<p><strong>ثبّت المحتوى والصوت</strong> — اقرأ <code>references/generation.md</code>. السكربت →
+السرد الكامل عبر <code>text_to_speech</code> → تحقّق من السرد مقابل
+السكربت باستخدام ASR → سجّل المدد الحقيقية. الصوت المثبّت هو الساعة الرئيسية
+لكل ما يأتي بعده.</p>
+</li>
+<li>
+<p><strong>خطّط المقدّم وولّده</strong> — اقرأ <code>references/generation.md</code>.
+تجربة أولية قصيرة منخفضة التكلفة أولًا؛ ولا تشغيل كامل إلا بعد اجتياز التجربة مراجعة الهوية
+وتوقيت الفم.</p>
+</li>
+<li>
+<p><strong>التحرير</strong> — اقرأ <code>references/editing.md</code>. خط زمني حتمي يقوده
+الصوت المثبّت؛ ولا تسميات أو إبراز كلمات مفتاحية إلا بعد اعتماد الصوت
+والوسائط نهائيًا.</p>
+</li>
+<li>
+<p><strong>تحقّق وسلّم</strong> — اقرأ <code>references/qa-recovery.md</code> ، واعرض، ثم:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تحافظ أداة الإنهاء على نسبة الأبعاد، وتوحّد مستوى الصوت بمرورين
+(البرنامج ≈ −16 LUFS)، وتنتج ترميزات master + مشاركة، وتتحقق من فك
+كليهما، وتكتب تقرير تسليم JSON، وتُصدر ورقة لقطات من تسعة إطارات.
+افحص ورقة اللقطات باستخدام <code>vision_analyze</code> قبل ادّعاء الاكتمال.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="operating-rules-non-negotiable">قواعد التشغيل (غير قابلة للتفاوض)</h2>
+<ul>
+<li>أكّد حقوق الصورة وبلوغ الشخص والموافقة على الرفع البعيد
+والإذن باستنساخ الصوت قبل الإجراء البعيد المعني.</li>
+<li>لا تستنتج ولا تستنسخ صوت شخص حقيقي من صورة؛ استخدم عينة
+مأذونًا بها أو صوت TTS جاهزًا.</li>
+<li>ثبّت السرد كاملًا قبل توليد المقدّم أو توقيت التسميات أو
+حدود المشاهد النهائية.</li>
+<li>اكتم مصادر الفيديو في التركيب النهائي؛ لا يحمل الصوت إلا السرد المعتمد
+والمسارات المقصودة في المزج.</li>
+<li>احتفظ بمتون طلبات المزوّد ومعرّفات المهام (دون بيانات الاعتماد/عناوين
+URL المنتهية). استطلع العمل المنقطع قبل إعادة الإرسال — تجنّب الفوترة المزدوجة.</li>
+<li>توقف بعد ثلاثة مرشحين مدفوعين مرفوضين، ولخّص نمط الفشل.</li>
+<li>لا تدّعِ الاكتمال حتى تُفك الملفات النهائية بالكامل، وتُراجع ورقة
+اللقطات أو المشاهدة الكاملة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="defaults-for-minimal-input">القيم الافتراضية للمدخلات القليلة</h2>
+<p>9:16، 1080×1920، 30fps؛ تستهدف فيديوهات الموضوع 45–75s؛ صوت جاهز عند
+غياب عينة مأذون بها؛ تخطيط يقوده المقدّم مع مدخل جذب → 2–4 خطوات → ختام؛
+دون موسيقى/CTA إلا بطلب؛ تُستنتج اللغة من الطلب.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-routing">توجيه المراجع</h2>
+<ul>
+<li><code>references/generation.md</code> — الاستقبال والمحتوى والصوت واختيار الإمكانية
+و prompts المقدّم والتوليد المدفوع وتغييرات المزوّد.</li>
+<li><code>references/editing.md</code> — عقد الخط الزمني والافتتاحات/الخواتيم والتسميات
+وإعدادات إبراز الكلمات المفتاحية وتركيب HyperFrames والتصدير.</li>
+<li><code>references/qa-recovery.md</code> — القبول التقني والمرئي
+والتعافي من أخطاء تزامن الشفاه/الهوية/اليدين/التعريض/التجمّد/التسميات/الصوت.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">محاذير</h2>
+<ul>
+<li><code>preflight.py</code> يتطلب ffprobe؛ ثبّت ffmpeg أولًا على جهاز غير مجهّز.</li>
+<li>توجد قيم الموافقة المنطقية التي تضبطها خيارات init تحت <code>input.*</code> ؛ ولا يكون لتحريرها
+في جذر job-json أثر، بصمت (يظل preflight يمنع).</li>
+<li><code>finalize_delivery.sh</code> يحتاج إلى bash + jq + awk ومدخل قابل للفك بالكامل —
+يفشل العرض المقتطع في فحص الفك بحكم التصميم، لا مصادفة.</li>
+<li>تنحرف مقاطع avatar الطويلة: فضّل مصدر مقدّم متصلًا واحدًا مُقسّمًا على
+الخط الزمني للصوت على مقاطع فصول متعددة يُعاد توليدها (انحراف الهوية
+بين عمليات التوليد هو أكثر حالات فشل QA المرئي شيوعًا).</li>
+<li>تحدّ endpoints الخاصة بـ FAL i2v المدة (عادة 5–15s)؛ خطّط مقاطع
+المقدّم على مستوى الفصول وفق ذلك، وأعد استخدام seed/params للتجربة الأولية
+حفاظًا على الاتساق حيث يدعم endpoint ذلك.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<p>تم التحقق عمليًا (أغسطس 2026): <code>init_job.py</code> → <code>job.json</code> مع آلة حالات
+صحيحة؛ <code>preflight.py</code> منع المدخلات غير المُراجعة على نحو صحيح، وانتقل إلى
+ <code>ok: true</code> بعد قيم المراجعة المنطقية، وأبقى <code>remote_ready: false</code> حتى
+ <code>input.remote_upload_approved</code>; <code>finalize_delivery.sh</code> على عرض اصطناعي مدته 5s
+بدقة 1080×1920 أنتج master متحققًا من فكه (631kbit/s) وترميزات مشاركة،
+وتقرير تسليم JSON، وورقة لقطات من 9 إطارات، وخروج 0.</p>

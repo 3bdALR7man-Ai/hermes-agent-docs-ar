@@ -1,0 +1,12 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<ul>
+<li><strong>&quot;Screen packages missing&quot;</strong> — انقر على <strong>Install on host</strong> في اللوحة، أو نفّذ سطر التثبيت المعروض على مضيف الـ gateway (لا على الجهاز الذي يشغّل Hermes Desktop). ترفض اللوحة بدء تثبيت ثانٍ ما دام هناك تثبيت جارٍ.</li>
+<li><strong>تبدأ الشاشة ثم تتوقف</strong> — اقرأ <code>&lt;HERMES_HOME&gt;/bot-desktop/launcher.log</code>.</li>
+<li><strong>تُنتج الكتابة أحرفًا خاطئة أثناء تولّي التحكم</strong> — تعمل الشاشة بتخطيط مفاتيح US لتتوافق رموز مفاتيح RFB مع cua-driver، ويرسل noVNC رموز المفاتيح الخام (أحداث المفاتيح الموسّعة في QEMU) بمجرد أن يتيحها Xvnc؛ لذلك، عند استخدام لوحة مفاتيح فعلية بتخطيط غير أمريكي، تُفسّر المفاتيح التي تعتمد على التخطيط (Y/Z والرموز) كالمفاتيح الأمريكية المقابلة ما دمت تتحكم. ضع ذلك في الحسبان عند كتابة كلمات المرور، أو غيّر التخطيط باستخدام <code>setxkbmap</code> على <code>DISPLAY</code> ذاك.</li>
+<li><strong>يقول البوت <code>human_has_control</code> بعد مغادرتك</strong> — انقر على <strong>Hand back</strong> في اللوحة (أو <strong>Hand back (force)</strong> بعد إعادة تحميلها). ومن الـ shell، يُحرّر <code>hermes computer-use screen stop --force</code> حجز التحكم ويوقف الشاشة (يرفض الأمر التنفيذ دون <code>--force</code> ما دام شخص يتحكم، فلا يمكن لدليل تشغيل أن ينتزع التحكم أثناء تولٍّ مباشر)؛ ويعيد <code>hermes computer-use screen start</code> تشغيلها مع إسناد التحكم إلى البوت.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing-under-wsl">الاختبار ضمن WSL</h3>
+<p>يُعدّ WSL2 مضيف Linux مدعومًا: يذكر <code>screen status</code> ذلك وتُتاح اللوحة. تعيق إحدى خصائص WSLg التشغيل الأول: يقوم WSLg</p>
+<p> بتركيب <code>/tmp/.X11-unix</code> للقراءة فقط، لذا لا يستطيع <code>Xvnc</code> إنشاء socket العرض الخاص به، وينتهي بالخطأ <code>Cannot establish any listening sockets</code> في <code>launcher.log</code>. استبدل موضع التركيب بدليل قابل للكتابة قبل بدء الشاشة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يعود موضع التركيب عند إعادة تشغيل WSL التالية؛ كرّر الأمرين عندئذٍ.</p>

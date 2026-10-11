@@ -1,0 +1,59 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managing-profiles">إدارة الـ profiles</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p>في المحادثة، يوجد الأمران نفسهما بصيغة <code>/export</code> و<code>/import</code> — وفي تطبيق سطح المكتب باسم <strong>⌘K → Export/Import profile…</strong>. راجع <a href="#sharing-a-profile">مشاركة profile</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="naming-the-default-profile">تسمية الـ profile الافتراضي</h3>
+<p>المعرّف الداخلي للـ profile الافتراضي هو دائمًا <code>default</code> — ولا يمكن
+إعادة تسميته حقًا لأن <code>~/.hermes</code> هو جذر التثبيت. بدلًا من ذلك تؤدي إعادة تسميته إلى
+ضبط <strong>اسم عرض (display name)</strong>، تُظهره واجهات المستخدم بدلًا من المعرّف الخام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>يظهر اسم العرض في <code>hermes profile list</code>/<code>show</code>، وأمر المحادثة
+<code>/profile</code>، ولوحة التحكم، وتطبيق سطح المكتب (بما في ذلك قائمة
+Bot Mode). وهو عرض فقط: يستمر <code>-p default</code>، وأسماء الخدمات، ومهام cron ،
+وكل مرجع آخر في استخدام المعرّف الأصلي <code>default</code>. يُخزَّن
+كـ <code>display_name</code> في <code>~/.hermes/profile.yaml</code>؛ احذف ذلك السطر
+للتراجع. يمكن أن تحمل الـ profiles المسمّاة <code>display_name</code> أيضًا (يبقى بعد
+إعادة تسمية حقيقية)، لكن <code>rename</code> لها ما زال يعيد تسمية الـ profile نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="deleting-a-profile">حذف profile</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>يوقف هذا الأمر الـ gateway ، ويزيل خدمة systemd/launchd ، ويزيل الاسم المستعار للأمر، ويحذف كل بيانات الـ profile. سيُطلب منك كتابة اسم الـ profile للتأكيد.</p>
+<p>استخدم <code>--yes</code> لتخطي التأكيد: <code>hermes profile delete coder --yes</code></p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا يمكنك حذف الـ profile الافتراضي (<code>~/.hermes</code>). لإزالة كل شيء، استخدم <code>hermes uninstall</code>.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tab-completion">الإكمال التلقائي بمفتاح Tab</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>أضف هذا السطر إلى <code>~/.bashrc</code> أو <code>~/.zshrc</code> للحصول على إكمال تلقائي دائم. يُكمِل أسماء الـ profiles بعد <code>-p</code>، وأوامر profile الفرعية، والأوامر ذات المستوى الأعلى.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<p>تستخدم الـ profiles متغير البيئة <code>HERMES_HOME</code>. عند تشغيل <code>coder chat</code>، يضبط سكربت الـ wrapper <code>HERMES_HOME=~/.hermes/profiles/coder</code> قبل تشغيل hermes. وبما أن 119 ملفًا أو أكثر في قاعدة الكود تحلّ المسارات عبر <code>get_hermes_home()</code>، تُحدَّد حالة Hermes تلقائيًا ضمن نطاق دليل الـ profile — الإعدادات، والجلسات، والذاكرة، والمهارات، وقاعدة بيانات الحالة، و PID الخاص بـ gateway ، والسجلات، ومهام cron.</p>
+<p>وهذا منفصل عن دليل عمل الطرفية. يبدأ تنفيذ الأدوات من <code>terminal.cwd</code> (أو دليل الإطلاق عند <code>cwd: &quot;.&quot;</code> على backend المحلي)، وليس تلقائيًا من <code>HERMES_HOME</code>.</p>
+<p>في التثبيتات على الجهاز المضيف (host)، تحافظ العمليات الفرعية للأدوات على <code>HOME</code> الحقيقي لمستخدم نظام التشغيل افتراضيًا، بحيث
+تستمر بيانات اعتماد CLI الموجودة تحت <code>~</code> في العمل عبر الـ profiles. تُعزل بيانات الـ profile عبر
+<code>HERMES_HOME</code>، لا عبر تغيير <code>HOME</code>. لا تزال backends الحاويات تستخدم
+<code>{HERMES_HOME}/home</code> لحالة الأدوات الدائمة، ويمكن لمستخدمي الجهاز المضيف الذين يحتاجون إلى إعدادات أدوات
+منفصلة تمامًا لكل profile أن ينضموا اختياريًا عبر <code>terminal.home_mode: profile</code>.</p>
+<p>هذا يعني أمرين يسهل الخلط بينهما:</p>
+<ul>
+<li><code>HERMES_HOME</code> هو حدود الـ profile. يتحكم في إعدادات Hermes ، و<code>.env</code>،
+والذاكرة، والجلسات، والمهارات، والسجلات، ومهام cron ، وحالة gateway ، وبيانات Hermes
+الأخرى.</li>
+<li><code>HOME</code> هو منزل نظام التشغيل/المستخدم الذي تتوقعه الأدوات الخارجية. في تثبيتات الجهاز المضيف،
+يحافظ Hermes عليه كمنزل المستخدم الحقيقي افتراضيًا بحيث تجد أدوات مثل
+<code>git</code>, <code>ssh</code>, <code>gh</code>, <code>az</code>, <code>npm</code> و Claude Code و Codex نفس بيانات
+الاعتماد التي تستخدمها في shell العادي.</li>
+</ul>
+<p>المقايضة هي أن profiles الجهاز المضيف تشترك في حالة CLI العادية على مستوى المستخدم افتراضيًا.
+إذا احتجت هويات CLI منفصلة لكل profile ، اضبط <code>terminal.home_mode: profile</code> في <code>config.yaml</code> الخاص بذلك الـ profile. في هذا الوضع يشغّل Hermes العمليات الفرعية للأدوات
+بـ <code>HOME={HERMES_HOME}/home</code>؛ وستحتاج بعدها إلى تهيئة أو ربط
+<code>~/.ssh</code>, <code>~/.gitconfig</code>, <code>~/.config/gh</code> الخاصة بالـ profile ، ومصادقة CLI السحابية،
+ومصادقة Claude/Codex ، وحالة npm ، وملفات مماثلة داخل منزل ذلك الـ profile.</p>
+<p>يعرض Hermes أيضًا <code>HERMES_REAL_HOME</code> للعمليات الفرعية بحيث تستطيع السكربتات إيجاد
+منزل الحساب الحقيقي عندما يكون <code>home_mode: profile</code> مفعّلًا.</p>
+<p>الـ profile الافتراضي هو ببساطة <code>~/.hermes</code> نفسه. لا حاجة إلى ترحيل — تعمل التثبيتات القائمة بالطريقة نفسها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="sharing-a-profile">مشاركة profile</h2>
+<p>يمكن نقل profile بنيته على جهاز إلى جهاز آخر — محطة عملك الخاصة، أو حاسوب زميل، أو المجتمع. مساران:</p>
+<p><strong>إرسال ملف.</strong> <code>/export</code> الـ profile في ملف <code>.tar.gz</code> واحد — المهارات، والذاكرة، والشخصية، ومهام cron ، والإضافات، والإعدادات، و(من سطح المكتب) السمة (theme) والتخطيط الخاصَين بك. تُزال مفاتيح API. يشغّل المستلم <code>/import</code>.</p>
+<p>حالة PM الخاصة بالجهاز غير قابلة للنقل. يستبعد التصدير والاستيراد وتثبيت التوزيعات <code>installs/</code>, <code>tools/</code>، و <code>cache/</code> من جذر الـ profile.
+ويطبق النسخ الاحتياطي والاستعادة القاعدة نفسها على الموطن الافتراضي والـ profiles المسمّاة. ولا تستطيع الأرشيفات القديمة استبدال اختيارات PM أو أدواته على الجهاز الوجهة.
+وتبقى الملفات مثل <code>plugins/example/facts.json</code> و <code>skills/example/tools/helper.py</code> بيانات مستخدم وتُحفظ. ثبّت الاعتماديات على الوجهة عبر <a href="/docs/reference/package-management">PM</a> بدل نسخ البيئات.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>نشر توزيعة (distribution).</strong> غلّف الـ profile كـ <strong>مستودع git</strong> بحيث يثبّته المستلمون بأمر واحد ويسحبون تحديثات مُصدَرة لاحقًا. يحمل SOUL ، والإعدادات، والمهارات، ومهام cron ، واتصالات MCP ؛ أما بيانات الاعتماد والذاكرة والجلسات فتبقى خاصة بكل جهاز.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>استخدم ملف تصدير لتسليم لمرة واحدة أو نقل؛ واستخدم توزيعة لوكيل ستستمر في شحن تحديثاته. راجع <strong><a href="/docs/user-guide/profile-distributions">توزيعات Profile: مشاركة وكيل كامل</a></strong> لكليهما — جدول المقارنة، والتأليف، والنشر، ودلالات التحديث، ونموذج الأمان.</p>

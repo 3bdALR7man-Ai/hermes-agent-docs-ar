@@ -1,0 +1,20 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recursion-guard">الحماية من التعاود</h2>
+<p>تكون toolset <code>cronjob</code> معطّلة في الجلسات التي يشغّلها cron. ويمنع هذا:</p>
+<ul>
+<li>أن تنشئ مهمة مجدولة مهام cron جديدة</li>
+<li>الجدولة التعاودية التي قد تُضخّم استهلاك الـ tokens بشكل هائل</li>
+<li>التعديل غير المقصود لجدول المهام من داخل مهمة</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="locking">الأقفال</h2>
+<p>يستخدم المجدول أقفالًا قائمة على الملفات عابرة للعمليات (<code>fcntl.flock</code> على Unix، و <code>msvcrt.locking</code> على Windows) لمنع النبضات المتداخلة من تنفيذ دفعة المهام المستحقة نفسها مرتين — حتى بين المؤقّت الداخلي في الـ gateway واستدعاء <code>hermes cron</code> مستقل / استدعاء <code>tick()</code> يدوي. وإذا تعذّر الحصول على القفل، تعيد <code>tick()</code> تُعيد 0 فورًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stale-code-yield">التنازل عن دورة التنفيذ بسبب كود قديم</h3>
+<p>قبل قفل الدورة، تتنازل gateway التي جرى تحديث نسختها المسحوبة أثناء تشغيلها (مراجعة الإقلاع ≠ مراجعة القرص) عن الدورة إذا كانت عملية أخرى تحتفظ بقفل تشغيل gateway — إذ يتولى مؤقّت gateway الأحدث الإرسال بدلًا منها، ويجب ألا تسابقه القديمة باستخدام مزيج من <code>sys.modules</code>. يُطلَق التنازل (<code>CronTickYielded</code>) ويُحفظ بوصفه آخر خطأ للمؤقّت، ولذلك يعرض <code>hermes cron status</code> الرسالة <strong>&quot;Gateway is running STALE code — its cron ticker yields every tick and fires NOTHING&quot;</strong> مع كلتا المراجعتين وأمر إعادة التشغيل، رغم استمرار تحديث نبضات الاستمرارية.<code>hermes update</code> يُكمل المسار: تُحال gateway التي تثبت مصفوفة إصدارات الأسطول بعد التحديث أنها قديمة إلى مسار <code>request_restart</code> الذي يبدأ بتصريف المهام (SIGUSR1)، بدلًا من تركها تعمل؛ وتُعاد gateway الخاضعة للإشراف تلقائيًا بالكود الجديد، أما <code>gateway run</code> المستقلة فتُوقَف وتُدرج تحت &quot;Restart manually&quot;.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-interface">واجهة CLI</h2>
+<p>توفّر واجهة <code>hermes cron</code> في CLI إدارة مباشرة للمهام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
+<ul>
+<li><a href="/docs/user-guide/features/cron">دليل ميزة Cron</a></li>
+<li><a href="/docs/developer-guide/gateway-internals">آلية عمل Gateway من الداخل</a></li>
+<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
+</ul>

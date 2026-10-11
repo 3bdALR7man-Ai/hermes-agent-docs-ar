@@ -1,0 +1,36 @@
+<header><h1>استعادة قاعدة بيانات الحالة و FTS</h1></header>
+<p>للدليل الموجّه للمستخدم (ما الذي ينبغي إيقافه، وما الملفات بجانب <code>state.db</code> ، ولماذا ترفض أوامر الصيانة العمل أثناء وجود كاتب حي)، راجع <a href="/docs/user-guide/session-storage-recovery">استعادة تخزين الجلسات</a>.</p>
+<p><code>state.db</code> يخزّن فئتين مختلفتين من البيانات:</p>
+<ul>
+<li><code>sessions</code> و <code>messages</code> هما سجل المحادثة المعتمد.</li>
+<li><code>messages_fts*</code> وجداولها و triggers المزامنة الخاصة بها فهارس بحث مشتقة.</li>
+</ul>
+<p>يمكن فصل الفهارس المشتقة مؤقتًا. ويجب ألا تحوّل كتابة رسالة حية أو البحث فيها إلى إعادة بناء غير محدودة لسجل المحادثة كاملًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="live-behavior-when-fts-is-corrupt">السلوك الحي عند تلف FTS</h2>
+<p>إذا أبلغت كتابة أو عملية بحث في FTS عن فئة خطأ التلف، فإن <code>SessionDB</code>:</p>
+<ol>
+<li>يسجّل الوسم الدائم <code>fts_stale</code> ؛</li>
+<li>يزيل triggers مزامنة FTS في المعاملة نفسها؛</li>
+<li>يعيد محاولة الكتابات المعتمدة دون مصبّات الفهارس المشتقة؛ و</li>
+<li>يخدم البحث من الصفوف المعتمدة عبر البديل <code>LIKE</code>.</li>
+</ol>
+<p>لا تنفّذ العملية الحية الفاشلة <code>FTS5(&#x27;rebuild&#x27;)</code> أبدًا. وتظل ملكية الاستعادة القائمة دون تغيير: فقد يعيد فتح لاحق لـ <code>SessionDB</code> البناء تحت قفل القبول بين العمليات وحاجز الحامل الخارجي. وإذا تعذّر ذلك البناء المحمي، يظل FTS منفصلًا وتظل الكتابات المعتمدة متاحة، وتُبلِغ <code>hermes doctor</code> عن أمر الإصلاح الصريح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="live-behavior-when-the-file-itself-is-corrupt">السلوك الحي عند تلف الملف نفسه</h2>
+<p>إذا أبلغت كتابة حية عن <code>SQLITE_CORRUPT</code> / <code>SQLITE_NOTADB</code> مجردين (<code>database disk image is malformed</code> ، <code>file is not a database</code>) دون دليل على منشأ FTS، فالضرر في B-tree معتمدة أو المخطط أو freelist. وتعزل <code>SessionDB</code> ذلك المقبض عندئذٍ (<code>StateDbCorruptError</code>):</p>
+<ol>
+<li>تمرّر الكتابة الفاشلة الخطأ ذا النوع المحدَّد، ولا تُعاد محاولة أي شيء؛</li>
+<li>تفشل الكتابات اللاحقة على المقبض فورًا دون لمس الملف؛</li>
+<li>لا يعيد المقبض فتح اتصاله أبدًا بعد <code>close()</code> ؛ و</li>
+<li><code>close()</code> يتخطّى checkpoint الصريح الخاص بـ WAL.</li>
+</ol>
+<p>إيقاف الكتابات هو الحماية. ففي حالة فعلية، واصل مقبض الكتابة لنحو 50 دقيقة بعد أول خطأ بنيوي، ثم كتب 15 صفحة تحت أرقام صفحات غير صحيحة أثناء الإغلاق (استقبلت الصفحة 1 ورقةً من <code>messages_fts_trigram_data</code>)، فحوّل ملفًا تالفًا لكنه قابل للقراءة إلى ملف لا يُفتح أصلًا. وتخطّي checkpoint الصريح خط الدفاع الثاني؛ وعلى Python 3.12+، يعطّل العزل أيضًا checkpoint الخاص بـ SQLite عند إغلاق آخر اتصال (<code>SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE</code>)، لذا يبقى الملف المصاحب <code>-wal</code> بعد <code>close()</code> للفحص الجنائي. وعلى Python 3.11، لا يتوفر ذلك المفتاح، وقد يظل SQLite ينفّذ checkpoint مرة عند الإغلاق، لذا انسخ <code>state.db</code> و <code>state.db-wal</code> و <code>state.db-shm</code> معًا قبل إعادة تشغيل أي شيء.</p>
+<p>يعامل gateway ومسار تفريغ الوكيل العزلَ كملف مستبدَل: فتذهب سجلات المحادثة المعلّقة إلى <code>sessions/&lt;id&gt;.jsonl</code> ومخزن gateway <code>pending_messages/</code> بدلًا من طابور إعادة المحاولة، ولا تُنفَّذ إعادة بناء FTS لمرة واحدة على الملف التالف أبدًا. والعزل لكل عملية — ويظل المقبض المشترك غير صالح لكل حامل حتى إعادة تشغيل العملية على ملف مُصلَح أو مستعاد. ولا تنفّذ <code>hermes doctor --fix</code> أثناء بقاء gateway قيد التشغيل. الخطوات التالية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>أو استعد أحدث لقطة من <code>state-snapshots/</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="explicit-repair">الإصلاح الصريح</h2>
+<p>أوقف كل عملية يمكنها فتح قاعدة بيانات الـ profile قبل إصلاحها. وأبقِها متوقفةً طوال فترة الإصلاح والتحقق.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><code>sessions repair</code> ينشئ نسخة احتياطية من SQLite افتراضيًا، وينفّذ العمل البنيوي عبر مسار اللقطة والترقية المحمي في المستودع. ولا تنسخ <code>state.db</code> و <code>state.db-wal</code> و <code>state.db-shm</code> بصورة مستقلة باستخدام <code>cp</code> ؛ فهذه الملفات صورة SQLite حية واحدة.</p>
+<p>بعد الإصلاح، تحقق من فحص السلامة ووسم التقادم ومجموعة triggers وأعداد الصفوف المعتمدة قبل إعادة تشغيل gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يجب ألا يعيد استعلام الوسم أي صف، وأن توجد triggers FTS المتوقعة، وألا تنخفض أعداد الصفوف المعتمدة. وإذا فشل الإصلاح، فاحتفظ بقاعدة البيانات الحية والنسخة الاحتياطية المذكورة معًا؛ ولا تحذف صفوفًا معتمدة أبدًا لإخفاء خطأ في فهرس مشتق.</p>

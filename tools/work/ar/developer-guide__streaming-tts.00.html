@@ -1,0 +1,40 @@
+<header><h1>البث المتدفق لـ TTS</h1></header>
+<p>يمكن لـ Hermes بثّ صوت TTS فور وصوله من المزوّد، بدلًا من انتظار الصوت كاملًا قبل تشغيله. ويستخدم ذلك Voice Mode (المحادثة الحية في CLI/TUI)، واتصال speak-stream WebSocket في لوحة التحكم، وأي مهايئ منصة يختار البث الصوتي — عبر <code>StreamingTTSConsumer</code> في gateway. وتبدأ الردود الصوتية الكلام بعد أول عبارة بدلًا من انتظار التوليد والتركيب كاملين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية</h2>
+<p>يتكوّن pipeline البث من 4 أجزاء:</p>
+<ol>
+<li><strong>المنتِج</strong> — يصدر LLM أجزاء نصية أثناء توليد الاستجابة</li>
+<li><strong>مجزِّئ الجمل</strong> — يجمع <code>tools.tts_streaming.SentenceChunker</code> الأجزاء النصية، ويزيل كتل <code>&lt;think&gt;</code> (حتى عندما تنقسم بين الأجزاء)، ويفرّغ الجمل المكتملة</li>
+<li><strong>مزوّد TTS</strong> — تحوّل نسخة مسجّلة من <code>StreamingTTSProvider</code> كل جملة إلى أجزاء PCM خام (int16 أحادي القناة بمعدل <code>sample_rate</code> الذي يعلنه المزوّد)</li>
+<li><strong>مصبّ الصوت</strong> — <code>sounddevice.OutputStream</code> للتشغيل المحلي (<code>tools.tts_tool_speaker.stream_tts_to_speaker</code>)، أو نقطة التكامل <code>write_streaming_tts</code> في مهايئ منصة gateway (<code>gateway/streaming_tts_consumer.py</code>)</li>
+</ol>
+<p>وحتى المزوّدون بلا API مجزّأ يحصلون على تشغيل لكل <em>جملة</em> عبر مسار <code>text_to_speech_tool</code> المتزامن المجرَّب، لذا يتيح edge (الافتراضي) محادثةً أيضًا. ويُنقَّح كل النص المنطوق باستخدام <code>tools.tts_text_normalize.prepare_spoken_text</code> (منقّح واحد لكل المسارات).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-pick-a-provider">كيفية اختيار مزوّد</h2>
+<p>افتراضيًا، يبثّ الموزّع عبر المزوّد الذي ضبطته بالفعل (<code>tts.provider</code>) عندما يملك API مجزّأ — ولا يبدّل صوتك بصمت إلى مزوّد آخر لمجرد الحصول على البث.</p>
+<p>للتجاوز، اضبط <code>tts.streaming.provider</code> في <code>config.yaml</code> لديك:</p>
+<ul>
+<li>اسم مزوّد (<code>elevenlabs</code> أو <code>gemini</code> أو <code>openai</code> أو <code>xai</code>) يثبّت ذلك المزوّد المتدفق</li>
+<li><code>auto</code> يستعرض قائمة الأولوية <code>elevenlabs → gemini → openai → xai</code> ويستخدم أول مزوّد تتحدد بيانات اعتماده — اختيار صريح لـ &quot;أفضل صوت مجزّأ متاح&quot;</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="capability-matrix">مصفوفة القدرات</h2>
+<table><thead><tr><th>المزوّد</th><th>النقل</th><th>PCM مجزّأ</th><th>بيانات الاعتماد</th></tr></thead><tbody><tr><td>elevenlabs</td><td>HTTP مجزّأ (<code>pcm_24000</code>)</td><td>نعم</td><td><code>ELEVENLABS_API_KEY</code> / <code>tts.elevenlabs</code></td></tr><tr><td>openai</td><td>HTTP مجزّأ (<code>with_streaming_response</code> ، <code>pcm</code>)</td><td>نعم</td><td><code>tts.openai.api_key</code> → البيئة → gateway المُدار</td></tr><tr><td>gemini</td><td>SSE (<code>streamGenerateContent?alt=sse</code>)</td><td>نعم</td><td><code>GEMINI_API_KEY</code> / <code>GOOGLE_API_KEY</code></td></tr><tr><td>xai</td><td>WebSocket (<code>wss://api.x.ai/v1/tts</code>)</td><td>نعم</td><td><code>XAI_API_KEY</code> هو المفضَّل، وإلا OAuth من xAI (يعيد bearer الخاص بالاشتراك 403 لـ TTS المحسوب بالاستخدام)</td></tr><tr><td>edge, piper, kitten, neutts, mistral, minimax, deepinfra, …</td><td>—</td><td>لا (بديل متزامن لكل جملة)</td><td>كالمعتاد</td></tr><tr><td>إضافة <code>TTSProvider</code> مع <code>streams_pcm</code></td><td>الخاص بالإضافة <code>stream(format=&quot;pcm&quot;)</code></td><td>نعم، بالمعدل <code>stream_sample_rate</code></td><td>الخاص بالإضافة نفسها</td></tr></tbody></table>
+<p>تمر كل عمليات البحث عن بيانات الاعتماد عبر <code>resolve_provider_secret()</code> (الإعدادات &gt; env/.env &gt; مجمّع بيانات الاعتماد) — لا عبر قراءة مباشرة للبيئة أبدًا. وتُقيَّد الأجسام المتدفقة بـ 16 MiB لكل جملة، على غرار شرط الحدّ الثابت لأجسام الاستجابات الأصلية لدى المزوّدين المتزامنين.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-a-new-streaming-provider">إضافة مزوّد بث جديد</h2>
+<ol>
+<li>أنشئ فئة مشتقة من <code>StreamingTTSProvider</code> في <code>tools/tts_streaming.py</code></li>
+<li>اضبط <code>sample_rate</code> (و <code>channels</code> / <code>sample_width</code> إذا لم يكن التنسيق int16 أحادي القناة)</li>
+<li>نفّذ <code>available()</code> (فحصًا خالصًا — لا تثبّت شيئًا أبدًا)، و <code>stream(self, text) -&gt; Iterator[bytes]</code> التي تنتج أجزاء PCM خام</li>
+<li>أضف decorator <code>@register(&quot;yourname&quot;)</code></li>
+<li>أضف اختبارات في <code>tests/tools/test_tts_streaming.py</code></li>
+</ol>
+<p>تفرض ABC العقد؛ ويتيح السجل اكتشاف المزوّد؛ ويتولى الموزّع (<code>stream_tts_to_speaker</code>) والمستهلك في gateway مخزن الجمل المؤقت وأحداث الإيقاف ومصبّ الصوت تلقائيًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-providers">مزوّدو الإضافات</h2>
+<p>تنضم نسخة <code>TTSProvider</code> لإضافة (مسجّلة باستخدام <code>ctx.register_tts_provider()</code>) إلى هذا المسار دون تغيير النواة. وتضبط <code>streams_pcm = True</code> وقيمة موجبة لـ <code>stream_sample_rate</code> ، وتنتج <code>stream(text, format=&quot;pcm&quot;, voice=, model=, speed=)</code> الخاصة بها PCM بتنسيق int16 أحادي القناة. وتكيّفها <code>resolve_streaming_provider</code> (<code>tools.tts_streaming._PluginPCMStreamer</code>) تحت قواعد التوجيه نفسها الخاصة بالموزّع المتزامن (<code>tools.tts_tool_plugins</code>): لا تصل الأسماء المدمجة إلى السجل أبدًا، ويسود مزوّد <code>type: command</code> بالاسم نفسه، وتحصل الإضافة على <code>tts.voice</code> / <code>tts.model</code> / <code>tts.speed</code> نفسها الخاصة بـ <code>synthesize()</code>. وتبثّ الإضافة المضبوطة أولًا. وتحت <code>tts.streaming.provider: auto</code> لا تُجرَّب إلا بعد قائمة الأولوية المدمجة. وتُقرَأ <code>streams_pcm</code> و <code>stream_sample_rate</code> و <code>is_available()</code> عند كل تحديد لمزوّد بث. وإذا كان المعدل مفقودًا أو أبلغ المزوّد عن عدم توفره، يحتفظ Hermes بالتركيب لكل جملة. وكما مع مزوّدي البث المدمجين، يجلب pipeline المتحدث حتى 3 جمل مسبقًا، لذا يجب أن تتحمل <code>stream()</code> الخاصة بالإضافة الاستدعاءات المتزامنة (فالمسار المتزامن يسلسل <code>synthesize()</code> ؛ أما هذا المسار فلا يفعل).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-streaming-platform-adapters">البث في Gateway (مهايئات المنصات)</h2>
+<p><code>gateway/streaming_tts_consumer.py</code> يربط أجزاء الوكيل بنقطة تكامل البث الصوتي في المهايئ. وتختار المهايئات ذلك بتجاوز الآتي على <code>BasePlatformAdapter</code>:</p>
+<ul>
+<li><code>supports_streaming_tts(chat_id, audio_format) -&gt; bool</code></li>
+<li><code>begin_streaming_tts / write_streaming_tts / finish_streaming_tts / abort_streaming_tts</code></li>
+</ul>
+<p>تكون القيم الافتراضية لكل منها غير مدعومة/بلا إجراء، لذا لا تتغير المهايئات القائمة. وعند اكتمال البث الصوتي لدور، يُمنع رد auto-TTS كامل الملف لذلك الدور (بلا تشغيل مزدوج)؛ وعند فشل البث قبل سماع أي صوت، يعود gateway إلى الرد الصوتي القديم كامل الملف.</p>

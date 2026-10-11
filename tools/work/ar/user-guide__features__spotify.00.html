@@ -1,26 +1,23 @@
 <header><h1>Spotify</h1></header>
-<p>يستطيع Hermes التحكم في Spotify مباشرةً — التشغيل، وقائمة الانتظار، والبحث، وقوائم التشغيل، والمقاطع/الألبومات المحفوظة، وسجل الاستماع — باستخدام Web API الرسمية من Spotify مع PKCE OAuth. تُخزَّن الـ tokens في <code>~/.hermes/auth.json</code> وتُجدَّد تلقائيًا عند تلقي الخطأ 401؛ لذا لا تحتاج إلى تسجيل الدخول إلا مرة واحدة لكل جهاز (تنتهي صلاحية refresh tokens بعد نحو 6 أشهر؛ وعندها أعد تشغيل <code>hermes auth spotify</code>).</p>
-<p>على خلاف تكاملات OAuth المدمجة في Hermes (Google و GitHub Copilot و Codex)، يتطلب Spotify من كل مستخدم تسجيل تطبيق مطوّر خفيف خاص به، إذ لا يسمح Spotify للأطراف الثالثة بنشر تطبيق OAuth عام يمكن لأي شخص استخدامه. تستغرق العملية نحو دقيقتين، ويرشدك <code>hermes auth spotify</code> خلالها خطوة بخطوة.</p>
+<p>يمكن لـ Hermes التحكّم في Spotify — التشغيل وقائمة الانتظار والبحث وقوائم التشغيل والمقاطع/الألبومات المحفوظة وسجل الاستماع — عبر الإضافة الرسمية <strong><code>spotify</code></strong> من <a href="/docs/user-guide/features/plugins">كتالوج الإضافات</a>. تستخدم الإضافة Web API الخاصة بـ Spotify مع PKCE OAuth. تتولى Nous Research صيانتها في <a href="https://github.com/NousResearch/hermes-official-plugins/tree/main/spotify" data-ext>NousResearch/hermes-official-plugins</a>، وهي ليست جزءًا من نواة Hermes. تُخزّن tokens في <code>~/.hermes/auth.json</code> وتُجدّد تلقائيًا عند استجابة 401؛ ولا تحتاج إلى تسجيل الدخول إلا مرة واحدة لكل جهاز (تنتهي صلاحية refresh tokens بعد نحو 6 أشهر؛ أعد تنفيذ <code>hermes spotify login</code> عند حدوث ذلك).</p>
+<p>بخلاف تكاملات OAuth المدمجة في Hermes، يتطلّب Spotify أن يسجّل كل مستخدم تطبيق مطوّر بسيطًا خاصًا به. لا يسمح Spotify للأطراف الثالثة بتوفير تطبيق OAuth عام يستطيع أي شخص استخدامه. يستغرق ذلك نحو دقيقتين، ويرشدك <code>hermes spotify login</code> خلاله.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تُثبّت الإضافات لكل profile. لاستخدام Spotify في profile آخر، ثبّتها فيه أيضًا (<code>hermes -p &lt;profile&gt; plugins install spotify</code>).</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>الترقية من إصدار كان يضمّن Spotify</div><div class="admonitionContent_BuS1"><p>لا يلزمك إجراء شيء. يحصل كل profile كان يستخدم Spotify بالفعل (وجود تسجيل دخول Spotify في <code>auth.json</code> الخاص به، أو إدراج toolset <code>spotify</code> في <code>platform_toolsets</code>) على الإضافة تلقائيًا من الكتالوج عبر <code>hermes update</code>، أو عند بدء profile لأول مرة إذا تعذّر تنفيذ تلك الخطوة (مع مراعاة <code>security.allow_lazy_installs</code>). يبقى تسجيل دخولك و toolset <code>spotify</code> وأسماء الأدوات دون تغيير. التغيير الظاهر الوحيد: أصبح <code>hermes auth spotify</code> الآن <code>hermes spotify login</code> (وأصبح <code>hermes auth status spotify</code> / <code>hermes auth logout spotify</code> الآن <code>hermes spotify status</code> / <code>hermes spotify logout</code>)؛ تطبع الصيغة القديمة الصيغة الجديدة. إذا أزلت الإضافة لاحقًا (<code>hermes plugins remove spotify</code>)، تظل مُزالة.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
 <ul>
 <li>حساب Spotify. يكفي الحساب <strong>المجاني (Free)</strong> لأدوات البحث وقوائم التشغيل والمكتبة والنشاط. أما <strong>Premium</strong> فمطلوب للتحكم في التشغيل (التشغيل، والإيقاف المؤقت، والتخطي، والانتقال إلى موضع، ومستوى الصوت، والإضافة إلى قائمة الانتظار، ونقل التشغيل).</li>
-<li>تثبيت Hermes Agent وتشغيله.</li>
+<li>Hermes Agent مثبّت ويعمل، مع تثبيت الإضافة <code>spotify</code>.</li>
 <li>لأدوات التشغيل: <strong>جهاز Spotify Connect نشط</strong> — يجب أن يكون تطبيق Spotify مفتوحًا على جهاز واحد على الأقل (هاتف، أو سطح مكتب، أو مشغّل ويب، أو مكبّر صوت) كي تجد Web API ما تتحكم فيه. إذا لم يكن هناك جهاز نشط، فستتلقى <code>403 Forbidden</code> مع رسالة &quot;no active device&quot;؛ افتح Spotify على أي جهاز وأعد المحاولة.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-shot-hermes-tools-or-first-run-setup">دفعة واحدة: <code>hermes tools</code> أو إعداد التشغيل الأول</h3>
-<p>هذا أسرع مسار. شغّل:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
-<p>مرّر إلى <code>🎵 Spotify</code>، واضغط مفتاح المسافة لتفعيله، ثم <code>s</code> للحفظ. يتوفر مفتاح التبديل نفسه أيضًا أثناء تدفق التشغيل الأول <code>hermes setup</code> / <code>hermes setup tools</code>. يبقى Spotify اختياريًا يتطلب التفعيل، لذا فإن تفعيله هناك يشغّل إعدادات المزوّد نفسها التي يشغّلها <code>hermes tools</code>.</p>
-<p>ينقلك Hermes مباشرةً إلى تدفق OAuth — وإذا لم يكن لديك تطبيق Spotify بعد، يرشدك إلى إنشائه في المكان نفسه. وبمجرد الانتهاء، يكون الـ toolset مفعّلًا ومصادَقًا عليه في خطوة واحدة.</p>
-<p>إذا كنت تفضّل تنفيذ الخطوات بشكل منفصل (أو كنت تعيد المصادقة لاحقًا)، فاستخدم التدفق ذا الخطوتين أدناه.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-step-flow">التدفق ذو الخطوتين</h3>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-toolset">1. فعّل الـ toolset</h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-toolset">1. فعّل toolset</h3>
+<p>يُفعّل toolset <code>spotify</code> الخاص بالإضافة باختيار المستخدم، بحيث لا يحمل المستخدمون الذين لا يريدونه مخططات أدوات إضافية في كل استدعاء API. فعّله في <code>hermes tools</code> (بدّل <code>🔌 Spotify</code>، ثم احفظ) أو باستخدام:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
-<p>فعّل <code>🎵 Spotify</code>، واحفظ، وعندما يُفتح المعالج المضمّن، أغلقه (Ctrl+C). يبقى الـ toolset مفعّلًا؛ ولا يُؤجَّل إلا خطوة المصادقة.</p>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-run-the-login-wizard">2. شغّل معالج تسجيل الدخول</h4>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-log-in">2. سجّل الدخول</h3>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
-<p>لا تظهر أدوات Spotify السبع في toolset الوكيل إلا بعد الخطوة 1 — فهي معطّلة افتراضيًا كي لا يُرسل المستخدمون الذين لا يريدونها مخططات أدوات إضافية مع كل استدعاء API.</p>
+<p>لا تصل أدوات Spotify الـ 7 إلى الوكيل إلا بعد تسجيل دخولك.</p>
 <p>إذا لم يكن <code>HERMES_SPOTIFY_CLIENT_ID</code> مضبوطًا، يرشدك Hermes إلى تسجيل التطبيق مباشرةً:</p>
 <ol>
 <li>يفتح <code>https://developer.spotify.com/dashboard</code> في متصفحك</li>
@@ -40,7 +37,7 @@
 <p>لإعدادات jump-box / bastion وغيرها من المزالق (mosh و tmux وتعارض المنافذ)، راجع <a href="/docs/guides/oauth-over-ssh">OAuth عبر SSH / الأجهزة البعيدة</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify">التحقق</h2>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
-<p>يعرض ما إذا كانت الـ tokens موجودة وموعد انتهاء صلاحية access token. التجديد تلقائي: فعندما يعيد أي استدعاء لـ Spotify API الخطأ 401، يستبدل العميل refresh token ويعيد المحاولة مرة واحدة. تبقى refresh tokens محفوظة عبر عمليات إعادة تشغيل Hermes، لذا لا تحتاج إلى إعادة المصادقة إلا إذا ألغيت صلاحية التطبيق في إعدادات حساب Spotify أو شغّلت <code>hermes auth logout spotify</code>.</p>
+<p>يعرض ما إذا كانت tokens موجودة ومتى تنتهي صلاحية access token. التجديد تلقائي: عندما يعيد أي استدعاء Spotify API الاستجابة 401، يستبدل العميل refresh token ويعيد المحاولة مرة واحدة. تستمر refresh tokens عبر إعادة تشغيل Hermes، لذا لا تحتاج إلى إعادة المصادقة إلا إذا ألغيت التطبيق من إعدادات حساب Spotify أو نفّذت <code>hermes spotify logout</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-it">الاستخدام</h2>
 <p>بعد تسجيل الدخول، يحصل الوكيل على 7 أدوات لـ Spotify. تحدّث إلى الوكيل بشكل طبيعي — وسيختار الأداة والإجراء المناسبين. وللحصول على أفضل سلوك، يحمّل الوكيل مهارة مرافقة تعلّمه أنماط الاستخدام المعتمدة (بحث واحد ثم تشغيل، ومتى لا يلزم الاستدعاء المسبق لـ <code>get_state</code>، وما إلى ذلك).</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
@@ -99,7 +96,7 @@
 <p><strong><code>204 No Content</code> عند <code>get_currently_playing</code></strong> — لا شيء قيد التشغيل حاليًا على أي جهاز. هذه استجابة Spotify العادية وليست خطأً؛ ويعرضها Hermes كنتيجة فارغة توضيحية (<code>is_playing: false</code>).</p>
 <p><strong><code>INVALID_CLIENT: Invalid redirect URI</code></strong> — لا يطابق redirect URI في إعدادات تطبيق Spotify لديك ما يستخدمه Hermes. القيمة الافتراضية هي <code>http://127.0.0.1:43827/spotify/callback</code>. إما أن تضيفها إلى قائمة redirect URIs المسموح بها في تطبيقك، أو أن تضبط <code>HERMES_SPOTIFY_REDIRECT_URI</code> في <code>~/.hermes/.env</code> على القيمة التي سجّلتها.</p>
 <p><strong><code>429 Too Many Requests</code></strong> — حدّ المعدل (rate limit) لدى Spotify. يعيد Hermes رسالة خطأ واضحة؛ انتظر دقيقة وأعد المحاولة. إذا استمر ذلك، فالأرجح أنك تشغّل حلقة متقاربة في سكربت — إذ تُعاد تهيئة حصة Spotify كل 30 ثانية تقريبًا.</p>
-<p><strong>يتكرر ظهور <code>401 Unauthorized</code></strong> — أُلغيت صلاحية refresh token الخاص بك (عادةً لأنك أزلت التطبيق من حسابك، أو لأن التطبيق حُذف). شغّل <code>hermes auth spotify</code> مجددًا.</p>
+<p><strong>يتكرر ظهور <code>401 Unauthorized</code></strong> — أُلغيت refresh token الخاصة بك (عادةً لأنك أزلت التطبيق من حسابك، أو حُذف التطبيق). نفّذ <code>hermes spotify login</code> مرة أخرى.</p>
 <p><strong>المعالج لا يفتح المتصفح</strong> — إذا كنت متصلًا عبر SSH أو تعمل داخل حاوية دون شاشة، يكتشف Hermes ذلك ويتخطى الفتح التلقائي. انسخ عنوان URL للوحة التحكم الذي يطبعه وافتحه يدويًا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="advanced-custom-scopes">متقدم: نطاقات (scopes) مخصصة</h2>
 <p>افتراضيًا، يطلب Hermes النطاقات اللازمة لكل الأدوات المضمّنة. يمكنك تجاوز ذلك إذا أردت تقييد الوصول:</p>

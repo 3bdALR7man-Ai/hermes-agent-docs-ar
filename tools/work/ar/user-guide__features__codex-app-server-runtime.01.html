@@ -1,8 +1,45 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-profiles">ملفات تعريف الصلاحيات (Permission profiles)</h2>
+<p>لدى Codex ثلاثة profiles صلاحيات مدمجة:</p>
+<ul>
+<li><code>:read-only</code> — لا كتابة؛ وكل أمر shell يتطلب موافقة</li>
+<li><code>:workspace</code> — يُسمح بالكتابة داخل مساحة العمل الحالية دون طلب موافقة (الافتراضي في Hermes عند تفعيل بيئة التشغيل)</li>
+<li><code>:danger-no-sandbox</code> — بلا sandbox على الإطلاق (لا تستخدمه إلا إذا كنت تفهم عواقبه)</li>
+</ul>
+<p>يمكنك تجاوز القيمة الافتراضية في <code>~/.codex/config.toml</code> خارج الكتلة التي يديرها Hermes:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>(سيحافظ Hermes على تجاوزك عند إعادة الترحيل ما دام موجودًا خارج العلامتين <code># managed by hermes-agent</code> كعلامات).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-tasks-and-chatgpt-subscription-token-cost">المهام المساعدة وتكلفة الـ token في اشتراك ChatGPT</h2>
+<p>عند تفعيل بيئة التشغيل هذه مع المزوّد <code>openai-codex</code>، <strong>تمر المهام المساعدة (توليد العناوين، وضغط السياق، والاكتشاف التلقائي للرؤية، وفرع مراجعة التحسين الذاتي في الخلفية) أيضًا عبر اشتراك ChatGPT الخاص بك افتراضيًا</strong>، لأن العميل المساعد في Hermes يستخدم المزوّد/النموذج الرئيسي عند عدم ضبط تجاوز خاص بكل مهمة.</p>
+<p>هذا ليس خاصًا بـ <code>codex_app_server</code> — فهو ينطبق على المسار الحالي <code>codex_responses</code> أيضًا — لكنه أوضح هنا لأنك تختار صراحةً الفوترة عبر الاشتراك.</p>
+<p>لتوجيه مهام مساعدة محددة إلى نموذج أرخص / مختلف، اضبط تجاوزات صريحة في <code>~/.hermes/config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يرث فرع مراجعة التحسين الذاتي بيئة التشغيل الرئيسية عبر <code>_current_main_runtime()</code>، ويخفّضه Hermes من <code>codex_app_server</code> إلى <code>codex_responses</code> تلقائيًا (كي يتمكن الفرع فعلًا من استدعاء <code>memory</code> و <code>skill_manage</code> — وهما من أدوات حلقة الوكيل الخاصة بـ Hermes). ولا يزال ذلك الفرع يستخدم مصادقة اشتراكك ما لم تكن قد وجّهت المهام المساعدة إلى مكان آخر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editing-codexconfigtoml-safely">تعديل <code>~/.codex/config.toml</code> بأمان</h2>
+<p>يغلّف Hermes كل ما يديره بين تعليقَين يعملان كعلامتين:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>كل ما يقع <strong>خارج</strong> تلك الكتلة ملك لك. تستبدل إعادة تشغيل الترحيل (عبر <code>/codex-runtime codex_app_server</code>، أو كلما فعّلت بيئة التشغيل، أو <code>hermes codex-runtime migrate</code>) يستبدل الكتلة المُدارة في مكانها ويحافظ على محتوى المستخدم أعلى منها وأسفل منها حرفيًا. هذا يعني أنك تستطيع:</p>
+<ul>
+<li>إضافة خوادم MCP خاصة بك لا يعرفها Hermes</li>
+<li>تجاوز <code>default_permissions</code> إلى <code>:read-only</code> إذا كنت تفضّل أن تُطلب منك الموافقة</li>
+<li>ضبط خيارات خاصة بـ codex فقط (النموذج، والمزوّدين، و otel، وغيرها)</li>
+<li>إضافة profiles صلاحيات يعرّفها المستخدم في جداول <code>[permissions.&lt;name&gt;]</code> كجداول</li>
+</ul>
+<p>أي شيء تضيفه <strong>داخل</strong> الكتلة المُدارة سيُستبدل عند الترحيل التالي. إذا احتجت إلى تعديل يتطلب تحرير الكتلة المُدارة، فافتح issue وسنضيف خيار الضبط المناسب.</p>
+<p><strong>خوادم تحمل الاسم نفسه.</strong> إذا كان جدولك <code>[mcp_servers.&lt;name&gt;]</code> (خارج الكتلة) يستخدم الاسم نفسه لخادم في <code>mcp_servers</code> لدى Hermes، تكون الأولوية لجدولك: يتجاوز Hermes تحويله لذلك الاسم بدلًا من إخراج ترويسة <code>[mcp_servers.&lt;name&gt;]</code> ثانية (وهي TOML غير صالحة وستمنع بدء Codex). يسرد تقرير الانتقال هذه الأسماء تحت &quot;Kept N user-owned MCP server(s)&quot;. للسماح لـ Hermes بإدارة الخادم، احذف جدولك وأعد الانتقال. يُحلَّل الملف الناتج كـ TOML قبل أن يستبدل <code>config.toml</code>؛ يُبلَّغ عن نتيجة لا يمكن تحليلها ويُترك الملف الحالي دون تغيير.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-the-migration-from-a-script">تشغيل الانتقال من سكربت</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>هذه عملية الانتقال نفسها التي يشغّلها <code>/codex-runtime codex_app_server</code>؛ يمكن تكرارها دون تغيير النتيجة، وتكتب ذريًا وتخرج برمز غير صفري عندما يتضمن التقرير أخطاء. تكتب <code>$CODEX_HOME/config.toml</code> عندما يكون <code>CODEX_HOME</code> مضبوطًا (راجع أدناه)، وإلا <code>~/.codex/config.toml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-profile--multi-tenant-setups">إعدادات متعددة الـ profiles / متعددة المستأجرين (multi-tenant)</h2>
+<p>افتراضيًا، يوجّه Hermes العملية الفرعية لـ codex إلى <code>~/.codex/</code> بغض النظر عن الـ profile النشط في Hermes. هذا يعني أن <code>hermes -p work</code> و <code>hermes -p personal</code> يتشاركان مصادقة Codex وإضافاته وإعداداته نفسها. وبالنسبة لمعظم المستخدمين، هذا هو السلوك الصحيح — فهو يطابق ما يحدث عند تشغيل <code>codex</code> CLI مباشرة.</p>
+<p>إذا أردت عزل Codex لكل profile (مصادقة منفصلة، وإضافات مثبّتة منفصلة، وإعدادات منفصلة)، فاضبط <code>CODEX_HOME</code> صراحةً لكل profile. وأنظف طريقة هي توجيهه إلى دليل تحت <code>HERMES_HOME</code> الخاص بك:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>ستحتاج إلى إعادة تنفيذ <code>codex login</code> مرة واحدة مع ضبط <code>CODEX_HOME</code> ذاك كي تُحفظ OAuth tokens في الموقع الخاص بالـ profile. بعد ذلك، سيعمل <code>hermes -p work</code> على حالة Codex معزولة.</p>
+<p>لا نحدد هذا النطاق تلقائيًا لأن نقل <code>~/.codex/</code> الخاص بمستخدم حالي سيُبطل بصمت مصادقة Codex CLI لديه — فأي شخص نفّذ <code>codex login</code> مسبقًا سيضطر إلى إعادة المصادقة. ويبدو التفعيل الاختياري (opt-in) أكثر أمانًا من مفاجأة المستخدمين.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-environment-variable-passthrough">تمرير متغير البيئة HOME</h2>
 <p>لا يعيد Hermes كتابة <code>HOME</code> عند تشغيل العملية الفرعية codex app-server (نستخدم <code>os.environ.copy()</code> ولا نضيف فوقها إلا <code>CODEX_HOME</code> و <code>RUST_LOG</code>). وهذا يعني:</p>
 <ul>
 <li>الأوامر التي ينفّذها codex عبر أداة <code>shell</code> الخاصة به ترى مجلد <code>HOME</code> الحقيقي للمستخدم، فتعثر على <code>~/.gitconfig</code> و <code>~/.gh/</code> و <code>~/.aws/</code> و <code>~/.npmrc</code> وغيرها بشكل صحيح.</li>
-<li>تبقى الحالة الداخلية لـ Codex معزولة عبر <code>CODEX_HOME</code> (الذي يشير افتراضيًا إلى <code>~/.codex/</code>).</li>
+<li>تبقى الحالة الداخلية لـ Codex معزولة عبر <code>CODEX_HOME</code> (الذي يشير افتراضيًا إلى <code>~/.codex/</code> افتراضيًا).</li>
 </ul>
 <p>يتوافق هذا مع الحدّ الذي انتهى إليه OpenClaw بعد بعض التجارب المبكرة: اعزل حالة Codex، واترك مجلد المنزل الخاص بالمستخدم على حاله. (راجع openclaw/openclaw#81562.)</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-server-migration">ترحيل خوادم MCP</h2>
@@ -25,20 +62,20 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-tool-callback-the-new-mcp-server">استدعاء أدوات Hermes الراجع (خادم MCP الجديد)</h2>
 <p>تغطي toolset المدمجة في Codex عمليات الـ shell والملفات والتصحيحات (patches)، لكنها لا تتضمن البحث في الويب أو أتمتة المتصفح أو الرؤية أو توليد الصور وغيرها. ولإبقاء هذه الأدوات قابلة للاستخدام خلال دور codex، يسجّل Hermes نفسه بوصفه خادم MCP في <code>~/.codex/config.toml</code>:</p>
-<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
 <p>عندما يستدعي النموذج <code>web_search</code> (أو أي أداة أخرى مكشوفة من Hermes)، يشغّل codex العملية الفرعية <code>hermes_tools_mcp_server</code> عبر stdio، ويُمرَّر الطلب من خلال <code>model_tools.handle_function_call()</code>، ثم تُعاد النتيجة إلى codex مثل أي استجابة MCP أخرى.</p>
 <p><strong>الأدوات المتاحة عبر الاستدعاء الراجع:</strong> <code>web_search</code>، <code>web_extract</code>، <code>browser_navigate</code>، <code>browser_click</code>، <code>browser_type</code>، <code>browser_press</code>، <code>browser_snapshot</code>، <code>browser_scroll</code>، <code>browser_back</code>، <code>browser_get_images</code>، <code>browser_console</code>، <code>browser_vision</code>، <code>vision_analyze</code>، <code>image_generate</code>، <code>skill_view</code>، <code>skills_list</code>، <code>text_to_speech</code>.</p>
 <p><strong>الأدوات غير المتاحة:</strong> <code>delegate_task</code> و <code>memory</code> و <code>session_search</code> و <code>todo</code>. تحتاج هذه الأدوات إلى سياق AIAgent قيد التشغيل لتنفيذها (حالة منتصف الحلقة)، ولا يستطيع استدعاء MCP راجع عديم الحالة (stateless) تشغيلها. استخدم بيئة تشغيل Hermes الافتراضية (<code>/codex-runtime auto</code>) عندما تحتاج إليها.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling">التعطيل</h2>
 <p>يمكنك العودة في أي وقت:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
 <p>يسري التغيير في الجلسة التالية. تبقى كتلة Codex المُدارة في <code>~/.codex/config.toml</code> حتى تتمكن من إعادة التفعيل لاحقًا دون فقدان الإعدادات — أو احذفها يدويًا إن شئت.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
 <p>بيئة التشغيل هذه <strong>إصدار تجريبي (beta) بالاشتراك الاختياري (opt-in)</strong>. ما يعمل حتى Hermes Agent 2026.5 + Codex CLI 0.130.0:</p>
 <ul>
 <li>المحادثات متعددة الأدوار</li>
 <li>موافقات <code>commandExecution</code> و <code>fileChange</code> (apply_patch) عبر واجهة Hermes</li>
-<li>استدعاءات أدوات MCP (جرى التحقق منها مع <code>@modelcontextprotocol/server-filesystem</code> ومع الاستدعاء الراجع الجديد <code>hermes-tools</code>)</li>
+<li>استدعاءات أدوات MCP (جرى التحقق منها مع <code>@modelcontextprotocol/server-filesystem</code> ومع الاستدعاء الراجع الجديد <code>hermes-tools</code> كاستدعاء راجع)</li>
 <li>ترحيل إضافات Codex الأصلية (جرى التحقق منه مع مخزون Linear / GitHub / Calendar)</li>
 <li>مسارات الرفض/الإلغاء</li>
 <li>دورة التشغيل/الإيقاف</li>
@@ -50,9 +87,12 @@
 <li><strong>مصادقة Hermes ومصادقة codex جلستان منفصلتان.</strong> تحتاج إلى كلٍّ من <code>codex login</code> و <code>hermes auth add openai-codex</code> للحصول على أسلس تجربة استخدام (إذ تستخدم بيئة التشغيل جلسة codex لاستدعاء LLM). هذا خيار تصميمي مقصود في <code>_import_codex_cli_tokens</code> لدى Hermes — فلا يشارك Hermes حالة OAuth مع codex CLI تجنبًا لأن يطمس كلٌّ منهما بيانات الآخر عند تحديث الـ token.</li>
 <li><strong><code>delegate_task</code> و <code>memory</code> و <code>session_search</code> و <code>todo</code> غير متاحة في بيئة التشغيل هذه.</strong> فهي تحتاج إلى سياق AIAgent قيد التشغيل، وهو ما لا يستطيع استدعاء MCP راجع عديم الحالة توفيره. استخدم <code>/codex-runtime auto</code> عندما تحتاج إليها.</li>
 <li><strong>لا توجد معاينة مضمّنة للتصحيح في مطالبات الموافقة عندما لا يتتبّع codex مجموعة التغييرات.</strong> لا تحمل معاملات موافقة <code>fileChange</code> في Codex مجموعةَ التغييرات دائمًا. يخزّن Hermes مؤقتًا البيانات القادمة من إشعار <code>item/started</code> المقابل متى أمكن، لكن إذا وصلت الموافقة قبل بثّ العنصر، تعود المطالبة إلى أي <code>reason</code> يوفّره codex.</li>
-<li><strong>الإلغاء في أقل من ثانية غير مضمون.</strong> تُرسل المقاطعات أثناء البث (Ctrl+C بينما يردّ codex) عبر <code>turn/interrupt</code>، لكن إذا كان codex قد أرسل الرسالة النهائية بالفعل، فستصلك الاستجابة على أي حال.</li>
+<li><strong><code>fallback_providers</code> تنتقل إلى مزوّد احتياطي عند إخفاقات الحصة وحدود المعدل فقط.</strong> عندما يفشل دور Codex app-server بخطأ فوترة / حد استخدام / حد معدل، ينتقل Hermes إلى <a href="/docs/user-guide/features/fallback-providers">المزوّد الاحتياطي</a> المضبوط ويعيد محاولة الدور نفسه عليه؛ لا تنتقل إخفاقات المصادقة (انتهاء صلاحية <code>codex login</code>) ومهل الأدوار وأخطاء النموذج المجهول إلى مزوّد احتياطي في بيئة التشغيل هذه، وتظهر بدلًا من ذلك كخطأ الدور.</li>
+<li><strong>لا يُزرع سجل Hermes السابق إلا في thread يبدأه Codex من الصفر.</strong> يمتلك thread يعيده Codex عبر <code>thread/resume</code> المحادثة بالفعل. عندما لا يوجد thread قابل للاستئناف — عملت الجلسة على مزوّد آخر قبل أن ينتقل <code>/model</code> إلى openai-codex، أو تعذّر على Codex استئناف الـ thread المخزَّن، أو أُحيل الـ thread الجاري للتقاعد — تحمل <code>developerInstructions</code> في الـ thread الجديد system prompt الخاص بـ Hermes تليه أدوار الجلسة السابقة (نص المستخدم والمساعد وأسماء الأدوات ومعاينات نتائج الأدوات؛ أحدث نحو 32K حرفًا). عندما يتغير الـ prompt المركَّب في منتصف الجلسة (مثل <code>/personality</code> في TUI أو Desktop)، ينهي الدور التالي الـ thread الجاري ويبدأ جديدًا يحمل الـ prompt المحدَّث مع بذرة السجل نفسها.</li>
+<li><strong>يبقى thread الخاص بـ Codex نفسه بعد إعادة التشغيل.</strong> بعد كل دور مثبَّت، يخزّن Hermes معرّف thread الخاص بـ Codex في صف الجلسة (<code>codex_thread_id</code> في <code>model_config</code>, <code>hermes sessions</code> / <code>state.db</code>). يصدر الوكيل التالي المنشأ لجلسة Hermes نفسها — طلب <code>/api/sessions/{id}/chat</code> لاحق، أو الدور الأول بعد إعادة تشغيل خادم API أو gateway — أمر <code>thread/resume</code> للمعرّف المخزَّن قبل <code>turn/start</code>، فيحتفظ النموذج بذاكرته الخاصة للأدوار السابقة (ولهذا لا تُرسل بذرة سجل عند الاستئناف). عندما لا يستطيع Codex إعادة الـ thread (حُذف rollout الخاص به، أو تغير <code>CODEX_HOME</code>، أو قُتل app-server السابق أثناء كتابته)، يتصرف Hermes على أساس المنع عند تعذّر التحقق: يسقط المعرّف المخزَّن ويبدأ thread جديدًا ويعرض سطرًا واحدًا — <code>Codex thread could not be resumed; starting a new one.</code> — في شريط الحالة للواجهة المستخدمة (CLI أو TUI/Desktop أو Messaging Gateway). لا تستأنف جلسة <code>/new</code> thread أقدم أبدًا.</li>
+<li><strong>الإلغاء في أقل من ثانية ليس مضمونًا.</strong> تُرسل المقاطعات أثناء البث (Ctrl+C بينما يردّ codex) عبر <code>turn/interrupt</code>، لكن إذا كان codex قد أرسل الرسالة النهائية بالفعل، فستصلك الاستجابة على أي حال.</li>
 </ul>
 <p>إذا وجدت خطأً، <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>افتح issue</a> مرفقًا بمخرجات <code>hermes logs --since 5m</code>. واذكر <code>codex-runtime</code> في العنوان ليسهل فرزه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية</h2>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <p>لتفاصيل التنفيذ، راجع <a href="https://github.com/NousResearch/hermes-agent/pull/24182" data-ext>PR #24182</a> و <a href="https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md" data-ext>ملف README لبروتوكول Codex app-server</a>.</p>

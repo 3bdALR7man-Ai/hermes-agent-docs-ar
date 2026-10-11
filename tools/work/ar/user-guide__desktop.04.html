@@ -1,11 +1,114 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="extending-the-desktop-app">توسعة تطبيق سطح المكتب</h2>
+<p>تطبيق سطح المكتب قائم على الإضافات — فالأجزاء، والصفحات، وعناصر التنقل في الشريط الجانبي، وعناصر شريط
+الحالة، وأوامر اللوحة، والاختصارات، والسمات، كلها تُسجَّل عبر SDK واحد، ويمكنك
+إضافة ما يخصك. الإضافة (plugin) ملف ESM واحد يوضع في
+ <code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/plugin.js</code> ؛ ويحمّله التطبيق خلال ثوانٍ
+ويعيد تحميله فورًا مع كل حفظ. أدِر الإضافات المثبّتة مباشرةً من <strong>Capabilities → Plugins</strong>.</p>
+<p>راجع <a href="/docs/developer-guide/desktop-plugin-sdk">Desktop Plugin SDK</a> للاطلاع على المرجع
+الكامل. (هذا منفصل عن <a href="/docs/user-guide/features/extending-the-dashboard">نظام إضافات لوحة تحكم الويب</a>.)</p>
+<p>الإضافة الخاصة بـ Desktop <strong>ليست معزولة في sandbox</strong>: فهي تعمل داخل التطبيق بصلاحياته نفسها (RPC الخاص بـ gateway، والجسر الأصلي، وتخزين الإضافات الأخرى). لا تحمّل إلا ملفات كتبتها أو راجعتها؛ والحماية في تثبيتات الكتالوج هي <a href="/docs/user-guide/features/plugin-catalog#trust-model">نموذج الثقة في الكتالوج</a> (مراجعة بشرية وتثبيت بحسب SHA)، إضافةً إلى قائمة سماح للاستيراد — لا العزل. والإضافة التي ترمي <code>register()</code> فيها استثناءً تُسترجَع تغييراتها وتظهر بالحالة <strong>Failed</strong> مع الخطأ في صفها؛ ويعيد <strong>⌘K → Reload desktop plugins</strong> قراءة كل ملف <code>plugin.js</code> مثبَّت، بما في ذلك ملف استبدله مُثبّت في موضعه.</p>
+<p><strong>Capabilities → Plugins</strong> هو المكان الوحيد لكل ما يوسّع
+Hermes: <strong>صف واحد لكل إضافة</strong>، مع عمودين من المفاتيح.</p>
+<ul>
+<li>يمكن للإضافة أن توسّع <strong>هذا التطبيق</strong>، أو <strong>الوكيل</strong>، أو <strong>كليهما</strong> — وتوضّح الشارة في
+كل صف أيّها، استنتاجًا مما تحتويه الحزمة (<code>plugin.yaml</code>
+→ شق الوكيل، <code>plugin.js</code> → شق سطح المكتب). والإضافة التي تحتوي على الشقين تظهر في صف
+واحد، لا في صفين أبدًا.</li>
+<li><strong>عمود Desktop</strong> — الشق الذي يُحمَّل في هذا التطبيق. وهو على مستوى التطبيق: المفتاح
+نفسه، والقيمة نفسها، أيًّا كان الـ profile أو الـ gateway أو الجهاز البعيد الذي
+تعرضه النافذة. يُحمَّل كود سطح المكتب من مكان واحد فقط،
+ <code>~/.hermes/desktop-plugins/</code> ؛ ويُنسخ شق سطح المكتب من الحزمة الموحّدة (وكيل + سطح مكتب)
+إلى هناك بواسطة التطبيق عند تثبيت الحزمة (ويتبع
+تحديثاتها وإلغاء تثبيتها)، لذا فإن التبديل بين الـ profiles لا يحمّل
+جزءًا أو يُلغي تحميله أو يغيّر نطاقه أبدًا. وتسري التبديلات مباشرةً.</li>
+<li><strong>عمود Agent</strong> — الشق المثبّت في الـ backend الخاص بالـ profile المحدد
+(<a href="/docs/user-guide/features/plugins">إضافات الوكيل</a>: تثبيتات المستخدم، و git، والمشروع، و pip، و
+التثبيتات المحمولة)، مع شريحة <strong>Update</strong> عندما يتحرّك الإصدار المثبّت في الكتالوج. ويوجد محدّد profile في رأس هذا العمود لأنه لا يحكم إلا هذا العمود؛ ومع profile واحد لا يظهر أي محدّد. ولا تُدرَج العناصر المدمجة المضمّنة في المستودع (مهايئات المنصات وإضافات المزوّدين): فهي تأتي مفعّلة وتُضبط من واجهاتها الخاصة. والاستثناء هو إضافات دورة الحياة المضمّنة التي لا تملك واجهة خاصة بها (<code>disk-cleanup</code> و <code>security-guidance</code>)، إذ تظهر هنا لتفعيلها وتعطيلها كأي إضافة للوكيل.</li>
+<li>الشق الذي لا تتضمنه الإضافة يُعرض كشرطة. وشق سطح المكتب الذي يكون شق الوكيل
+المقابل له <strong>غير</strong> مثبّت في الـ profile المحدد يعرض <strong>Install here</strong>،
+الذي يملأ مسبقًا نافذة التثبيت من مصدر الحزمة (مُدخل الكتالوج
+أو git remote) لذلك الـ profile فقط. أما الإضافات الاختيارية مثل
+<a href="https://github.com/NousResearch/hermes-desktop-accent-picker" data-ext>Accent Picker</a>
+فتُثبَّت من مستودعاتها الخاصة عبر <strong>Install from Git</strong>.</li>
+<li><strong>إلغاء التثبيت</strong> — لكل إضافة مثبّتة تحت مجلد <code>plugins/</code> في profile المحدد (بتثبيت مستخدم أو git) زر سلة بجانب اسمها. ويطلب تأكيدًا، ثم يحذف ملفات الإضافة وبيانات تثبيتها الوصفية من ذلك الـ profile — العملية نفسها التي ينفّذها <code>hermes plugins remove &lt;name&gt;</code> — ويزيل نسخة التطبيق من الجزء الخاص بـ Desktop في الحزمة الموحّدة. أعد تشغيل gateway لإلغاء تحميل كود الإضافة. ولا تملك الإضافات المضمّنة في المستودع أو المثبّتة عبر pip (entrypoint) زر سلة: الأولى لا يمكن إزالتها، والثانية تُزال مع حزمة Python الخاصة بها. وتحصل إضافة Desktop مستقلة (مجلد وضعته في <code>~/.hermes/desktop-plugins/</code> دون حزمة وكيل) على زر السلة نفسه؛ وتأكيده يحذف ذلك المجلد على هذا الجهاز ويلغي تحميل الإضافة فورًا، دون تدخل gateway.</li>
+</ul>
+<p>يأتي الاكتشاف في الأسفل: يثبّت منتقي <a href="/docs/user-guide/features/plugin-catalog">كتالوج الإضافات</a> الحيّ
+المُدخلات المُراجَعة عند الـ commit المثبّت لها في الـ profile
+المحدد، ويأخذ <strong>Install from Git</strong> أي مستودع آخر عبر نافذة
+المراجعة ثم التثبيت نفسها؛ ويثبّت حقله الاختياري <strong>Pin to commit</strong> قيمة commit SHA
+دقيقة من 40 حرفًا (بما في ذلك المستودعات الخاصة)، وتحمل الإضافات المثبّتة على commit
+شارة <code>pinned @ &lt;sha8&gt;</code> في القائمة. أما روابط <code>Settings → Plugins</code> القديمة
+فتُعاد توجيهها إلى هنا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting-1">استكشاف الأخطاء وإصلاحها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reconnect-without-restarting-the-app">إعادة الاتصال دون إعادة تشغيل التطبيق</h3>
+<p>إذا توقفت محادثة أو بوت في Desktop عن الاستجابة بينما لا يزال الاتصال يظهر بحالة <strong>Connected</strong>، فاختر ذلك البوت/الـ profile أو الـ gateway، وافتح قائمة الـ gateway في شريط الحالة، ثم انقر <strong>Reconnect gateway</strong>. يبقى خيار إعادة الاتصال متاحًا لقنوات النقل المفتوحة، وقيد الاتصال، والمنقطعة. وهو يعيد الاتصال بالمسار النشط دون إعادة تشغيل Desktop ودون إغلاق مقابس المسارات الأخرى عمدًا. قد تُقاطَع الطلبات الجارية على المقبس المحدد؛ فهذا إجراء استرداد صريح، وليس إعادة تشغيل للـ backend أو للنموذج.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-app-vanished-after-hermes-update">اختفى التطبيق بعد <code>hermes update</code></h3>
+<p>أي تحديث سابق استبدل النسخة المسحوبة دون الاحتفاظ بـ <code>apps/desktop/release/</code> لا يترك تطبيقًا محزّمًا لتشغيله. وما دام <code>HERMES_HOME/desktop-build-stamp.json</code> (الذي لا يكتبه إلا بناء Desktop ناجح) موجودًا، فإن <code>hermes update</code> التالي يلاحظ التطبيق المفقود ويعيد بناءه. ولإعادة البناء يدويًا: <code>hermes desktop --build-only --force-build</code>. وعلى Windows، يحتفظ البديل الاحتياطي عبر ZIP أيضًا بالتطبيق المبني وحزمة renderer و <code>node_modules</code> الخاص بـ Electron أثناء الاستبدال.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-local-backend-stopped-in-the-background">توقف backend المحلي في الخلفية</h3>
+<p>إذا خرجت عملية backend المحلي لـ Hermes بعد أن أصبحت جاهزة، يعيد Desktop تشغيلها بنفسه ويعرض إشعار <strong>Hermes stopped working in the background</strong>؛ وتُعاد ربط المحادثة عندما تصبح العملية البديلة جاهزة. ويسجّل <code>HERMES_HOME/logs/desktop.log</code> رمز الخروج مع آخر أسطر مخرجات backend (<code>Hermes backend exited (1)</code> متبوعًا بـ <code>Recent backend output:</code>)، فيبقى سبب توقفه في السجل حتى إذا تعافى التطبيق بنفسه. وإذا ظل backend يتوقف بعد ثوانٍ من كل إعادة تشغيل، فذلك يشير إلى backend نفسه — راجع traceback في آخر السجل. وبعد 3 إعادات تشغيل كهذه خلال دقيقتين، يتوقف Desktop عن إعادة الإطلاق ويعرض إشعار <strong>keeps crashing</strong> بدلًا من التكرار؛ أعد إطلاق التطبيق بعد إصلاح السبب.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failed-turns-name-the-failing-layer">الأدوار الفاشلة تحدد الطبقة المسبّبة للفشل</h3>
+<p>عند فشل دور ما، تعرض المحادثة بطاقة خطأ تحدد <strong>الطبقة
+التي فشلت</strong> — المزوّد/النموذج، أو endpoint مخصص، أو اتصال البث،
+أو المصادقة، أو الفوترة، أو الـ gateway، أو بيئة التشغيل المحلية، أو القرص — بدلًا من
+إشعار خطأ عام. وتقدّم البطاقة إجراءات استرداد تناسب نوع الفشل:</p>
+<ul>
+<li><strong>Retry</strong> — يعيد تنفيذ الدور الفاشل في موضعه (ويُخفى إذا كانت إعادة المحاولة ستكرر الفشل حتمًا، مثل رفض سياسة المحتوى). وعندما تحدّد استجابة حدّ المعدل أو الاستخدام موعد رفع الحدّ (بترويسة <code>Retry-After</code> أو حقل <code>resets_at</code>)، تعرض البطاقة <strong>Limit resets at HH:mm (in 1h 05m)</strong> بجانب Retry لتعرف موعد نجاح إعادة المحاولة؛ ويطبع CLI/TUI السطر نفسه تحت الخطأ. والتلميح معلوماتي، لكن البطاقة تتيح أيضًا <strong>Retry when the limit resets (HH:mm)</strong>: انقره ليعيد التطبيق محاولة ذلك الدور مرة واحدة عند موعد إعادة ضبط الحدّ، مع عدّ تنازلي حي وزر <strong>Cancel</strong>. ويظل الجدول داخل النافذة المفتوحة وحدها — ويُلغي تبديل الجلسات أو إرسال رسالة أخرى أو إغلاق التطبيق ذلك الجدول، ولا تحدث إعادة محاولة دون مراقبة.</li>
+<li><strong>Switch provider</strong> — لأخطاء المزوّد و endpoint والمصادقة والفوترة، يفتح قائمة النماذج الحية في محرّر الرسالة لتتمكن من نقل <strong>Switch provider</strong> إلى مزوّد/نموذج آخر فورًا (إذ لا تغيّر Settings → Models إلا الافتراضي للمحادثات الجديدة). وعندما لا تظهر واجهة محادثة على الشاشة، يعود إلى Settings → Models.</li>
+<li><strong>Open logs</strong> — يفتح <code>HERMES_HOME/logs</code> في مدير الملفات. في الاتصالات البعيدة
+أو السحابية يظهر الزر باسم <strong>Open Desktop logs</strong>: إذ يفتح
+سجلات Desktop المحلية (أدلة طبقة النقل)، لأن سجلات الـ gateway/الوكيل الخاصة
+بالدور الفاشل موجودة على الجهاز البعيد.</li>
+<li><strong>Send diagnostics</strong> — يرفع حزمة تصحيح منقّحة إلى تخزين داخلي لدى Nous
+بعد طلب موافقة صريح (الـ pipeline نفسه المستخدم في
+ <code>hermes debug share --nous</code> ؛ تُنقَّح الأسرار دائمًا، ولا يطّلع على الحزمة
+إلا فريق Nous، وتُحذف تلقائيًا بعد 14 يومًا). عند النجاح تحصل
+على رابط عرض خاص للصقه في سلسلة طلب الدعم، إضافةً إلى روابط سريعة
+إلى GitHub Issues و Nous Portal Support و Discord. وفي الاتصالات البعيدة أو
+السحابية، يضمّن الـ backend سجلات الوكيل/الـ gateway الخاصة به، ويُرفق سجل
+Desktop المحلي معها، فيرى فريق الدعم الشقين معًا.</li>
+<li><strong>Copy error details</strong> — ينسخ ملخصًا نصيًا مختصرًا (الطبقة، والرمز،
+والمزوّد/النموذج، ورسالة الخطأ) يمكنك لصقه في بلاغ عن خطأ أو في Discord.</li>
+</ul>
+<p>تُحدَّد الطبقة بواسطة مصنّف الأخطاء نفسه الذي تستخدمه حلقة إعادة المحاولة في الوكيل،
+لذا فهي تعكس الدلالة الحقيقية للفشل، لا تخمينًا من نص الرسالة.
+أما الـ backends الأقدم التي تسبق هذا الوصف فتعرض البطاقة مع
+عنوان عام وإجراءات Retry / Open logs / Copy error details.</p>
+<p>تُحفظ سجلات الإقلاع في <code>HERMES_HOME/logs/desktop.log</code> (وتتضمن مخرجات الـ backend وأحدث تتبعات أخطاء Python) — راجعها أولًا إذا أبلغ التطبيق عن فشل في الإقلاع. ويمكنك أيضًا متابعتها من CLI:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>للتثبيت المعتمد من المصدر، يتحقق Desktop من مُشغّل التثبيت وينفّذه. ويختار PM مفسّره وجيل اعتمادياته. ولا يفرض غياب وسم التهيئة الأولية التثبيتَ ما دام ذلك المُشغّل يعمل.</p>
+<p>على Linux، تذهب أخطاء Chromium نفسه إلى <code>HERMES_HOME/logs/desktop-chromium.log</code> ، ويترك تعطّل الـ shell نفسه minidump تحت مجلد <code>Crashpad/</code> الخاص بالتطبيق (داخل مجلد بيانات المستخدم في Electron، بجوار <code>connection.json</code>). وإذا اختفت النافذة مع ظهور <code>SIGTRAP</code> في journal، فإن سطر <code>FATAL:</code> في ذلك السجل يسمّي التحقق الذي وقع؛ أرفقه بتقرير الخطأ. ولا يُرفَع أي شيء.</p>
+<p>إذا تضررت اعتماديات Python، فنفّذ أمر <code>hermes pm repair</code> الخاص بالتثبيت. ثم أعد تشغيل Desktop. ولا تحذف مسارات <code>venv</code> تخمينية أو معلومات PM. ولملفات التطبيق التالفة، أصلح عبر <a href="/docs/reference/package-management#source-installs-and-packaged-builds">الجهة المالكة للتثبيت</a>.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="windows-the-ssh-client-is-missing-or-broken">Windows: عميل SSH مفقود أو معطّل</h3>
+<p>على Windows، يشغّل التطبيق SSH عبر عميل OpenSSH المدمج (<code>%SystemRoot%\System32\OpenSSH\ssh.exe</code>). وإذا لم يكن ذلك العميل مثبّتًا، يرجع إلى <code>usr\bin\ssh.exe</code> المضمّن في Git for Windows، ثم إلى أي <code>ssh</code> موجود في <code>PATH</code>. وإذا كان العميل المدمج مثبّتًا لكنه معطّلًا (مثل خروج كل <code>ssh.exe</code> بالرمز 255 بعد تحديث Windows)، يتوقف الإقلاع عند خطأ يسمّي العميل بدلًا من إعادة المحاولة. ولاستخدام عميل مختلف، اضبطه في <code>config.yaml</code> وأعد تشغيل التطبيق:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>استخدم اقتباسات مفردة أو اترك القيمة بلا اقتباس كي تبقى الشرطات المائلة العكسية حرفية. ويأتي المفتاح بإزاحة مسافتين تحت <code>desktop:</code> ، مثل مفاتيح الإطلاق أعلاه. ولا يؤثر في macOS أو Linux.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-host-key-has-changed-since-you-last-connected-ssh-remote">&quot;The host key has CHANGED since you last connected&quot; (خادم SSH بعيد)</h3>
+<p>إذا أُعيد تثبيت خادم SSH البعيد أو تغيّر مفتاح المضيف الخاص به، يفشل SSH بشكل مغلق
+ويُثبّت Desktop نافذة خطأ بدلًا من إعادة المحاولة (إذ لا يمكن أن تنجح إعادة المحاولة
+إلى أن يُمسح المفتاح القديم). تحقق من أن التغيير متوقع، ثم
+أزل المُدخل القديم وأعد المحاولة من النافذة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>انقر <strong>Retry</strong> (أو أعد تطبيق الاتصال من Settings → Gateway) بعد
+مسح المُدخل — فيُعاد ضبط حالة الخطأ المثبّتة ويتصل الإقلاع التالي من جديد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="build-desktop-app-stuck-on-electron-download">توقف &quot;Build desktop app&quot; عند تنزيل Electron</h3>
+<p>تنزّل عملية البناء بيئة تشغيل Electron (~114 MB) من <code>github.com/electron/electron/releases</code>. إذا توقف المُثبّت عند خطوة <strong>Build desktop app</strong> مع تكرار <code>retrying attempt=…</code> في المخرجات الحيّة، فهذا يعني أن GitHub محجوب أو مقيّد السرعة على شبكتك (جدار حماية، أو proxy، أو بسبب المنطقة).</p>
+<p>لا يرجع البناء إلى مرآة تلقائيًا، ولا يعيد محاولة تنزيل فاشل: فالبناء الذي يفشل لأي سبب يترك التطبيق السابق دون تغيير (التجهيز ثم الاستبدال، راجع <a href="/docs/getting-started/updating#what-happens-during-an-update">التحديث</a>)، ويفشل التحديث نفسه، ويعيد <code>hermes desktop --build-only --force-build</code> (أو <code>hermes update</code> التالي) تشغيل البناء. وإذا كان سبب الفشل أرشيف Electron ZIP مخزّنًا مؤقتًا وتالفًا، فاحذفه من التخزين المؤقت لـ <code>@electron/get</code> (<code>~/.cache/electron/</code> على Linux، و <code>~/Library/Caches/electron/</code> على macOS، و <code>%LOCALAPPDATA%\electron\Cache</code> على Windows) قبل إعادة البناء. ويُجري <code>@electron/get</code> تحقق SHASUM لكل تنزيل، لكن المجاميع الاختبارية تأتي من المضيف نفسه، لذا تُوثَق المرآة التي تحدّدها لكليهما.</p>
+<p>لـ<strong>اختيار مرآتك الخاصة</strong> (مثل مرآة شركة أو <code>npmmirror.com</code> ، وهي المرآة الفعلية الشائعة لمجتمع Electron)، فاضبط <code>ELECTRON_MIRROR</code> قبل التثبيت أو إعادة البناء يدويًا — فعملية البناء تحترمها ولن تتجاوزها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p><strong>تنزيلات أصلية أخرى تحتاج إلى مرآة (مثل الحزمة المبنية مسبقًا <code>get-windows</code> على Windows):</strong> ضع مفاتيح npm في <code>$HERMES_HOME/npmrc</code> (<code>%LOCALAPPDATA%\hermes\npmrc</code> على Windows، و <code>~/.hermes/npmrc</code> على غيره) — على سبيل المثال <code>node_get_windows_binary_host_mirror=https://&lt;mirror&gt;/sindresorhus/get-windows/releases/download/</code>. كل عملية <code>npm ci</code>/<code>npm run</code> يطلقها المُحدِّث (بناء سطح المكتب والويب و TUI) توجّه <code>NPM_CONFIG_USERCONFIG</code> إلى ذلك الملف عند وجوده، فتبقى الإعدادات بعد <code>hermes update</code> ؛ أما ملف <code>.npmrc</code> في جذر المستودع فيتتبعه git ويُخبَّأ تلقائيًا (autostash) مع كل تحديث، وقد لا يُقرأ <code>~/.npmrc</code> لأن عملية التسليم في سطح المكتب ترث بيئة الواجهة الرسومية. ولا تُتجاوز أبدًا قيمة <code>NPM_CONFIG_USERCONFIG</code> التي تضبطها بنفسك.</p>
+<p><strong>إذا كان <code>get-windows</code> مفقودًا أو مثبّتًا جزئيًا:</strong> لم يعد البناء يفشل — بل يطبع <code>[stage-native-deps] get-windows not installed ... read_window_below will be unavailable in this build</code> ويأتي دون أداة <code>read_window_below</code>. وعندما يوجد مجلد الحزمة لكنه غير قابل للتحميل (كتحديث Windows في الموضع قطعه وجود نافذة Hermes قيد التشغيل، مع <code>TAR_ENTRY_ERROR</code> في سجل التثبيت)، يسمّي التحذير نفسه المجلد، ويزيله <code>hermes desktop --force-build</code> التالي أو التحديث قبل تثبيت npm كي يُعاد استخراج الحزمة — أغلق كل نوافذ Hermes و gateways أولًا كي لا يُقاطَع الاستخراج مجددًا. وكذلك تُشحَن الحزمة التي يفتقر ملفها native binding أو مساعد macOS إلى جزء مطلوب دون تعداد النوافذ بدلًا من إفشال البناء.</p>
+<p>لمسح ملف ZIP مؤقت تالف يدويًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="building-from-source">البناء من المصدر</h2>
 <p>إذا أردت العمل على تطوير التطبيق نفسه، فثبّت اعتماديات مساحة العمل من جذر المستودع مرة واحدة، ثم شغّل خادم التطوير من <code>apps/desktop</code>:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
 <p>وجّه التطبيق إلى نسخة مسحوبة (checkout) محددة، أو اعزله في sandbox بعيدًا عن إعداداتك الحقيقية:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
 <p>بناء المُثبّتات:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
-<p>يُنفَّذ التوقيع والتوثيق (notarization) على macOS/Windows تلقائيًا عند وجود بيانات الاعتماد المطلوبة في البيئة (<code>CSC_LINK</code> / <code>CSC_KEY_PASSWORD</code> / <code>APPLE_*</code> لـ macOS، و<code>WIN_CSC_*</code> لـ Windows).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يُنفَّذ التوقيع والتوثيق (notarization) على macOS/Windows تلقائيًا عند وجود بيانات الاعتماد المطلوبة في البيئة (<code>CSC_LINK</code> / <code>CSC_KEY_PASSWORD</code> / <code>APPLE_*</code> لـ macOS، و <code>WIN_CSC_*</code> لـ Windows).</p>
+<p>يُبنى مساعد HUD الاختياري للنقر على مفاتيح التعديل مع حزمة Electron ويُحزَّم خارج ASAR. ويستخدم macOS المتطلب القائم لأدوات سطر أوامر Xcode. وتستخدم أبنية Windows مُصرّف C# المضمّن في .NET Framework الخاص بنظام التشغيل؛ ولا يلزم Clang أو SDK للمطوّرين. ويفشل التحزيم على Windows بدلًا من إغفال المساعد بصمت. وتحتاج أبنية Linux إلى مُصرّف C وترويسات تطوير X11/XInput (<code>libx11-dev</code> و <code>libxi-dev</code> على Debian/Ubuntu)؛ وبدون هذه المتطلبات الاختيارية في Linux يستمر التحزيم دون دعم النقر على مفاتيح التعديل. ابنِ على نظام التشغيل المستهدف؛ ويتطلب Linux أيضًا المعمارية المستهدفة. ولا يحتاج مستخدمو النسخ المثبّتة إلى سلسلة أدوات تطوير. وتميّز Settings بين مساعد مفقود وفشل بدء التشغيل وجلسة Desktop غير مدعومة؛ ولا يظهر تحذير X11/Wayland لمساعد Windows مفقود أو فاشل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos-permissions-and-local-rebuilds-tcc">صلاحيات macOS وإعادة البناء المحلية (TCC)</h3>
 <p><strong>أوقف جميع طلبات إذن المجلدات بمفتاح واحد.</strong> يطلب macOS الإذن لكل فئة على حدة
 (Desktop، ثم Downloads، ثم Documents، ...) كلما وصل Hermes إلى مجلد منها.
@@ -13,7 +116,7 @@
 هويات التوقيع الثابتة في Hermes يبقى الإذن ساريًا بعد كل تحديث:</p>
 <ol>
 <li>System Settings → <strong>Privacy &amp; Security → Full Disk Access</strong> (أو نفّذ
-<code>open &quot;x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles&quot;</code>)</li>
+ <code>open &quot;x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles&quot;</code>)</li>
 <li>فعّل تطبيق الطرفية الذي تستخدمه — وكذلك <strong>Hermes.app</strong> إذا كنت تستخدم Desktop.</li>
 <li>أغلقها تمامًا ثم أعد تشغيلها مرة واحدة.</li>
 </ol>
@@ -29,7 +132,7 @@
 لم يعد يطابق الملف التنفيذي المُعاد بناؤه — ولا يحتوي طلب الإذن الحديث على زر Allow،
 فيبدو كأنه لا يوجد ما يمكن إعادة تفعيله. إذا حدث ذلك، فأعد ضبط
 الإذن القديم مرة واحدة وامنحه من جديد:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
 <p>ثم فعّل المُدخل الجديد (ON) في System Settings، وأغلق Hermes تمامًا وأعد تشغيله.
 وتبقى الأذونات ثابتة من ذلك الحين.</p>
 <p>للحصول على أقوى ضمان — هوية مرتبطة بشهادة، وهي الآلية نفسها
@@ -37,11 +140,11 @@
 مرة واحدة واطلب من Hermes استخدامها. يتولى الأمر الواحد
 كل شيء (ينشئ الشهادة في login keychain، ويمنح <code>codesign</code>
 حق الوصول، ويكتب الإعدادات، ويعيد توقيع التطبيق المحزوم):</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <p>أو نفّذ ذلك يدويًا:</p>
 <ol>
 <li>Keychain Access → Certificate Assistant → <strong>Create a Certificate…</strong></li>
-<li>الاسم (Name): <code>Hermes Local Signing</code>، ونوع الهوية (Identity Type): <em>Self-Signed Root</em>،
+<li>الاسم (Name): <code>Hermes Local Signing</code> ، ونوع الهوية (Identity Type): <em>Self-Signed Root</em>،
 ونوع الشهادة (Certificate Type): <strong>Code Signing</strong>.</li>
 <li>في Keychain Access، انقر نقرًا مزدوجًا على الشهادة الجديدة → <strong>Trust</strong> → واضبط
 <strong>Code Signing</strong> على <em>Always Trust</em> (فالشهادة الموقّعة ذاتيًا المستوردة
@@ -58,7 +161,7 @@
 <p>ملاحظة لمرة واحدة: تغيير هوية التوقيع (بما في ذلك أول تحديث بعد
 هذا الإصلاح) يغيّر هوية التطبيق مرة واحدة، لذا سيطلب macOS الإذن مرة أخيرة.
 وتبقى الأذونات ثابتة من ذلك الحين. إذا علِق إذن ما، فأعد ضبطه باستخدام
-<code>tccutil reset All com.nousresearch.hermes</code> ثم امنحه من جديد.</p>
+ <code>tccutil reset All com.nousresearch.hermes</code> ثم امنحه من جديد.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="see-also">انظر أيضًا</h2>
 <ul>
 <li><a href="/docs/user-guide/cli">دليل CLI</a> — الواجهة الطرفية</li>

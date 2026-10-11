@@ -1,0 +1,99 @@
+<header><h1>cron المُدار في Chronos — عقد الاتصال بين الوكيل ↔ NAS</h1></header>
+<p><strong>الحالة:</strong> مواصفة الاتصال المعتمدة لمزوّد cron في Chronos.<strong>الجمهور:</strong> من ينفّذ endpoints الخاصة بـ <code>agent-cron</code> من جانب NAS (<code>nous-account-service</code>) وكل من يستكشف أخطاء مسار cron المُدار.</p>
+<p>يتيح Chronos لـ gateway Hermes مستضاف أن <strong>يتقلّص إلى الصفر</strong> أثناء الخمول مع الاستمرار في إطلاق مهام cron. وبدلًا من مؤقّت داخل العملية كل 60 ثانية، يطلب الوكيل من NAS تجهيز <strong>مهمة خارجية واحدة لمرة واحدة لكل مهمة في موعد إطلاقها التالي الفعلي</strong> تحديدًا. ويستدعي NAS الوكيل عند موعد الإطلاق عبر webhook موثَّق؛ وينفّذ الوكيل المهمة ويعيد تجهيز المهمة التالية لمرة واحدة. وبين الإطلاقات يمكن إيقاف عملية الوكيل تمامًا — فلا تستيقظ إلا عند إطلاق حقيقي.</p>
+<p>المجدول الخارجي الذي يستخدمه NAS لتنفيذ المهام لمرة واحدة <strong>تفصيل تنفيذي داخلي في NAS</strong>. ولا يتواصل الوكيل معه أو يحمل بيانات اعتماده أو يذكر اسمه أبدًا. ولا يعرف الوكيل إلا endpoints الثلاثة الخاصة بـ NAS أدناه.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="trust-model-read-this-first">نموذج الثقة (اقرأ هذا أولًا)</h2>
+<table><thead><tr><th>المرحلة</th><th>من يستدعي من</th><th>آلية المصادقة</th><th>جهة التحقق</th></tr></thead><tbody><tr><td>1</td><td>الوكيل → NAS (<code>provision</code> / <code>cancel</code> / <code>list</code>)</td><td>الـ token الموجود لدى الوكيل: <strong>access token الخاص بـ Nous Portal</strong> (Bearer) — وهو للوكيل المستضاف <strong>token جلسة التهيئة الأولية</strong> الذي وضعه NAS في <code>auth.json</code> (العميل <code>hermes-cli-vps</code>)، وليس token لعميل <code>agent:*</code></td><td>NAS (مسار agent-token المعتاد لديه)</td></tr><tr><td>2</td><td>المجدول → NAS (<code>relay</code>)</td><td>طلب المجدول <strong>الموقَّع</strong></td><td>NAS (مسار التوقيع الموجود لديه بالفعل)</td></tr><tr><td>3</td><td>NAS → الوكيل (<code>/api/cron/fire</code>)</td><td><strong>JWT قصير العمر صادر عن NAS</strong> (<code>aud=agent:{instance_id}</code> ، <code>purpose=cron_fire</code>)</td><td>الوكيل (PyJWT بالاعتماد على NAS JWKS)</td></tr></tbody></table>
+<blockquote>
+<p><strong>أي token بالتحديد (المرحلة 1).</strong> لا يحمل الوكيل المستضاف بيانات اعتماد عميل OAuth باسم <code>agent:{instance_id}</code> أبدًا — ولا تُنشأ هذه الصيغة إلا بمنح auth-code عبر لوحة التحكم التفاعلية (مستخدم متصفح). وفي كل استدعاءاته الصادرة إلى Portal، يستخدم الوكيل <strong>access token لجلسة التهيئة الأولية</strong> (<code>resolve_nous_access_token</code>)، الصادر تحت عميل التهيئة الأولية فقط <code>hermes-cli-vps</code> والمزروع في الحاوية عند أول إقلاع. ولذلك يجب أن يحدّد NAS معرّف نسخة الوكيل المستدعي إما من عميل <code>agent:{id}</code> (للمستدعين من الاستضافة الذاتية/لوحة التحكم)، أو — لـ token التهيئة الأولية — من <code>AgentInstance.bootstrapSessionId</code> المطابق لمعرّف جلسة token (<code>sid</code>)، ضمن نطاق المؤسسة. ويظل fire JWT الصادر في المرحلة 3 يحمل <code>aud=agent:{instance_id}</code> على أي حال. (فقصر المرحلة 1 على عميل <code>agent:*</code> وحده يعيد 403 لكل تجهيز حقيقي لوكيل مستضاف — راجع <code>src/server/agent-cron/instance-auth.ts</code>.)</p>
+</blockquote>
+<p>سبب توسط NAS بدلًا من الاتصال المباشر من المجدول→الوكيل: يوقّع المجدول بمفاتيح <strong>NAS</strong>، التي لا يحملها الوكيل (ولا ينبغي أن يحملها). ولا يستطيع الوكيل التحقق إلا من token <strong>صادر عن NAS</strong> — وهو مسار ثقة يملكه بالفعل. ويبقي ذلك كل بيانات اعتماد المجدول داخل NAS. (التعليل الكامل: DQ-4 في الخطة.)</p>
+<p>لا يُضاف سرّ جديد لدى الوكيل: تعيد المرحلة 1 استخدام token الذي يستخدمه أصلًا لـ Portal، وتعيد المرحلة 3 استخدام التحقق من NAS-JWT الذي ينفّذه الوكيل بالفعل.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="endpoint-1--post-apiagent-cronprovision--agent--nas">Endpoint 1 — <code>POST /api/agent-cron/provision</code> (الوكيل → NAS)</h2>
+<p>تجهيز (أو إعادة تجهيز بصورة idempotent) مهمة واحدة لمرة واحدة للمهمة، بالضبط.</p>
+<ul>
+<li><strong>المصادقة:</strong> <code>Authorization: Bearer &lt;agent Nous access token&gt;</code>. يتحقق NAS عبر مسار agent-token المعتاد لديه، ويحصر الصف في الوكيل/المؤسسة المستدعيين.</li>
+<li><strong>جسم الطلب:</strong>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<ul>
+<li><code>fire_at</code> — بصيغة ISO 8601، <strong>يحسبه الوكيل</strong>. وقد يقع في المستقبل على بعد أقل من دقيقة؛ ويجب أن يراعي NAS دقة الثواني (فالوكيل يملك التوقيت، لذا لا يوجد حدّ أدنى للمجدول مقداره دقيقة واحدة).</li>
+<li><code>agent_callback_url</code> — عنوان URL الأساسي الخاص بالوكيل والمتاح للعامة. ويرسل NAS <code>{agent_callback_url}/api/cron/fire</code> عبر POST عند موعد الإطلاق.</li>
+<li><code>dedup_key</code> — <code>&quot;{job_id}:{fire_at}&quot;</code>. ويُجري NAS <strong>إدراجًا أو تحديثًا بحسب <code>(agent_id, job_id)</code></strong> كي تكون إعادة تجهيز الإطلاق نفسه idempotent (بلا مهام مكررة لمرة واحدة). وقيمة <code>fire_at</code> جديدة لـ <code>job_id</code> نفسه تستبدل التجهيز السابق.</li>
+</ul>
+</li>
+<li><strong>الإجراء:</strong> تجهيز مهمة واحدة لمرة واحدة تُطلَق في <code>fire_at</code> ، ووجهتها مسار NAS <strong>الوسيط</strong> (Endpoint 3) — لا الوكيل مباشرةً، كي يظل NAS في المسار لإصدار JWT الوكيل. احفظ <code>(agent_id, job_id, schedule_id, agent_callback_url)</code>.</li>
+<li><strong>الاستجابة:</strong> <code>200 {&quot;schedule_id&quot;: &quot;&lt;opaque&gt;&quot;}</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="endpoint-2--post-apiagent-croncancel--agent--nas">Endpoint 2 — <code>POST /api/agent-cron/cancel</code> (الوكيل → NAS)</h2>
+<ul>
+<li><strong>المصادقة:</strong> كما في Endpoint 1.</li>
+<li><strong>الجسم:</strong> <code>{&quot;job_id&quot;: &quot;ab12cd34&quot;}</code>.</li>
+<li><strong>الإجراء:</strong> إلغاء المهمة المجهَّزة لمرة واحدة لـ <code>(agent_id, job_id)</code> وحذف الصف. والعملية idempotent — فإلغاء مهمة مجهولة لا يفعل شيئًا ويعيد 200.</li>
+<li><strong>الاستجابة:</strong> <code>200 {&quot;ok&quot;: true}</code>.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="endpoint-3--post-apiagent-cronrelay--scheduler--nas-the-fire-relay">Endpoint 3 — <code>POST /api/agent-cron/relay</code> (المجدول → NAS، وسيط الإطلاق)</h2>
+<ul>
+<li><strong>المصادقة:</strong> <strong>توقيع</strong> طلب المجدول، الذي يتحقق منه NAS عبر مسار التوقيع الموجود لديه بالفعل. وهذا حدّ الثقة للإطلاق — ويجب رفض استدعاء وسيط مزوّر هنا.</li>
+<li><strong>الإجراء:</strong>
+<ol>
+<li>ابحث عن <code>(agent_id, job_id) → agent_callback_url</code> في الصف المحفوظ.</li>
+<li>أصدر JWT <strong>قصير العمر</strong>: <code>aud = &quot;agent:{instance_id}&quot;</code> ، <code>iss = {portal_url}</code> ، <code>purpose = &quot;cron_fire&quot;</code> ، وقيمة <code>exp</code> صغيرة (نحو 60–120s)، موقَّعًا بمفتاح NAS المعتاد غير المتماثل (المنشور عبر JWKS).</li>
+<li><code>POST {agent_callback_url}/api/cron/fire</code> مع <code>Authorization: Bearer &lt;that JWT&gt;</code> وجسم <code>{&quot;job_id&quot;: &quot;...&quot;, &quot;fire_at&quot;: &quot;...&quot;}</code>.</li>
+<li>اعتبر استجابة الوكيل غير 2xx فشلًا <strong>قابلًا لإعادة المحاولة</strong> (ودع المجدول يعيد محاولة الوساطة). وتزيل عملية CAS في مخزن الوكيل الإطلاق المزدوج، لذا تُعدّ إعادات المحاولة آمنة.</li>
+</ol>
+</li>
+<li><strong>الاستجابة للمجدول:</strong> 2xx بمجرد قبول POST الخاص بالوكيل (202)، كي لا يعيد المجدول محاولة إطلاق سُلِّم بالفعل.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-post-apicronfire--nas--agent--agent-side-already-implemented">الوارد <code>POST /api/cron/fire</code> (NAS → الوكيل) — جانب الوكيل، منفَّذ بالفعل</h2>
+<p>هذا هو endpoint الوكيل الذي يستدعيه NAS في الخطوة 3 من Endpoint 3. وتوجد مرحلتان في عمليات النشر المستضافة:</p>
+<ol>
+<li><strong>تطبيق لوحة التحكم</strong> (<code>hermes_cli/web_server.py</code>) — واجهة HTTP العامة الوحيدة للوكيل (يعرض proxy الخاص بـ Fly منفذًا واحدًا بالضبط، هو منفذ لوحة التحكم). وهو ضمن <code>PUBLIC_API_PATHS</code> كي تسمح بوابة cookie الخاصة بلوحة التحكم بمرور callback الحامل لـ bearer-JWT إلى أداة التحقق. وتتحقق لوحة التحكم من JWT وتحدّد profile المهمة، ثم <strong>تمرّر</strong> الإطلاق إلى المرحلة 2 على loopback مع الاحتفاظ بـ NAS bearer — ولا تنفّذ المهمة بنفسها.</li>
+<li><strong>Gateway <code>APIServerAdapter</code></strong> (<code>gateway/platforms/api_server.py</code> ، مرتبط بـ loopback، والمنفذ الافتراضي 8642) — يعيد التحقق من JWT (دفاع متعدد الطبقات) وينفّذ المهمة باستخدام <strong>مهايئات المنصات الحية</strong> في gateway، وهو ما يجعل التسليم يعمل للمنصات المنطقية التي تتصدرها وساطة وغرف E2EE (ولا يستطيع مسار الإرسال المستقل خدمة أي منهما). وعمليات نشر API-server ذات الاستضافة الذاتية التي تعرض api_server مباشرةً تصل إلى المرحلة 2 دون المرحلة 1.</li>
+</ol>
+<p>تعذّر الوصول إلى gateway من المرحلة 1 (ما زال الإقلاع بعد التقليص إلى الصفر جاريًا، أو نافذة إعادة تشغيل، أو api_server معطّل) → تعيد لوحة التحكم <strong>503</strong> ويعيد NAS المحاولة (غير 2xx = قابل لإعادة المحاولة، أدناه)؛ وتزيل عملية CAS في المخزن الإطلاق المزدوج المحتمل. ولا يوجد عمدًا تنفيذ احتياطي داخل لوحة التحكم. وأداة التحقق هي <code>plugins/cron/chronos/verify.py</code>.</p>
+<ul>
+<li><strong>المصادقة:</strong> <code>Authorization: Bearer &lt;NAS-minted JWT&gt;</code>. يتحقق الوكيل من:<ul>
+<li>التوقيع بالاعتماد على NAS JWKS (<code>cron.chronos.nas_jwks_url</code>)،</li>
+<li><code>aud</code> == <code>cron.chronos.expected_audience</code> (قيمة <code>agent:{instance_id}</code> الخاصة بهذا الوكيل)،</li>
+<li><code>iss</code> == <code>cron.chronos.portal_url</code> ،</li>
+<li><code>exp</code> / <code>nbf</code> (سماح 30s)،</li>
+<li><code>purpose == &quot;cron_fire&quot;</code> — يُرفض JWT عام للوكيل (بلا purpose أو بـ purpose آخر) كي لا يمكن إعادة استخدامه ضد هذا الـ endpoint.</li>
+</ul>
+</li>
+<li><strong>الجسم:</strong> <code>{&quot;job_id&quot;: &quot;ab12cd34&quot;, &quot;fire_at&quot;: &quot;...&quot;}</code> (لا يُستخدم إلا <code>job_id</code>).</li>
+<li><strong>السلوك:</strong>
+<ul>
+<li>token غير صالح/مفقود/مزوّر/منتهي الصلاحية/ذو aud غير صحيح/ذو purpose غير صحيح → <strong>401</strong>، دون تنفيذ.</li>
+<li>غياب <code>job_id</code> → <strong>400</strong>.</li>
+<li>gateway لا يزال يبدأ (استيقاظ بعد التقليص إلى الصفر) → ينتظر الإطلاق حتى 7 s، محسوبة من الاستلام، كي يكمل gateway بدءه. وإذا لم يفعل، أو بدأ تفريغ في الأثناء → <strong>503</strong> <code>{&quot;error&quot;: &quot;gateway unreachable; retry&quot;}</code> مع <code>Retry-After: 60</code> ، دون حجز أي مطالبة (ويعيد NAS المحاولة).</li>
+<li>صالح → <strong>202 <code>{&quot;status&quot;: &quot;accepted&quot;, &quot;job_id&quot;: &quot;...&quot;}</code></strong> فورًا، وتعمل المهمة في الخلفية. ويعني 202 قبل التشغيل أن دورًا طويلًا للوكيل لا يتجاوز أبدًا مهلة HTTP الخاصة بالوسيط.</li>
+</ul>
+</li>
+<li><strong>مرة واحدة على الأكثر:</strong> يحجز الوكيل المهمة بمقارنة وضبط على مستوى المخزن (<code>claim_job_for_fire</code>) قبل التشغيل. وإعادة محاولة الوسيط/المجدول التي تصل أثناء الإطلاق الأول (أو بعد اكتماله) تفقد المطالبة ولا تشغّله مرتين.</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="at-most-once--re-arm-semantics">مرة واحدة على الأكثر &amp; دلالات إعادة التجهيز</h2>
+<ul>
+<li><strong>متكررة (cron/interval):</strong> عند الإطلاق، يقدّم الوكيل <code>next_run_at</code> (تحت قفل مخزنه) ضمن المطالبة، وينفّذ المهمة، ثم يعيد تجهيز مهمة لمرة واحدة لقيمة <code>next_run_at</code> الجديدة. وأي وساطة مكررة للقيمة القديمة لـ <code>fire_at</code> تجد المطالبة محجوزة / الوقت مقدَّمًا فتُسقَط.</li>
+<li><strong>لمرة واحدة (<code>30m</code> أو <code>+90s</code> أو غيرهما):</strong> تُطلَق مرةً واحدةً؛ وتوسمها <code>mark_job_run</code> مكتملةً. ولا يُعاد تجهيزها.</li>
+<li><strong><code>repeat.times = N</code>:</strong> <code>mark_job_run</code> تحذف المهمة عند الحدّ، لذا تعيد <code>get_job</code> <code>None</code> بعد الإطلاق النهائي → <strong>لا</strong> يعيد الوكيل التجهيز → فيتوقف الجدول بسلاسة دون مهمة لمرة واحدة بلا مالك.</li>
+<li><strong>وكلاء متعددو النُسخ:</strong> تجعل عملية CAS في المخزن الإطلاق مرة واحدة على الأكثر عبر N نُسخ gateway تشترك في <code>HERMES_HOME</code> واحد — وتنفّذ نسخة واحدة بالضبط كل إطلاق.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reconcile-self-healing">المواءمة (التعافي الذاتي)</h2>
+<p>يوائم الوكيل الحالة المطلوبة (<code>jobs.json</code>) مع المجهَّزة عند:</p>
+<ul>
+<li><code>start()</code> (إقلاع gateway / استيقاظه)،</li>
+<li>كل تعديل ناجح للمهمة (<code>on_jobs_changed</code>)،</li>
+<li>وبصورة ملازمة بعد كل إطلاق (إعادة التجهيز).</li>
+</ul>
+<p>تجهّز المواءمة المهام المفقودة/المتغيّرة التوقيت وتلغي العناصر بلا مالك. ويُصلَح تلقائيًا تجهيز فائت (خطأ NAS عابر) عند المواءمة التالية. <strong>ولا يوجد استيقاظ دوري</strong> للوكيل النائم — فذلك ينفي التقليص إلى الصفر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-agent-side">الإعدادات (جانب الوكيل)</h2>
+<p>كلها غير سرية (<code>cron.chronos.*</code> في <code>config.yaml</code>)؛ ولا يحتفظ الوكيل ببيانات اعتماد للمجدول. ويضبطها NAS للوكلاء المستضافين عند التجهيز:</p>
+<table><thead><tr><th>المفتاح</th><th>المعنى</th></tr></thead><tbody><tr><td><code>cron.provider</code></td><td><code>&quot;chronos&quot;</code> للتفعيل (فارغ = المؤقّت المدمج)</td></tr><tr><td><code>cron.chronos.portal_url</code></td><td>عنوان URL الأساسي لـ NAS (وكذلك قيمة <code>iss</code> المتوقعة لـ JWT)</td></tr><tr><td><code>cron.chronos.callback_url</code></td><td>عنوان URL الأساسي العام الخاص بالوكيل لإطلاقات NAS→الوكيل</td></tr><tr><td><code>cron.chronos.expected_audience</code></td><td>قيمة <code>aud</code> لـ JWT الخاص بهذا الوكيل (<code>agent:{instance_id}</code>)</td></tr><tr><td><code>cron.chronos.nas_jwks_url</code></td><td>NAS JWKS للتحقق من fire JWT</td></tr></tbody></table>
+<p>إذا كانت قيمة <code>callback_url</code> / <code>portal_url</code> فارغة أو لم يكن لدى الوكيل تسجيل دخول إلى Nous، فإن <code>is_available()</code> تعيد False ويعود المحلِّل إلى المؤقّت المدمج داخل العملية — فلا يفقد cron آلية إطلاقه أبدًا.</p>
+<p><strong>رفض الهوية وقت التشغيل (<code>403 invalid_client</code>).</strong> <code>is_available()</code> تعتمد على الإعدادات فقط، لذا لا تستطيع معرفة ما إذا كان token Nous المخزَّن هو الهوية التي يربطها NAS بنسخة مجهَّزة (المرحلة 1 أعلاه). وعندما يجيب <code>provision</code> بالرمز 403 <code>invalid_client</code> — يكون token في <code>auth.json</code> تسجيل دخول مستخدم عاديًا عبر <code>hermes-cli</code> بدلًا من <code>hermes-cli-vps</code> الخاص بجلسة التهيئة الأولية أو عميل <code>agent:*</code> — يكون الرفض حتميًا طوال عمر تلك البيانات: سيفشل كل تجهيز وإعادة تجهيز و <code>list</code> بالطريقة نفسها، وتجعل إعادة تسجيل الدخول عبر <code>hermes auth</code> ذلك دائمًا (إذ <em>تستبدل</em> جلسة التهيئة الأولية؛ ولا يستطيع إعادة إصدارها إلا NAS). ولذا يسجّل المزوّد تحذيرًا واحدًا يسمّي ذلك العلاج، ويتوقف عن استدعاء NAS، ويبدأ المؤقّت المدمج لبقية عمر العملية كي تظل المهام تُطلَق في موعدها بدلًا من الاكتفاء بفحص الإطلاقات الفائتة المتأخرة (<code>cron.misfire_grace_minutes</code>). ولا تتراجع الخدمة بسبب الأخطاء العابرة (5xx أو النقل)؛ بل تعيد المواءمة التالية محاولتها.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="escape-hatch-not-default">مسار بديل (غير افتراضي)</h2>
+<p>يمكن استبدال أداة التحقق من <code>/api/cron/fire</code> الوارد (<code>get_fire_verifier()</code>). وإذا تشبّع حجم الوساطة عبر NAS يومًا، فيمكن لوضع مباشر من المجدول→الوكيل مع cron-key لكل مهمة صادر عن NAS أن يحلّ محل أداة التحقق NAS-JWT <strong>دون تغيير معالج webhook</strong>. ويكون التوسط عبر NAS (هذا العقد) هو الافتراضي.</p>
