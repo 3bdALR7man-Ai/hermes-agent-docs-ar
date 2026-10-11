@@ -5,7 +5,7 @@
 LLM endpoint خاصًا بها. يُرفق الـ proxy بيانات الاعتماد الصحيحة (ويحدّثها
 تلقائيًا)، فلا يحتاج التطبيق أبدًا إلى مفتاح API ثابت.</p>
 <p>يختلف هذا عن <a href="/docs/user-guide/features/api-server">خادم API</a>:</p>
-<table><thead><tr><th></th><th>خادم API</th><th>Subscription proxy</th></tr></thead><tbody><tr><td>ما الذي يقدّمه</td><td>وكيلك (مجموعة الأدوات الكاملة، والذاكرة، والمهارات)</td><td>inference خام من النموذج</td></tr><tr><td>حالة الاستخدام</td><td>&quot;استخدم Hermes كـ backend للمحادثة&quot;</td><td>&quot;استخدم اشتراكي في Portal من تطبيق آخر&quot;</td></tr><tr><td>المصادقة</td><td><code>API_SERVER_KEY</code> الخاص بك</td><td>أي bearer (يُرفق الـ proxy المفتاح الحقيقي)</td></tr><tr><td>استدعاءات الأدوات</td><td>نعم — الوكيل يشغّل الأدوات</td><td>لا — تمرير مباشر فقط</td></tr></tbody></table>
+<table><thead><tr><th></th><th>خادم API</th><th>Subscription proxy</th></tr></thead><tbody><tr><td>ما الذي يقدّمه</td><td>وكيلك (مجموعة الأدوات الكاملة، والذاكرة، والمهارات)</td><td>inference خام من النموذج</td></tr><tr><td>حالة الاستخدام</td><td>&quot;استخدم Hermes كـ backend للمحادثة&quot;</td><td>&quot;استخدم اشتراكي في Portal من تطبيق آخر&quot;</td></tr><tr><td>المصادقة</td><td>الخاص بك: <code>API_SERVER_KEY</code></td><td>أي bearer (يُرفق الـ proxy المفتاح الحقيقي)</td></tr><tr><td>استدعاءات الأدوات</td><td>نعم — الوكيل يشغّل الأدوات</td><td>لا — تمرير مباشر فقط</td></tr></tbody></table>
 <p>استخدم خادم API عندما تريد <strong>الوكيل</strong> كـ backend. واستخدم
 الـ proxy عندما تريد فقط <strong>النموذج</strong> عبر اشتراكك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
@@ -58,19 +58,14 @@ Portal:</p>
 <code>/v1/embeddings</code>، لكن اختيار النموذج يعتمد على ما تدعمه فئة اشتراكك؛
 راجع <code>portal.nousresearch.com/models</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuring-karakeep-or-any-bookmarksummarizer-app">إعداد Karakeep (أو أي تطبيق للإشارات المرجعية/التلخيص)</h2>
-<p>يستخدم <a href="https://karakeep.app/" data-ext>Karakeep</a> واجهة API متوافقة مع OpenAI من أجل
-تلخيص الإشارات المرجعية. في إعداداته:</p>
+<p><a href="https://karakeep.app/" data-ext>Karakeep</a> يستخدم API متوافقة مع OpenAI لتلخيص الإشارات المرجعية. في إعداداته:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
 <p>ينطبق النمط نفسه على Open WebUI و LobeChat و NextChat وأي عميل آخر
 متوافق مع OpenAI.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="exposing-on-lan">الإتاحة على الشبكة المحلية (LAN)</h2>
-<p>يرتبط الـ proxy افتراضيًا بالعنوان <code>127.0.0.1</code> (localhost فقط). للسماح للأجهزة
-الأخرى على شبكتك باستخدامه:</p>
+<p>يرتبط الـ proxy افتراضيًا بالعنوان <code>127.0.0.1</code> (localhost فقط). ويرفض الطلبات التي لا تمثل فيها ترويسة <code>Host</code> عنوانه الخاص (<code>localhost</code>، <code>127.0.0.1</code>، <code>[::1]</code> أو IP المرتبط به)، وأي طلب متصفح من موقع آخر (قيمة <code>Origin</code> تختلف عن أصله، أو <code>Sec-Fetch-Site</code> بقيمة <code>cross-site</code>/<code>same-site</code>)، فلا يمكن لصفحة ويب مفتوحة في متصفحك استخدامه. ولا ترسل العملاء مثل SDKs و <code>curl</code> أيًا من الترويستين، فلا تتأثر. وللسماح للأجهزة الأخرى على شبكتك باستخدامه:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
-<p>⚠ <strong>انتبه:</strong> أصبح بإمكان أي شخص على شبكتك الآن استخدام اشتراكك في Portal.
-فالـ proxy لا يملك مصادقة خاصة به — إذ يقبل أي bearer.
-استخدم جدار حماية أو VPN أو reverse proxy مع مصادقة مناسبة إذا كنت ستتيحه
-خارج شبكتك الموثوقة.</p>
+<p>⚠ <strong>انتبه:</strong> يمكن لأي شخص على شبكتك الآن استخدام اشتراكك في Portal. يتجاوز الربط الشامل فحص <code>Host</code> (يمكن الوصول إليه بأي اسم)، لذا يرفض كل طلب ترسله صفحة ويب (أي <code>Origin</code>، أو <code>Sec-Fetch-Site</code> بقيمة غير <code>none</code>): لا يمكن للمتصفحات استخدام proxy مربوط بعنوان شامل. ولا يملك الـ proxy مصادقة خاصة به — فهو يقبل أي bearer. استخدم جدار حماية أو VPN أو reverse proxy بمصادقة مناسبة إذا أتحته خارج شبكتك الموثوقة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limits">حدود المعدل (Rate limits)</h2>
 <p>تنطبق حدود RPM/TPM الخاصة بفئة اشتراكك في Portal على الـ proxy بأكمله. فالـ
 proxy لا يوزّع الطلبات ولا يجمّع بيانات اعتماد متعددة — بل هو bearer واحد بكامل حصة

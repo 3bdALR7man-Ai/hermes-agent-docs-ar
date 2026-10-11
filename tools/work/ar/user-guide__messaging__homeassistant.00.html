@@ -1,9 +1,15 @@
 <header><h1>التكامل مع Home Assistant</h1></header>
-<p>يتكامل Hermes Agent مع <a href="https://www.home-assistant.io/" data-ext>Home Assistant</a> بطريقتين:</p>
+<p>يتكامل Hermes Agent مع <a href="https://www.home-assistant.io/" data-ext>Home Assistant</a> عبر <strong><code>homeassistant</code> الرسمية</strong> من <a href="/docs/user-guide/features/plugins">كتالوج الإضافات</a>. تصون Nous Research هذه الإضافة في <a href="https://github.com/NousResearch/hermes-official-plugins/tree/main/homeassistant" data-ext>NousResearch/hermes-official-plugins</a> بطريقتين:</p>
 <ol>
 <li><strong>منصة Gateway</strong> — تشترك في تغييرات الحالة في الوقت الفعلي عبر WebSocket وتستجيب للأحداث</li>
-<li><strong>أدوات المنزل الذكي</strong> — أربع أدوات يمكن للـ LLM استدعاؤها للاستعلام عن الأجهزة والتحكم فيها عبر REST API</li>
+<li><strong>أدوات المنزل الذكي</strong> — 4 أدوات يمكن لـ LLM استدعاؤها (toolset باسم <code>homeassistant</code>) للاستعلام عن الأجهزة والتحكم فيها عبر REST API</li>
 </ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="install">التثبيت</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>تُثبَّت الإضافات لكل profile على حدة. لاستخدام Home Assistant في profile آخر، ثبّتها فيه أيضًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>تعلن الإضافة اعتمادية Python الخاصة بها (<code>aiohttp</code>)، لذلك لا توجد إضافة (extra) لـ pip لتثبيتها. وقد أُزيلت الإضافة القديمة <code>hermes-agent[homeassistant]</code>.</p>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>الترقية من إصدار كان يضم Home Assistant</div><div class="admonitionContent_BuS1"><p>لا يلزم أي إجراء. يحصل كل profile كان يستخدم Home Assistant بالفعل — بوجود <code>HASS_TOKEN</code> في <code>.env</code>, <code>platforms.homeassistant</code> مفعّلة (أو مضبوطة فيها قيمة <code>token</code>) في <code>config.yaml</code>، أو بإدراج toolset <code>homeassistant</code> في <code>platform_toolsets</code> — على الإضافة تلقائيًا من الكتالوج بواسطة <code>hermes update</code> (لكل profiles التي تشارك التثبيت). وإذا تعذّر تنفيذ هذه الخطوة، يثبّتها Hermes في أول تشغيل لـ profile (بدء الوكيل أو gateway؛ مع الالتزام بـ <code>security.allow_lazy_installs</code>). وبعد محاولة فاشلة (دون اتصال، أو تعذّر الوصول إلى الكتالوج)، لا تُكرر المحاولة عند بدء التشغيل أكثر من مرة كل ساعة؛ بينما يعيد <code>hermes update</code> المحاولة دائمًا. تُعرض النتيجة في الطرفية وتطبيق Desktop والمحادثة. يحدث ذلك مرة واحدة لكل profile: فإذا أزلت الإضافة لاحقًا (<code>hermes plugins remove homeassistant</code>)، تظل مُزالة.</p><p>تنتقل إعداداتك دون تغيير: متغيرا <code>HASS_TOKEN</code> / <code>HASS_URL</code> نفسيهما، واسم المنصة <code>homeassistant</code> ومفاتيح <code>platforms.homeassistant</code> نفسها، و toolset <code>homeassistant</code> وأسماء الأدوات نفسها، وصيغة cron <code>deliver: homeassistant:&lt;notify target&gt;</code> نفسها. يوجد اختلاف واحد: مثل كل أداة إضافة، تكون أدوات <code>ha_*</code> خلف <a href="/docs/user-guide/features/tools">البحث عن الأدوات (Tool Search)</a> (<code>tool_search</code> / <code>tool_call</code>) عندما تكون مفعّلة، بدلًا من إدراجها مباشرةً.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="setup">الإعداد</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-create-a-long-lived-access-token">1. إنشاء Long-Lived Access Token</h3>
 <ol>
@@ -14,13 +20,13 @@
 <li>انسخ الـ token</li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-configure-environment-variables">2. ضبط متغيرات البيئة</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="12"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>يُفعَّل الـ toolset <code>homeassistant</code> تلقائيًا عند ضبط <code>HASS_TOKEN</code>. وتُفعَّل منصة الـ gateway وأدوات التحكم في الأجهزة كلتاهما بهذا الـ token الواحد.</p></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="16"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>يُفعَّل الـ toolset <code>homeassistant</code> تلقائيًا عند ضبط <code>HASS_TOKEN</code>. وتُفعَّل منصة الـ gateway وأدوات التحكم في الأجهزة كلتاهما بهذا الـ token الواحد.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-start-the-gateway">3. تشغيل الـ Gateway</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
 <p>سيظهر Home Assistant كمنصة متصلة إلى جانب أي منصات مراسلة أخرى (Telegram و Discord وغيرهما).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-tools">الأدوات المتاحة</h2>
-<p>يسجّل Hermes Agent أربع أدوات للتحكم في المنزل الذكي:</p>
+<p>تسجّل الإضافة 4 أدوات للتحكم في المنزل الذكي ضمن toolset <code>homeassistant</code>:</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ha_list_entities"><code>ha_list_entities</code></h3>
 <p>تعرض قائمة كيانات (entities) Home Assistant، مع إمكانية التصفية حسب النطاق (domain) أو المنطقة.</p>
 <p><strong>المعاملات:</strong></p>
@@ -29,7 +35,7 @@
 <li><code>area</code> <em>(اختياري)</em> — التصفية حسب اسم المنطقة/الغرفة (يُطابَق مع الأسماء المألوفة friendly names): <code>living room</code>، <code>kitchen</code>، <code>bedroom</code>، وغيرها.</li>
 </ul>
 <p><strong>مثال:</strong></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <p>تُرجع معرّفات الكيانات وحالاتها وأسماءها المألوفة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ha_get_state"><code>ha_get_state</code></h3>
 <p>تجلب الحالة التفصيلية لكيان واحد، بما في ذلك جميع خصائصه (السطوع، واللون، ودرجة الحرارة المستهدفة، وقراءات المستشعرات، وغيرها).</p>
@@ -38,7 +44,7 @@
 <li><code>entity_id</code> <em>(مطلوب)</em> — الكيان المراد الاستعلام عنه، مثل <code>light.living_room</code>، <code>climate.thermostat</code>، <code>sensor.temperature</code></li>
 </ul>
 <p><strong>مثال:</strong></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
 <p>تُرجع: الحالة، وجميع الخصائص، والطوابع الزمنية لآخر تغيير/تحديث.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ha_list_services"><code>ha_list_services</code></h3>
 <p>تعرض قائمة الخدمات (الإجراءات) المتاحة للتحكم في الأجهزة، وتوضّح الإجراءات التي يمكن تنفيذها على كل نوع من الأجهزة والمعاملات التي تقبلها.</p>
@@ -47,7 +53,7 @@
 <li><code>domain</code> <em>(اختياري)</em> — التصفية حسب النطاق، مثل <code>light</code>، <code>climate</code>، <code>switch</code></li>
 </ul>
 <p><strong>مثال:</strong></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ha_call_service"><code>ha_call_service</code></h3>
 <p>تستدعي خدمة في Home Assistant للتحكم في جهاز.</p>
 <p><strong>المعاملات:</strong></p>
@@ -58,22 +64,27 @@
 <li><code>data</code> <em>(اختياري)</em> — معاملات إضافية على شكل كائن JSON</li>
 </ul>
 <p><strong>أمثلة:</strong></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-platform-real-time-events">منصة Gateway: الأحداث في الوقت الفعلي</h2>
 <p>يتصل محوّل (adapter) الـ gateway الخاص بـ Home Assistant عبر WebSocket ويشترك في أحداث <code>state_changed</code>. وعندما تتغير حالة جهاز وتطابق عوامل التصفية لديك، يُمرَّر الحدث إلى الوكيل على شكل رسالة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-filtering">تصفية الأحداث</h3>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="13"></x-keep></span>إعداد مطلوب</div><div class="admonitionContent_BuS1"><p>افتراضيًا، <strong>لا يُمرَّر أي حدث</strong>. يجب أن تضبط واحدًا على الأقل من <code>watch_domains</code> أو <code>watch_entities</code> أو <code>watch_all</code> لاستقبال الأحداث. ومن دون عوامل تصفية، يُسجَّل تحذير عند بدء التشغيل وتُسقط جميع تغييرات الحالة بصمت.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>إعداد مطلوب</div><div class="admonitionContent_BuS1"><p>افتراضيًا، <strong>لا يُمرَّر أي حدث</strong>. يجب أن تضبط واحدًا على الأقل من <code>watch_domains</code> أو <code>watch_entities</code> أو <code>watch_all</code> لاستقبال الأحداث. ومن دون عوامل تصفية، يُسجَّل تحذير عند بدء التشغيل وتُسقط جميع تغييرات الحالة بصمت.</p></div></div>
 <p>اضبط الأحداث التي يراها الوكيل في <code>~/.hermes/config.yaml</code> ضمن القسم <code>extra</code> الخاص بمنصة Home Assistant:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<table><thead><tr><th>الإعداد</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>watch_domains</code></td><td><em>(لا شيء)</em></td><td>مراقبة نطاقات الكيانات هذه فقط (مثل <code>climate</code>، <code>light</code>، <code>binary_sensor</code>)</td></tr><tr><td><code>watch_entities</code></td><td><em>(لا شيء)</em></td><td>مراقبة معرّفات الكيانات المحددة هذه فقط</td></tr><tr><td><code>watch_all</code></td><td><code>false</code></td><td>اضبطه على <code>true</code> لاستقبال <strong>جميع</strong> تغييرات الحالة (غير موصى به لمعظم الإعدادات)</td></tr><tr><td><code>ignore_entities</code></td><td><em>(لا شيء)</em></td><td>تجاهل هذه الكيانات دائمًا (يُطبَّق قبل عوامل تصفية النطاقات/الكيانات)</td></tr><tr><td><code>cooldown_seconds</code></td><td><code>30</code></td><td>الحد الأدنى بالثواني بين الأحداث للكيان نفسه</td></tr></tbody></table>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="14"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>ابدأ بمجموعة مركّزة من النطاقات — إذ تغطي <code>climate</code> و <code>binary_sensor</code> و <code>alarm_control_panel</code> أكثر عمليات الأتمتة فائدة. وأضف المزيد حسب الحاجة. استخدم <code>ignore_entities</code> لكتم المستشعرات كثيرة الضجيج مثل حرارة المعالج أو عدّادات مدة التشغيل.</p></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<table><thead><tr><th>الإعداد</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>url</code></td><td><code>HASS_URL</code>، وإلا <code>http://homeassistant.local:8123</code></td><td>عنوان URL الأساسي لـ Home Assistant</td></tr><tr><td><code>watch_domains</code></td><td><em>(لا شيء)</em></td><td>مراقبة نطاقات الكيانات هذه فقط (مثل <code>climate</code>، <code>light</code>، <code>binary_sensor</code>)</td></tr><tr><td><code>watch_entities</code></td><td><em>(لا شيء)</em></td><td>مراقبة معرّفات الكيانات المحددة هذه فقط</td></tr><tr><td><code>watch_all</code></td><td><code>false</code></td><td>اضبطه على <code>true</code> لاستقبال <strong>جميع</strong> تغييرات الحالة (غير موصى به لمعظم الإعدادات)</td></tr><tr><td><code>ignore_entities</code></td><td><em>(لا شيء)</em></td><td>تجاهل هذه الكيانات دائمًا (يُطبَّق قبل عوامل تصفية النطاقات/الكيانات)</td></tr><tr><td><code>cooldown_seconds</code></td><td><code>30</code></td><td>الحد الأدنى بالثواني بين الأحداث للكيان نفسه</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>ابدأ بمجموعة مركّزة من النطاقات — إذ تغطي <code>climate</code> و <code>binary_sensor</code> و <code>alarm_control_panel</code> أكثر عمليات الأتمتة فائدة. وأضف المزيد حسب الحاجة. استخدم <code>ignore_entities</code> لكتم المستشعرات كثيرة الضجيج مثل حرارة المعالج أو عدّادات مدة التشغيل.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-formatting">تنسيق الأحداث</h3>
 <p>تُنسَّق تغييرات الحالة كرسائل مقروءة للبشر بحسب النطاق:</p>
 <table><thead><tr><th>النطاق</th><th>التنسيق</th></tr></thead><tbody><tr><td><code>climate</code></td><td>&quot;HVAC mode changed from &#x27;off&#x27; to &#x27;heat&#x27; (current: 21, target: 23)&quot;</td></tr><tr><td><code>sensor</code></td><td>&quot;changed from 21°C to 22°C&quot;</td></tr><tr><td><code>binary_sensor</code></td><td>&quot;triggered&quot; / &quot;cleared&quot;</td></tr><tr><td><code>light</code>، <code>switch</code>، <code>fan</code></td><td>&quot;turned on&quot; / &quot;turned off&quot;</td></tr><tr><td><code>alarm_control_panel</code></td><td>&quot;alarm state changed from &#x27;armed_away&#x27; to &#x27;triggered&#x27;&quot;</td></tr><tr><td><em>(أخرى)</em></td><td>&quot;changed from &#x27;old&#x27; to &#x27;new&#x27;&quot;</td></tr></tbody></table>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agent-responses">ردود الوكيل</h3>
 <p>تُسلَّم الرسائل الصادرة من الوكيل على شكل <strong>إشعارات دائمة في Home Assistant</strong> (عبر <code>persistent_notification.create</code>). وتظهر في لوحة إشعارات HA بالعنوان &quot;Hermes Agent&quot;.</p>
+<p>تستخدم المنصة قيم العرض الافتراضية <code>minimal</code> (دون رسائل تقدم الأدوات أو البث في الإشعارات). تجاوزها ضمن <code>display.platforms.homeassistant</code> في <code>config.yaml</code> إذا أردت المزيد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-and-webhook-delivery">التسليم عبر Cron و Webhook</h3>
+<p>يمكن للمهام المجدولة ومسارات webhook التسليم إلى Home Assistant:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>تتطلب الصيغة المجردة <code>homeassistant</code> ضبط <code>HASS_HOME_CHANNEL</code> على هدف إشعار افتراضي. راجع <a href="/docs/user-guide/features/cron">المهام المجدولة</a> و <a href="/docs/user-guide/messaging/webhooks">Webhooks</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-management">إدارة الاتصال</h3>
 <ul>
 <li><strong>WebSocket</strong> مع نبضات قلب (heartbeat) كل 30 ثانية للأحداث في الوقت الفعلي</li>
@@ -83,7 +94,7 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
 <p>تفرض أدوات Home Assistant قيودًا أمنية:</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="15"></x-keep></span>النطاقات المحظورة</div><div class="admonitionContent_BuS1"><p>نطاقات الخدمات التالية <strong>محظورة</strong> لمنع تنفيذ شيفرة عشوائية على مضيف HA:</p><ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>النطاقات المحظورة</div><div class="admonitionContent_BuS1"><p>نطاقات الخدمات التالية <strong>محظورة</strong> لمنع تنفيذ شيفرة عشوائية على مضيف HA:</p><ul>
 <li><code>shell_command</code> — أوامر shell عشوائية</li>
 <li><code>command_line</code> — مستشعرات/مفاتيح تنفّذ أوامر</li>
 <li><code>python_script</code> — تنفيذ Python عبر السكربتات</li>
@@ -94,15 +105,16 @@
 <p>يُتحقق من معرّفات الكيانات مقابل النمط <code>^[a-z_][a-z0-9_]*\.[a-z0-9_]+$</code> لمنع هجمات الحقن.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="example-automations">أمثلة على الأتمتة</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="morning-routine">الروتين الصباحي</h3>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-check">الفحص الأمني</h3>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reactive-automation-via-gateway-events">الأتمتة التفاعلية (عبر أحداث Gateway)</h3>
 <p>عند الاتصال كمنصة gateway، يستطيع الوكيل التفاعل مع الأحداث:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
-<p><strong>عدم التقاط متغيرات البيئة.</strong>
-يقرأ المحوّل بيانات الاعتماد من <code>~/.hermes/.env</code> (الذي يُدمج تلقائيًا عند بدء التشغيل) أو
+<p><strong>عدم التقاط متغيرات البيئة.</strong> تحقّق من تثبيت الإضافة وتفعيلها في profile النشط باستخدام <code>hermes plugins list</code>. إذا كانت ناقصة، فشغّل <code>hermes plugins install homeassistant</code> (أو <code>hermes -p &lt;profile&gt; plugins install homeassistant</code>) وأعد تشغيل gateway.
+عندما تُعطَّل <code>security.allow_lazy_installs</code>، يُتجاوز التثبيت التلقائي عند أول تشغيل، ويجب أن تثبّت الإضافة بنفسك.</p>
+<p><strong>عدم قراءة متغيرات البيئة.</strong> يقرأ المحوّل بيانات الاعتماد من <code>~/.hermes/.env</code> (الذي يُدمج تلقائيًا عند بدء التشغيل) أو
 من <code>config.yaml</code>. تحقق جيدًا من أن الملف موجود ضمن المجلد الرئيسي لـ profile Hermes
 النشط، ومن عدم وجود علامات اقتباس زائدة حول الـ URL أو الـ token. أعد تشغيل الـ gateway
 بعد التعديل — إذ لا تُطبَّق تغييرات متغيرات البيئة إلا عند بدء العملية.</p>

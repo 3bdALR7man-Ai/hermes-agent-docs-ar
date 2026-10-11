@@ -1,0 +1,84 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="proxy-mode-e2ee-on-macos">وضع الوكيل الوسيط (Proxy Mode) (E2EE على macOS)</h2>
+<p>الإضافة (extra) <code>matrix</code> مقيّدة بـ Linux. على macOS أو Windows، شغّل محوّل Matrix واعتماديات التشفير في حاوية Linux ومرّر الطلبات إلى الوكيل الأصلي. يستخدم المثال التالي مضيف macOS؛ وينطبق الفصل نفسه على Windows مع عنوان المضيف والمصادقة الموافقين.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل هذا</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>تتعامل حاوية Docker فقط مع بروتوكول Matrix + E2EE. عندما تصل رسالة، تفك تشفيرها وتُحيل النص إلى المضيف عبر طلب HTTP عادي. يشغّل المضيف الوكيل، ويستدعي الأدوات، ويولّد استجابة، ويبثّها مرة أخرى. تشفّر الحاوية الاستجابة وترسلها إلى Matrix. جميع الجلسات موحّدة — CLI و Matrix و Telegram وأي منصة أخرى تشترك في نفس الذاكرة وسجل المحادثة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-configure-the-host-macos">الخطوة 1: إعداد المضيف (macOS)</h3>
+<p>فعّل خادم API حتى يقبل المضيف الطلبات الواردة من حاوية Docker.</p>
+<p>أضف إلى <code>~/.hermes/.env</code>:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<ul>
+<li><code>API_SERVER_HOST=0.0.0.0</code> يربط بجميع الواجهات (interfaces) بحيث يمكن لحاوية Docker الوصول إليه.</li>
+<li><code>API_SERVER_KEY</code> مطلوب للربط غير المحلي (non-loopback). اختر سلسلة عشوائية قوية.</li>
+<li>يعمل خادم API على المنفذ 8642 افتراضيًا (غيّره باستخدام <code>API_SERVER_PORT</code> إذا لزم الأمر).</li>
+</ul>
+<p>شغّل الـ gateway:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>يجب أن ترى خادم API يبدأ جنبًا إلى جنب مع أي منصات أخرى قمت بإعدادها. تحقق من أنه قابل للوصول من الـ VM:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-configure-the-docker-container-linux-vm">الخطوة 2: إعداد حاوية Docker (VM بـ Linux)</h3>
+<p>تحتاج الحاوية إلى بيانات اعتماد Matrix ورابط الـ proxy. لا تحتاج إلى مفاتيح API لـ LLM.</p>
+<p><strong><code>docker-compose.yml</code>:</strong></p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<p>استخدم <a href="/docs/user-guide/docker">بناء Docker</a> الخاص بالمستودع، الذي يتضمن إضافة Matrix على أهداف Linux المتوافقة والمكتبات الأصلية المطلوبة. لا تثبّت الاعتماديات في الصورة المغلقة وقت التشغيل. تحتاج الحاوية إلى بيانات اعتماد Matrix ووصول إلى الـ proxy، لا إلى مفاتيح API لمزوّد inference.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-start-both">الخطوة 3: تشغيل كليهما</h3>
+<ol>
+<li>
+<p>شغّل gateway المضيف أولًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+</li>
+<li>
+<p>شغّل حاوية Docker:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+</li>
+<li>
+<p>أرسل رسالة في غرفة Matrix مشفّرة. تفك الحاوية تشفيرها، وتحيلها إلى المضيف، وتبثّ الاستجابة مرة أخرى.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h3>
+<p>يُعدَّ proxy mode على <strong>جانب الحاوية</strong> (الـ gateway الرقيق):</p>
+<table><thead><tr><th>الإعداد</th><th>الوصف</th></tr></thead><tbody><tr><td><code>GATEWAY_PROXY_URL</code></td><td>رابط خادم API البعيد لـ Hermes (مثلًا <code>http://192.168.1.100:8642</code>)</td></tr><tr><td><code>GATEWAY_PROXY_KEY</code></td><td>رمز حامل (bearer token) للمصادقة (يجب أن يطابق <code>API_SERVER_KEY</code> على المضيف)</td></tr><tr><td><code>gateway.proxy_url</code></td><td>نفس <code>GATEWAY_PROXY_URL</code> لكن في <code>config.yaml</code></td></tr></tbody></table>
+<p>يحتاج جانب المضيف إلى:</p>
+<table><thead><tr><th>الإعداد</th><th>الوصف</th></tr></thead><tbody><tr><td><code>API_SERVER_ENABLED</code></td><td>اضبطه على <code>true</code></td></tr><tr><td><code>API_SERVER_KEY</code></td><td>رمز حامل (مشترك مع الحاوية)</td></tr><tr><td><code>API_SERVER_HOST</code></td><td>اضبطه على <code>0.0.0.0</code> للوصول عبر الشبكة</td></tr><tr><td><code>API_SERVER_PORT</code></td><td>رقم المنفذ (الافتراضي: <code>8642</code>)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="works-for-any-platform">يعمل لأي منصة</h3>
+<p>proxy mode ليس مقتصرًا على Matrix. يمكن لأي محول منصة (platform adapter) استخدامه — اضبط <code>GATEWAY_PROXY_URL</code> على أي مثيل gateway وسيُحيل إلى الوكيل البعيد بدلًا من تشغيل واحد محليًا. هذا مفيد لأي نشر يحتاج فيه محول المنصة إلى العمل في بيئة مختلفة عن الوكيل (عزل الشبكة، متطلبات E2EE، قيود الموارد).</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="56"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تُحفَظ استمرارية الجلسة عبر ترويسة <code>X-Hermes-Session-Id</code>. يتتبّع خادم API الخاص بالمضيف الجلسات بهذا المعرّف، لذا تستمر المحادثات عبر الرسائل تمامًا كما لو كانت مع وكيل محلي.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="57"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p><strong>القيود (v1):</strong> لا تُنقَل رسائل تقدّم الأدوات من الوكيل البعيد — يرى المستخدم الاستجابة النهائية المبثوثة فقط، وليس استدعاءات الأدوات الفردية. تُعالَج مطالبات موافقة الأوامر الخطرة على جانب المضيف، ولا تُنقَل إلى مستخدم Matrix. يمكن معالجة هذه في تحديثات مستقبلية.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-connects-and-sends-but-ignores-inbound-messages">يتصل البوت ويرسل، لكنه يتجاهل الرسائل الواردة</h3>
+<p><strong>السبب</strong>: تُفعَّل معالجات أحداث Matrix فقط عندما تُرسَل حمولات المزامنة (sync) عبر
+آلية <code>handle_sync()</code> الخاصة بـ mautrix. يمكن لاستطلاع <code>client.sync()</code> خام لا يستدعي أبدًا
+<code>handle_sync()</code> أن يترك المحول متصلًا (الإرسال يعمل) بينما لا تصل الرسائل
+الواردة أبدًا إلى <code>_on_room_message</code>.</p>
+<p><strong>الحل</strong>: يستخدم Hermes حلقة مزامنة صريحة تستدعي <code>client.handle_sync()</code> في
+كل من المزامنة الأولية وكل استجابة مزامنة تزايدية. يطابق هذا
+التشخيص في المشكلة الأصلية (upstream) رقم #7914 والـ PR المُغلَق #37807، لكنه يحتفظ بمهام
+الصيانة الخلفية الخاصة بـ Hermes (تتبع الغرف المنضمّة، معالجة الدعوات، مشاركة
+مفاتيح E2EE) بدلًا من تفويض دورة الحياة الكاملة إلى <code>client.start()</code>. إذا استمر فشل الرسائل
+الواردة بعد إعادة تشغيل الـ gateway، تحقق من تسجيل المعالجات قبل
+المزامنة الأولى وراجع السجلات بحثًا عن <code>sync event dispatch error</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sync-issues--bot-falls-behind">مشاكل المزامنة / تأخر البوت</h3>
+<p><strong>السبب</strong>: يمكن لتنفيذات الأدوات الطويلة تأخير حلقة المزامنة، أو أن homeserver بطيء.</p>
+<p><strong>الحل</strong>: تعيد حلقة المزامنة المحاولة تلقائيًا كل 5 ثوانٍ عند حدوث خطأ. راجع سجلات Hermes بحثًا عن تحذيرات متعلقة بالمزامنة. إذا استمر تأخر البوت، تأكد من أن homeserver الخاص بك يملك موارد كافية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-is-offline">البوت غير متصل</h3>
+<p><strong>السبب</strong>: gateway الخاص بـ Hermes لا يعمل، أو فشل في الاتصال.</p>
+<p><strong>الحل</strong>: تحقق من أن <code>hermes gateway</code> يعمل. راجع مُخرَج الطرفية بحثًا عن رسائل خطأ. المشاكل الشائعة: رابط homeserver خاطئ، رمز وصول منتهي الصلاحية، homeserver غير قابل للوصول.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-not-allowed--bot-ignores-you">&quot;User not allowed&quot; / يتجاهلك البوت</h3>
+<p><strong>السبب</strong>: معرّف المستخدم الخاص بك غير موجود في <code>MATRIX_ALLOWED_USERS</code>.</p>
+<p><strong>الحل</strong>: أضف معرّف المستخدم الخاص بك إلى <code>MATRIX_ALLOWED_USERS</code> في <code>~/.hermes/.env</code> وأعد تشغيل الـ gateway. استخدم الصيغة الكاملة <code>@user:server</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-ignores-an-entire-room">يتجاهل البوت غرفة بأكملها</h3>
+<p><strong>السبب</strong>: <code>MATRIX_ALLOWED_ROOMS</code> مضبوط ومعرّف الغرفة الحالية غير مُدرَج فيه، أو أن الغرفة تتطلب إشارة ولم تُشر الرسالة إلى البوت.</p>
+<p><strong>الحل</strong>: أضف معرّف الغرفة إلى <code>MATRIX_ALLOWED_ROOMS</code>، أو أزل قائمة السماح للغرف إذا كان هذا نشرًا شخصيًا. للعثور على معرّف غرفة في Element، افتح إعدادات الغرفة وتحقق من <strong>Advanced</strong>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bridge-messages-loop-or-echo">رسائل الجسر تتكرر أو تتردد صداها</h3>
+<p><strong>السبب</strong>: تقوم دُمية جسر/appservice بترحيل مُخرَج البوت مرة أخرى كرسالة مستخدم جديدة، أو أن الجسر يستخدم معرّفات مستخدم ghost غير قياسية.</p>
+<p><strong>الحل</strong>: أبقِ ghosts الجسر خارج <code>MATRIX_ALLOWED_USERS</code>، وأضف إدخال <code>MATRIX_IGNORE_USER_PATTERNS</code> مطابقًا، واترك <code>MATRIX_PROCESS_NOTICES=false</code> ما لم تكن الإشعارات جزءًا من سير عمل موثوق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="58"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>MATRIX_ALLOWED_USERS</code>، وبالنسبة لعمليات النشر المشتركة/الخاصة، <code>MATRIX_ALLOWED_ROOMS</code>. بدون هذين، يمكن لأي شخص يستطيع مراسلة البوت في غرفة انضم إليها أن يُطلق الوكيل. لا تُفوّض إلا الأشخاص والغرف التي تثق بها — يملك المستخدمون المصرّح لهم وصولًا كاملًا إلى قدرات الوكيل، بما في ذلك استخدام الأدوات والوصول إلى النظام.</p></div></div>
+<p>لمزيد من المعلومات حول تأمين نشر Hermes Agent الخاص بك، راجع <a href="/docs/user-guide/security">دليل الأمان</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="notes">ملاحظات</h2>
+<ul>
+<li><strong>أي homeserver</strong>: يعمل مع Synapse، أو Conduit، أو Dendrite، أو matrix.org، أو أي homeserver متوافق مع مواصفات Matrix. لا يُشترط أي برنامج homeserver معيّن.</li>
+<li><strong>الاتحاد (Federation)</strong>: إذا كنت على homeserver اتحادي، يمكن للبوت التواصل مع مستخدمين من خوادم أخرى — فقط أضف معرّفاتهم الكاملة <code>@user:server</code> إلى <code>MATRIX_ALLOWED_USERS</code>.</li>
+<li><strong>الانضمام التلقائي</strong>: يقبل البوت دعوات الغرف وينضم إليها تلقائيًا. يبدأ بالاستجابة فورًا بعد الانضمام.</li>
+<li><strong>دعم الوسائط</strong>: يمكن لـ Hermes إرسال واستقبال الصور والصوتيات والفيديو ومرفقات الملفات. تُرفَع الوسائط إلى homeserver الخاص بك باستخدام واجهة برمجة مستودع محتوى Matrix.</li>
+<li><strong>الرسائل الصوتية الأصلية (MSC3245)</strong>: يضع محول Matrix تلقائيًا علامة <code>org.matrix.msc3245.voice</code> على الرسائل الصوتية الصادرة. هذا يعني أن استجابات TTS والصوتيات تُعرَض كـ <strong>فقاعات صوتية أصلية</strong> في Element والعملاء الآخرين الذين يدعمون MSC3245، بدلًا من مرفقات ملفات صوت عامة. وتُكتشف الرسائل الصوتية الواردة التي تحمل علامة MSC3245 بصورة صحيحة وتُوجّه إلى تفريغ الكلام إلى نص. لا يلزم إعداد — فهذا يعمل تلقائيًا. أما الملف الصوتي المرفق بوسم <code>MEDIA:</code> (ملف <code>.mp3</code>/<code>.wav</code> أنشأه الوكيل وليس موسومًا بـ <code>[[audio_as_voice]]</code>) فيُرسل كمرفق <code>m.audio</code> عادي بصيغته الأصلية بدلًا من فقاعة صوتية.</li>
+</ul>

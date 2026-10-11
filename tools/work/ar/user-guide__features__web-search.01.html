@@ -1,14 +1,45 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعداد (Configuration)</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-backend">Backend واحد</h3>
+<p>اضبط مزوّدًا واحدًا لجميع إمكانات الويب:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-capability-configuration">الإعداد حسب الإمكانية</h3>
+<p>استخدم مزوّدين مختلفين للبحث مقابل الاستخراج. يتيح لك هذا الجمع بين بحث مجاني (SearXNG) ومزوّد استخراج مدفوع، أو العكس:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<p>عندما تكون المفاتيح الخاصة بكل إمكانية فارغة، يعود كلاهما إلى <code>web.backend</code>. لا يُكتشف backend تلقائيًا من مفتاح API/URL المتاح إلا إذا لم يُكتب قط اختيار ويب <strong>مشترك</strong> (<code>web.backend</code> أو صف <code>hermes tools</code> المُدار) — بمجرد وجود اختيار مشترك، يستخدمه وقت التشغيل دائمًا، ولا تؤدي إضافة مفتاح إلى <code>.env</code> إلى إعادة توجيه حركة الويب. يؤثر المفتاح الخاص بإمكانية في تلك الإمكانية وحدها: ضبط <code>web.extract_backend</code> وحده يبقي <code>web_search</code> على backend المكتشف تلقائيًا.</p>
+<p><strong>ترتيب الأولوية (لكل إمكانية):</strong></p>
+<ol>
+<li><code>web.search_backend</code> / <code>web.extract_backend</code> (صريح لكل إمكانية؛ <code>nous</code> = Tool Gateway المُدار لتلك الإمكانية وحدها، راجع <a href="/docs/user-guide/features/tool-gateway#mixing-your-own-key-and-the-gateway-web-only">Tool Gateway</a>)</li>
+<li><code>web.backend</code> (الاحتياطي المشترك؛ <code>nous</code> = Tool Gateway المُدار)</li>
+<li>الاكتشاف التلقائي من متغيرات البيئة (فقط في الإعدادات التي لم تُضبط قط)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-detection">الاكتشاف التلقائي</h3>
+<p>إذا لم يُختَر أي backend <strong>على الإطلاق من قبل</strong> (لم تُكتَب <code>web.backend</code> ولا أي مفتاح خاص بإمكانية سواء من قِبَلك أو من <code>hermes tools</code>)، يختار Hermes أول backend متاح استنادًا إلى بيانات الاعتماد المضبوطة:</p>
+<table><thead><tr><th>بيانات الاعتماد الموجودة</th><th>الـ backend المُختار تلقائيًا</th></tr></thead><tbody><tr><td><code>TAVILY_API_KEY</code></td><td>tavily</td></tr><tr><td><code>PERPLEXITY_API_KEY</code></td><td>perplexity</td></tr><tr><td><code>EXA_API_KEY</code></td><td>exa</td></tr><tr><td><code>PARALLEL_API_KEY</code></td><td>parallel</td></tr><tr><td><code>FIRECRAWL_API_KEY</code> أو <code>FIRECRAWL_API_URL</code></td><td>firecrawl</td></tr><tr><td>Nous Tool Gateway جاهز (اشتراك Portal)</td><td>بحث ويب مُدار عبر Tool Gateway</td></tr><tr><td><code>SEARXNG_URL</code></td><td>searxng</td></tr><tr><td><code>BRAVE_SEARCH_API_KEY</code></td><td>brave-free</td></tr><tr><td><code>ddgs</code> قابلة للاستيراد</td><td>ddgs</td></tr><tr><td>هوية Nous موجودة (أي حساب، بما في ذلك المستوى المجاني والضيوف المجهولون)</td><td>بحث ويب مُدار (<code>web_search</code> فقط)؛ ولا يتغيّر الاستخراج ولا الحلقة أدناه التي لا تحتاج إلى مفاتيح</td></tr><tr><td><em>(لا شيء مضبوط على الإطلاق)</em></td><td>حلقة بلا مفتاح: exa / parallel / firecrawl / keenable (بالتناوب)</td></tr></tbody></table>
+<p><strong>الحلقة المجانية بلا مفتاح:</strong> عندما لا يوجد <em>أي</em> من بيانات الاعتماد أعلاه، تتناوب الطلبات عبر المستويات المجانية العامة لمزوّدي الحلقة (Exa و Parallel و Firecrawl و Keenable)، فتعمل أدوات الويب على تثبيت جديد دون أي إعداد — ويُحوَّل تلقائيًا الطلب الذي بلغ حد المعدل أو البحث الذي يرفضه المزوّد إلى المزوّد التالي في الحلقة. ثبّت مزوّدًا واحدًا في <code>hermes tools</code> لإيقاف التناوب (تُستخدم الحلقة عندئذٍ فقط كتعاقب احتياطي عند التقييد). جميع المستويات المجانية مقيَّدة بمعدّل من طرف المزوّد تحت حِمل مفاجئ (burst)؛ أما الاستخدام العادي المستمر فيمرّ بسلاسة. اضبط <code>web.keyless_fallback: false</code> لتعطيل المستوى — عند تعطيله دون بيانات اعتماد، لا تتاح أدوات الويب حتى تضبط مزوّدًا. لا تتأثر هوية Nous (بما فيها الضيف) بهذا المفتاح: يستمر تطبيق <code>web_search</code> المُدار، وإن كان <code>web_extract</code> يحتاج إلى مزوّد مضبوط.</p>
+<p><strong>الإنقاذ بلا مفتاح لمرة واحدة للـ backends المرتبطة بمفتاح:</strong> عندما يفشل backend الذي اخترته أو الذي يملك مفتاحًا — بما فيه مسار Nous Tool Gateway (<code>web.backend: nous</code>) — في استدعاء (مفتاح غير صالح أو انقطاع أو gateway غير متاح أو خطأ 5xx من المصدر الأعلى)، يُعاد هذا الاستدعاء وحده تلقائيًا عبر حلقة المستوى المجاني التي لا تحتاج مفاتيح بدلًا من إصدار خطأ — وتذكر النتيجة المزوّد الذي خدمه والسبب (<code>rescued_from</code> / <code>backend_error</code>). لا يكون هذا التعويض ثابتًا أبدًا: يحاول الاستدعاء التالي مباشرة لِـ <code>web_search</code>/<code>web_extract</code> الـ backend الذي اخترته من جديد. عطّله بضبط <code>web.keyless_rescue: false</code> (وهو معطَّل أيضًا كلما كان <code>keyless_fallback</code> معطَّلًا).</p>
+<p>يُعد xAI Web Search <strong>لا</strong> يدخل في سلسلة الاكتشاف التلقائي — فوجود <code>XAI_API_KEY</code> مضبوطًا (أو تسجيل الدخول عبر xAI Grok OAuth) لا يوجّه تلقائيًا حركة الويب عبر xAI، لأن بيانات الاعتماد تلك تُستخدم أيضًا في الاستدلال (inference) و TTS وتوليد الصور وقد يريد المستخدم backend مختلفًا للويب. فعّله صراحة بضبط <code>web.backend: &quot;xai&quot;</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verify-your-setup">تحقّق من إعدادك</h2>
+<p>نفّذ <code>hermes setup</code> لمعرفة الـ backend الخاص بالويب المُكتشَف:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p>لنسخة مصدر مسحوبة، يمكنك أيضًا فحص الوحدة بعد
+<a href="/docs/reference/package-management#developer-workflow">تفعيل PM</a>. استخدم مجلد home
+الذي تريد فحص إعدادات الويب فيه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>يطبع هذا الـ backend النشِط وحالته:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_search-returns-success-false">تُعيد <code>web_search</code> القيمة <code>{&quot;success&quot;: false}</code></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_search-returns-success-false"><code>web_search</code> القيمة <code>{&quot;success&quot;: false}</code></h3>
 <ul>
-<li>تحقّق من إمكانية الوصول إلى <code>SEARXNG_URL</code>: <code>curl -s &quot;http://localhost:8888/search?q=test&amp;format=json&quot;</code></li>
+<li>تحقّق من إمكانية الوصول إلى <code>SEARXNG_URL</code> متاح: <code>curl -s &quot;http://localhost:8888/search?q=test&amp;format=json&quot;</code></li>
 <li>إذا ظهر لك HTTP 403، فصيغة JSON معطّلة — أضف <code>json</code> إلى قائمة <code>formats</code> في <code>settings.yml</code> وأعد التشغيل</li>
 <li>إذا ظهر لك خطأ اتصال، فقد لا تكون الحاوية قيد التشغيل: <code>docker ps | grep searxng</code></li>
 </ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_extract-says-search-only-backend">تظهر لِـ <code>web_extract</code> رسالة &quot;search-only backend&quot;</h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_extract-says-search-only-backend"><code>web_extract</code> رسالة &quot;search-only backend&quot;</h3>
 <p>لا يستطيع SearXNG استخراج محتوى عناوين URL. اضبط <code>web.extract_backend</code> على مزوّد يدعم الاستخراج:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="searxng-returns-0-results">تُعيد SearXNG صفر نتائج</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="searxng-returns-0-results">يعيد SearXNG عدد نتائج 0</h3>
 <p>بعض النسخ العامة تعطّل بعض محرّكات البحث أو الفئات. جرّب:</p>
 <ul>
 <li>استعلامًا مختلفًا</li>
@@ -17,16 +48,16 @@
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rate-limited-on-a-public-instance">تقييد المعدل على نسخة عامة</h3>
 <p>انتقل إلى نسخة مستضافة ذاتيًا (راجع <a href="#option-a--self-host-with-docker-recommended">الخيار أ</a> أعلاه). مع Docker، لا تخضع نسختك الخاصة لأي حدود معدّل.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_extract-returns-truncated-content-with-a-truncated-footer">تُعيد <code>web_extract</code> محتوى مقتطَعًا مع تذييل <code>[TRUNCATED]</code></h3>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="web_extract-returns-truncated-content-with-a-truncated-footer"><code>web_extract</code> محتوى مقتطَعًا مع تذييل <code>[TRUNCATED]</code> التذييل</h3>
 <p>هذا متوقّع للصفحات التي تتجاوز ميزانية الأحرف. يذكر التذييل الملف على القرص الذي يحتفظ بالنص الكامل النظيف واستدعاء <code>read_file</code> الدقيق لتصفّح الجزء المحذوف من المنتصف. لرؤية المزيد ضمن الاستجابة نفسها، ارفع قيمة <code>web.extract_char_limit</code> في <code>config.yaml</code> أو مرّر قيمة <code>char_limit</code> أكبر في الاستدعاء.</p>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-skill-searxng-search">مهارة اختيارية: <code>searxng-search</code></h2>
-<p>بالنسبة للوكلاء الذين يحتاجون إلى استخدام SearXNG عبر <code>curl</code> مباشرة (مثلًا كحل احتياطي عندما لا تتوفر مجموعة أدوات الويب)، ثبّت المهارة الاختيارية <code>searxng-search</code>:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>بالنسبة للوكلاء الذين يحتاجون إلى استخدام SearXNG عبر <code>curl</code> مباشرة (مثلًا كحل احتياطي عندما لا تتوفر مجموعة أدوات الويب)، ثبّت المهارة الاختيارية <code>searxng-search</code> المهارة الاختيارية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
 <p>يضيف هذا مهارة تعلّم الوكيل كيفية:</p>
 <ul>
 <li>استدعاء SearXNG JSON API عبر <code>curl</code> أو Python</li>
-<li>التصفية حسب الفئة (<code>general</code>، <code>news</code>، <code>science</code>، إلخ)</li>
+<li>التصفية حسب الفئة (<code>general</code>, <code>news</code>, <code>science</code> ، إلخ)</li>
 <li>التعامل مع الترقيم الصفحي (pagination) وحالات الخطأ</li>
 <li>التراجع بسلاسة عندما يتعذّر الوصول إلى SearXNG</li>
 </ul>

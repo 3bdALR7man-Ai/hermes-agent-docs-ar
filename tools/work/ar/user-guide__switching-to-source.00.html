@@ -1,0 +1,49 @@
+<header><h1>الانتقال إلى تثبيت من المصدر</h1></header>
+<p>النسخة المسحوبة من المصدر والتطبيق المحزّم تثبيتان منفصلان. يواصل التطبيق المحزّم استخدام حمولته الخاصة؛ ولا يعتمد نسخة مسحوبة قريبة منه. استخدم تطبيق سطح مكتب مبنيًا من المصدر عندما تريد أن تشغّل GUI كودًا معدّلًا.</p>
+<p>توجد بيانات المستخدم عادةً خارج التطبيق:</p>
+<table><thead><tr><th>المضيف</th><th>الموقع الافتراضي للبيانات</th></tr></thead><tbody><tr><td>Linux و macOS و WSL و Termux</td><td><code>~/.hermes/</code></td></tr><tr><td>Windows الأصلي</td><td><code>%LOCALAPPDATA%\hermes\</code></td></tr><tr><td>حاوية Docker الرسمية</td><td><code>/opt/data/</code>، مع تعيينه إلى تخزين المضيف</td></tr></tbody></table>
+<p><code>HERMES_HOME</code> و profile المختار تجاوز هذه القيم الافتراضية. سجّل مجلدي المصدر والوجهة الفعليين قبل تغيير التثبيتات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-back-up-and-stop-the-old-runtime">1. انسخ احتياطيًا وأوقف وقت التشغيل القديم</h2>
+<p>من التثبيت الحالي، نفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>احتفظ بالنسخة الاحتياطية خارج أي مجلد تنوي حذفه. قد تحتوي النسخ الاحتياطية على بيانات اعتماد، لذا احمِها وفقًا لذلك.</p>
+<p>أغلق تطبيق سطح المكتب وأوقف gateways/الخدمات التي تملكها قبل التسليم. إغلاق Desktop و <code>hermes gateway stop</code> عمليتان مختلفتان: لا يعني إغلاق التطبيق بالضرورة إيقاف messaging gateway يُدار بشكل مستقل.</p>
+<p>يمنع قفل gateway لكل profile وجود gateways مكرّرة. أما أقفال الجلسات وتزامن SQLite فمسألتان منفصلتان؛ لا يغيّر بدء عملية ثانية وضع سجل SQLite بحد ذاته. عند التسليم، تجنّب أن تكتب إصدارات كود مختلطة إلى المجلد نفسه بينما ينفّذ أي منها ترحيلات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-clone-an-independent-checkout">2. استنسخ نسخة مسحوبة مستقلة</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>للتطوير، استنسخ fork الخاص بك بدلًا من ذلك وأضف المستودع الأصلي باسم <code>upstream</code>. اختر branch أو commit قبل تجهيز الاعتماديات. لا تستنسخ داخل حزمة تطبيق موقّعة ولا تستبدل وقت التشغيل المحزّم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-prepare-the-source-runtime">3. جهّز وقت التشغيل من المصدر</h2>
+<p>اقرأ <a href="/docs/reference/package-management#developer-workflow">سير عمل المطوّر</a> لمعرفة المتطلبات المسبقة للبناء الأصلي وقيود bootstrap الحالية. اختر <code>HERMES_HOME</code> المقصود قبل التجهيز، ثم فعّل. يشغّل التفعيل bootstrap نفسه:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>على Windows الأصلي، استخدم PowerShell:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يقرأ bootstrap إصدارات الأدوات المثبّتة من <code>pm/lock.json</code> ويفوّض التثبيت إلى PM. يعمل الكود الحالي المطوَّر رسميًا على Python 3.14. لا تتيح بيانات الحزمة الوصفية الأوسع <code>&gt;=3.11,&lt;3.15</code> إلا للتثبيتات الأقدم تشغيل برنامج التحديث قبل أن ينقلها PM إلى 3.14؛ وليست نطاقًا لدعم وقت التشغيل. القيمة الافتراضية للمصدر هي الإضافات (extras) <code>all</code>، لا <code>--all-extras</code>.</p>
+<p>يجمع التفعيل بيئة الأدوات المثبّتة ويعرّف <code>hermes</code> بوصفه CLI الخاص بهذه worktree. تحجب الدالة أمر <code>hermes</code> أقدم أو alias MSIX، وترفض العمل خارج worktree. يستعيد <code>deactivate</code> بيئة الـ shell ويزيل الدالة عند الانتهاء.</p>
+<p>لاعتماديات الاختبار والبيئات اليدوية، استخدم <a href="/docs/developer-guide/contributing">إعداد التطوير</a>. راجع <a href="/docs/reference/package-management">إدارة الحزم</a> لأجيال Python المختارة ومخزن الأدوات القابل للكتابة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-select-data-deliberately">4. اختر البيانات عمدًا</h2>
+<p>للاستخدام العادي على المضيف نفسه، اختر <code>HERMES_HOME</code> و profile نفسيهما كما في التثبيت السابق. للتطوير، يكون مجلد مستقل أكثر أمانًا لأن الكود الجديد قد يرحّل البيانات المخزّنة.</p>
+<p>مثال POSIX:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>مثال PowerShell:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>إذا غيّرت المجلد بعد تجهيز حالة PM، فشغّل bootstrap لذلك المجلد قبل الاعتماد على اعتمادياته المختارة. لا تفترض أن تغيير متغير البيئة ينقل البيانات أو ينسخ حالة وقت التشغيل.</p>
+<p>لبناء تطبيق سطح مكتب من المصدر، نفّذ <code>hermes desktop</code> من النسخة المسحوبة المجهّزة. ولا يزال فتح التطبيق المحزّم القديم يبدأ backend المحزّم الخاص به.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-users">مستخدمو Docker</h2>
+<p><code>/opt/data</code> مسار حاوية، وليس بالضرورة مسار مضيف قابلًا للاستخدام. في حالة bind mount، استخدم المجلد على جهة المضيف بوصفه <code>HERMES_HOME</code> لعملية المصدر. بالنسبة إلى volume مسمّى أو تخزين Docker Desktop VM، أوقف gateway القديم أولًا. ثم صدّر/استورد نسخة احتياطية أو انسخ البيانات عبر تركيب مضبوط. تحقّق من الملكية والصلاحيات على الوجهة.</p>
+<p>ينتج التنفيذ المحلي لـ <code>docker build -t hermes-agent .</code> تثبيتًا آخر تديره الصورة. لا يحوّل الحاوية العاملة إلى نسخة مسحوبة من المصدر تحدّث نفسها. أعد إنشاء الحاوية لاستخدام تلك الصورة. راجع <a href="/docs/user-guide/docker">Docker</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="nix-and-termux-users">مستخدمو Nix و Termux</h2>
+<p>يظل التنفيذ المحلي لـ <code>nix run .</code> يشغّل اشتقاقًا يملكه Nix. تبقى ملفات حزمته غير قابلة للتعديل وتظل التحديثات من اختصاص Nix. استخدم <code>nix develop</code> للحصول على shell للتطوير، أو إجراء المصدر أعلاه حيث يدعمه المضيف.</p>
+<p>توزيع Termux حزمة APT مبنية لـ bionic. ليس bootstrap المصدر لسطح المكتب/الخادم مسار تطوير أو إصلاح مدعومًا له. استخدم <a href="/docs/getting-started/termux">دليل Termux</a> لمعرفة حدود الحزمة والبناء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="switch-back-without-assuming-a-downgrade-is-safe">العودة دون افتراض أن الرجوع إلى إصدار أقدم آمن</h2>
+<p>أوقف وقت التشغيل من المصدر، واخرج من تفعيله، وافتح التطبيق المحزّم. افحص أمر CLI الذي يُحلّ قبل استخدام <code>hermes</code> مجددًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>على Windows، استخدم <code>Get-Command hermes -All</code>. لا تستبدل أمرًا أو alias تنفيذ غير ذي صلة دون التحقّق من مالكه.</p>
+<p>قد يغيّر إصدار مصدر أحدث تنسيقات البيانات. العودة إلى حزمة أقدم ليست عكس ترحيل مخطط. احتفظ بالبيانات الحالية واستعد نسخة احتياطية متوافقة أُخذت قبل الانتقال إذا احتاجت الحزمة الأقدم إليها.</p>
+<p>لا يحذف حذفُ النسخة المسحوبة من المصدر التطبيقَ المحزّم. ولا يجمع تلقائيًا كل إدخالات أدوات PM أو أجيال Python. استخدم تشخيص PM وجمع الموارد غير المستخدمة بدلًا من حذف جذر البيانات المشترك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<ul>
+<li><strong>إصدار خاطئ:</strong> افحص حلّ الأوامر، ثم استخدم <code>hermes --version</code> من النسخة المسحوبة المفعّلة.</li>
+<li><strong>اعتماديات مفقودة:</strong> نفّذ <code>python -m pm.cli install</code> من بيئة المصدر المقصودة، ثم أعد تشغيل عملية Hermes المتأثرة.</li>
+<li><strong>gateway يعمل بالفعل:</strong> افحص <code>hermes gateway status</code> للـ profile المختار. أوقف المالك المحدّد؛ ولا تقتل عمليات غير مرتبطة.</li>
+<li><strong>مهارات مختلفة بعد التشغيل الأول:</strong> قد يزامن الكود الأحدث المهارات المضمّنة إلى مجلد البيانات. ليست النسخة المسحوبة من المصدر عرضًا للقراءة فقط لذلك المجلد.</li>
+</ul>

@@ -1,0 +1,223 @@
+<header><h1>إرسال إضافة إلى كتالوج الإضافات</h1></header>
+<p>يُعدّ <a href="/docs/user-guide/features/plugin-catalog">كتالوج الإضافات</a> دليلًا لإضافات Hermes
+تخضع إدخالاته لمراجعة بشرية. الإدراج فيه علامة ثقة: يثبّت المستخدمون
+إضافة الكتالوج بالاسم، عند commit نفسه الذي قرأه أحد المشرفين. تضم هذه الصفحة
+الإرشادات الكاملة لإدراج إضافة والإبقاء عليها فيه.</p>
+<p>النسخة المعتمدة لقواعد القبول هي <a href="https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/README.md" data-ext><code>plugin-catalog/README.md</code></a> في المستودع. يعكس <a href="#admission-rules">قسم القواعد</a> أدناه نصها
+حرفيًا، ويفشل أحد الاختبارات عملية البناء إذا اختلفت النسختان.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-you-submit">قبل الإرسال</h2>
+<ul>
+<li>
+<p><strong>مستودع عام.</strong> يجب أن يكون URL الخاص بـ <code>repo</code> عنوان <code>https://</code> يستطيع أي شخص استنساخه
+(GitHub أو GitLab).</p>
+</li>
+<li>
+<p><strong>إضافة قابلة للتحميل عند commit الذي تثبّته.</strong> تتضمن الشجرة
+manifest باسم <code>plugin.yaml</code> مع نقطة دخول واحدة على الأقل يحمّلها Hermes:
+<code>__init__.py</code> (Python) أو <code>desktop/plugin.js</code> (Desktop) أو <code>plugin.json</code> (Agent Plugin محمولة) أو <code>dashboard/manifest.json</code> (لوحة تحكم الويب). إذا كانت الإضافة في monorepo،
+وجّه <code>subdir</code> إلى دليلها. يشرح <a href="/docs/developer-guide/plugins">دليل مطوّري الإضافات</a>
+البنية.</p>
+</li>
+<li>
+<p><strong>واجهات عامة فقط.</strong> وسّع Hermes عبر الـ hooks والـ middleware وواجهات
+API الخاصة بـ <code>ctx.register_*</code> وإضافات المزوّدين و <a href="/docs/developer-guide/desktop-plugin-sdk">SDK إضافات Desktop</a>. لا تعدّل كود Hermes
+أو وسوم Desktop في وقت التشغيل أبدًا. إذا كان الـ hook المطلوب غير موجود، راجع
+<a href="#asking-for-a-hook">طلب hook</a>.</p>
+</li>
+<li>
+<p><strong>نجاح التحقق محليًا.</strong> نفّذ الفحص نفسه الذي ينفّذه CI للكتالوج، على
+نسخة مسحوبة عند commit الذي ستثبّته:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يفحص manifest و <code>requires_hermes</code> وإمكان تحميل الإضافة وتطابق
+ما تعلنه من <code>capabilities</code> مع ما تسجّله،
+و <code>config_schema</code> و <code>requires_env</code> واعتماديات Python مقارنةً بقيود Hermes الأساسية
+وفحص أمان التثبيت وقواعد <code>desktop surface</code> و <code>no core override</code>. أصلح كل إخفاق قبل فتح PR، واقرأ التحذيرات لأن
+المراجع سيقرأها.</p>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="opening-the-pr">فتح PR</h2>
+<ol>
+<li>أضف ملفًا <strong>واحدًا</strong>،
+<code>plugin-catalog/&lt;name&gt;.yaml</code>، إلى <a href="https://github.com/NousResearch/hermes-agent" data-ext><code>NousResearch/hermes-agent</code></a>.
+الحقول موثّقة في <a href="https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/README.md#entry-schema" data-ext>مخطط المدخل</a> في README وفي
+<a href="/docs/user-guide/features/plugin-catalog#whats-in-an-entry">محتويات المدخل</a>.
+ثبّت <code>sha</code> على commit كامل من 40 حرفًا، وضع <code>version</code> بين علامتي اقتباس.</li>
+<li>اذكر في وصف PR وظيفة الإضافة وواجهات Hermes التي
+تستخدمها، وكل ما تطلب القاعدة 13 الإفصاح عنه. أضف لقطات شاشة
+لكل ما يتضمن واجهة مستخدم.</li>
+<li>انتظر نجاح مهمة CI للكتالوج. تستنسخ مستودعك عند commit
+المثبّت وتنفّذ <code>hermes plugins validate</code>.</li>
+<li>يراجع أحد المشرفين الشجرة المثبّتة ثم يدمج أو يطلب تغييرات أو
+يرفض. تؤدي مشكلات القاعدتين 3 و 9 إلى الرفض، لا إلى طلبات إصلاح
+أخطاء: يجب أن تغيّر الإضافة تصميمها قبل إمكان إدراجها.</li>
+</ol>
+<p>تُبنَى صفحة إضافتك في <code>/docs/plugins/&lt;name&gt;</code> من الملف نفسه. يُعرَض
+README الموجود عند commit المثبّت فيها افتراضيًا، ويملأ <code>screenshots:</code>
+معرض الصور. لا يوجد إدراج منفصل لصيانته.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="admission-rules">قواعد القبول</h2>
+<ol>
+<li>
+<p><strong>بوابة دمج بشرية.</strong> لا تُضاف المدخلات <em>إلا</em> عبر PR إلى مستودع
+<code>hermes-agent</code>، يراجعه ويدمجه مشرف. لا يوجد
+سجل ذاتي الخدمة ولا استيعاب تلقائي.</p>
+</li>
+<li>
+<p><strong>تثبيت SHA الدقيق إلزامي.</strong> يثبّت كل مدخل SHA كاملًا لـ
+commit من 40 حرفًا. يرفض المحمّل الـ branches والوسوم وقيم SHA المختصرة.
+تستنسخ عمليات التثبيت المستودع وتسحب ذلك commit نفسه.</p>
+</li>
+<li>
+<p><strong>لا كود يحدّث نفسه.</strong> يجب ألا تجلب الإضافة المُدرَجة ملفاتها
+الخاصة وتستبدلها (ميزة &quot;check for updates&quot; داخل التطبيق أو أدوات تنزيل الإصدارات الموقّعة
+أو محمّلات <code>plugin.js</code> البعيدة). إن تثبيت SHA الدقيق <em>هو</em> نموذج الثقة؛
+وتتيح أداة التحديث الذاتي انتقال النسخة المثبّتة إلى commit لم يراجعه أحد.
+لا تصل التحديثات إلى المستخدمين إلا عبر PR هنا لتغيير SHA، مع
+<code>hermes plugins update &lt;name&gt;</code>. أبقِ أداة التحديث في التوزيعة المستقلة
+إن أردتها؛ واحذفها من بنية الكتالوج.</p>
+</li>
+<li>
+<p><strong>تغييرات SHA تتطلب PRs جديدة.</strong> تحديث التثبيت لمدخل ما هو PR جديد تُراجع فروقه
+(SHA القديم → SHA الجديد) من جديد مثل أي تغيير آخر — يُتوقَّع من المراجعين
+فحص نطاق commits في المصدر الأصلي الذي سيُعتمد.</p>
+</li>
+<li>
+<p><strong>إرسال من المالك أو مساهم رئيسي، أو تجميع ينتقيه المشرفون.</strong> يجوز لمالك مستودع الإضافة أو أحد المساهمين الرئيسيين فيها إرسال
+مدخل؛ وتُرفَض الإرسالات العابرة لمستودعات أطراف ثالثة.
+يمكن لمشرفي Hermes أيضًا إضافة مدخلات على دفعات من مراجعة
+لإضافات المجتمع (يُتحقَّق من كل تثبيت ويُفحَص عند commit المثبّت،
+وتُجرى فحوصات التحديث الذاتي ومخازن بيانات الاعتماد، وتكون الواجهة بالإنجليزية أولًا).
+يحتفظ مؤلفو المدخلات المضافة بهذه الطريقة بالتحكم: يُقبَل عند الطلب PR من المالك
+لتعديل مدخله أو إزالته، وتظل تغييرات SHA محصورة في PRs
+من المالك أو المشرف وفق القاعدة 4.</p>
+</li>
+<li>
+<p><strong>القدرات المعلنة يجب أن تطابق الواقع.</strong> يجب أن تطابق كتلة <code>capabilities:</code>
+(الأدوات والـ hooks والـ middleware ومتغيرات البيئة) ما تسجّله الإضافة
+فعليًا عند commit المثبّت. وإلا يفشل التحقق من المدخل —
+ويُعدّ توسّع القدرات غير المعلن مشكلة أمنية.</p>
+</li>
+<li>
+<p><strong>يعمل فاحص التثبيت عند القبول.</strong> <code>hermes plugins validate</code> يتضمن
+<code>security scan</code> فحصًا: تؤدي نتيجة <code>dangerous</code> إلى فشل المدخل؛
+وتظهر نتائج <code>caution</code> كتحذيرات
+في سجل CI ويقرأها المراجع قبل الدمج.
+في المقابل، تقبل عمليات التثبيت عند SHA المثبّت <code>caution</code> دون مطالبة
+(<code>dangerous</code> يظل مانعًا). راجع التحذيرات؛ ولا تدمج متجاهلًا إياها.</p>
+</li>
+<li>
+<p><strong>إضافات Desktop تلتزم بواجهة SDK.</strong> يعمل ملف <code>desktop/plugin.js</code>
+في renderer الخاص بـ Desktop بكامل صلاحيات التطبيق (يعزل المحمّل
+الأخطاء لا القدرات)، لذا لا يجوز للنسخة المُدرَجة إلا استخدام SDK الإضافات:
+لا تعديل prototype (<code>X.prototype.y =</code>، <code>Object.defineProperty(...prototype</code>)،
+ولا <code>eval</code> / <code>new Function</code>، ولا <code>import()</code> لأي شيء غير
+<code>@hermes/plugin-sdk</code> / <code>react</code> (بما في ذلك أجزاء حزمة التطبيق و blob أو عناوين http)، ولا حقن
+وسوم script، ولا وصول إلى مخازن التطبيق الداخلية أو وسومه
+(الاستعلام عن عناصر <code>data-slot</code> / <code>data-tour</code> / <code>data-sidebar</code> / <code>data-testid</code> من
+<code>document</code>، أو MutationObserver على <code>document.body</code> لإعادة تنسيق
+الواجهة الأساسية أو إخفائها أو النقر عليها أو إعادة كتابتها). يرفض <code>hermes plugins validate</code> هذه الممارسات عند
+القبول (فحص <code>desktop surface</code>)؛ وتطلب الإضافة التي تحتاج قدرة
+لا تتيحها SDK hook في SDK بدل التحايل بالتعديل.</p>
+</li>
+<li>
+<p><strong>لا تجاوزات وقت التشغيل لنواة Hermes.</strong> توسّع الإضافة المُدرَجة Hermes فقط
+عبر الواجهات العامة: الـ hooks والـ middleware و profiles المزوّدين
+وواجهات API الأخرى الخاصة بـ <code>register_*</code> وخانات SDK Desktop ومساراته. يجب ألا
+تستبدل الدوال أو الأساليب أو خصائص الوحدات أو القواميس الخاصة الأساسية
+أو تغلّفها أو تعيد ربطها في مكانها (<code>AIAgent.&lt;method&gt; = ...</code>، <code>setattr(server, ...)</code>، <code>sys.modules[...]</code>، أو الكتابة في جداول وحدة أساسية). تؤدي إضافتان
+تعدّلان نقطة التكامل نفسها إلى تعطيل بعضهما بصمت، وقد يعطّلهما
+كل إصدار جديد للنواة. يرفض <code>hermes plugins validate</code> ذلك عند القبول (فحص
+<code>no core override</code>). إذا كان الـ hook الذي تحتاجه غير موجود، افتح issue
+تصفه: نفضّل إضافة نقطة التكامل على إدراج تعديل.</p>
+</li>
+<li>
+<p><strong>سياسة أمان الاعتماديات تخص الإضافة.</strong> فترة الحجر البالغة 14 يومًا
+التي يطبّقها Hermes عبر <code>exclude-newer</code> تشمل اعتماديات Hermes نفسه فقط؛ ويُثبَّت
+<code>python_dependencies</code> / <code>pyproject.toml</code> الخاصان بالإضافة وفق سياسة الإضافة
+(دون حجر، مع الالتزام بقيود Hermes الأساسية). يقرأ المراجعون
+قائمة الاعتماديات عند SHA المثبّت: الحدود الدنيا وحدها (<code>&gt;=X</code> دون حد أعلى)
+والحدود الدنيا عند أحدث إصدار تؤدي إلى طلب أقدم حد أدنى
+متوافق مع API مع حد أعلى، ويُنصح المؤلفون بشدة
+بتطبيق حجر إصدارات خاص بهم (<code>uv --exclude-newer</code> في
+CI الخاص بهم) — راجع <em>سياسة أمان الاعتماديات</em> في دليل المطوّر.
+لا يُعدّ الحد الأدنى الحديث وحده سببًا لتعليق المدخل.</p>
+</li>
+<li>
+<p><strong>تأتي بيانات الاعتماد عبر Hermes، لا من الملفات.</strong> لا تحصل الإضافة على
+الأسرار إلا عبر مسارات Hermes. تُقرأ أسرار <code>requires_env</code> و <code>config_schema</code> التي تعلنها باستخدام <code>agent.secret_scope.get_secret(NAME)</code>،
+التي تلتزم بالـ profile النشط (قد تلتقط قراءة مباشرة عبر <code>os.environ</code> مفتاح profile
+آخر ضمن multiplex). لا يُستخدَم تسجيل الدخول للاشتراك (Codex / ChatGPT
+حاليًا) إلا عبر <code>credentialed_provider_request</code> مع <code>requires_auth</code>، لكي يُرفِق Hermes الـ token دون أن تمتلكه الإضافة.
+لا تقرأ الإضافة أبدًا ملفات <code>.env</code> أو <code>auth.json</code> الخاصة بـ Hermes أو بيانات دخول أداة أخرى (ملف
+token لواجهة CLI من مورّد أو profile متصفح أو keychain) أو أي
+مخزن بيانات اعتماد آخر مباشرةً، ولا تجدّد أو تدوّر أو تكتب OAuth tokens
+ولا تقدّم نفسها كعميل لمورّد آخر. إذا لم يوفر Hermes مسارًا
+لبيانات اعتماد تحتاجها إضافة، فاطلبه في issue أو PR لـ Hermes؛ ولا
+تتحايل الإضافة على غيابه.</p>
+</li>
+<li>
+<p><strong>تُحترَم الموافقات والتشغيلات غير الخاضعة للإشراف.</strong> لا تتحايل الإضافة أبدًا على
+نظام الموافقات في Hermes: لا موافقات تلقائية ولا تعطيل للضوابط ولا
+إطلاق لعمليات Hermes أو shell فرعية ترث وضع YOLO أو الوضع غير التفاعلي
+لتنفيذ أوامر لم يوافق عليها أحد. كل ما ينتظر شخصًا (مطالبة
+أو تدفق OAuth عبر المتصفح) يفشل بوضوح أو تنتهي مهلته تحت cron و Messaging
+Gateway والتشغيلات الأخرى دون إشراف بدل تعليق الوكيل.</p>
+</li>
+<li>
+<p><strong>يُفصَح عن السلوك المحفوف بالمخاطر.</strong> يُذكَر كل ما يريد المستخدم معرفته قبل
+التثبيت في وصف PR و README للإضافة: اتصالات الشبكة
+بخدمات أطراف ثالثة، وقراءات خارج بيانات الإضافة نفسها، وأوامر shell،
+والعمليات الخلفية طويلة التشغيل، وبيانات الاعتماد المخزّنة. القياس عن بُعد وتقارير
+الاستخدام اختياريان بموافقة صريحة. يلخّص المراجعون ذلك في أسطر إفصاح
+على PR المدخل؛ ويؤدي السلوك غير المعلن المكتشَف أثناء المراجعة إلى طلب تغييرات.</p>
+</li>
+<li>
+<p><strong>بيانات التوافق الوصفية صادقة.</strong> <code>requires_hermes</code> حد أدنى وفق SemVer
+(<code>&quot;&gt;=0.21.5&quot;</code>)، وليس تاريخ CalVer أبدًا، ولا أحدث من الإصدار الحالي
+أبدًا (وإلا يتجاوز المحمّل الإضافة). يطابق <code>version</code> الكود المثبّت،
+وتُحَلّ اعتماديات Python ضمن قيود Hermes الأساسية
+(<code>hermes plugins validate --install-deps</code> هو ما ينفّذه CI).</p>
+</li>
+<li>
+<p><strong>لا مظاهر أو forks للإضافات المضمّنة.</strong> تغيير الإضافة المضمّنة هو
+PR على <code>hermes-agent</code>، لا إدراج منافس، ولا تُدرَج مظاهر
+تشبه واجهات المورّدين تحت علامة Nous.</p>
+</li>
+<li>
+<p><strong>إدراج واحد لكل سلالة إضافة.</strong> لا يُدرَج fork لإضافة مجتمع مُدرَجة
+إلا إذا اختلف عنها جوهريًا: وسيلة نقل أو بنية معمارية مختلفة، أو قدرة
+تفتقدها الأصلية ورفض مؤلفها PR بشأنها أو لم يجب عنه خلال 30 يومًا.
+تُرسَل تحسينات الإضافة المُدرَجة إلى المصدر الأصلي كـ PR لمؤلفها.
+ويُرفَض fork الذي يغيّر الاسم أو العلامة أو يضيف تغييرات صغيرة لصالح
+الأصل. يذكر fork المُدرَج أصله في سطر الإفصاح
+(<code>Derived from &lt;entry&gt;</code>).</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-your-entry">تحديث مدخلك</h2>
+<p>تمر تحديثات التثبيت (نقل <code>sha</code> إلى commit أحدث) بعملية PR والمراجعة
+نفسها. يقرأ المراجع نطاق commits الذي تعتمد عليه. حدّث <code>version</code> في
+PR نفسه كي يطابق الاسم الذي يراه المستخدمون الكود، وأعد تثبيت أي
+عناوين URL لـ <code>image</code> / <code>screenshots</code> تضمّن SHA القديم.</p>
+<p>تقارن الإضافات المثبّتة SHA المسجّل لديها بالتثبيت الحالي: تعرض <code>hermes plugins list --json</code>
+<code>update_available</code>، وتعرض علامة التبويب Plugins في Desktop
+زر <strong>Update to 1.4.0</strong>، ويسحب <code>hermes plugins update &lt;name&gt;</code>
+التثبيت الجديد نفسه بالضبط.</p>
+<p>إذا أدرج مشرف إضافتك ضمن الكتالوج وأردت تغيير المدخل
+أو إزالته، فافتح PR على ملفه. يحتفظ المالكون بالتحكم في مدخلاتهم.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delisting-and-removal">إلغاء الإدراج والإزالة</h2>
+<ul>
+<li><strong>إلغاء الإدراج</strong> يحذف ملف المدخل: للإضافات غير المصانة
+أو التي حلّ غيرها محلها أو التي تحتكر اسمًا أو التي لم تعد تستوفي قاعدة.
+يحتفظ المستخدمون الذين ثبّتوا الإضافة بالفعل بها، ويُرحَّب بإعادتها بعد
+إصلاح المشكلة. عندما تؤثر قاعدة جديدة في إضافات مُدرَجة بالفعل،
+يتلقى مؤلفوها issue في مستودعاتهم تشرح التغيير وتمنحهم وقتًا
+للتحديث قبل إزالة أي شيء.</li>
+<li><strong>الإزالة</strong> تضيف الإضافة إلى <a href="https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/README.md#removedyaml--the-blocklist" data-ext><code>removed.yaml</code></a>،
+وهي قائمة مخصّصة للحوادث الأمنية ومخالفات السياسة. ترفض أدوات التثبيت
+أي شيء فيها، وتتوقف النسخ المثبّتة عن التحديث ولا يمكن
+تفعيلها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="asking-for-a-hook">طلب hook</h2>
+<p>إذا احتاجت إضافتك شيئًا لا تتيحه واجهة الإضافات، افتح issue
+على <a href="https://github.com/NousResearch/hermes-agent/issues" data-ext>hermes-agent</a> تصف ما تحتاجه وسببه. نفضّل كثيرًا إضافة نقطة تكامل سليمة على
+إدراج تعديل، والإضافة التي ستستخدم الـ hook هي بالضبط المستهلك
+الفعلي الذي يحتاجه أي hook جديد.</p>

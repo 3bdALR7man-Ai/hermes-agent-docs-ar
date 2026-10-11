@@ -1,0 +1,41 @@
+<header><h1>استعادة تخزين الجلسات</h1></header>
+<p>يحتفظ Hermes بكل محادثة في ملف SQLite واحد لكل profile، هو <code>state.db</code>، مع ملفين جانبيين تديرهما SQLite بنفسها: <code>state.db-wal</code> (سجل الكتابة المسبقة) و <code>state.db-shm</code>. يمكن لعمليات Hermes متعددة مشاركة ذلك الملف بأمان — يكتب gateway وتطبيق Desktop ولوحة التحكم و cron وأوامر CLI جميعًا عبر أقفال SQLite نفسها.</p>
+<p>هناك أمر واحد غير آمن: <strong>إعادة كتابة المخزن بينما تكتب إليه عملية أخرى</strong>. عندما يحدث ذلك، تتوقف العمليات التي لا تزال تمسك النسخة <em>القديمة</em> من السجل عن الكتابة عمدًا، ويجيب كل دور برسالة مثل:</p>
+<blockquote>
+<p>another Hermes process still holds an old copy of the session database&#x27;s write-ahead log,
+so Hermes stopped writing to keep the file safe …</p>
+</blockquote>
+<p>هذه الصفحة هي الدليل الذي تربط به تلك الرسالة. لا يضيع شيء عندما تراها؛ وُضع الرفض تحديدًا كي لا يضيع شيء.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-fix-in-three-steps">الحل في ثلاث خطوات</h2>
+<ol>
+<li>
+<p><strong>أغلق كل عمليات Hermes على ذلك الـ profile.</strong> تطبيق Desktop و gateway ولوحة التحكم و cron:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>ثم أغلق تطبيق Desktop من قائمته وأوقف أي لوحة تحكم (<code>hermes dashboard --stop</code>) أو خدمة مخصّصة تشغّلها. لا تكفي إعادة تشغيل <em>واحدة</em> منها — فعملية واحدة باقية تمسك السجل القديم تجعل كل عملية جديدة تستمر في الرفض.</p>
+</li>
+<li>
+<p><strong>اسأل doctor عمّن لا يزال يمسك السجل.</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>ما دام أي شيء يمسك السجل المتقاعد، يطبع doctor كل عملية ماسكة بصيغة <code>PID N (command)</code> مع الحل نفسه، ويتجاوز فحوص الصحة وأي عمل <code>--fix</code> كي لا يصبح كاتبًا آخر. أوقف العمليات المدرجة وشغّله مجددًا حتى يختفي السطر.</p>
+</li>
+<li>
+<p><strong>ابدأ Hermes مجددًا</strong> (عملية واحدة أولًا — gateway أو تطبيق Desktop) وأرسل رسالتك مرة أخرى. تستأنف محادثتك من حيث توقفت.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="do-not">ما يجب تجنّبه</h2>
+<ul>
+<li><strong>لا تشغّل <code>hermes doctor --fix</code> بينما تعمل العمليات.</strong> يرفض doctor نقطة checkpoint عندما يستطيع رؤية عملية تمسك السجل المتقاعد، لكن على مضيف لا يمكنه فحص عملياته يكون مسار الإصلاح هو بالضبط الكاتب الثاني الذي سبّب المشكلة.</li>
+<li><strong>لا تحذف <code>state.db-wal</code> أو <code>state.db-shm</code>.</strong> يحتوي السجل على محادثات مثبَّتة لم تُنقل بعد إلى <code>state.db</code>. حذفه هو الإجراء الوحيد الذي يحوّل الرفض إلى فقدان بيانات حقيقي.</li>
+<li><strong>لا تنسخ <code>state.db</code> وحده.</strong> الملفات الثلاثة صورة واحدة. استخدم لقطة (<code>hermes backup</code>) أو <code>hermes sessions recover</code>، وليس <code>cp state.db somewhere/</code>.</li>
+<li><strong>لا تطلب من الوكيل إصلاحه.</strong> جلسة الوكيل نفسه في المخزن ذاته؛ وسيواجه الرفض نفسه.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="maintenance-commands-refuse-while-someone-is-writing">أوامر الصيانة ترفض العمل أثناء كتابة عملية أخرى</h2>
+<p><code>hermes sessions optimize</code>, <code>hermes sessions optimize-storage</code> و <code>hermes sessions prune</code> تعيدان كتابة المخزن (VACUUM وإعادة بناء فهرس النص الكامل والحذف الجماعي). تشغيل إحداهما مع gateway حي هو ما يؤدي إلى رفض أسطول الوكلاء أعلاه، لذا تتحققان أولًا الآن وترفضان بينما تمسك عملية أخرى قاعدة البيانات:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><code>--dry-run</code> لا تُحجب أبدًا كمعاينات. أما <code>--force</code> فيشغّل الأمر رغم ذلك — استخدمه فقط عندما تعرف أن العمليات المدرجة خاملة (مثل قارئ بدأتَه بنفسك). يُجرى الفحص نفسه عندما تكتب <code>sessions optimize</code> في طرفية Desktop.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="files-you-may-find-beside-statedb">ملفات قد تجدها بجانب <code>state.db</code></h2>
+<table><thead><tr><th>الملف أو المجلد</th><th>ما هو</th><th>ما يجب فعله</th></tr></thead><tbody><tr><td><code>state.db-wal</code>, <code>state.db-shm</code></td><td>سجل الكتابة المسبقة الحي في SQLite وفهرس الذاكرة المشتركة الخاص به. كِبَر <code>-wal</code> طبيعي أثناء تشغيل gateway أو Desktop.</td><td>اتركهما دون تغيير. يصغران تلقائيًا عند checkpoint التالية.</td></tr><tr><td><code>state.db.retired-wal-&lt;timestamp&gt;-&lt;pid&gt;/</code></td><td>نسخة التقطها Hermes من السجل الذي ظلت عملية تمسكه حين رفض الكتابة، مع <code>manifest.json</code> يصفها. أدلة جنائية، وليست نسخة احتياطية تستعيدها دون فحص.</td><td>احتفظ بها. إذا كانت محادثات الفترة السابقة للحادث مباشرة مفقودة بعد الاستعادة، فأرفق المجلد ببلاغ خلل؛ يستطيع أحد القائمين على الصيانة تحديد، من <code>manifest.json</code>، ما إذا كانت تلك الإطارات ينبغي إضافتها فوق الملف الحالي.</td></tr><tr><td><code>state.db.pre-update-emergency-&lt;timestamp&gt;.bak</code></td><td>لقطة يأخذها محدّث Desktop قبل أن يمسّ المخزن.</td><td>احتفظ بها حتى تستخدم التطبيق المحدَّث لبعض الوقت. لا تستعدها إلا بعد إيقاف كل عمليات Hermes: شغّل <code>hermes sessions recover --source &lt;file&gt; --inspect-only</code> أولًا.</td></tr><tr><td><code>state.db.corrupt.&lt;timestamp&gt;.bak</code>, <code>*.malformed-backup</code></td><td>نسخ من ملف وجده Hermes تالفًا قبل إصلاحه أو عزله.</td><td>لا تستعدها فوق <code>state.db</code> — فهي تحمل التلف نفسه. احتفظ بها لبلاغ؛ ويمكن حذفها بأمان بعد العودة إلى الحالة الطبيعية.</td></tr><tr><td><code>state-snapshots/</code></td><td>لقطات سريعة يأخذها <code>hermes update</code> و <code>hermes backup</code>.</td><td>استعدها مع إيقاف كل عمليات Hermes؛ راجع <a href="/docs/reference/cli-commands#hermes-backup"><code>hermes backup</code></a>.</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-the-three-steps-do-not-work">عندما لا تنجح الخطوات الثلاث</h2>
+<p>إذا كانت كل عمليات Hermes متوقفة، ولم يعد <code>hermes doctor</code> يسرد أي عملية ماسكة، وظل gateway يرفض الكتابة عند بدء تشغيله، فقد يكون الملف نفسه تالفًا. أوقف كل شيء مجددًا وافحص دون كتابة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>--inspect-only</code> لا يعدّل الملف أبدًا. إذا أبلغ أن المخزن قابل للاستعادة، فاتبع الأمر الذي يطبعه، أو استعد أحدث لقطة من <code>state-snapshots/</code>. تشرح آلية ذلك كله صفحات دليل المطوّر: <a href="/docs/developer-guide/state-db-recovery">استعادة State DB</a> و <a href="/docs/developer-guide/session-storage">تخزين الجلسات</a>.</p>

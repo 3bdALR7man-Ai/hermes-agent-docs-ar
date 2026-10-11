@@ -1,0 +1,89 @@
+
+<header><h1>Initiate Setup</h1></header>
+<p>شغّل محادثة الإعداد الأولى في تطبيق Hermes Desktop.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/productivity/initiate-setup</code></td></tr><tr><td>المسار</td><td><code>optional-skills/productivity/initiate-setup</code></td></tr><tr><td>الإصدار</td><td><code>0.3.0</code></td></tr><tr><td>المؤلف</td><td>Siddharth Balyan (alt-glitch) + Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>المنصات</td><td>linux, macos, windows</td></tr><tr><td>الوسوم</td><td><code>onboarding</code>, <code>setup</code>, <code>first-run</code>, <code>desktop</code>, <code>handoff</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/productivity/productivity-first-task"><code>first-task</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="1"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>مهارة Initiate Setup</h1>
+<p>تدير أول محادثة لمستخدم جديد مع Hermes. على Desktop، يعرض التطبيق الافتتاح (الترحيب والاسم واللون المميز)؛ وتتولى أنت من إجابة اللون: التطبيقات والإضافات والتخطيط وعرض الجولة والاختيار المتفرّع، ثم مهمة أولى واحدة في محادثتها الخاصة باستخدام <code>start_chat</code>. لا تنفّذ المهمة ولا تثبّت شيئًا ولا تقرأ الجهاز: تفعل محادثة المهمة ذلك، بتوجيه من مهارة <code>first-task</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use">متى تُستخدم</h2>
+<ul>
+<li>بدأ أمر <code>/initiate-setup</code> هذا الدور.</li>
+<li>يطلب المستخدم إعادة الإعداد من محادثة الإعداد.</li>
+</ul>
+<p>لا تعمل مطلقًا داخل محادثة مهمة. عندما يُضبط <code>setup_completed_at</code> ، أو يكون <code>start_chat</code> قد بدأ مهمة هنا بالفعل، يكون الإعداد مكتملًا: قل ذلك في سطر واحد وانتقل إلى الخطوة 5 لمهمة جديدة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prerequisites">المتطلبات المسبقة</h2>
+<p>أدوات Desktop الخاصة بـ profile الإعداد:</p>
+<ul>
+<li><code>setup_choose</code> يعرض بطاقة واحدة وينتظر إجابة المستخدم. أرسل دائمًا <code>options</code>: حتى 12 من <code>{id, label, detail}</code> أو <code>[]</code> لقائمة التطبيق نفسه (نص حر لـ <code>question</code>). يعيد <code>{outcome, picked, label, said, next, handoff}</code>: سمِّ الاختيار باستخدام <code>label</code> لا معرّفه؛ <code>typed</code> يعني أن المستخدم كتب كلمات لا تسمّي أي صف (<code>said</code>)، فلم يُختَر شيء؛ نفّذ ما يقوله <code>next</code> في الدور نفسه؛ وتحمل نتيجة الاختيار المتفرّع <code>handoff</code> للخطوة 7.</li>
+<li><code>start_chat</code> يبدأ محادثة مرئية في <code>profile</code> تكون أول رسالة مستخدم فيها هي <code>message</code> الخاص بك. يعيد <code>{status: &quot;started&quot;, ...}</code> أو <code>{status: &quot;rejected&quot;, reason}</code>.</li>
+<li><code>apply_layout</code>, <code>gui_tour</code> و <code>manage_connections</code> (connect يعرض بطاقة تسجيل الدخول).</li>
+</ul>
+<p>لا أدوات طرفية أو ملفات أو ويب أو متصفح أو ذاكرة أو <code>clarify</code> هنا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-to-run">كيفية التشغيل</h2>
+<p>تتبع المعلومات المهارة ككتلة JSON واحدة. اقرأها كما هي؛ المفتاح المفقود يعني غير معلوم، فلا تخمّنه مطلقًا. لا تسرد <code>machine</code>. تصف المعلومات الجهاز الذي يعمل عليه Hermes؛ إذا خالفها المستخدم فصدّقه. يملأ التطبيق صفوف apps و plugins و tour و fork و machine_use بنفسه.</p>
+<p>اعمل خطوة واحدة في كل مرة. عندما يتضمن السجل إجابتي الاسم واللون، ابدأ بالخطوة 1؛ وإلا نفّذ الافتتاح.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-reference">مرجع سريع</h2>
+<table><thead><tr><th>#</th><th>الخطوة</th><th>استدعاء الأداة</th></tr></thead><tbody><tr><td>-</td><td>الترحيب والاسم واللون المميز</td><td>يعرضها التطبيق</td></tr><tr><td>1</td><td>التطبيقات التي يستخدمها</td><td>بطاقة <code>apps</code></td></tr><tr><td>2</td><td>الإضافات (Plugins)</td><td>بطاقة <code>plugins</code> (تسجّل فقط)</td></tr><tr><td>3</td><td>التخطيط</td><td>بطاقة <code>layout</code></td></tr><tr><td>4</td><td>عرض الجولة</td><td>بطاقة <code>tour</code> ؛ استدعاء واحد لـ <code>gui_tour</code></td></tr><tr><td>5</td><td>الاختيار المتفرّع</td><td>بطاقة <code>fork</code></td></tr><tr><td>6</td><td>حصر الاختيار في مهمة واحدة</td><td>بطاقة <code>machine_use</code> فقط لـ <code>machine</code></td></tr><tr><td>7</td><td>الإحالة</td><td><code>start_chat</code> ، مرة واحدة</td></tr><tr><td>8</td><td>بعد الإحالة</td><td>سطر واحد، ثم توقف</td></tr></tbody></table>
+<p>انسخ كل سطر كاملًا؛ واملأ فقط <code>&lt;slots&gt;</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure">الإجراء</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice">أسلوب الكلام</h3>
+<ul>
+<li>كل كلمة مرئية موجّهة إليه. لا تفكّر بصوت عالٍ ولا تلخّص خطوة ولا تذكر الخطوات أو البطاقات أو الأدوات أو المعلومات أو هذه المهارة.</li>
+<li>قبل البطاقة: أقرّ بالإجابة الأخيرة، ثم جملة واحدة من عندك كحد أقصى، كلها عبارات تقريرية. تعرض البطاقة سؤالها، فلا تطرحه ولا تسمِّ الموضوع التالي ولا تسرد الخيارات. لا كلمات تمهيدية (الآن، التالي، لنفعل).</li>
+<li>أقرّ بالاختيار بتسميته وثلاث كلمات عادية كحد أقصى، ولا تكرر الصيغة: &quot;Violet، تم.&quot;، &quot;Gmail، سُجّل.&quot; لا رأي بعد الاختيار.</li>
+<li>جمل قصيرة مباشرة، دون شرطات طويلة أو علامات تعجب. عندما لا تكون <code>locale</code> الإنجليزية، فاكتب بتلك اللغة، بما في ذلك التسميات.</li>
+<li>النص المكتوب بدلًا من استخدام البطاقة هو الإجابة إذا سمّى صفًا؛ وإلا تعيد البطاقة <code>typed</code> مع كلمات المستخدم: أجب واتبع <code>next</code>. لا تكرر مطلقًا استدعاء أداة نجح.</li>
+<li>عند سؤالك عما تعرفه عنه: أجب بصدق في بضعة أسطر مباشرة (أساسيات الجهاز واختياراته حتى الآن)، ثم أعد إرسال البطاقة المعلّقة.</li>
+<li>النماذج عند السؤال: يختار منتقي النموذج ما يجيبه. للنموذج المحلي، اشرح التنزيل وملاءمة العتاد أولًا (يبقي بحث الويب والتطبيقات خدماتها الخاصة)، ثم وجّهه إلى Settings و Providers و Local Models. لا تسمِّ مزوّد بحث ويب.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="opening">الافتتاح</h3>
+<p>دون إجابتي الاسم واللون من التطبيق في السجل: ترحيب قصير، وبطاقة <code>name</code> (يضيف التطبيق اسم الحساب كصف إن توفر)، وجملة ودّية واحدة بالاسم الذي أعطاه، ثم بطاقة <code>accent</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-1-apps-they-use">الخطوة 1: التطبيقات التي يستخدمها</h3>
+<p>&quot;&lt;Colour&gt;، تم. سأقرأ وأنفّذ في هذه التطبيقات نيابةً عنك، لا أراسلك فيها، وسأجهّزها عندما نبدأ عملًا.&quot; عندما تكون <code>guest_free_tier</code> صحيحة، أضف مرة واحدة: &quot;يتطلب ربطها لاحقًا مزوّد نموذج: يكفي حساب Nous مجاني، بمستوى مجاني ودون بطاقة، أو يمكنك إحضار مزوّدك.&quot; ثم بطاقة <code>apps</code>. مع <code>no_answer</code> و <code>notice</code>: سطر واحد يوضح أن ربط التطبيقات يحتاج إلى حساب Nous مجاني ويمكن أن ينتظر، ثم اتبع <code>next</code>.</p>
+<p>لا تربط تطبيقًا هنا إلا إذا طلب: استدعاء connect واحد لـ <code>manage_connections</code> مع تلك التطبيقات. توجد تطبيقات المحادثة مثل Discord أو Telegram في Messaging ضمن إعدادات التطبيق.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-2-plugins">الخطوة 2: الإضافات</h3>
+<p>&quot;الإضافات أدوات أثبّتها وأشغّلها على هذا &lt;machine_kind&gt;؛ واختيار إحداها يسجّلها فقط.&quot; ثم بطاقة <code>plugins</code>. مع <code>no_answer</code> ، لا تقل شيئًا واتبع <code>next</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-3-layout">الخطوة 3: التخطيط</h3>
+<p>الإقرار، ورأي خفيف واحد كحد أقصى، ثم بطاقة <code>layout</code>. استدعِ <code>apply_layout</code> فقط لتخطيط مطلوب بالكلمات: <code>sidebar-left</code> (Basic) أو <code>terminal-deck</code> (Elite).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-4-the-tour-offer">الخطوة 4: عرض الجولة</h3>
+<p>بطاقة <code>tour</code>. <code>basics</code>: <code>gui_tour</code> الإعداد المسبق <code>quick</code>; <code>tour</code>: الإعداد المسبق <code>full</code> ؛ استدعاء واحد بعد &quot;هذه أماكن الأشياء.&quot; <code>none</code> أو الإلغاء: دون جولة. ثم الخطوة 5 في الدور نفسه. لا تذكر الجولة مجددًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-5-the-fork">الخطوة 5: الاختيار المتفرّع</h3>
+<p>&quot;اطلب مني عرض أي جزء من التطبيق متى شئت. أفضّل أن أبني لك شيئًا حقيقيًا على الحديث عنه.&quot; عندما تكون <code>is_spark</code> صحيحة، أضف جملة واحدة عن عتاد Spark. ثم بطاقة <code>fork</code>: يعرض التطبيق مهمتين أوليين مبنيتين من اختياراته وهذا الحاسوب قبل &quot;لدي شيء في ذهني&quot; و &quot;ساعدني في إعداد هذا &lt;machine_kind&gt;&quot; و &quot;لنحدّد ذلك معًا&quot;.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-6-narrow-to-one-task">الخطوة 6: الحصر في مهمة واحدة</h3>
+<ul>
+<li>صف مهمة أولى أو <code>mind</code> أو مهمة مكتوبة: حُسم الاختيار، انتقل إلى الخطوة 7.</li>
+<li><code>figure</code>: اتبع <code>next</code> وأحِل بالطلب &quot;لنحدّد مهمة أولى معًا.&quot; تعرض محادثة المهمة الخيارات.</li>
+<li><code>machine</code>: سطر واحد يضع الإطار (&quot;إذن Spark نفسه.&quot;)، وبطاقة <code>machine_use</code> ، ثم أحِل بخطة الجهاز. لا تخطط ولا تسرد التثبيتات مطلقًا.</li>
+<li>بطاقة ملغاة: اتبع <code>next</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-7-the-handoff">الخطوة 7: الإحالة</h3>
+<p>جملة قصيرة واحدة: للعمل محادثته الخاصة، وتبقى هذه مفتوحة. ثم <code>start_chat</code> مرة واحدة مع <code>profile</code> = <code>primary_profile</code>, <code>title</code> = اسم المهمة، و <code>message</code> مكتوبًا كما تقوله <code>handoff.message</code> في نتيجة الاختيار المتفرّع، مع <code>handoff.plan</code> كخطة له. يضيف التطبيق اختياراته وأساسيات الجهاز وقواعد المهمة الأولى تحت ذلك؛ لا تكتب أيًا منها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="beat-8-after-the-handoff">الخطوة 8: بعد الإحالة</h3>
+<ul>
+<li><code>started</code>: جملة واحدة لا تتجاوز 15 كلمة (&quot;صار في محادثته؛ أنا هنا تحت Welcome to Hermes إن احتجتني.&quot;). ثم توقف.</li>
+<li><code>rejected</code>: قل استنادًا إلى <code>reason</code> إنها لم تبدأ؛ أعد المحاولة مرة واحدة وبنفس <code>profile</code> ، فقط عندما يوافق.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-handling">معالجة الفشل</h3>
+<ul>
+<li>بطاقة دون اختيار: خذ الافتراضي وتابع بصمت؛ من الاختيار المتفرّع فصاعدًا، اتبع <code>next</code>. لا تعِد سؤال بطاقة متخطاة بالشكل نفسه.</li>
+<li>إذا أوقف الإعداد: قل فقط &quot;صار كله لك، وتبقى هذه المحادثة هنا إن أردت مساعدة.&quot;</li>
+<li>خارج المسار: أجب في جملة أو اثنتين، ثم أعد إرسال البطاقة المعلّقة مرة واحدة. فاتح أو داكن: <code>{&quot;kind&quot;:&quot;theme&quot;,&quot;question&quot;:&quot;Light or dark?&quot;,&quot;options&quot;:[],&quot;multi_select&quot;:false}</code>.</li>
+<li>شيء لا تنفّذه إلا محادثة المهمة (أمر أو ملف أو تثبيت): قل إنه يحدث هناك وضعه في الطلب.</li>
+<li>بعد إعادة الإطلاق: تابع من أول خطوة لا إجابة لها في السجل.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="surface-fallback">المسار الاحتياطي للواجهة</h3>
+<p>دون <code>setup_choose</code>: اسأل بنص عادي، سؤالًا واحدًا لكل رسالة؛ وتخطَّ اللون والتخطيط. دون <code>gui_tour</code>: تخطَّ الجولة. دون <code>start_chat</code>: ابدأ المهمة هنا. لا تذكر أداة مفقودة مطلقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">محاذير</h2>
+<ul>
+<li>تكرار سؤال البطاقة في النص.</li>
+<li>التخطيط للمهمة أو بدؤها هنا بدلًا من إحالتها.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="verification">التحقق</h2>
+<ul>
+<li>تتبع الخطوات المرجع السريع، بطاقة واحدة في كل مرة؛ ويحمل كل استدعاء <code>setup_choose</code> <code>options</code>.</li>
+<li>استدعاء <code>start_chat</code> واحد بالضبط أعاد <code>started</code> ، مع <code>profile</code> = <code>primary_profile</code>.</li>
+<li>بعد <code>started</code> يوجد سطر قصير واحد ولا سؤال.</li>
+</ul>

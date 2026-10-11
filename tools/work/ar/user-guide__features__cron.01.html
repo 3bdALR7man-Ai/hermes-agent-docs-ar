@@ -1,6 +1,18 @@
+
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h2>
 <p><strong>تنفيذ cron يتولاه daemon الـ gateway.</strong> ينبض gateway المجدوِل كل 60 ثانية، ويشغّل أي مهام مستحقة في جلسات وكيل معزولة.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p><code>hermes cron status</code> يبيّن ما إذا كان المجدول نشطًا (عملية gateway، ونبض المؤقّت، وآخر دورة ناجحة)، وأقرب تشغيل مجدول عبر مهامك النشطة، مرتّبًا بحسب اللحظة الفعلية حتى عندما تخزّن المهام إزاحات UTC مختلفة. لا تُعرض قيمة <code>next_run_at</code> التي مضى عليها بالفعل أكثر من 15 دقيقة باعتبارها &quot;Next run&quot; قادمة: يطبع <code>cron status</code> القيمة <code>⚠ Next run &lt;time&gt; is OVERDUE — passed 7h ago but the job has not fired</code>, <code>cron list</code>، ويصف <code>/cron list</code> داخل المحادثة الصفَّ بأنه <code>Overdue:</code>، وتُظهر لوحة التحكم ولوحة cron في Desktop (بما فيها بطاقة Routines الخاصة بالبوت) <code>Overdue since</code>، وعندما يتوقف المجدول عن إصدار دوراته، يذكر <code>status</code> (عند توقف gateway) وصفحة Cron في لوحة التحكم وقت آخر دورة أيضًا. هذه علامة على مجدول توقف عن إصدار دوراته — أعد تشغيل gateway (<code>hermes gateway restart</code>) لكي تلتقط الدورة التالية المهمة المتأخرة، أو شغّلها فورًا باستخدام <code>hermes cron run &lt;id&gt;</code>.</p>
+<p>بالنسبة إلى profile مسمّى يخدمه multiplexer الخاص بـ profile الافتراضي، يذكر <code>hermes cron status</code> مضيف المجدول ويُبلّغ عن سلامة نبض profile المسمّى نفسه. تشير النبضات المفقودة أو القديمة إلى <code>hermes --profile default gateway restart</code>. <code>cron list</code> و <code>cron create</code> يحذّران أيضًا عندما يكون ذلك النبض مفقودًا أو قديمًا؛ ويتحقق <code>cron status</code> أيضًا من آخر دورة ناجحة ويُبلّغ عن أخطاء الدورات.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="cron-store-not-writable-full-disk-read-only-mount-permissions">مخزن Cron غير قابل للكتابة (قرص ممتلئ أو تركيب للقراءة فقط أو صلاحيات)</h4>
+<p>عندما يتعذّر الكتابة إلى مخزن cron (<code>~/.hermes/cron/</code>، أو مجلد <code>cron/</code> الخاص بالـ profile)، مثلًا لامتلاء القرص (<code>ENOSPC</code>) أو لأن التركيب للقراءة فقط (<code>EROFS</code>) أو لخطأ الصلاحيات (<code>EACCES</code>)، لا يشغّل المجدول مهمة لا يستطيع تسجيل تشغيلها. يمنع ذلك التشغيل المزدوج بعد التعافي. يستمر المؤقّت في العمل. ويتوقف عن محاولة الكتابات التي ستفشل ويعيد فحص المخزن نحو مرة كل دقيقة. يظهر الانقطاع في أربعة مواضع:</p>
+<ul>
+<li><code>hermes cron status</code> يفحص المخزن نفسه ويبدأ بـ <code>⚠ Cron store is NOT writable — scheduled jobs are being skipped</code>. يعرض أدناه مسار المخزن وخطأ OS وآخر كتابة ناجحة وعدد التشغيلات المستحقة التي لم تُنفّذ. ويطبع <code>hermes cron list</code> تنبيهًا من سطر واحد.</li>
+<li><code>hermes doctor</code> يحذّر عندما لا يكون المخزن قابلًا للكتابة، أو عندما تقل المساحة الحرة في نظام ملفاته عن 100 MB.</li>
+<li>ينشر gateway إشعارًا واحدًا في القنوات الرئيسية للـ profile عندما يصبح المخزن غير قابل للكتابة، وإشعارًا واحدًا عندما يستمر قابلًا للكتابة لمدة ساعة (إذا أخفق المخزن مجددًا خلال تلك الساعة، فلا ينشر شيئًا آخر، لكي يطابق الإشعار الأخير حالته دائمًا). يراعي كلاهما <code>display.suppress_warning_notifications</code> ويستخدم <code>display.language</code>.</li>
+<li>تصدّر المراقبة <code>hermes.cron.store.writable</code> (0 عندما يكون مخزن أي profile يخدمه هذا gateway غير قابل للكتابة، وإلا 1) و <code>hermes.cron.store.skipped_runs</code> (مجموعًا عبر تلك المخازن).</li>
+</ul>
+<p>لإصلاح ذلك، حرّر مساحة في نظام الملفات الذي يحتوي المخزن، أو أعد تركيبه للقراءة والكتابة، أو أصلح ملكية مجلد المخزن وصلاحياته لكي يتمكن مستخدم gateway من الكتابة إليه. لا تحتاج إلى إعادة تشغيل شيء. في الدورة التالية القادرة على الكتابة، تُنفّذ كل مهمة ظلت مستحقة <strong>مرة واحدة</strong> وفق قواعد <a href="#misfire-catch-up">استدراك التشغيلات الفائتة</a> العادية، لا مرة لكل دورة فائتة. وتُنفّذ المهمة ذات التشغيل الواحد التي استحقت أثناء الانقطاع مرة واحدة بدلًا من انتهاء صلاحيتها (إلا إذا أُعيد تشغيل gateway والمخزن غير قابل للكتابة).</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-scheduler-behavior">سلوك مجدوِل gateway</h3>
 <p>في كل نبضة يقوم Hermes بما يلي:</p>
 <ol>
@@ -16,16 +28,14 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="restart-safe-workers-under-systemd">عمّال آمنون عند إعادة التشغيل تحت systemd</h3>
 <p>عندما يعمل gateway كخدمة systemd، تُسلَّم كل مهمة مستحقة إلى عملية عامل خارجية تُطلَق في نطاق مستخدم عابر (<code>systemd-run --user --scope</code>)، بحيث لا تؤدي إعادة تشغيل gateway وسط مهمة إلى قتلها. إنشاء ذلك النطاق يحتاج جلسة systemd للمستخدم؛ المضيفات التي تفتقر إليها (الحاويات، LXCs الصغرى، مستخدم خدمة دون linger) لا يمكنها توفيرها.</p>
 <p>افتراضيًا <strong>يتدهور</strong> cron عندئذٍ: تظل المهمة تعمل كعملية خارجية منفصلة بنفس تسليم التنفيذ، لكن دون عزل cgroup، بحيث تؤدي إعادة تشغيل gateway أثناء المهمة إلى قتلها (يسجّل دفتر التنفيذ ذلك). يُسجَّل تحذير واحد لكل عملية gateway. للفشل بأمان بدلًا من ذلك — تخطّي المهمة وتسجيل الخطأ في صف المهمة — اضبط:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
-<p>الحل الدائم هو جلسة مستخدم لمستخدم gateway: <code>sudo loginctl enable-linger &lt;gateway-user&gt;</code> (و<code>XDG_RUNTIME_DIR</code> / <code>DBUS_SESSION_BUS_ADDRESS</code> في الوحدة للتثبيتات على مستوى النظام)، ثم إعادة تشغيل gateway. عمّال Kanban يتطلبون دائمًا نطاقًا ويفشلون بأمان بغضّ النظر عن هذا المفتاح.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>الحل الدائم هو جلسة مستخدم لمستخدم gateway: <code>sudo loginctl enable-linger &lt;gateway-user&gt;</code> (و<code>XDG_RUNTIME_DIR</code> / <code>DBUS_SESSION_BUS_ADDRESS</code> في الوحدة للتثبيتات على مستوى النظام)، ثم أعد تشغيل gateway. تتطلب عمال Kanban دائمًا نطاقًا ضمن gateway المُدار بصرف النظر عن هذا المفتاح: يُسجّل الإطلاق الذي يعجز المضيف عن وضعه في نطاق على البطاقة كإخفاق في البنية التحتية ويُعاد لاحقًا، ولا تُحمّل البطاقة كلفته مطلقًا (راجع <a href="/docs/user-guide/features/kanban#workers-and-systemd-cgroups">توثيق Kanban</a>).</p>
+<p>العامل هو مفسّر gateway نفسه الذي ينفّذ <code>python -m cron.scheduler</code>، مع تثبيت نسخة gateway المسحوبة ضمن <code>PYTHONPATH</code> الخاص به (إضافةً إلى أي إدخالات بدأ بها gateway نفسه)، لذا يستورد شجرة Hermes نفسها التي يعمل عليها gateway — بصرف النظر عن تعيين التثبيت القابل للتحرير في venv أو <code>WorkingDirectory</code> الخاص بالوحدة أو <code>PYTHONSAFEPATH</code> على المضيف. يسجّل العامل الذي ينتهي قبل الإقرار بالتسليم ذيل stderr الخاص به في آخر خطأ للمهمة وفي سجل التنفيذ، لكي يُذكر الاستيراد الفاشل (أو أي سبب لإنهائه) بدلًا من رمز خروج مجرّد.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="execution-history">سجل التنفيذ</h3>
 <p>يسجّل Hermes كل محاولة cron مطالَب بها في قاعدة البيانات المحلية للملف الشخصي
 <code>~/.hermes/cron/executions.db</code> قبل الإرسال إلى المنفِّذ أو المزوّد. تنتقل المحاولات
 عبر <code>claimed</code>، ثم <code>running</code>، ثم حالة نهائية واحدة غير قابلة للتغيير:
-<code>completed</code>، أو <code>failed</code>، أو <code>unknown</code>. بعد إعادة التشغيل، يعلِّم Hermes محاولة
-مهجورة بـ <code>unknown</code> فقط عندما يثبت PID الأصلي وبصمة بدء العملية
-أن مالكها قد اختفى. المحاولات غير المعروفة هي سجلات تدقيق ولا تُعاد
-تلقائيًا أبدًا.</p>
+<code>completed</code>، أو <code>failed</code>، أو <code>unknown</code>. بعد إعادة التشغيل — وقبل كل تنفيذ يدوي لـ <code>hermes cron run</code> / <code>/cron run</code>، لكي يصلح استدعاء منفرد بلا مجدول عامل السجل أيضًا — يوسم Hermes المحاولة المتروكة بالقيمة <code>unknown</code> فقط عندما يثبت PID الأصلي وبصمة بدء العملية أن مالكها انتهى، أو عندما يظل مالك نشط <strong>صامتًا</strong> لمدة أطول من حد التقادم المشتق (<code>max(3 × HERMES_CRON_TIMEOUT, script timeout, 2 h)</code>): يختم مراقب التشغيل <code>progress_at</code> على المحاولة ما دام الوكيل يستدعي أدوات أو يبث، لذا لا تُستعاد مهمة سليمة تمتد لساعات في منتصف التنفيذ، بينما يتوقف عامل عالق في قفل عن الختم ويُحرّر بعد انقضاء الحد. المحاولات مجهولة المصير سجلات تدقيق ولا تُعاد تلقائيًا مطلقًا.</p>
 <p>افحص المحاولات الأخيرة بـ <code>hermes cron runs [job-id] --limit 20</code> (اسم بديل:
 <code>history</code>). سجل التاريخ النهائي محدود؛ المحاولات النشطة لا تُقلَّم أبدًا. يُدرَج
 الدفتر ضمن النسخ الاحتياطية السريعة.</p>
@@ -50,50 +60,42 @@
 على التوالي ويقترح أن تُصلحها، أو توقفها (<code>hermes cron pause &lt;job&gt;</code>)، أو تزيلها.
 أي تشغيل ناجح يعيد تعيين التتابع، ويعرض <code>hermes cron list</code>
 التتابع بجانب آخر تشغيل لمهمة فاشلة. المهام لمرة واحدة لا تنبّه أبدًا.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-re-runs-when-the-model-was-unreachable">إعادة تشغيل تلقائية عندما يتعذّر الوصول إلى النموذج</h3>
 <p>مهمة متكررة يفشل تشغيلها بخطأ شبكة أو DNS عابر قبل إجراء
 أي استدعاء نموذج واحد — الحالة الكلاسيكية هي إطلاق فور
 استيقاظ الحاسوب، بينما لا تزال VPN أو Wi-Fi تعيد الاتصال — لا تفوّت
 فترة كاملة. يعيد المجدوِل تشغيلها تلقائيًا بعد <strong>5، و15، و
-30 دقيقة</strong> (مستوحى من إعادة التشغيل للمهام المجدولة في Claude Cowork)، ثم يعود
-إلى الجدول العادي. لأنه لم تُجرَ أي استدعاءات API، فإن إعادة التشغيل
-محايدة من حيث الإنفاق ولا يمكنها تكرار أي تأثير جانبي.</p>
-<p>أثناء انتظار إعادة تشغيل، يُخفى إشعار الفشل المؤقت — تحصل على
-النتيجة الحقيقية عند نجاح إعادة التشغيل، أو تنبيه فشل عادي بمجرد
-استنفاد السلّم. أي تشغيل يصل إلى النموذج (نجاحًا أو فشلًا)
-يعيد تعيين السلّم. المهام لمرة واحدة مستثناة: محاسبة إرسالها
-هي على الأكثر مرة واحدة، وإرسال مُستهلَك لا يُبعَث أبدًا. لا تُطلَق إعادة المحاولات
-أبدًا بعد الحدوث المستقبلي التالي للجدول نفسه إذا جاء أقرب.</p>
+30 دقيقة</strong> (مستلهمًا إعادة تشغيل المهام المجدولة في Claude Cowork)، ثم يعود إلى الجدول العادي. ولأن أي استدعاء API لم يحدث، فلا تضيف إعادة التشغيل إنفاقًا ولا يمكن أن تكرّر أي أثر جانبي. ولا تُحتسب الإعادات ضمن حد <code>repeat</code> الخاص بالمهمة: الواقعة التي تكرّرها احتُسبت بالفعل مرة واحدة.</p>
+<p>في أثناء انتظار إعادة التشغيل، يُحجب إشعار الإخفاق المؤقت — تحصل على النتيجة الفعلية عند نجاح إعادة التشغيل، أو على تنبيه إخفاق عادي بعد استنفاد سلّم المحاولات. يعيد أي تشغيل يصل إلى النموذج (ناجحًا أو فاشلًا) ضبط السلّم. تُستبعد المهام ذات التشغيل الواحد: يُحتسب إرسالها بحد أقصى لعدد المرات ولا يُعاد إحياء إرسال مستهلَك. لا تقع إعادة المحاولات بعد الموعد التالي الطبيعي للجدول إذا كان أقرب.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="holding-a-job-through-a-closed-provider-usage-window">تعليق مهمة خلال نافذة انغلاق استخدام المزوّد</h3>
+<p>الحالة المعاكسة: يحدّد المزوّد بالضبط مدة بقائه مغلقًا. عندما يحلّ المجدول مزوّد اشتراك (حاليًا فحص استخدام OpenAI Codex)، ويُبلّغ المزوّد عن نفاد حد الاستخدام مع تلميح <code>retry after &lt;N&gt;s</code> (غالبًا ساعات عديدة)، ولا تتاح سلسلة المزوّدين الاحتياطيين كاملةً، فإن إعادة إطلاق مهمة تتكرر في أقل من ساعة ضمن تلك النافذة ستفشل بالطريقة نفسها في كل دورة — وتصدر تنبيهًا كل مرة. لا يُعلّق خطأ 429 الذي تعيده API النموذج أثناء التشغيل بهذه الطريقة؛ بل يُعاد وفق الإيقاع المعتاد.</p>
+<p>بدلًا من ذلك، يقوم المجدول بـ <strong>تعليق المهمة</strong>: يذكر تنبيه الإخفاق الوحيد أن النافذة مغلقة وأن المهمة معلّقة. إذا أُعيد فتح المزوّد قبل الموعد الطبيعي التالي لمهمة cron <strong>متباعدة</strong> بوقت كبير (مبكرًا بما لا يقل عن نصف فترة الجدول)، تعاد محاولة واقعة مجدولة محظورة مرة واحدة عند حد التعافي؛ وينتظر إخفاق الحصة الثاني الجدول الطبيعي. تحتفظ الجداول الكثيفة والتشغيلات اليدوية ومهام الفواصل بموعدها الطبيعي التالي. وإلا تُدمج الوقائع الفائتة وينتقل <code>next_run_at</code> إلى أول واقعة مجدولة بعد النافذة. تُخزّن لحظة التعليق باسم <code>quota_hold_until</code>؛ ولا يقع تشغيل أو تنبيه قبلها. يزيل أي تشغيل يصل إلى النموذج التعليق. لا تُعلّق المهام ذات التشغيل الواحد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-incidents-alert-once-remind-on-a-cooldown-acknowledge">حوادث الإخفاق: تنبيه واحد، وتذكير بفاصل تهدئة، وإقرار</h3>
+<p>المهمة المتكررة التي تواصل الإخفاق بالخطأ <em>نفسه</em> تنبّهك <strong>مرة واحدة</strong>، لا في كل تشغيل. يُسجّل كل إخفاق بوصفه <strong>حادثة</strong> دائمة، بمفتاح يجمع المهمة وتوقيعًا موحّدًا لنص الخطأ (تُتجاهل حالة الأحرف والمسافات والمدد المقاسة مثل <code>idle for 603s</code>)، في قاعدة بيانات السجل لكل profile نفسها التي تحفظ تاريخ التنفيذ؛ يُسلّم الإخفاق الأول لكل توقيع دائمًا، ثم تُحجب التكرارات ما دامت الحادثة <code>alerted</code> (يظل التشغيل مسجّلًا — يراه <code>hermes cron runs</code> وتسلسل الإخفاقات، ولا يُحجب إلا التنبيه).</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-incidents-acknowledge-a-known-failure">حوادث الفشل: الإقرار بفشل معروف</h3>
-<p>مهمة متكررة تستمر بالفشل بـ<em>نفس</em> الخطأ تنبّهك في كل
-تشغيل. كل فشل يُسجَّل أيضًا كـ <strong>حادثة</strong> دائمة، مفتاحها
-المهمة بالإضافة إلى توقيع مُوحَّد لنص الخطأ، في نفس دفتر
-لكل ملف شخصي المستخدَم لسجل التنفيذ.</p>
+<p>مهمة متكررة تستمر بالفشل بـ<em>نفس</em> ينشئ حادثته الخاصة وينبّه فورًا، ويعيد التشغيل الناجح تسليح التوقيع لكي ينبّه الخطأ نفسه مجددًا بعد تشغيل ناجح. إذا تعذّرت قراءة سجل الحوادث، يُسلّم التنبيه بدلًا من إسقاطه.</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
-<p>الإقرار بحادثة يُسكِت تنبيه الفشل لكل تشغيل لذلك التوقيع
-المحدد فقط. لا شيء آخر يتغيّر: سجل التشغيل ما يزال يسجّل كل
-فشل، ويستمر تتابع الفشل بالعدّ، وفي اللحظة التي تبدأ فيها المهمة
-بالفشل بخطأ <em>مختلف</em> تُصكّ حادثة جديدة وتُطلَق التنبيهات
+<p>يُسكت الإقرار بحادثة تنبيه الإخفاق لذلك التوقيع المحدّد وحده، بما فيه التذكيرات. لا يتغيّر شيء آخر: يظل سجل التشغيل يسجّل كل إخفاق، ويستمر تسلسل الإخفاقات في العدّ، وما إن تبدأ المهمة في الإخفاق بخطأ <em>مختلف</em> تُصكّ حادثة جديدة وتُطلَق التنبيهات
 مجددًا. تشغيل ناجح لا يمسّ الحوادث — فهي لكل توقيع، لا
 لكل مهمة.</p>
-<p>دورة حياة الحادثة: <code>detected</code> (سُجِّل فشل) ← <code>alerted</code> (وصل
-تنبيه فشل واحد على الأقل إلى التسليم) ← <code>closed</code> (أُقرَّ به؛ نهائي لذلك
+<p>يضع التشغيل الناجح كل حادثة مفتوحة لتلك المهمة في حالة <code>resolved</code>، لكي تعكس القائمة السلامة الحالية بدلًا من كل إخفاق مرّت به المهمة. إذا أخفقت المهمة لاحقًا بالخطأ <em>نفسه</em>، تُعاد فتح الحادثة المحلولة بالحالة <code>detected</code> ويُنبّه المستخدم مجددًا. أما الحوادث المُقرّ بها (<code>closed</code> (أُقرَّ به؛ نهائي لذلك
 التوقيع). نص الخطأ المخزَّن منقَّح من الأسرار ومقتطَع قبل
 كتابته.</p>
-<p>التسجيل مفعَّل دائمًا ولا يكلّف شيئًا تجاهله — لا يُكبَت أي
-تنبيه أبدًا حتى تقرّه صراحةً (<code>ack</code>).</p>
+<p>دورة حياة الحادثة: <code>detected</code> (سُجّل الإخفاق) → <code>alerted</code> (وصل تنبيه إخفاق واحد على الأقل إلى التسليم؛ <code>alerted_at</code> هو أحدثها ويبدأ فترة تهدئة التذكير) → <code>resolved</code> (شُغّلت المهمة بنجاح بعدها؛ تُعاد فتحها عند التكرار) أو <code>closed</code> (أُقرّ بها؛ حالة نهائية لذلك التوقيع). يُحجب نص الخطأ المخزّن من الأسرار ويُقتطع قبل كتابته.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fleet-health-check-hermes-cron-doctor">فحص صحة الأسطول: <code>hermes cron doctor</code></h3>
 <p><code>hermes cron doctor</code> هو فحص صحة للقراءة فقط عبر كل مهمة نشطة. يطبع
 مشكلات مجمَّعة لكل مهمة ويخرج بالرمز <code>1</code> عند وجود أي شيء قابل للتصرف
-(<code>0</code> عند السلامة)، لذا يعمل من طرفية، أو سكربت مراقبة، أو
-فحص سريع بأسلوب CI:</p>
+(<code>0</code> عندما لا تبقى نتائج).</p>
+<p>لا يزيل الاستدراك الناجح تحذير التأخير؛ بل يزيله الإرسال التالي في موعده. لذا قد يستمر مراقب مثل <code>hermes cron doctor || alert</code> في التنبيه طوال فترة جدول كاملة بعد استيقاظ المضيف، حتى لو نجح الاستدراك.</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
 <p>الفحوصات لكل مهمة نشطة:</p>
 <ul>
 <li>فشل آخر تشغيل (<code>last_status</code> ليس سليمًا، مع الخطأ المسجَّل)،</li>
-<li>فشل آخر تسليم (أُنتِج المخرج لكنه لم يصلك أبدًا)،</li>
+<li>فشل التسليم الأخير (أُنتجت المخرجات لكنها لم تصل إليك)،</li>
+<li>تأخر الإرسال الأخير أو استُدرك بعد موعد فائت (<code>last_dispatch</code>)؛ يزول هذا التحذير عند التشغيل التالي في موعده،</li>
+<li>تعذّر على إطلاق مجدول الوصول إلى منفّذ التشغيل (<code>last_fire_error</code>)، مع الطابع الزمني المسجّل وسبب مختصر؛ يزول هذا التحذير بعد تشغيل ناجح،</li>
 <li><code>next_run_at</code> مفقود، أو محشور في الماضي متجاوزًا هامش تسامح
 15 دقيقة للمُنبِّه — إشارة &quot;المهمة لا تُطلَق بصمت&quot; (المجدوِل معطَّل، أو
 gateway متوقف، أو مطالبة إطلاق متعطِّلة)،</li>

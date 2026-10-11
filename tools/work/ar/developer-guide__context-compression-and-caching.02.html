@@ -1,0 +1,58 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching-anthropic">التخزين المؤقت للـ Prompt (Anthropic)</h2>
+<p>المصدر: <code>agent/prompt_caching.py</code></p>
+<p>يخفّض تكاليف tokens المدخلات بنحو ~75% في المحادثات متعددة الأدوار عبر التخزين المؤقت
+لبادئة المحادثة. ويستخدم نقاط التوقف (breakpoints) <code>cache_control</code> لدى Anthropic.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="strategy-system_and_3">الاستراتيجية: system_and_3</h3>
+<p>تسمح Anthropic بحد أقصى 4 نقاط توقف <code>cache_control</code> لكل طلب. ويستخدم Hermes
+استراتيجية &quot;system_and_3&quot;:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h3>
+<p><code>apply_anthropic_cache_control()</code> الرسائل نسخًا عميقًا وتحقن
+علامات <code>cache_control</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>تُطبَّق العلامة بشكل مختلف بحسب نوع المحتوى:</p>
+<table><thead><tr><th>نوع المحتوى</th><th>موضع العلامة</th></tr></thead><tbody><tr><td>محتوى نصي (string)</td><td>يُحوَّل إلى <code>[{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: ..., &quot;cache_control&quot;: ...}]</code></td></tr><tr><td>محتوى من نوع قائمة (list)</td><td>يُضاف إلى قاموس (dict) العنصر الأخير</td></tr><tr><td>None/فارغ</td><td>يُضاف بصيغة <code>msg[&quot;cache_control&quot;]</code></td></tr><tr><td>رسائل الأدوات</td><td>يُضاف بصيغة <code>msg[&quot;cache_control&quot;]</code> (في Anthropic الأصلي فقط)</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cache-aware-design-patterns">أنماط تصميم تراعي التخزين المؤقت</h3>
+<ol>
+<li>
+<p><strong>System prompt ثابت</strong>: الـ system prompt هو نقطة التوقف 1 ويُخزَّن مؤقتًا عبر
+جميع الأدوار. تجنّب تعديله في منتصف المحادثة (يُلحق الضغط ملاحظة
+عند أول عملية ضغط فقط).</p>
+</li>
+<li>
+<p><strong>ترتيب الرسائل مهم</strong>: تتطلب إصابات التخزين المؤقت (cache hits) مطابقة البادئة. وإضافة
+رسائل في المنتصف أو إزالتها تُبطل التخزين المؤقت لكل ما يليها.</p>
+</li>
+<li>
+<p><strong>تفاعل الضغط مع التخزين المؤقت</strong>: بعد الضغط، يُبطَل التخزين المؤقت
+للمنطقة المضغوطة، لكن التخزين المؤقت للـ system prompt يبقى. وتعيد النافذة
+المتحركة المكوّنة من 3 رسائل إرساء التخزين المؤقت خلال 1-2 دور.</p>
+</li>
+<li>
+<p><strong>اختيار TTL</strong>: القيمة الافتراضية <code>5m</code> (5 دقائق). استخدم <code>1h</code> للجلسات
+طويلة الأمد التي يأخذ فيها المستخدم فترات راحة بين الأدوار.</p>
+</li>
+<li>
+<p><strong>هوية النموذج جزء من مفتاح التخزين المؤقت</strong>: ترتبط ذاكرات التخزين المؤقت لدى المزوّد
+بالنموذج (والحساب/مفتاح API) الذي يخدم الطلب. فأي تغيير للنموذج
+في منتصف المحادثة — سواء أكان تبديلًا صريحًا عبر <code>/model</code>، أم انتقالًا احتياطيًا (fallback) من النموذج الأساسي، أم
+تدويرًا لمجمّع بيانات الاعتماد إلى حساب مختلف — يعني أن الطلب التالي
+لن يحقق أي إصابة في التخزين المؤقت، وسيعيد قراءة المحادثة كاملة بسعر المدخلات
+غير المخفّض. هذا متأصل في طريقة عمل ذاكرات التخزين المؤقت لدى المزوّدين، وليس أمرًا
+يستطيع Hermes تجنّبه؛ ولهذا السبب تتضمن وثائق المستخدم الخاصة بـ <code>/model</code> والمزوّدين الاحتياطيين
+ومجمّعات بيانات الاعتماد تحذيرات بشأن التكلفة. لا تُضف ميزات
+تبدّل النموذج أو بيانات الاعتماد بصمت في منتصف الجلسة.</p>
+</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling-prompt-caching">تفعيل التخزين المؤقت للـ Prompt</h3>
+<p>يُفعَّل التخزين المؤقت للـ prompt تلقائيًا عندما:</p>
+<ul>
+<li>يكون النموذج من نماذج Anthropic Claude (يُكتشف ذلك من اسم النموذج)</li>
+<li>يدعم المزوّد <code>cache_control</code> (Anthropic API الأصلي أو OpenRouter)</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><code>&quot;auto&quot;</code> تُحدَّد مرة واحدة لكل جلسة في <code>agent/agent_init.py::_init_prompt_cache_config</code> عبر <code>agent/prompt_caching.py::auto_cache_ttl_for_source</code>: <code>1h</code> للمصادر ذات وتيرة بشرية، و <code>5m</code> لـ <code>MACHINE_PACED_SOURCES</code> (subagent، cron، oneshot، webhook، kanban، api، tool، batch). تتعامل الاستدعاءات المساعدة/الوهمية (<code>configured_cache_ttl()</code>) مع <code>auto</code> بوصفها <code>5m</code>.</p>
+<p>يعرض CLI حالة التخزين المؤقت عند بدء التشغيل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-pressure-warnings">تحذيرات امتلاء السياق</h2>
+<p>أُزيلت تحذيرات امتلاء السياق الوسيطة (راجع كتلة ميزانية التكرارات في <code>agent/turn_iteration_prep.py</code>، التي تنص على: &quot;No intermediate pressure warnings — they caused models to &#x27;give up&#x27; prematurely on complex tasks&quot;). يبدأ الضغط عندما تصل tokens الـ prompt إلى قيمة <code>compression.threshold</code> المضبوطة (الافتراضية 50%) دون أي خطوة تحذير مسبقة؛ ويعمل تنظيف جلسات gateway بوصفه شبكة الأمان الثانوية عند 85% من context window الخاصة بالنموذج.</p>

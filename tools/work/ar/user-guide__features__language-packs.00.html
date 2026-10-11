@@ -1,0 +1,54 @@
+<header><h1>حزم اللغات</h1></header>
+<p>يتضمن Hermes 17 لغة للواجهة (<code>display.language</code>). القائمة <strong>قابلة للتوسعة</strong>: حزمة اللغة إضافة أو مجلد داخل مجلد Hermes الرئيسي يضيف لغة جديدة أو يتجاوز صياغة لغة موجودة — لجانب Python (prompts موافقة CLI وردود gateway وأفعال الأدوات والنصائح)، وواجهة <code>hermes --tui</code> وتطبيق Desktop، جميعها من حزمة واحدة.</p>
+<p>ما تترجمه الحزمة هو <strong>نص الواجهة الثابت</strong>. تبقى ردود الوكيل وخرج الأدوات والسجلات و <em>أسماء</em> slash commands كما هي؛ لجعل الوكيل نفسه يجيب بلغة أخرى، اطلب ذلك في الـ prompt.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-languages-come-from">مصادر اللغات</h2>
+<p>عندما يبحث Hermes عن نص، يمر بهذه الطبقات من الأعلى إلى الأسفل ويأخذ أول تطابق:</p>
+<ol>
+<li><strong>حزم اللغات في الإضافات</strong> — كل إضافة مثبّتة تصرّح بـ <code>provides_locales</code> (تكون الأولوية لآخر حزمة محمَّلة عندما تغطي حزمتان المفتاح نفسه).</li>
+<li><strong>overlay الخاص بك</strong> — <code>&lt;HERMES_HOME&gt;/locales/&lt;lang&gt;.yaml</code> (لكل profile: يمتلك المجلد الرئيسي لكل profile مجلد <code>locales/</code> الخاص به).</li>
+<li><strong>المضمّنة</strong> — ملفات <code>locales/&lt;lang&gt;.yaml</code> المضمّنة مع Hermes.</li>
+<li>الطبقات الثلاث نفسها للإنجليزية، ثم المفتاح الخام.</li>
+</ol>
+<p>يمكن أن تكون كل طبقة <strong>جزئية</strong>: لا تحتاج الحزمة أو overlay إلا إلى المفاتيح التي تغيّرها.</p>
+<p><code>hermes config set display.language &lt;id&gt;</code> يقبل أي معرّف توفّره إحدى هذه الطبقات. تُرفض المعرّفات المجهولة مع قائمة اللغات المتاحة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-a-pack">استخدام حزمة</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>أعد تشغيل gateways وواجهات TUI الجارية كي تلتقط الحزمة. تسرد محدّدات اللغات في TUI و Desktop اللغات المضمّنة ولغات overlay الخاص بك وكل حزمة مثبّتة باسمها في لغتها الأصلية. يظل إدخال <code>HERMES_LANGUAGE</code> في <code>.env</code> يتجاوز <code>display.language</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="writing-a-pack">كتابة حزمة</h2>
+<p>لا تحتاج الحزمة إلى <strong>أي كود Python</strong>. أبسط بنية:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p><code>plugin.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>provides_locales</code> يمكن أن تكون أيضًا معرّفات بسيطة (<code>- pl</code>)؛ ويكون الاسم الأصلي افتراضيًا هو المعرّف عندئذٍ. عندما يصرّح manifest بـ <code>provides_locales</code>، يسجّل محمّل الإضافات كل <code>locales/&lt;lang&gt;[.tui|.desktop].yaml</code> تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="files-and-keys">الملفات والمفاتيح</h3>
+<ul>
+<li><strong><code>pl.yaml</code> (الأساسي)</strong> يعكس بنية <code>locales/en.yaml</code> المضمّن. تُحوَّل YAML المتداخلة إلى مفاتيح منقّطة (<code>approval.denied</code>, <code>gateway.goal_cleared</code>). انسخ <code>en.yaml</code>، وترجم القيم، واحذف ما لا تريد تجاوزه.</li>
+<li><strong><code>pl.tui.yaml</code> / <code>pl.desktop.yaml</code></strong> يعكسان الكتالوجين الإنجليزيين لتطبيقَي TUI و Desktop. تُصدَّر مجموعتا المفاتيح إلى <code>locales/_keys.tui.json</code> و <code>locales/_keys.desktop.json</code> في مستودع Hermes، ويتحقق المدقق بمقارنتهما.</li>
+<li>يجب أن تكون قيم YAML <strong>نصوصًا</strong>. يُرفض الرقم أو القائمة أو <code>true</code>/<code>false</code> أو القيمة الفارغة.</li>
+<li>لا تستخدم أبدًا كلمات YAML المحجوزة (<code>on</code>, <code>off</code>, <code>yes</code>, <code>no</code>) كمفاتيح.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="placeholders">العناصر النائبة</h3>
+<ul>
+<li>تستخدم نصوص الجانب الأساسي (Python) عناصر نائبة <strong>مسمّاة</strong> كما في الإنجليزية تمامًا: <code>&quot;⏳ Draining {count} active agent(s)...&quot;</code>. احتفظ بكل <code>{name}</code> في القيمة الإنجليزية؛ يجعل العنصر النائب المفقود أو المكتوب خطأ Hermes يعود إلى النص غير المترجم لذلك المفتاح.</li>
+<li>تُكتب إدخالات TUI و Desktop التي تكون قيمتها الإنجليزية <em>دالة</em> (تأخذ معاملات) في YAML كسلاسل تحتوي على عناصر نائبة <strong>موضعية</strong>: <code>&quot;{0} of {1} sessions&quot;</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="validate">التحقق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>يتحقق المدقق من أن لكل معرّف مصرّح به ملف <code>locales/&lt;id&gt;.yaml</code>، وأن كل ملف يُحلَّل ولا يتضمن إلا نصوصًا (القيمة غير النصية <strong>خطأ</strong>)، كما <strong>يحذّر</strong> — مع سرد المفاتيح — من المفاتيح غير الموجودة في الكتالوج الإنجليزي لتلك الواجهة (لا تسبب ضررًا لكنها لا تفعل شيئًا). تُجرى فحوص <code>.tui.yaml</code> /
+<code>.desktop.yaml</code> عندما يوجد تصدير <code>_keys.*.json</code> المناظر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="register-from-python-optional">التسجيل من Python (اختياري)</h3>
+<p>يمكن لإضافة تحتوي بالفعل على كود Python تسجيل الكتالوجات بنفسها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>register_locale(lang, source, *, endonym=None, rtl=False, surface=&quot;core&quot;)</code> يأخذ مسار YAML أو mapping؛ وتكون قيمة <code>surface</code> هي <code>core</code>, <code>tui</code> أو <code>desktop</code>. يُلغى التسجيل عند إلغاء تحميل الإضافة ولا يغيّر <code>display.language</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="personal-overrides-without-a-plugin">تجاوزات شخصية دون إضافة</h2>
+<p>ضع ملفًا جزئيًا في مجلد Hermes الرئيسي:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ينطبق overlay على ذلك الـ profile فقط (<code>~/.hermes/profiles/&lt;name&gt;/locales/</code> لـ profile مسمّى). تجعل ملفات overlay للغة لا يضمّنها Hermes تلك اللغة قابلة للاختيار أيضًا. تُقرأ التعديلات عند البدء التالي أو تغيير <code>display.language</code> التالي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<ul>
+<li><strong><code>Unknown language ... for display.language</code></strong> — الحزمة غير مثبّتة أو غير مفعّلة (<code>hermes plugins list</code>)، أو لا يطابق المعرّف في <code>provides_locales</code> اسم الملف (<code>pl</code> يحتاج إلى <code>locales/pl.yaml</code>).</li>
+<li><strong>نص مترجم ما زال يظهر بالإنجليزية</strong> — المفتاح غير موجود في الكتالوج الإنجليزي (شغّل <code>hermes plugins validate</code>؛ تُسرد المفاتيح المجهولة)، أو تختلف مجموعة العناصر النائبة عن الإنجليزية.</li>
+<li><strong>اللغة مدرجة لكن TUI/Desktop لا يزال بالإنجليزية</strong> — لا تحتوي الحزمة على <code>.tui.yaml</code> /
+<code>.desktop.yaml</code>؛ تعرض تلك الواجهات الإنجليزية مع ما توفّره الحزمة. للغات المضمّنة البالغ عددها 16، يضمّن TUI ملفات <code>locales/&lt;lang&gt;.tui.yaml</code> الخاصة به في شجرة Hermes (ويضمّن Desktop ترجماته داخل التطبيق)، لذا لا تحتاج حزمة لإحدى تلك اللغات إلا إلى المفاتيح التي تريد تجاوزها.</li>
+</ul>

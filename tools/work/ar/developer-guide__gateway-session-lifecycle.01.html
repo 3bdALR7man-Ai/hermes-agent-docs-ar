@@ -1,0 +1,124 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="7-restart-recovery-flow">7. تدفق الاسترداد بعد إعادة التشغيل</h2>
+<p>يضمن نظام الاسترداد بعد إعادة التشغيل الحفاظ على الجلسات الجارية عبر إعادة تشغيل الـ gateway أو تعطّله أو انتهاء مهلة الاستنزاف. وهو حل issue رقم #7536.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="startup-recovery-sequence">تسلسل الاسترداد عند البدء</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="crash-recovery-_recover_unclean_sessions">الاسترداد من التعطّل (<code>_recover_unclean_sessions</code>)</h3>
+<p>يُستدعى عند بدء الـ gateway إذا لم توجد علامة <code>.clean_shutdown</code> (تعطّل أو خروج غير متوقع). لا يعمل إلا على علامات الأدوار النشطة الدائمة، لا على حداثة النشاط: فالمحادثة التي كانت نشطة قبل التعطّل بقليل وأكملت دورها لا يُرد عليها مجددًا.</p>
+<p>تُضبط العلامة عند بدء الدور وتبقى حتى يُدرج الرد النهائي في سجل التسليم (يحرّرها المحوّل مباشرةً بعد <code>record_delivery_obligation</code>)، أو حتى لا يبقى شيء مستحق (رد مبثوث أو استجابة مكبوتة أو فارغة). لذلك تعني العلامة المتبقية عند البدء إحدى حالتين:</p>
+<ul>
+<li><strong>حُفظ الرد دون إدراجه في سجل التسليم.</strong> يُسجَّل الرد المخزّن في نص المحادثة كصف غير مملوك في السجل، وتُمحى العلامة؛ وتسلّمه جولة الفحص عند الإقلاع مرة واحدة مع إشعار &quot;Recovered reply&quot;. لا يُعاد توليد الدور. يُقيّم الرد كما كان سيُقيّم أثناء التسليم المباشر: فعلامة صمت منفردة (<code>[SILENT]</code> أو <code>NO_REPLY</code> وغيرها) في دور داخلي، أو الرد على تنبيه تشخيصي تكتمه سياسة المحادثة، لا يترتب عليه شيء (تُمحى العلامة ولا يُرسل شيء ولا يُستأنف). وتتحول علامة الصمت المنفردة لدور بشري إلى إشعار &quot;returned only a silence marker&quot; نفسه الذي يرسله المسار المباشر.</li>
+<li><strong>لم يُحفظ أي رد.</strong> <code>recover_interrupted_turns()</code> تضبط <code>resume_pending=True</code> و <code>resume_reason=&quot;restart_interrupted&quot;</code>، ويُستأنف الدور تلقائيًا مرة واحدة.</li>
+</ul>
+<p>يُخزّن وقت بدء العلامة بصيغة UTC واعية بالمنطقة الزمنية ويُقارن كثوانٍ منذ epoch، فلا تؤدي إعادة التشغيل في منطقة محلية مختلفة (تغيير DST أو الحاوية مقارنةً بـ <code>TZ</code> للوحدة) إلى إسقاط علامة حديثة باعتبارها قديمة أو اعتماد رد الدور السابق كأنه رد هذا الدور. تُقرأ العلامة المكتوبة بواسطة build أقدم (وقت محلي غير واعٍ بالمنطقة) باعتبارها وقت المضيف المحلي.</p>
+<p>تُعيد جولة فحص السجل تسليم أي دور موجود فيه بالفعل، وتمحو أيضًا أي <code>resume_pending</code> لتلك الجلسة، فلا يحدث التسليم وإعادة الإجابة معًا مطلقًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stuck-loop-detection-_suspend_stuck_loop_sessions">كشف حلقات التعليق (<code>_suspend_stuck_loop_sessions</code>)</h3>
+<p>يعدّ مرات إعادة التشغيل المتتالية عبر ملف JSON (<code>{HERMES_HOME}/restart_counts.json</code>). إذا ظلت جلسة نشطة عبر 3 مرات إعادة تشغيل متتالية أو أكثر، تُعلَّق تلقائيًا ليبدأ المستخدم بداية نظيفة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="drain-timeout-marking">وضع علامة انتهاء مهلة الاستنزاف</h3>
+<p>عند الإيقاف/إعادة التشغيل المنظمين، يستدعي نظام الاستنزاف <code>mark_resume_pending()</code> لكل جلسة كانت في منتصف دور عند انتهاء المهلة. الأسباب:</p>
+<ul>
+<li><code>&quot;restart_timeout&quot;</code> — أُنهيت أثناء استنزاف إعادة التشغيل</li>
+<li><code>&quot;shutdown_timeout&quot;</code> — أُنهيت أثناء استنزاف الإيقاف</li>
+<li><code>&quot;restart_interrupted&quot;</code> — استرداد دور معلّم بلا رد من التعطّل (من <code>recover_interrupted_turns</code>)</li>
+</ul>
+<p>توجد الأسباب الثلاثة جميعها في <code>_AUTO_RESUME_REASONS</code> وتؤهل للاستئناف التلقائي عند البدء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-resume-on-next-access">الاستئناف التلقائي عند الوصول التالي</h3>
+<p>عندما تصادف <code>get_or_create_session()</code> القيمة <code>resume_pending=True</code>:</p>
+<ol>
+<li>تُرجع المدخل الحالي <strong>دون</strong> إنشاء <code>session_id</code> جديد.</li>
+<li>يُحمّل نص المحادثة الحالي كاملًا دون تغيير.</li>
+<li>لا تُمحى العلامة هنا — بل تبقى حتى يكتمل الدور الناجح التالي (تُستدعى <code>clear_resume_pending()</code> من الـ gateway بعد أن تُرجع <code>run_conversation()</code> استجابة حقيقية).</li>
+<li>إذا قوطع الدور المستأنف مجددًا، تبقى علامة <code>resume_pending</code> مضبوطة، وستعيد محاولة إعادة التشغيل التالية. يعالج عدّاد الحلقة العالقة التصعيد النهائي (3 محاولات → تعليق).</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clean-shutdown-marker-clean_shutdown">علامة الإيقاف المنظم (<code>.clean_shutdown</code>)</h3>
+<p>تُكتب في نهاية الإيقاف المنظم. وعند البدء التالي:</p>
+<ul>
+<li>إذا وُجدت: تخطَّ الاسترداد من التعطّل كليًا وتخلّص من علامات الأدوار اليتيمة. فقد استُنزفت الوكلاء النشطة بالفعل، فلا توجد جلسات عالقة.</li>
+<li>ثم احذف العلامة.</li>
+</ul>
+<p>يمنع هذا عمليات إعادة الضبط التلقائي غير المرغوبة بعد <code>hermes update</code> أو <code>hermes gateway restart</code> أو <code>/restart</code>.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="8-message-queuing-flow">8. تدفق وضع الرسائل في قائمة الانتظار</h2>
+<p>يعالج نظام قائمة انتظار الرسائل سيناريوهين:</p>
+<ol>
+<li><strong>متابعات المقاطعة</strong> — عندما يرسل المستخدم عدة رسائل أثناء معالجة الوكيل، توضع الرسائل اللاحقة كرسائل معلّقة في خانة واحدة.</li>
+<li><strong><code>/queue</code> بنظام FIFO</strong> — أوامر <code>/queue</code> الصريحة التي يجب أن ينتج كلٌّ منها دور وكيل كاملًا مستقلًا، بالترتيب ودون دمج.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-structures">بُنى البيانات</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enqueue-_enqueue_fifo">الإدراج في القائمة (<code>_enqueue_fifo</code>)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dequeue--promotion-_promote_queued_event">الإخراج / الترقية (<code>_promote_queued_event</code>)</h3>
+<p>يُستدعى عند موضع الاستنزاف بعد استهلاك الخانة. إذا وُجد عنصر فائض:</p>
+<ul>
+<li>عندما تكون <code>pending_event is None</code> (الخانة كانت فارغة)، أرجع رأس القائمة الفائضة كحدث جديد.</li>
+<li>عندما توجد <code>pending_event</code>، جهّز رأس القائمة الفائضة في الخانة للتكرار الاستدعائي التالي.</li>
+<li>إذا لم يتوفر محوّل، أعد العنصر إلى <code>_queued_events</code> (لا تُسقطه بصمت).</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="queue-depth">عمق القائمة</h3>
+<p><code>_queue_depth(session_key, adapter)</code> تُرجع <code>len(overflow) + (1 if slot occupied else 0)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="clearing">المحو</h3>
+<p>تُمحى أحداث الجلسة الموضوعة في القائمة عند <code>/new</code> و <code>/reset</code> (عبر <code>_handle_reset_command</code>). يُسقط <code>/stop</code> المتابعة ذات الخانة الواحدة التي أرسلها المستخدم أثناء الدور المقاطَع. أما التنبيه <strong>الداخلي</strong> الموضوع في أيٍّ من المخزنين (إشعار إكمال تفويض غير متزامن، أو <code>notify+wake</code> خاص بـ kanban/cron) فيبقى عبر الأوامر الثلاثة: تتركه <code>_interrupt_and_clear_session</code> في الخانة (وتُرقّيه من القائمة الفائضة إذا كانت متابعة بشرية محذوفة تشغل الخانة)، ليبدأه الاستنزاف التالي للأمر فورًا بدلًا من بقاء الجلسة خاملة حتى رسالة المستخدم التالية. ويُقرّر وقت المعالجة ما إذا كان يمكن لتنبيه مثبت إلى جلسة أغلقها <code>/new</code> للتو الاستمرار في التشغيل (<code>_resolve_async_delegation_session</code>، مع الرفض عند تعذّر التحقق).</p>
+<p>ينهي كلا الأمرين أيضًا <strong>التفويضات الخلفية</strong> الخاصة بالجلسة (<code>tools.async_delegation. interrupt_for_session</code>، المحددة بمفتاح التوجيه ومعرّف جلسة المنشئ الدائم): توزّع <code>_interrupt_and_clear_session</code> طلب الإيقاف في مسار الانشغال، وتفعل <code>_handle_stop_command</code> الشيء نفسه لجلسة خاملة انتهى دور إرسالها بالفعل (فترد &quot;Stopped&quot; بدلًا من &quot;No active task to stop&quot;). لا تصل المقاطعة القسرية الخاصة بالدور نفسه إلى تلك الوحدات — فهي منفصلة عن <code>_active_children</code> عند الإرسال — لذا، دون توزيع الإيقاف، تعمل حتى الإكمال وتنبّه المحادثة بعد دقائق. تظل كل وحدة موقوفة تنهي عملها طبيعيًا وتعود كإشعار إكمالها مع <code>status=&quot;interrupted&quot;</code> والمخرج الجزئي للعملية الفرعية. وكان <code>/new</code> و <code>/reset</code> يفعلان ذلك بالفعل في <code>_handle_reset_command</code>؛ ويكون الاستدعاء المبكر للأداة المساعدة المشتركة آمنًا عند التكرار هناك (طلب المقاطعة القسرية مرتين يعني إيقافًا واحدًا).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fifo-invariant">ثبات FIFO</h3>
+<p>ينتج كل استدعاء لـ <code>/queue</code> دور وكيل كاملًا واحدًا بالضبط، بترتيب FIFO، دون دمج. يضمن تصميم <code>_pending_messages</code> ذي الخانة الواحدة + <code>_queued_events</code> للفائض ألّا تؤدي عمليات الإرسال المتكررة أثناء دور نشط إلى معالجة خارج الترتيب.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-session-context-injection">9. حقن سياق الجلسة</h2>
+<p><code>SessionContext</code> يُبنى من <code>SessionSource</code> و <code>GatewayConfig</code> ويُحقن في system prompt للوكيل. ويخبره بما يلي:</p>
+<ul>
+<li>مصدر الرسالة الحالية</li>
+<li>المنصات المتصلة</li>
+<li>الوجهات الممكنة لتسليم مخرجات المهام المجدولة</li>
+<li>ما إذا كانت الجلسة مشتركة بين عدة مستخدمين</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="construction-build_session_context">البناء (<code>build_session_context</code>)</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<ol>
+<li>يجمع المنصات المتصلة من الإعدادات.</li>
+<li>يجمع القنوات الرئيسية لكل منصة.</li>
+<li>يحدّد <code>shared_multi_user_session</code> عبر <code>is_shared_multi_user_session()</code>.</li>
+<li>يرفق بيانات الجلسة الوصفية (المفتاح والمعرّف والطوابع الزمنية) إذا توفرت <code>session_entry</code>.</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pii-redaction-build_session_context_prompt">إخفاء معلومات الهوية الشخصية (<code>build_session_context_prompt</code>)</h3>
+<p>يمكن لقسم system prompt الديناميكي (<code>## Current Session Context</code>) إخفاء معلومات تحديد الهوية الشخصية اختياريًا قبل إرسالها إلى LLM:</p>
+<ul>
+<li>معرّفات المستخدمين → <code>user_&lt;12hex&gt;</code> (بادئة SHA-256)</li>
+<li>معرّفات المحادثات → <code>&lt;platform&gt;:&lt;12hex&gt;</code> أو ببساطة <code>&lt;12hex&gt;</code></li>
+<li>المنصات المستثناة من الإخفاء: Discord (يحتاج إلى المعرّفات الخام لـ <code>@mentions</code>)، وأي منصة مسجّلة بإضافة غير موسومة بـ <code>pii_safe</code>.</li>
+</ul>
+<p>ينطبق الإخفاء على نص system prompt فقط. ويستخدم التوجيه ومفاتيح الجلسات وعمليات المحوّل القيم الأصلية دائمًا.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="10-background-housekeeping">10. الصيانة الخلفية</h2>
+<p>يفحص <code>_session_housekeeping_watcher</code> دوريًا الوكلاء المخزّنة مؤقتًا والخاملة، ويُسقط مدخلات التخزين المؤقت عند ضغط الذاكرة، وينظّف مدخلات التوجيه القديمة كل ساعة. ولا ينهي نص محادثة بسبب الخمول أو وقت اليوم أبدًا.</p>
+<p>تحفظ عمليات الإخلاء بفعل TTL أو LRU أو الضغط نص المحادثة المباشر لدى مزوّدي الذاكرة قبل تحرير العملاء تحريرًا مرنًا. وتظل الأدوار النشطة محمية؛ وتبقى موارد الطرفية والمتصفح والعمليات الخلفية بعد التحرير المرن. يحافظ تنظيف مدخلات التوجيه على نص المحادثة المرجعي في SQLite، وتحمي العمليات النشطة مدخلات توجيهها من التنظيف. وتظل علامات <code>expiry_finalized</code> التاريخية حدودًا للاسترداد، لكنها لم تعد تُكتب بواسطة مراقب مؤقت.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="11-agent-cache">11. ذاكرة الوكلاء المؤقتة</h2>
+<p>يحتفظ الـ gateway بذاكرة LRU مؤقتة لنُسخ <code>AIAgent</code> مفهرسة بـ <code>session_key</code> للحفاظ على التخزين المؤقت للـ prompt عبر الأدوار.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cache-properties">خصائص التخزين المؤقت</h3>
+<ul>
+<li><strong>الحجم الأقصى:</strong> 128 مدخلًا (<code>agent.agent_cache.max_size</code>، والقيمة الافتراضية <code>_AGENT_CACHE_MAX_SIZE</code>).</li>
+<li><strong>سياسة الإخلاء:</strong> الأقل استخدامًا مؤخرًا (LRU عبر <code>OrderedDict</code>).</li>
+<li><strong>TTL للخمول:</strong> 3600s (1h) — <code>agent.agent_cache.idle_ttl_secs</code>، تفرضه <code>_session_housekeeping_watcher</code>.</li>
+<li><strong>ميزانية الذاكرة:</strong> <code>agent.agent_cache.memory_high_mb</code> (القيمة الافتراضية <code>auto</code>) — راجع أدناه.</li>
+<li><strong>القفل:</strong> <code>_agent_cache_lock</code> (threading) لضمان أمان الخيوط.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-pressure-eviction">الإخلاء بسبب ضغط الذاكرة</h3>
+<p>يثبّت الوكيل المخزّن مؤقتًا <code>_session_messages</code>، أي نص المحادثة النشط كاملًا بما فيه مخرجات الأدوات — عشرات MB لجلسة ذات 100 استدعاء أداة أو أكثر. لا يراعي حد المدخلات ولا TTL للخمول ذلك: يبقي gateway الذي يخدم محادثات كثيرة كل نص محادثة دافئ مقيمًا في الذاكرة (لا يشمل فحص الخمول الوكلاء التي نفّذت دورًا ضمن TTL)، فيرتفع RSS حتى يقيّد cgroup التشغيل ولا يعود SIGTERM قادرًا على التفريغ ضمن مهلة إيقاف systemd (#80764).</p>
+<p><code>_sweep_agent_cache_under_pressure()</code> هو صمام التحكم. يقارن في كل دورة مراقبة الذاكرة المجهولة بـ <code>memory_high_mb</code> — قيمة <code>memory.stat</code> <code>anon</code> الخاصة بـ cgroup عندما يعمل الـ gateway ضمن حد cgroup (وهو النطاق الذي تُحتسب عليه الميزانية، فتُحسب العمليات الفرعية في الوحدة نفسها مثل نوى <code>execute_code</code>؛ #110549)، وإلا يستخدم RSS المجهول الخاص بالعملية؛ وعند تجاوز الميزانية، يُخلي وكلاء LRU عبر المسار المرن نفسه الذي يفرض الحد (<code>_commit_then_release_soft</code>)، ثم ينفّذ <code>malloc_trim</code> لتعود مناطق الذاكرة المحررة فعليًا إلى نظام التشغيل. تعيد الجلسات التي أُخليت بناء نصها من الجلسة المحفوظة عند الدور التالي.</p>
+<p>لا تُسقط ثلاث فئات من الجلسات مطلقًا:</p>
+<ul>
+<li>الوكلاء الموجودة حاليًا في منتصف دور (عملاؤها و sandboxes الخاصة بها قيد الاستخدام)؛</li>
+<li>الجلسات <code>protect_recent</code> الأكثر استخدامًا مؤخرًا (تخزين prompts الخاص بها هو الأعلى قيمة)؛</li>
+<li>أي جلسة لم يكتمل وصول نص محادثتها النشط إلى القرص — تقارن <code>transcript_persistence_caught_up()</code> قيمة <code>_last_flushed_db_idx</code> بـ <code>len(_session_messages)</code>، وهو التباين نفسه الذي يتعامل معه حارس فساد كتابة FTS عندما يحافظ على السجل النشط بدلًا من نص محادثة متأخر.</li>
+</ul>
+<p><code>memory_high_mb: auto</code> يشتق الميزانية من حد cgroup الذي يعمل الـ gateway ضمنه (<code>memory.high</code>، ثم <code>memory.max</code>، ثم cgroup v1)، مع الرجوع إلى RAM الإجمالية عند عدم وجود حد. اضبط رقمًا لتثبيتها، أو <code>0</code>/<code>off</code> لتعطيل هذه الجولة كليًا. توجد الأدوات المساعدة في <code>gateway/agent_cache_pressure.py</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cache-lifecycle">دورة حياة التخزين المؤقت</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cleanup-flow">تدفق التنظيف</h3>
+<p>يزيل إخلاء الموارد الوكيل المخزّن مؤقتًا ويحفظ الذاكرة قبل تحرير العملاء مرنًا. يُحجز التفكيك الكامل عبر <code>_cleanup_agent_resources(agent)</code> لحدود المحادثات الفعلية والإيقاف.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="appendix-key-configuration">ملحق: الإعدادات الأساسية</h2>
+<table><thead><tr><th>مفتاح الإعدادات</th><th>النوع</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>group_sessions_per_user</code></td><td><code>bool</code></td><td><code>true</code></td><td>عزل جلسات المجموعات/القنوات لكل مستخدم</td></tr><tr><td><code>thread_sessions_per_user</code></td><td><code>bool</code></td><td><code>false</code></td><td>عزل جلسات threads لكل مستخدم</td></tr><tr><td><code>session_store_max_age_days</code></td><td><code>int</code></td><td><code>0</code></td><td>تنظيف الجلسات الأقدم من N يومًا (0=معطّل)</td></tr><tr><td><code>agent.gateway_auto_continue_freshness</code></td><td><code>int</code></td><td><code>3600</code></td><td>ثواني نافذة حداثة الاستئناف</td></tr><tr><td><code>agent.gateway_timeout</code></td><td><code>int</code></td><td><code>1800</code></td><td>مهلة دور الوكيل (30 دقيقة افتراضيًا)</td></tr><tr><td><code>agent.agent_cache.max_size</code></td><td><code>int</code></td><td><code>128</code></td><td>حد مدخلات LRU لـ AIAgents المخزّنة مؤقتًا</td></tr><tr><td><code>agent.agent_cache.idle_ttl_secs</code></td><td><code>int</code></td><td><code>3600</code></td><td>إخلاء الوكلاء الخاملة لهذه المدة</td></tr><tr><td><code>agent.agent_cache.memory_high_mb</code></td><td><code>int</code>/<code>str</code></td><td><code>auto</code></td><td>ميزانية Anon-RSS التي تُسقط فوقها نصوص محادثات LRU</td></tr><tr><td><code>agent.agent_cache.max_evictions_per_pass</code></td><td><code>int</code></td><td><code>16</code></td><td>حد الجلسات التي تُسقط في كل جولة ضغط</td></tr><tr><td><code>agent.agent_cache.protect_recent</code></td><td><code>int</code></td><td><code>8</code></td><td>جلسات MRU التي لا تمسّها جولة الضغط مطلقًا</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="state-database-and-fts-recovery">قاعدة بيانات الحالة واسترداد FTS</h2>
+<p>يوجد نص المحادثة المرجعي في جدولي <code>sessions</code> و <code>messages</code>. جداول FTS5 ومشغّلات مزامنتها فهارس مشتقة يمكن فصلها وإعادة بنائها دون حذف الرسائل المرجعية. راجع <a href="/docs/developer-guide/state-db-recovery">استرداد State DB</a> لمعرفة نمط الفشل النشط المحدود وإجراء الإصلاح الصريح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conversation-lifetime">عمر المحادثة</h3>
+<p>لا تُدعم إعدادات إعادة الضبط عند الخمول أو يوميًا. وتحتفظ أوامر <code>/new</code> و <code>/reset</code> الصريحة، والضغط والتعليق والاسترداد من التعطّل، بأدوارها المنفصلة في دورة الحياة.</p>

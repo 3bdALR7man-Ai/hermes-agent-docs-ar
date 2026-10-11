@@ -1,0 +1,247 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="developer-workflow">سير عمل المطوّر</h2>
+<p>يطلب التفعيل من PM تجهيز سلسلة الأدوات لنسخة مصدر مسحوبة أو مزامنتها، ثم
+يتيحها في الـ shell. لا يختار مفسّر Python لمحررك،
+ولا يعيد توجيه تطبيق Desktop مثبّت إلى هذه النسخة المسحوبة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prepare-a-checkout">تجهيز نسخة مسحوبة</h3>
+<p>استخدم طرفية عادية خارج تطبيق Hermes المغلّف. اخرج أولًا من أي
+بيئة Python افتراضية حالية. في Windows، استخدم PowerShell الأصلي مع Git.
+في ARM64، يجهّز PM أدوات Visual Studio C++ و Clang و Rust الأصلي ومكتبات
+OpenSSL التطويرية الثابتة قبل كل بناء اعتماديات من نسخة مسحوبة:
+الإعداد و <code>activate.ps1</code>, <code>install.ps1</code>, <code>hermes update</code> والإصلاح على السواء.
+يعيد استخدام التثبيتات الموجودة ويثبّت المتطلبات المفقودة. تتطلب مكونات
+Visual Studio المفقودة حقوق مسؤول: يطلبها التثبيت التفاعلي
+عبر UAC، بينما تحتاج عمليات CI و ssh والتشغيل المجدول إلى
+PowerShell بصلاحيات Administrator. يستخدم OpenSSL
+triplet <code>arm64-windows-static-md</code> من vcpkg. ينتج التثبيت المشترك المتضرر
+خطأ إصلاح، لا حذفًا تلقائيًا. لا تنطبق متغيرات بيئة المترجم و OpenSSL
+إلا على بناء اعتماديات PM، لا على الـ shell لديك مطلقًا.</p>
+<p>ما تزال المنصات الأخرى تتطلب أدوات المترجم الأصلية والمكتبات اللازمة
+للاعتماديات التي لا تملك wheels متوافقة.</p>
+<p>لإصدار Python المثبّت على macOS، يضبط PM <code>AR</code> افتراضيًا على <code>/usr/bin/ar</code>: ما يزال sysconfig
+للمفسّر الموزّع يشير إلى مجلد LLVM المؤقت الخاص بمورّده.
+ينطبق ذلك على بناء المصدر والحزم معًا. تبقى قيم <code>AR</code> و <code>CC</code>
+الصريحة هي المرجع؛ لا يغيّر PM سلسلة أدوات مفسّر
+يوفّره المستدعي مثل Nix Python. لا حاجة إلى افتراضي <code>CC</code> للإصدار المثبّت الحالي.</p>
+<p>استنسخ المستودع واختر branch قبل تجهيز الاعتماديات:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>للتطوير المعزول، اختر home بيانات منفصلًا قبل أول أمر
+PM. احتفظ بالقيم نفسها عند العودة إلى هذه النسخة المسحوبة.</p>
+<p>Bash، من جذر المستودع:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>PowerShell، من جذر المستودع:</p>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><code>HERMES_RUNTIME_DIR</code> في هذه الأمثلة تجاوز تطوير محلي للعملية.
+يجعل bootstrap و PM يستخدمان المخزن القابل للكتابة نفسه. لا تحفظ
+مسارًا داخل MSIX مثبّت أو حزمة macOS. يشغّل التفعيل مسار
+وقت التشغيل وحده في سكربت الإعداد لتوفير الأدوات ومزامنة إضافة Python <code>all</code>. ولا
+يختار <code>dev</code> أو يثبّت مساحات عمل JS. يصون الأوامر المحلية
+للتثبيت ويصلح أغلفة PATH المملوكة الموجودة، لكنه لا ينشئ وسائل
+راحة PATH جديدة أو يحمّل إعدادات التطبيق. ويتخطى أيضًا عمل التثبيت الموجّه
+للمستخدم في الإعداد: إعداد الـ shell و <code>.env</code> والمهارات المضمّنة.
+شغّل سكربت الإعداد منفصلًا إذا أردت سير عمل التثبيت الكامل.</p>
+<p>قبل وجود Python، يحصل bootstrap الخاص بـ shell على المفسّر المثبّت.
+بمجرد إمكان تشغيل Python، يسلّم عمل الاعتماديات إلى PM. يجهّز محرك PM
+الخاص وقت تشغيله الصغير المقفول قبل حل اعتماديات التطبيق.
+مشروعه مستقل عن مساحة عمل التطبيق: يجب ألا تمنع اعتمادية تطبيق
+معطّلة مدير الاعتماديات من بدء التشغيل.</p>
+<p>uv تفصيل تنفيذ خاص بـ PM. يطلب كود التطبيق ومسارات الإعداد
+ومستدعو البناء عمليات Python، لا ملفات uv التنفيذية أو معاملات أوامره.
+لا تغيّر بيئة Hermes بأوامر pip أو uv الخام.</p>
+<p>يحتوي وقت تشغيل PM على <code>ruamel.yaml</code>, <code>packaging</code>, <code>tomli-w</code> و <code>truststore</code> لا شجرة
+اعتماديات التطبيق. تعمل أوامر CLI والتثبيتات والإصلاحات التي يطلبها التطبيق
+هناك. تبقى عمليات البحث للقراءة فقط عن المسارات والأدوات المثبّتة محلية. تستخدم فحوص
+حداثة البيئة عامل PM جاهزًا. لا يضيف PM اعتمادياته مطلقًا إلى
+استيرادات وكيل يعمل بالفعل. تستخدم قارئات وكاتبات YAML
+الأصلية ruamel؛ وقد تظل حزم الطرف الثالث تحتاج إلى PyYAML في
+بيئة التطبيق. تبقى إثباتات الفشل قائمة على stdlib فقط.</p>
+<p>يفعّل CLI والعامل في PM <code>truststore</code> قبل استيراد عملاء HTTPS.
+يستخدم ذلك مخزن شهادات المنصة حتى إذا لم تحدّد مسارات OpenSSL المضمّنة
+في Python bootstrap مكانه. لا تُطلب اعتماديات تطبيق أو تجاوزات مسارات
+شهادات. بعد أول تثبيت، يعيد PM بناء بيئته الصغيرة
+مقابل Python المُدار عند الاستدعاء التالي؛ وتعيد الاستدعاءات اللاحقة استخدامها.</p>
+<p><code>pm.venv_is_current()</code> يفحص عبر عامل PM موجود، حتى عند تعطيل
+التثبيتات الكسولة. لا يُقلع PM مطلقًا من أجل فحص. إذا تعذّر وقت تشغيل
+المدير، يعيد false دون تنزيل أدوات أو
+اعتماديات. شغّل <code>hermes pm install</code> صراحة لتجهيز PM أولًا.</p>
+<p>تجهّز الحزم الأصلية وصور Docker lock PM نفسه عبر منشئ
+وقت التشغيل المشترك. يزوّد Termux ذلك المنشئ بـ wheelhouse
+دون اتصال ومتحقق منه. يبني Nix lock PM كـ derivation مستقل. لا تستخدم العمّال المغلّفة
+إلا مجلد اعتماديات PM المسجّل، لا مكتبات التطبيق مطلقًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="activate-an-existing-installation">تفعيل تثبيت موجود</h3>
+<p>في كل shell جديد، استعد قيم home التطوير وادخل النسخة المسحوبة.
+ثم فعّلها؛ لا يوجد أمر إعداد منفصل لتتذكره:</p>
+<table><thead><tr><th>الـ shell</th><th>الدخول</th><th>الخروج</th></tr></thead><tbody><tr><td>Bash</td><td><code>source ./activate</code></td><td><code>deactivate</code></td></tr><tr><td>fish</td><td><code>source ./activate.fish</code></td><td><code>deactivate</code></td></tr><tr><td>PowerShell</td><td><code>. .\activate.ps1</code></td><td><code>deactivate</code></td></tr></tbody></table>
+<p>النقطة والمسافة في البداية مطلوبتان في PowerShell. تنفيذ
+ <code>.\activate.ps1</code> دون dot-sourcing لا يوفّر نطاق الجلسة نفسه.
+<code>activate</code> يستخدم صيغة Bash. استخدم Bash لهذه الوصفة بدلًا من <code>sh</code> أو
+افتراض أن ملف بدء Zsh له دلالات Bash؛ لدى fish ملف
+ <code>activate.fish</code> خاص به يعمل بالطريقة نفسها.</p>
+<p>يستدعي كل تفعيل مسار تثبيت/مزامنة PM، ويثق في digest الأداة
+المسجّل بدلًا من إعادة hash كل إدخال. ما يزال PM يثبّت أداة مفقودة
+ويعيد بناء جيل اعتماديات قديم؛ ويحتفظ التثبيت المتعمّد بفحص
+البايتات. شغّل <code>python -m pm.cli install</code> أو <code>hermes update</code> لإعادة فحص البايتات
+المحققة. يعيد فشل الإعداد خطأ قبل تغيير بيئة الـ shell
+المفعّلة، بما في ذلك عند إعادة تحميل بيئة نشطة أصلًا.</p>
+<p>بعد المزامنة، يسبق التفعيل <code>PATH</code> بأدوات PM المثبّتة ويضبط
+ <code>PYTHONPATH</code> إلى هذه النسخة المسحوبة وشجرة اعتمادياتها المحددة. ويعرّف أيضًا
+ <code>hermes</code> كدالة shell لهذا worktree. تشغّل الدالة CLI
+هذه النسخة وتخفي الأمر المثبّت، بما فيه اسم MSIX البديل.
+تعمل فقط عندما يكون الـ shell داخل worktree هذا، وترفض خارجه،
+فلا يرث worktree شقيق الأمر. يكتسب prompt بادئة
+تسمّي branch، ويفقدها خارج الشجرة. لا يغيّر
+PATH على مستوى النظام ولا يثبّت prompt تقليديًا لـ venv.
+ابدأ في shell نظيف بدلًا من تعشيشه داخل venv أخرى.
+<code>deactivate</code> يعيد قيم البيئة التي التقطها سكربت التفعيل،
+ويزيل الدالة وبادئة prompt.
+لا يلغي تثبيت الحزم ولا يوقف عمليات بدأتَها.</p>
+<p>لتشغيل أمر أو سكربت واحد في تلك البيئة دون تفعيل shell،
+سبقه بـ <code>scripts/run-in-hermes-env</code>. يطبّق البيئة نفسها على
+ذلك الأمر وحده، ويزامن أولًا إذا لم توجد بيئة موروثة أو كانت
+الموروثة قديمة، ويترك الـ shell كما هو. يعيد <code>scripts/run_tests.sh</code> تشغيل
+نفسه بهذه الطريقة، وتسلّم سكربتات Python في المستودع نفسها إليه من
+سطر shebang.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تحقّق من المفسّر والمصدر قبل العمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>python</code> يجب أن يشير إلى مفسّر مخزن PM. و <code>pm.__file__</code> يجب أن يشير
+إلى داخل هذه النسخة المسحوبة. تأتي الاعتماديات من البيئة المحددة التي قد
+توجد خارج المستودع. يعني الاستيراد المفقود أن الإعداد أو الاختيار يحتاج
+مراجعة، حتى إذا أعاد <code>source ./activate</code> نفسه بنجاح.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="work-on-this-source-tree">العمل على شجرة المصدر هذه</h3>
+<p><code>hermes</code> هو CLI لهذا worktree بينما يكون الـ shell داخله. خارج
+worktree ترفض الدالة، فلا يمكنها تشغيل شجرة نسخة أخرى أو
+الرجوع إلى أمر مثبّت:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>تستخدم هذه الأوامر home التطوير المحدد. يظهر تحرير ملف مصدر
+للعملية التالية. أعد تشغيل CLI أو gateway أو backend المتأثر بعد التعديلات.
+لا يلزم إعادة تثبيت كل اعتماديات لتغيير مصدر Python وحده.</p>
+<p>لمساحات عمل JavaScript، شغّل <code>npm ci</code> مرة في جذر المستودع، ثم
+شغّل أمر مساحة العمل المعنية. مثلًا:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>الموقع منفصل: <code>npm ci --prefix website</code> ، ثم
+ <code>npm run build:fast --prefix website</code>. يوفّر تفعيل PM أدوات، لا مجلدات
+ <code>node_modules</code> هذه ولا الأصول المبنية. لبناء Desktop الأصلي متطلبات إضافية
+في <a href="https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/BUILDING.md" data-ext>دليل بناء Desktop</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="refresh-dependencies-without-changing-branches">تحديث الاعتماديات دون تغيير branches</h3>
+<p>بعد تغيير branch أو lockfile، أعد تحميل سكربت التفعيل لمزامنة
+الاعتماديات الجديدة واختيارها (<code>source ./activate</code> في Bash أو
+ <code>. .\activate.ps1</code> في PowerShell). للمزامنة دون تفعيل shell:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>بعد مزامنة مستقلة، أعد تفعيل البيئة وأعد تشغيل العمليات المتأثرة.
+استخدم <code>python -m pm.cli doctor</code> لتشخيص الأدوات و <code>python -m pm.cli status</code>
+لآخر إثبات مزامنة. لا تشغّل <code>hermes update</code> لمجرد تحديث
+branch ميزة: فهو تحديث للتطبيق وقد يغيّر branch المصدر.</p>
+<p>أسماء الأدوات المُدارة وأسماء إضافات Python واجهتان مختلفتان:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يثبّت الأمر الأول أداة. ويضيف الثاني extra معلنة لوقت التشغيل
+إلى اختيار Python الحالي لهذا التثبيت. تتراكم الإضافات (extras) عبر مزامنة
+PM. تنتمي مجموعتا الاعتماديات <code>dev</code> و <code>test</code> إلى بيئة الاختبار
+المنفصلة فقط، لا venv التطبيق المحددة. بعد تغيير extras، أعد التفعيل
+قبل بدء عملية Python أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="syncing-after-you-edit-pyprojecttoml">المزامنة بعد تحرير pyproject.toml</h3>
+<ol>
+<li>
+<p>حرّر <code>pyproject.toml</code>. ثبّت إصدار كل اعتمادية كما
+تتطلب <a href="https://github.com/NousResearch/hermes-agent/blob/main/pm/AGENTS.md#dependency-pinning-policy" data-ext>سياسة تثبيت إصدارات الاعتماديات</a>.
+عبّر عن حدود المنصة بعلامات PEP 508، أو قيّد extra كاملة
+في <code>[tool.hermes.extras-platforms]</code>.</p>
+</li>
+<li>
+<p>أعد إنشاء lock:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>يعيد هذا حل <code>uv.lock</code> من <code>pyproject.toml</code> بالإعدادات نفسها التي يفحصها
+CI، بما فيها حجر <code>exclude-newer</code> لمدة 14 يومًا. لا يغيّر
+أي بيئة. عندما يكون lock محدّثًا أصلًا، يذكر ذلك ولا يكتب
+شيئًا. (<code>hermes pm lock --bump NAME VERSION</code> عملية مختلفة: تثبّت
+أداة مُدارة في <code>pm/lock.json</code> ولا تمس <code>uv.lock</code>.)</p>
+</li>
+<li>
+<p>أعد تحميل سكربت التفعيل (<code>source ./activate</code> أو
+ <code>. .\activate.ps1</code> في PowerShell) لمزامنة venv التطبيق ومفسّر الاختبار
+مع lock الجديد. يغطي التفعيل <code>[all]</code>. إذا أضفت
+extra اختيارية خارج <code>[all]</code>, <code>hermes pm lock</code> يطبع الأمر الذي
+يضيفها أيضًا إلى مفسّر الاختبار، مثل
+ <code>source ./activate --test-extras all,NAME</code>.</p>
+</li>
+<li>
+<p>أدرج <code>pyproject.toml</code> و <code>uv.lock</code> في commit معًا.</p>
+</li>
+</ol>
+<p>لاعتماديات JS، حدّث manifest الحزمة المالكة و lock. لا تحرّر
+معلومات PM أو مساحات العمل المولّدة، ولا تثبّت حزمًا مباشرة داخل
+جيل محدد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="test-and-editor-environments">بيئات الاختبار والمحرر</h3>
+<p><code>source ./activate</code> (أو <code>. .\activate.ps1</code> في PowerShell) وكلا سكربتي
+ <code>setup-hermes</code> المباشرين تجهّز مفسّر اختبار معزولًا من مجموعتي
+الاعتماديات المقفلتين <code>dev</code> و <code>test</code>. يستخدم <code>scripts/run_tests.sh</code> ذلك المفسّر،
+ويعيد التفعيل إذا تغيّرت النسخة المسحوبة أو مدخلات اعتمادياتها. لا تختار venv التطبيق
+ولا أدوات التثبيت ولا الحزم أيًا من المجموعتين. يغطي افتراضي المطوّر
+ <code>[all]</code> ؛ لتغيير تغطية الاختبار، مرّر <code>--test-extras=anthropic</code> إلى تفعيل POSIX
+أو <code>-TestExtras anthropic</code> إلى PowerShell؛
+تختار تلك المعاملات extras لوقت التشغيل <em>في مفسّر الاختبار وحده</em>.</p>
+<p>في بيئة معزولة لا يتاح فيها التفعيل (مثل shell تطوير
+Nix)، يمكن للمستدعي توفير <code>HERMES_PYTHON</code> صراحة مع pytest، أو بناء
+بيئة مؤقتة مستقلة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>يجب ألا يكون المخرج موجودًا. لإعادة توليده، أوقف عملياته وتعمد
+إزالة تلك البيئة المؤقتة وحدها أولًا. ثم شغّل <code>scripts/run_tests.sh</code>
+(عبر Bash في Windows). تتضمن مجموعة اعتماديات الاختبار اختبارات المشغّل
+الأصلي، ولا تدخل وقت تشغيل مغلّفًا مطلقًا.</p>
+<p>لتصحيح الأخطاء في المحرر، اختر ذلك المفسّر المستقل، واضبط مجلد
+العمل إلى هذه النسخة، وشغّل <code>hermes</code> كالسكربت. أبقِ
+ <code>HERMES_HOME</code> الخاص به منفصلًا عن الإنتاج. لا يهيئ تفعيل الطرفية
+محررًا يعمل بالفعل. لا توجّه محررًا إلى جيل PM عابر
+أو ملف Python تنفيذي لتطبيق موقّع.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-operation-interfaces">واجهات عمليات Python</h3>
+<p>استخدم وحدة <code>pm</code> العامة لعمل اعتماديات Python:</p>
+<table><thead><tr><th>العملية</th><th>الملكية</th></tr></thead><tbody><tr><td><code>pm.sync_venv(extras, explicit=True)</code></td><td>جهّز اتحاد اعتماديات التطبيق الكامل واختره، بما فيه الإضافات المفعّلة.</td></tr><tr><td><code>pm.sync_venv(repair=True, explicit=True)</code></td><td>أعد بناء مجموعة الاعتماديات المسجّلة في جيل تطبيق جديد.</td></tr><tr><td><code>pm.build_environment(source=..., out=..., explicit=True)</code></td><td>ابنِ مخرجًا جديدًا يملكه المستدعي وتحقّق منه. لا اكتشاف إضافات ولا اختيار للتطبيق.</td></tr><tr><td><code>pm.lock_project(source, explicit=True)</code></td><td>حدّث lock مشروع صريح دون اختيار بيئة.</td></tr><tr><td><code>pm.ensure_environment(name, requirements, explicit=True)</code></td><td>جهّز جيل اعتماديات معزولًا واختره، وأعد مسار Python الخاص به.</td></tr><tr><td><code>pm.ensure_python_tool(name, requirements, executable, explicit=True)</code></td><td>جهّز أداة معزولة وأعد مسار ملفها التنفيذي.</td></tr><tr><td><code>pm.environment_python(name)</code> / <code>pm.python_tool(name, executable)</code></td><td>اقرأ المسارات المحددة دون تثبيت شيء.</td></tr><tr><td><code>pm.venv_is_current()</code></td><td>اسأل عامل PM جاهزًا عما إذا كانت اعتماديات التطبيق محدّثة. أعد false إذا تعذّر وقت تشغيل المدير.</td></tr></tbody></table>
+<p><code>pm.stage_manager_runtime(...)</code> هو استثناء bootstrap. يجهّز وقت تشغيل PM
+المقفول نفسه عبر المحرك الخاص المباشر، لأن ذلك الوقت لا يستطيع
+بناء نفسه عبر عامله. لا يعرّض uv للمستدعي.</p>
+<p><code>pm.build_env</code> هو واجهة الأوامر لأعمال البناء و lock الصريحة.
+شغّل <code>python -m pm.build_env --help</code> لخياراته المدعومة. افتراضيًا، تستخدم عمليات بناء
+المشاريع lock المعتمد. يحلّ <code>--resolve</code> قبل البناء. يختار <code>--python</code>
+مفسّر بناء صريحًا. يزيل <code>--sealed</code> مراجع <code>.pth</code>
+وقت البناء. ويتحكم <code>--offline</code> و <code>--cache</code> في الحصول على الاعتماديات.</p>
+<p>لبناء بيئة التطبيق، يجب أن يكون PM قادرًا بالفعل على البدء في
+Python المستدعي. هذه العمليات ليست bootstrap لمفسّر. لا تعدّل استيرادات تطبيق
+جارٍ ولا تستبدل بيئته المحددة. تبقى عمليات uv2nix التصريحية
+مملوكة لـ Nix. لا تدير أوامر مدير الحزم لمشاريع غير مرتبطة أو sandboxes
+للوكلاء Hermes نفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands">الأوامر</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<table><thead><tr><th>الأمر</th><th>الأثر</th></tr></thead><tbody><tr><td><code>pm install [names...]</code></td><td>ثبّت الحزم المسماة. دون أسماء، وفّر الأدوات المطلوبة مع Python، وضعها على PATH، ثم زامن extra <code>all</code>. يثبّت التثبيت المجرد أيضًا الأدوات الاختيارية الافتراضية (<code>agent-browser</code> و Chromium و <code>cua-driver</code>)؛ وفشل تنزيلها يطبع تحذيرًا ولا يفشل التثبيت. تسمية حزمة رفضتها سابقًا تعكس ذلك الاختيار.</td></tr><tr><td><code>pm install --without NAME</code></td><td>نفّذ تثبيتًا مجردًا دون الحزمة الاختيارية الافتراضية <code>NAME</code> (<code>agent-browser</code> أو <code>cua-driver</code>)، وسجّل الاختيار. تستبعدها أيضًا التثبيتات المجردة اللاحقة و <code>hermes update</code>. تستخدم خيارات المُثبّت <code>--skip-browser</code> / <code>-SkipBrowser</code> و <code>--skip-computer-use</code> / <code>-SkipComputerUse</code> ذلك.</td></tr><tr><td><code>pm install --tools-only</code></td><td>ثبّت مجموعة اعتماديات الأداة الكاملة وضعها على PATH، ثم توقف. لا تعمل مزامنة venv.</td></tr><tr><td><code>pm env [names...]</code></td><td>اطبع قيم البيئة التي يساهم بها PM للحزم المثبّتة كـ JSON. لا يثبّت حزمًا مفقودة، وإن كان إطلاق Hermes البارد قد يجهّز وقت تشغيل Python الخاص به أولًا.</td></tr><tr><td><code>pm doctor</code></td><td>افحص هويات الأدوات المثبّتة وملفاتها و digests مقابل lock.</td></tr><tr><td><code>pm repair</code></td><td>أعد بناء مجموعة اعتماديات Python المسجّلة في جيل جديد، وتحقق منها ثم اخترها. لا يحدّث الإصدارات المثبتة أو الميزات أو إعدادات الإضافات.</td></tr><tr><td><code>pm status</code></td><td>اطبع آخر إثبات مزامنة/تحديث كـ JSON، أو أبلغ عن عدم وجود إثبات.</td></tr><tr><td><code>pm gc</code></td><td>أزل إدخالات مخزن الأدوات غير المرجعية وأجزاء التنزيل المؤهلة وأجيال Python غير المستخدمة والمُدارة بالعقود وحالة <code>installs/INSTALL_KEY/</code> للنسخ المسحوبة المحذوفة (worktree أُزيل من مجلد <code>.worktrees/</code> ما يزال موجودًا، أو clone تحت جذر البيانات؛ تُحفظ النسخ التي لا تستطيع هذه العملية رؤيتها، مثل تثبيت مضيف يُرى من حاوية تشارك جذر البيانات، وتُحفظ كذلك أي حالة ما يزال قفل تثبيتها أو عقد جيلها محتجزًا). يستعيد منظّف worktrees الذي يعمل عند التشغيل تلك المجلدات اليتيمة أيضًا.</td></tr></tbody></table>
+<p><code>pm env</code> يستبعد متغيرات العملية الموروثة، بما فيها بيانات الاعتماد. وقد
+تكشف مخرجاته مسارات تثبيت محلية؛ راجعها قبل مشاركتها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="maintainer-commands">أوامر القائمين على الصيانة</h3>
+<p>تغيّر هذه الأوامر مدخلات الاعتماديات أو تجهّز مخرجات بناء. ليست
+بدائل لآلية تحديث تطبيق مثبّت.</p>
+<table><thead><tr><th>الأمر</th><th>الأثر</th></tr></thead><tbody><tr><td><code>pm lock</code></td><td>أعد إنشاء lock لـ <code>uv.lock</code> من <code>pyproject.toml</code>. لا يغيّر بيئة؛ ولا يكتب شيئًا عندما يكون lock محدّثًا.</td></tr><tr><td><code>pm lock --bump NAME VERSION</code></td><td>حل مخرجات الأهداف المدعومة واحسب hashes، ثم اكتب تثبيت الأداة إلى <code>pm/lock.json</code>.</td></tr><tr><td><code>pm update [names...]</code></td><td>استعلم عن إصدارات الأصل، وغيّر تثبيتات الأدوات، وثبّت الأدوات المتغيّرة.</td></tr><tr><td><code>pm update --check</code></td><td>استعلم دون كتابة. قد يعني الخروج 1 وجود تحديثات؛ افحص المخرجات لتمييز الخطأ.</td></tr><tr><td><code>pm update --target TARGET</code></td><td>حل الإصدارات للهدف المحدد.</td></tr><tr><td><code>pm update --uv</code> / <code>--npm</code></td><td>حدّث أيضًا حل اعتماديات Python أو npm.</td></tr><tr><td><code>pm update --termux [--check]</code></td><td>أعد تثبيت أرشيفات termux pool التي تقاعدت من rolling pool (جدول تثبيت runtime-lib وصفوف lock الخاصة بـ bionic). <code>--check</code> يُبلغ دون كتابة ويخرج 1 عند تقاعد تثبيت.</td></tr><tr><td><code>pm install --target TARGET NAME...</code></td><td>جهّز حزمًا صريحة لأهداف مختلفة دون تسجيلها كوقت تشغيل مثبّت للمضيف. هدف win32 <code>git</code> يثبّت أرشيف PortableGit ذاتي الاستخراج: تجهيزه يشغّل مستخرج المورّد، لذا يتطلب مضيف Windows.</td></tr><tr><td><code>pm bundle --out DIR [--ref REF]</code></td><td>جهّز لقطة مصدر وأدوات أصلية ومعلومات واعتماديات Python. لا ينتج مُثبّت Desktop موقّعًا.</td></tr></tbody></table>
+<p>يبني منشئ Desktop الكامل أيضًا واجهات JavaScript، ويولّد
+مشغّلات ويستدعي التغليف الأصلي. يمكن للقائمين على الصيانة قراءة
+<a href="https://github.com/NousResearch/hermes-agent/blob/main/apps/desktop/BUILDING.md" data-ext>بناء أدوات تثبيت Desktop</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="network-retries">إعادة محاولات الشبكة</h2>
+<p>يعيد PM محاولة أخطاء HTTP العابرة أثناء تنزيل الأدوات وحساب hashes للمخرجات
+والبحث عن الإصدارات. لكل فحص أو نقل أربع محاولات كحد أقصى. فترات التراجع
+1 و 2 و 4 ثوانٍ. يمكن لـ header <code>Retry-After</code> تمديد الانتظار حتى
+30 ثانية. تذكر كل إعادة محاولة سببها وتأخيرها والمحاولة التالية في السجل.</p>
+<p>حالات HTTP القابلة للإعادة هي 408 و 429 و 500 و 502 و 503 و 504. تُعاد أيضًا
+الاتصالات المُعاد ضبطها والمهل وأخطاء DNS المؤقتة ومتُون الاستجابة المنقطعة.
+تحافظ التنزيلات ذات النطاقات على البايتات المكتملة. تتطلب خوادم دون دعم نطاقات
+دفقًا جديدًا. يقطع الإيقاف المؤقت التراجع ويحفظ التنزيل الجزئي.</p>
+<p>لا يعيد PM محاولة hashes غير الصحيحة أو أخطاء الشهادات أو نظام الملفات المحلي أو
+غيرها من الأخطاء الدائمة. فحص ناجح يتبعه GET نطاق بخطأ 403 أو 404
+يحافظ على احتياط CDN: محاولة تسلسلية واحدة للنطاقات المفقودة. لا تتكرر عمليات
+الاستخراج والتحقق والنشر. تبقى طلبات حزم Python و npm
+تحت سياسات إعادة المحاولة الخاصة بـ uv و npm.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostics">التشخيص</h2>
+<ul>
+<li><strong>بناء اعتماديات Python بطيء:</strong> تفعّل أوامر uv المتدفقة من PM المخرجات التفصيلية. تعرض سجلات الحزم والبناء نشاط الحزم و stdout/stderr الخاص بـ build-backend أثناء البناء، لا بعد الفشل فقط.</li>
+<li><strong>أداة مفقودة أو قديمة:</strong> اقرأ <code>hermes pm doctor</code> ، ثم استخدم تثبيت PM صريحًا على تثبيت قابل للكتابة.</li>
+<li><strong>بيئة جديدة تتطلب إعادة التشغيل:</strong> أعد تشغيل عملية Hermes المتأثرة. لا تضف شجرة site-packages ثانية إلى استيراداتها الحيّة.</li>
+<li><strong>تعارض اعتماديات:</strong> اقرأ <code>hermes pm status</code>. صحّح متطلبات الإضافة قبل إعادة محاولة القبول.</li>
+<li><strong>اعتماديات Python متضررة:</strong> شغّل <code>hermes pm repair</code> ، ثم أعد تشغيل Hermes. يعيد الإصلاح بناء مساحة عمل الجيل المحدد و lock المحفوظين دون تحليل إعدادات الإضافات. السجل غير المقروء أو lock المحفوظ المفقود يفشل دون اختيار مجموعة اعتماديات ناقصة. قبل وجود جيل، يستخدم الإصلاح lock المشحون أو المعتمد ومجموعة الميزات المسجّلة.</li>
+<li><strong>تثبيت اعتماديات منقطع:</strong> يطلب بدء التشغيل إصلاح PM نفسه قبل تفعيل الاعتماديات. المحاولات التلقائية محدودة؛ ويعيد <code>pm repair</code> المحاولة صراحة. يحفظ الإصلاح الفاشل الاختيار السابق وعلامة إعادة المحاولة.</li>
+<li><strong>ملف Python تنفيذي أو مصدر تطبيق متضرر:</strong> أصلح أو أعد التثبيت عبر مالك الحزمة. لا يستطيع PM العمل دون تلك الملفات. لا يعدّل إصلاح الاعتماديات ملفات الحمولة الموقّعة مطلقًا.</li>
+<li><strong>حزمة أو extra غير معروفة:</strong> استخدم الاسم المعلن. يأخذ <code>pm install</code> أسماء الحزم، لا أسماء extras الخاصة بـ Python أو مواصفات pip.</li>
+</ul>

@@ -1,0 +1,87 @@
+<header><h1>البرمجيات الوسيطة في Hermes</h1></header>
+<p>البرمجيات الوسيطة (middleware) في Hermes هي النظير الذي يغيّر السلوك لـ hooks المراقبة. تُبلغ hooks المراقبة عما حدث، بينما يمكن للبرمجيات الوسيطة تغيير ما يحدث بإعادة كتابة الطلب قبل التنفيذ أو بتغليف استدعاء التنفيذ الراجع نفسه.</p>
+<p>هذا العقد محايد تجاه backend عمدًا. يمكن للإضافة استخدامه للسياسات المحلية، أو تشكيل الطلبات، أو التتبع، أو التوجيه التكيّفي، أو التحكم في التخزين المؤقت، أو اختيار sandbox، أو التسليم إلى بيئات تشغيل مثل NeMo Relay دون تغيير مخطط Hermes، أو محوّلات مزوّدي النماذج، أو سجل الأدوات، أو الذاكرة، أو تجربة استخدام CLI.</p>
+<p>عند تفعيل البرمجيات الوسيطة، يمكن للإضافات:</p>
+<ul>
+<li>إعادة كتابة kwargs لطلبات مزوّد LLM قبل أن يستدعي Hermes المزوّد.</li>
+<li>إعادة كتابة وسائط الأدوات قبل أن تراها ضوابط الأمان وفحوص الموافقة و hooks وتنفيذ الأداة.</li>
+<li>تغليف الاستدعاء الراجع لتنفيذ LLM الفعلي مع الحفاظ على سلوك Hermes في إعادة المحاولة والبث والمقاطعة و hooks.</li>
+<li>تغليف الاستدعاء الراجع لتنفيذ الأداة الفعلي مع الحفاظ على ضوابط أمان Hermes والموافقة و hooks ما بعد الأداة وتحويل نتيجة الأداة.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contract">العقد</h2>
+<p>تسجّل الإضافات البرمجيات الوسيطة من <code>register(ctx)</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يتلقى كل استدعاء راجع للبرمجيات الوسيطة:</p>
+<ul>
+<li><code>telemetry_schema_version</code>: حاليًا <code>hermes.observer.v1</code></li>
+<li><code>middleware_schema_version</code>: حاليًا <code>hermes.middleware.v1</code></li>
+<li>سياق تشغيل مثل <code>session_id</code>, <code>task_id</code>, <code>turn_id</code>,
+<code>api_request_id</code>, <code>provider</code>, <code>model</code>, <code>api_mode</code>, <code>tool_name</code>، و <code>tool_call_id</code> عند انطباقها.</li>
+</ul>
+<p>أنواع البرمجيات الوسيطة المدعومة:</p>
+<table><thead><tr><th>النوع</th><th>الحمولة</th><th>بنية القيمة المُعادة</th><th>الغرض</th></tr></thead><tbody><tr><td><code>llm_request</code></td><td><code>request</code>, <code>original_request</code></td><td><code>{&quot;request&quot;: {...}}</code></td><td>استبدال kwargs الفعلية للمزوّد قبل تنفيذه.</td></tr><tr><td><code>tool_request</code></td><td><code>tool_name</code>, <code>args</code>, <code>original_args</code></td><td><code>{&quot;args&quot;: {...}}</code></td><td>استبدال وسائط الأداة الفعلية قبل hooks وضوابط الأمان والموافقات والتنفيذ.</td></tr><tr><td><code>llm_execution</code></td><td><code>request</code>, <code>original_request</code>, <code>next_call</code></td><td>أي استجابة من المزوّد</td><td>تغليف استدعاء المزوّد الفعلي أو استبداله.</td></tr><tr><td><code>tool_execution</code></td><td><code>tool_name</code>, <code>args</code>, <code>original_args</code>, <code>next_call</code></td><td>أي نتيجة للأداة</td><td>تغليف استدعاء الأداة الفعلي أو استبداله.</td></tr></tbody></table>
+<p>يمكن لبرمجيات الطلب الوسيطة إعادة حقول تتبع اختيارية:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يخزّن Hermes إدخالات التتبع تلك في حمولات hooks المراقبة اللاحقة باسم <code>middleware_trace</code>.</p>
+<p>تتلقى برمجيات التنفيذ الوسيطة استدعاءً راجعًا باسم <code>next_call</code>. استدعه لمواصلة السلسلة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>إذا سجّلت عدة إضافات النوع نفسه من برمجيات التنفيذ الوسيطة، يشغّلها Hermes كسلسلة متداخلة بترتيب التسجيل. لا توقف إخفاقات البرمجيات الوسيطة التنفيذ: يسجّل Hermes تحذيرًا ويتابع البرمجية الوسيطة التالية أو مسار التشغيل الأساسي. يُبلَّغ عن الاستدعاء الراجع الذي يفشل بالطريقة نفسها كل مرة (عادةً بسبب توقيع يسمّي حقلًا لا ترسله البرمجية الوسيطة) <strong>مرة واحدة</strong> بمستوى WARNING — وتسرد الرسالة الحقول التي يوفرها فعلًا — وتُنقل التكرارات المطابقة إلى DEBUG، كي لا تُغرق برمجية وسيطة معلنة خطأً السجل؛ وتعيد إعادة تحميل الإضافة ضبط الإبلاغ.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="execution-order">ترتيب التنفيذ</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="llm-calls">استدعاءات LLM</h3>
+<p>لكل طلب إلى المزوّد، يطبّق Hermes البرمجيات الوسيطة بهذا الترتيب:</p>
+<ol>
+<li>بناء kwargs الخاصة بالمزوّد من المحادثة الحالية.</li>
+<li>تطبيق البرمجيات الوسيطة <code>llm_request</code>.</li>
+<li>إطلاق hooks المراقبة <code>pre_api_request</code> بالطلب الفعلي.</li>
+<li>تشغيل تنفيذ المزوّد عبر البرمجيات الوسيطة <code>llm_execution</code>.</li>
+<li>إطلاق hooks المراقبة <code>post_api_request</code> أو <code>api_request_error</code>.</li>
+</ol>
+<p>ترى برمجيات الطلب الوسيطة kwargs الكاملة للمزوّد، بما فيها <code>messages</code> أو <code>input</code> الخاصة بـ Responses API، وإعدادات النموذج، وتعريفات الأدوات، وخيارات البث، والخيارات الخاصة بالمزوّد. تتلقى برمجيات التنفيذ الوسيطة الطلب الفعلي نفسه إضافةً إلى <code>next_call</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-calls">استدعاءات الأدوات</h3>
+<p>لكل استدعاء أداة، يطبّق Hermes البرمجيات الوسيطة بهذا الترتيب:</p>
+<ol>
+<li>تحليل وسائط الأداة التي قدمها النموذج وتحويل أنواعها.</li>
+<li>تطبيق البرمجيات الوسيطة <code>tool_request</code>.</li>
+<li>تشغيل مسار Hermes المعتاد السابق للتنفيذ على الوسائط الفعلية: فحوص توفر الأداة، وتوجيهات الحظر للمراقب، وضوابط الأمان، وفحوص الموافقة.</li>
+<li>تشغيل تنفيذ الأداة عبر البرمجيات الوسيطة <code>tool_execution</code>.</li>
+<li>إطلاق hooks المراقبة <code>post_tool_call</code>.</li>
+<li>تطبيق hooks <code>transform_tool_result</code> قبل إضافة النتيجة إلى سياق المحادثة مجددًا.</li>
+</ol>
+<p>تعمل برمجيات طلب الأداة الوسيطة قبل فحوص الموافقة. استخدمها بحذر: فالمسار أو الأمر أو URL المُعاد كتابته هو القيمة التي ستقيّمها السياسة اللاحقة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enablement">التفعيل</h2>
+<p>لا تعمل البرمجيات الوسيطة إلا للإضافات المفعّلة. لإضافة مضمّنة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>للاختبار المحلي المعزول، استخدم قيمة واحدة لـ <code>HERMES_HOME</code> لتفعيل الإضافة وتشغيل الوكيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>في النسخ المسحوبة من المصدر، استخدم <a href="/docs/reference/package-management#developer-workflow">سير عمل المطوّر في PM</a> ومجلدًا رئيسيًا منفصلًا للتطوير، لترى بيئة التشغيل الإضافات والبرمجيات الوسيطة من شجرة العمل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="generic-plugin-examples">أمثلة عامة للإضافات</h2>
+<p>الأمثلة أدناه صغيرة عمدًا. تعرض بنية عقد البرمجيات الوسيطة دون الاعتماد على NeMo Relay.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="llm-request-middleware">برمجيات طلب LLM الوسيطة</h3>
+<p>توسم هذه الإضافة طلبات المزوّد وتسجّل إدخال تتبع للبرمجيات الوسيطة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>يُمرَّر الطلب الفعلي إلى <code>pre_api_request</code> وتنفيذ المزوّد و <code>post_api_request</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-request-middleware">برمجيات طلب الأداة الوسيطة</h3>
+<p>تقيّد هذه الإضافة استدعاءات <code>terminal</code> بمجلد عمل معروف:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>لأن ذلك يعمل قبل hooks والموافقات، ترى بيانات الرصد والسياسة اللاحقة قيمة <code>workdir</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="llm-execution-middleware">برمجيات تنفيذ LLM الوسيطة</h3>
+<p>تغلّف هذه الإضافة استدعاء المزوّد وتحافظ على استجابته الخام:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>أعِد بنية الاستجابة نفسها التي يتوقعها Hermes من محوّل المزوّد. لا تغلّف الاستجابة بغلاف خاص بالإضافة ما لم تتوقع بقية بيئة التشغيل ذلك الغلاف.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-execution-middleware">برمجيات تنفيذ الأداة الوسيطة</h3>
+<p>تغلّف هذه الإضافة تنفيذ الأداة مع الحفاظ على نتيجتها:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>يمكن لبرمجيات التنفيذ الوسيطة استدعاء <code>next_call(modified_args)</code> لتمرير حمولة معدّلة إلى البرمجيات الوسيطة اللاحقة وموزّع الأدوات الأساسي.</p>
+<p>ينبغي أن توجد الأمثلة الخاصة بالإضافة ضمن الإضافة التي تملك السلوك. تُثبَّت برمجيات تنفيذ NeMo Relay الوسيطة عبر إعدادات المستخدم والنظام التي يكتشفها Relay، أو عبر <code>plugins.toml</code> صريح يُختار بواسطة <code>HERMES_NEMO_RELAY_PLUGINS_TOML</code>؛ راجع <a href="/docs/developer-guide/relay-shared-metrics">مقاييس Relay المشتركة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="safety-notes">ملاحظات الأمان</h2>
+<ul>
+<li>ينبغي أن تكون البرمجيات الوسيطة حتمية للمدخلات نفسها، إلا إذا كانت توجّه صراحةً إلى نظام خارجي ديناميكي.</li>
+<li>ينبغي أن تعيد برمجيات الطلب الوسيطة حمولات بديلة كاملة، لا ترقيعات جزئية.</li>
+<li>ينبغي أن تستدعي برمجيات التنفيذ الوسيطة <code>next_call(...)</code> مرة واحدة بالضبط، ما لم تكن تتجاوز التنفيذ عمدًا.</li>
+<li>إذا أطلقت برمجيات التنفيذ الوسيطة استثناءً قبل استدعاء <code>next_call(...)</code>، يعامل Hermes ذلك كإخفاق للبرمجية الوسيطة ويواصل بقية السلسلة والتنفيذ الأساسي.</li>
+<li>إذا استدعت برمجيات التنفيذ الوسيطة <code>next_call(...)</code> بنجاح ثم أطلقت استثناءً أثناء المعالجة اللاحقة، يحتفظ Hermes بالنتيجة اللاحقة ولا يشغّل المزوّد أو الأداة مرة ثانية.</li>
+<li>إذا فشل التنفيذ اللاحق للمزوّد أو الأداة، يمكن للبرمجيات الوسيطة تمرير ذلك الخطأ أو تحويله عمدًا. لا يحوّل Hermes الإخفاق اللاحق إلى نتيجة <code>None</code> ناجحة.</li>
+<li>تعمل برمجيات طلب الأداة الوسيطة قبل الموافقات. وإذا عدّلت مسارات الملفات أو الأوامر أو عناوين URL أو الوسائط، فالقيم المعدّلة هي ما تقيّمه ضوابط الأمان والموافقات.</li>
+<li>تظل hooks المراقبة المكان الصحيح للرصد للقراءة فقط. استخدم البرمجيات الوسيطة فقط عندما تحتاج إضافة إلى تعديل السلوك أو تغليفه.</li>
+</ul>

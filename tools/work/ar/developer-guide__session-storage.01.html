@@ -1,0 +1,37 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="full-text-search">البحث النصي الكامل</h2>
+<p>تدعم الدالة <code>search_messages()</code> صيغة استعلام FTS5 مع تعقيم تلقائي لإدخال المستخدم.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="basic-search">بحث أساسي</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fts5-query-syntax">صيغة استعلام FTS5</h3>
+<table><thead><tr><th>الصيغة</th><th>مثال</th><th>المعنى</th></tr></thead><tbody><tr><td>كلمات مفتاحية</td><td><code>docker deployment</code></td><td>كِلا المصطلحين (AND ضمنية)</td></tr><tr><td>عبارة بين علامتَي اقتباس</td><td><code>&quot;exact phrase&quot;</code></td><td>مطابقة عبارة دقيقة</td></tr><tr><td>OR منطقية</td><td><code>docker OR kubernetes</code></td><td>أيّ من المصطلحين</td></tr><tr><td>NOT منطقية</td><td><code>python NOT java</code></td><td>استبعاد مصطلح</td></tr><tr><td>بادئة (Prefix)</td><td><code>deploy*</code></td><td>مطابقة بادئة</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtered-search">بحث مُصفّى</h3>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="search-results-format">صيغة نتائج البحث</h3>
+<p>تتضمن كل نتيجة:</p>
+<ul>
+<li><code>id</code> و <code>session_id</code> و <code>role</code> و <code>timestamp</code></li>
+<li><code>snippet</code> — مقتطف مُولَّد من FTS5 بعلامات <code>&gt;&gt;&gt;match&lt;&lt;&lt;</code> لتحديد المطابقات</li>
+<li><code>context</code> — رسالة واحدة قبل وبعد المطابقة (يُقتَطع المحتوى إلى 200 حرف)</li>
+<li><code>source</code> و <code>model</code> و <code>session_started</code> — من الجلسة الأصل</li>
+</ul>
+<p>تتعامل الدالة <code>_sanitize_fts5_query()</code> مع الحالات الخاصة:</p>
+<ul>
+<li>إزالة علامات الاقتباس غير المتطابقة والأحرف الخاصة</li>
+<li>إحاطة المصطلحات ذات الشرطات بعلامات اقتباس (<code>chat-send</code> → <code>&quot;chat-send&quot;</code>)</li>
+<li>إزالة عوامل التشغيل المنطقية المعلَّقة (<code>hello AND</code> → <code>hello</code>)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-lineage">نسب الجلسات (Session Lineage)</h2>
+<p>يمكن للجلسات تكوين سلاسل عبر <code>parent_session_id</code>. يحدث هذا عندما يُحفّز ضغط
+السياق تقسيم جلسة في gateway.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-find-session-lineage">استعلام: إيجاد نسب الجلسة</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-recent-sessions-with-preview">استعلام: الجلسات الأخيرة مع معاينة</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-token-usage-statistics">استعلام: إحصائيات استخدام tokens</h3>
+<div class="language-sql codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="export-and-cleanup">التصدير والتنظيف</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-location">موقع قاعدة البيانات</h2>
+<p>المسار الافتراضي: <code>get_hermes_home() / &quot;state.db&quot;</code> — <code>~/.hermes/state.db</code> للـ profile الافتراضي، و <code>~/.hermes/profiles/&lt;name&gt;/state.db</code> للـ profile المسمّى، أو أي مكان تشير إليه قيمة <code>HERMES_HOME</code> (راجع <a href="#hermes-home-and-profile-isolation">مجلد Hermes الرئيسي وعزل profiles</a>).</p>
+<p>يُنشَأ ملف قاعدة البيانات وملف WAL (<code>state.db-wal</code>) وملف الذاكرة المشتركة
+(<code>state.db-shm</code>) جميعها في نفس المجلد.</p>

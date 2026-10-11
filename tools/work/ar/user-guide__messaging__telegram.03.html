@@ -1,6 +1,53 @@
+
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rendering-rich-messages-tables-and-link-previews">العرض: الرسائل الغنية والجداول ومعاينات الروابط</h2>
+<p><strong>الرسائل الغنية (Bot API 10.1).</strong> الردود النهائية التي تحتوي على بنى يُضعف مسار MarkdownV2 القديم عرضها — الجداول، وقوائم المهام، وكتل <code>&lt;details&gt;</code> القابلة للطي، والمعادلات الرياضية الكتلية — تُرسل عبر <a href="https://core.telegram.org/bots/api#sendrichmessage" data-ext><code>sendRichMessage</code></a> الأصلية في Telegram باستخدام <strong>markdown الخام</strong> الخاص بالوكيل، فتُعرض بشكل أصلي دون تسطيح من جهة العميل. وفي الرسائل المباشرة، يُبقي الإعداد الافتراضي <code>rich_drafts: false</code> معاينة البث عادية — إذ تستخدم آلية نقل المسودات المؤقتة في Telegram مع العرض القديم (فتبقى الجداول والبنى الأخرى الخاصة بالرسائل الغنية كـ markdown خام في المعاينة) — ثم يُحفظ الرد المكتمل عبر <code>sendRichMessage</code>. ويؤدي ضبط <code>rich_drafts: true</code> إلى أن تستخدم المعاينة الحية <code>sendRichMessageDraft</code> أيضًا. ويمكن لعمليات البث المعتمدة على التعديل إنهاء معاينة موجودة في مكانها عبر <code>editMessageText</code> باستخدام المعامل <code>rich_message</code>. أما الردود العادية (النثر البسيط، والخط العريض/المائل، والقوائم البسيطة) فتبقى على مسار MarkdownV2 للحفاظ على اتساق وزن الخط والتباعد عبر العملاء.</p>
+<p>يُتخطى المسار الغني تلقائيًا عندما يتجاوز المحتوى حد النص الغني البالغ 32,768 حرفًا، وأي رفض من Telegram (endpoint غير مدعوم في إصدار أقدم من <code>python-telegram-bot</code>، أو خطأ في المحلل، أو كتل/أعمدة بحجم زائد) <strong>يعود بشفافية</strong> إلى مسار MarkdownV2 — فلا تضيع رسالتك أبدًا. أما الأخطاء العابرة/أخطاء الشبكة فإنها <em>لا</em> يُعاد إرسالها بصمت (فلا تتكرر الرسالة النهائية).</p>
+<p><strong>البديل الاحتياطي MarkdownV2.</strong> عندما يكون المسار الغني غير متاح لرسالة ما، يحوّل Hermes الـ markdown إلى MarkdownV2. وبما أن MarkdownV2 لا يملك صيغة جداول أصلية، تُطبَّع الجداول المكتوبة بالخطوط العمودية (pipe tables):</p>
+<ul>
+<li><strong>الجداول الصغيرة</strong> تُسطَّح إلى <strong>نقاط مجمّعة حسب الصفوف</strong> — إذ يصبح كل صف قائمة نقطية مقروءة تحت عناوين الأعمدة. وهذا مناسب لجداول من 2–4 أعمدة وخلايا قصيرة.</li>
+<li><strong>الجداول الأكبر أو الأعرض</strong> تُعرض بدلًا من ذلك في <strong>كتلة شيفرة مسوّرة (fenced code block)</strong> بأعمدة محاذاة كي لا ينهار شيء.</li>
+</ul>
+<p>الرسائل الغنية <strong>اختيارية</strong>. ويبقى الافتراضي على مسار MarkdownV2 القديم لأن عملاء Telegram الحاليين قد يجعلون نسخ الرسائل الغنية في Bot API كنص عادي أمرًا صعبًا، وهو ما يكون مزعجًا بشكل خاص مع مقتطفات الأوامر وعند نقل العمل إلى الهاتف المحمول. لتفعيل العرض الأصلي للجداول/قوائم المهام/كتل details/المعادلات الرياضية:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<p>هذا الإعداد مخصص للتوافق مع طريقة العرض والنسخ في العميل؛ إذ يعود Hermes تلقائيًا بالفعل إلى البديل عندما يرفض Telegram استدعاء API الغنية. ويتحكم <code>rich_drafts</code> في ما إذا كانت معاينة البث في الرسائل المباشرة <em>تُعرض</em> بتنسيق غني (<code>sendRichMessageDraft</code>) ويظل معطّلًا افتراضيًا لأن Telegram Desktop/macOS قد يعرض إطارات المسوّدة الغنية متراكبة بصريًا حتى تُعاد رسم المحادثة؛ وعندما يكون معطّلًا، تتدفق المعاينة كنص عادي، بينما يصل الرد النهائي كرسالة Rich Message أصلية.</p>
+<p>يبقى نص CJK (الصيني والياباني والكوري وامتدادات Han النادرة) على مسار MarkdownV2 القديم افتراضيًا، لأن بعض عملاء Telegram Desktop/macOS عرضوا رسائل Bot API الغنية مع تشوّهات تراكب في محارف CJK. إذا كنت تستخدم عميلًا غير متأثر وتفضّل الجداول وقوائم المهام والتفاصيل والرياضيات الغنية الأصلية لمحتوى CJK، فاضبط <code>allow_cjk_rich_messages: true</code> إلى جانب <code>rich_messages: true</code> لقبول هذا الخطر من جانب العميل.</p>
+<p>إذا أردت فقط سلوك الجداول القديم &quot;دائمًا داخل كتلة كود&quot; مع إبقاء الرسائل الغنية مفعّلة، فعطّل توحيد تنسيق الجداول بضبط <code>telegram.pretty_tables: false</code> في <code>config.yaml</code> (الافتراضي: <code>true</code>).</p>
+<p><strong>معاينات الروابط.</strong> يولّد Telegram معاينات الروابط تلقائيًا لعناوين URL في رسائل البوت. وإذا كنت تفضّل منعها (مخرجات <code>/tools</code> الطويلة، أو رد الوكيل الذي يذكر عشرة روابط، إلخ):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<p>عند التفعيل، يُرفق Hermes الخيار <code>LinkPreviewOptions(is_disabled=True)</code> الخاص بـ Telegram بكل رسالة صادرة، ويعود إلى المعامل القديم <code>disable_web_page_preview</code> في إصدارات <code>python-telegram-bot</code> من الإصدارات.</p>
+<p><strong>الردود الطويلة والتحكّم في الإرسال المتكرر.</strong> يُرسل الرد الذي يتجاوز حد Telegram البالغ 4,096 محرفًا في أجزاء مرقّمة (<code>(1/3)</code>, <code>(2/3)</code>، …). تُسلّم الرسائل إلى المحادثة الواحدة ردًا كاملًا في كل مرة، لذا لا يمكن أن تتداخل أجزاء تقرير مجدول مع إجابة رسالة مباشرة تصل معه، ولا أن يقع رفع ملف بين جزأين من النص المرافق له. إذا رفض نظام Telegram للتحكّم في الإرسال المتكرر جزءًا في منتصف الإرسال، يستأنف Hermes من الجزء المرفوض بعد انتهاء العقوبة بدلًا من إعادة إرسال الأجزاء المعروضة بالفعل؛ وخلال فترة عقوبة معروفة لمحادثة ما، تُرفض محليًا أي إرسالات إضافية إليها (دون طلبات إضافية قد تطيل العقوبة). تُحال العقوبة الأطول من حد انتظار gateway المباشر إلى سجل التسليم، الذي يعيد تسليم الرد مع ملاحظة تفيد بأن &quot;جزءًا منه ربما وصل بالفعل أعلاه&quot;.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="group-allowlisting">قوائم السماح للمجموعات</h2>
+<p>لمجموعات Telegram ومحادثات المنتديات بوابتان مستقلتان يمكنك ضبطهما:</p>
+<ul>
+<li><strong>معرّفات المستخدمين المرسلين</strong> (<code>group_allow_from</code> / <code>TELEGRAM_GROUP_ALLOWED_USERS</code>) — قائمة سماح على مستوى المرسل تنطبق فقط على رسائل المجموعات/المنتديات. استخدمها عندما تريد أن يتمكن مستخدمون محددون من استدعاء البوت في المجموعات دون إضافتهم إلى <code>TELEGRAM_ALLOWED_USERS</code> (مما سيمنحهم أيضًا وصولًا عبر الرسائل المباشرة).</li>
+<li><strong>معرّفات المحادثات</strong> (<code>group_allowed_chats</code> / <code>TELEGRAM_GROUP_ALLOWED_CHATS</code>) — قائمة سماح على مستوى المحادثة. إذ يستطيع أي عضو في هذه المجموعات/المنتديات التفاعل مع البوت. وهذا مفيد لبوتات الفرق/الدعم حيث تكون العضوية في المجموعة بحد ذاتها مؤشر الوصول.</li>
+</ul>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>
+<p>متغيرات البيئة المكافئة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>يشمل <code>TELEGRAM_ALLOWED_USERS</code> جميع أنواع المحادثات (الرسائل المباشرة، والمجموعات، والمنتديات).</li>
+<li>لا يفوّض <code>TELEGRAM_GROUP_ALLOWED_USERS</code> المرسلين المدرجين إلا في المجموعات/المنتديات. ولا يزال لا يمكنهم مراسلة البوت مباشرةً ما لم يُدرجوا في <code>TELEGRAM_ALLOWED_USERS</code>.</li>
+<li>المحادثة المدرجة في <code>TELEGRAM_GROUP_ALLOWED_CHATS</code> تفوّض كل أعضاء تلك المحادثة، بغض النظر عن المرسل.</li>
+<li>استخدم <code>*</code> في أيٍّ من هذه المتغيرات للسماح بأي مرسل/محادثة.</li>
+<li>تُضاف هذه الطبقة فوق محفزات الإشارة/الأنماط الموجودة، وفوق <code>group_topics</code> + <code>ignored_threads</code>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="migration-from-before-pr-17686">الترحيل من الإصدارات السابقة لـ PR #17686</h3>
+<p>قبل هذا الفصل، كان <code>TELEGRAM_GROUP_ALLOWED_USERS</code> الخيار الوحيد، وكان المستخدمون يضعون فيه <strong>معرّفات المحادثات</strong>. وللحفاظ على التوافق مع الإصدارات السابقة، لا تزال القيم التي تشبه معرّفات المحادثات (التي تبدأ بـ <code>-</code>) في <code>TELEGRAM_GROUP_ALLOWED_USERS</code> تُعامل كمعرّفات محادثات، ويُسجَّل تحذير إهمال (deprecation) مرة واحدة. الترحيل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guest-mention-bypass-guest_mode">تجاوز قائمة السماح للضيوف عبر @mention (<code>guest_mode</code>)</h3>
+<p>في الإعداد المعتاد، يكون <code>group_allowed_chats</code> بوابة صارمة: إذ تُهمل بصمت الرسائل الواردة من مجموعات خارج القائمة، حتى لو أشار عضو إلى البوت صراحةً عبر @mention. وهذا هو الافتراضي الصحيح لبوتات الدعم / الفرق.</p>
+<p>أما في الإعدادات الأقل رسمية — كمحادثات مجموعات الأصدقاء التي تريد فيها أن يكون البوت <strong>صامتًا في معظم الأحيان</strong> لكن <strong>متاحًا أحيانًا عند استدعائه صراحةً</strong> — ففعّل <code>guest_mode</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
+<p>متغير البيئة المكافئ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="50"></x-keep></div></div>
+<p>القيمة الافتراضية: <code>false</code>.</p>
+<p>مع <code>guest_mode: true</code>، لا تُعالَج الرسالة الواردة من مجموعة غير مدرجة في قائمة السماح <strong>إلا</strong> إذا أشارت إلى البوت صراحةً عبر @mention. والإشارة مطلوبة في كل دور — فلا يوجد استمرار للجلسة في تفاعلات الضيوف، لذا لا ينخرط البوت تلقائيًا أبدًا في سلسلة محادثة مجموعة أصدقاء لم يُستدعَ إليها.</p>
+<p>تعمل الرسائل المباشرة والمجموعات المدرجة في قائمة السماح تمامًا كما في السابق.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-command-access-control">التحكم في الوصول إلى Slash Commands</h2>
 <p>افتراضيًا، يستطيع كل مستخدم مسموح له تشغيل جميع الـ slash commands. لتقسيم قائمة السماح (allowlist) إلى <strong>مسؤولين (admins)</strong> (وصول كامل إلى الـ slash commands) و<strong>مستخدمين عاديين</strong> (الأوامر التي تفعّلها لهم صراحةً فقط)، أضف <code>allow_admin_from</code> و <code>user_allowed_commands</code> إلى كتلة <code>extra</code> الخاصة بالمنصة:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="51"></x-keep></div></div>
 <p><strong>السلوك:</strong></p>
 <ul>
 <li>يستطيع المستخدم المُدرج في <code>allow_admin_from</code> ضمن نطاق معيّن (الرسائل المباشرة أو المجموعة) تشغيل <strong>كل</strong> slash command مسجّل — الأوامر المدمجة والأوامر التي تسجّلها الإضافات أيضًا — عبر السجل الحي (live registry).</li>
@@ -18,7 +65,7 @@
 <li><strong>اختيار النموذج</strong> — قائمة نماذج مقسّمة إلى صفحات مع أزرار التنقل <strong>Prev</strong>/<strong>Next</strong>، وزر <strong>Back</strong> للعودة إلى المزوّدين، وزر <strong>Cancel</strong>.</li>
 </ol>
 <p>يُعرض النموذج والمزوّد الحاليان في الأعلى. ويجري كل التنقل بتعديل الرسالة نفسها في مكانها (دون إغراق المحادثة برسائل إضافية).</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="69"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا كنت تعرف اسم النموذج بالضبط، فاكتب <code>/model &lt;name&gt;</code> مباشرةً لتجاوز أداة الاختيار. ويمكنك أيضًا كتابة <code>/model &lt;name&gt; --global</code> للاحتفاظ بالتغيير عبر الجلسات.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="71"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا كنت تعرف اسم النموذج بالضبط، فاكتب <code>/model &lt;name&gt;</code> مباشرةً لتجاوز أداة الاختيار. ويمكنك أيضًا كتابة <code>/model &lt;name&gt; --global</code> للاحتفاظ بالتغيير عبر الجلسات.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dns-over-https-fallback-ips">عناوين IP الاحتياطية عبر DNS-over-HTTPS</h2>
 <p>في بعض الشبكات المقيّدة، قد يُترجَم <code>api.telegram.org</code> إلى عنوان IP يتعذّر الوصول إليه. يتضمن محوّل Telegram (Telegram adapter) آلية <strong>عناوين IP احتياطية (fallback IP)</strong> تعيد محاولة الاتصال بشفافية عبر عناوين IP بديلة مع الحفاظ على اسم مضيف TLS الصحيح و SNI.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works-2">آلية العمل</h3>
@@ -30,10 +77,10 @@
 <li>بمجرد نجاح أحد المسارات، يصبح &quot;ثابتًا&quot; (sticky) — أي تستخدمه الطلبات اللاحقة مباشرةً. ويُحتفَظ باسم المضيف ملاذًا أخيرًا للشبكات التي تعتمد IPv6 فقط.</li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-3">الإعدادات</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="50"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="52"></x-keep></div></div>
 <p>أو في <code>~/.hermes/config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="51"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="70"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لا تحتاج عادةً إلى ضبط هذا يدويًا، إذ يتكفّل الاكتشاف التلقائي عبر DoH بمعظم سيناريوهات الشبكات المقيّدة. لا يلزم متغير البيئة <code>TELEGRAM_FALLBACK_IPS</code> إلا إذا كان DoH محجوبًا أيضًا على شبكتك. وإذا كان IPv6 معطّلًا على المضيف، يمكنك أيضًا ضبط <code>network.force_ipv4: true</code> في <code>config.yaml</code> لتجاوز استعلامات AAAA على مستوى العملية بأكملها.</p></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="53"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="72"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لا تحتاج عادةً إلى ضبط هذا يدويًا، إذ يتكفّل الاكتشاف التلقائي عبر DoH بمعظم سيناريوهات الشبكات المقيّدة. لا يلزم متغير البيئة <code>TELEGRAM_FALLBACK_IPS</code> إلا إذا كان DoH محجوبًا أيضًا على شبكتك. وإذا كان IPv6 معطّلًا على المضيف، يمكنك أيضًا ضبط <code>network.force_ipv4: true</code> في <code>config.yaml</code> لتجاوز استعلامات AAAA على مستوى العملية بأكملها.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="proxy-support-1">دعم الـ Proxy</h2>
 <p>إذا كانت شبكتك تتطلب HTTP proxy للوصول إلى الإنترنت (وهو أمر شائع في بيئات الشركات)، يقرأ محوّل Telegram تلقائيًا متغيرات البيئة القياسية الخاصة بالـ proxy ويوجّه جميع الاتصالات عبره.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-variables">المتغيرات المدعومة</h3>
@@ -46,11 +93,11 @@
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-4">الإعدادات</h3>
 <p>اضبط الـ proxy في بيئتك قبل تشغيل الـ gateway:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="52"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="54"></x-keep></div></div>
 <p>أو أضفه إلى <code>~/.hermes/.env</code>:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="53"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="55"></x-keep></div></div>
 <p>يُطبَّق الـ proxy على وسيلة النقل (transport) الأساسية وعلى جميع وسائل النقل الخاصة بعناوين IP الاحتياطية. ولا يلزم أي إعداد إضافي في Hermes — فإذا كان متغير البيئة مضبوطًا، يُستخدم تلقائيًا.</p>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="71"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يغطي هذا طبقة النقل الاحتياطية المخصّصة التي يستخدمها Hermes لاتصالات Telegram. أما عميل <code>httpx</code> القياسي المستخدم في المواضع الأخرى فيحترم متغيرات البيئة الخاصة بالـ proxy أصلًا.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="73"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يغطي هذا طبقة النقل الاحتياطية المخصّصة التي يستخدمها Hermes لاتصالات Telegram. أما عميل <code>httpx</code> القياسي المستخدم في المواضع الأخرى فيحترم متغيرات البيئة الخاصة بالـ proxy أصلًا.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-reactions">التفاعلات على الرسائل</h2>
 <p>يمكن للبوت إضافة تفاعلات إيموجي إلى الرسائل كمؤشر مرئي على حالة المعالجة:</p>
 <ul>
@@ -59,14 +106,14 @@
 <li>👎 إذا وقع خطأ أثناء المعالجة</li>
 </ul>
 <p>التفاعلات <strong>معطّلة افتراضيًا</strong>. فعّلها في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="54"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="56"></x-keep></div></div>
 <p>أو عبر متغير البيئة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="55"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="72"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>على عكس Discord (حيث تتراكم التفاعلات)، تستبدل Bot API في Telegram جميع تفاعلات البوت في استدعاء واحد. لذا يحدث الانتقال من 👀 إلى 👍/👎 بشكل ذرّي — ولن ترى الاثنين معًا.</p></div></div>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="73"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا لم يكن لدى البوت صلاحية إضافة التفاعلات في مجموعة ما، تفشل استدعاءات التفاعل بصمت وتستمر معالجة الرسائل بشكل طبيعي.</p></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="57"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="74"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>على عكس Discord (حيث تتراكم التفاعلات)، تستبدل Bot API في Telegram جميع تفاعلات البوت في استدعاء واحد. لذا يحدث الانتقال من 👀 إلى 👍/👎 بشكل ذرّي — ولن ترى الاثنين معًا.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="75"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا لم يكن لدى البوت صلاحية إضافة التفاعلات في مجموعة ما، تفشل استدعاءات التفاعل بصمت وتستمر معالجة الرسائل بشكل طبيعي.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-channel-prompts">Prompts لكل قناة</h2>
 <p>خصّص system prompts مؤقتة لمجموعات Telegram أو موضوعات منتديات (forum topics) محددة. يُحقن الـ prompt وقت التشغيل في كل دور — ولا يُحفظ أبدًا في سجل المحادثة — لذا تسري التغييرات فورًا.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="56"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="58"></x-keep></div></div>
 <p>المفاتيح هي معرّفات المحادثات (للمجموعات والمجموعات الفائقة) أو معرّفات موضوعات المنتدى. وفي مجموعات المنتديات، تتقدّم الـ prompts على مستوى الموضوع على الـ prompt على مستوى المجموعة:</p>
 <ul>
 <li>رسالة في الموضوع <code>42</code> داخل المجموعة <code>-1001234567890</code> → تستخدم الـ prompt الخاص بالموضوع <code>42</code></li>
@@ -89,21 +136,22 @@
 <p>[1. Next.js] [2. Remix] [3. Astro]
 [✏️ Other (type answer)]</p>
 </blockquote>
-<p>انقر على زر للإجابة، أو انقر على <strong>Other</strong> لكتابة رد حر (تصبح الرسالة التالية التي ترسلها هي الإجابة). أما استدعاءات <code>clarify</code> المفتوحة (بلا خيارات محددة مسبقًا) فتتجاوز الأزرار وتلتقط رسالتك التالية فحسب.</p>
-<p>اضبط مهلة الرد عبر <code>agent.clarify_timeout</code> في <code>~/.hermes/config.yaml</code> (القيمة الافتراضية <code>600</code> ثانية). وإذا لم تردّ خلال المهلة، يتحرّر الوكيل برسالة تنبيهية (sentinel) ويتكيّف مع الموقف بدلًا من البقاء عالقًا.</p>
+<p>انقر على زر للإجابة، أو انقر على <strong>منصات أخرى</strong> لكتابة رد حر (تصبح الرسالة التالية التي ترسلها هي الإجابة). أما استدعاءات <code>clarify</code> المفتوحة (بلا خيارات محددة مسبقًا) فتتجاوز الأزرار وتلتقط رسالتك التالية فحسب.</p>
+<p>اضبط مهلة الرد عبر <code>agent.clarify_timeout</code> في <code>~/.hermes/config.yaml</code> (القيمة الافتراضية <code>3600</code> ثانية). إذا لم تستجب خلال المهلة، يُرفع تعليق الوكيل مع <code>&quot;outcome&quot;: &quot;timed_out&quot;</code> ويتكيّف بدلًا من البقاء عالقًا. أجب بـ <code>skip</code> لتجاوز السؤال.</p>
+<p>إذا تعذّر على Telegram عرض بطاقة الأزرار (رفضها Bot API، أو فشل الإرسال بعد نافذة الإقرار البالغة 15 ثانية)، يعيد Hermes طرح السؤال نفسه كرسالة قائمة مرقّمة عادية، ويُعدّ ردك المكتوب (رقمًا أو نص الخيار) إجابةً. وإذا تعذّر حتى تسليم تلك الرسالة، يُحرّر الوكيل فورًا مع <code>[clarify prompt could not be delivered]</code> بدلًا من انتظار انتهاء المهلة والتوهّم أن الصمت يعني عدم إجابتك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="push-notification-volume">كثافة الإشعارات الفورية</h2>
 <p>يُطلق Telegram إشعارًا فوريًا (push notification) مع كل رسالة يرسلها البوت. وفي أدوار الوكيل الطويلة التي تُصدر فقاعات تقدّم الأدوات وتحديثات البث (streaming) واستدعاءات الحالة، يصبح ذلك مزعجًا بسرعة. لذا يوفّر محوّل Telegram وضعين للإشعارات:</p>
 <table><thead><tr><th>الوضع</th><th>السلوك</th></tr></thead><tbody><tr><td><code>important</code> (الافتراضي)</td><td>لا يُصدر صوت تنبيه إلا مع <strong>الردود النهائية</strong> و<strong>طلبات الموافقة</strong> و<strong>تأكيدات الـ slash commands</strong>. أما تقدّم الأدوات وأجزاء البث ورسائل الحالة فتُسلَّم مع <code>disable_notification=true</code>.</td></tr><tr><td><code>all</code></td><td>كل رسالة صادرة تُطلق إشعارًا فوريًا. وهو السلوك القديم؛ فعّله إذا كنت تريد فعلًا أن تُنبَّه لكل استدعاء أداة.</td></tr></tbody></table>
 <p>اضبطه في <code>~/.hermes/config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="57"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="59"></x-keep></div></div>
 <p>تجاوز عبر متغير البيئة (مفيد لاختبارات A/B السريعة):</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="58"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="60"></x-keep></div></div>
 <p>القيم غير المعروفة تُسجّل تحذيرًا وتعود إلى <code>important</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="status-messages-edited-in-place">تعديل رسائل الحالة في مكانها</h2>
 <p>يوجّه محوّل Telegram استدعاءات الحالة المتكررة للوكيل (مثل &quot;Compressing context…&quot; و&quot;Calling tool…&quot;) عبر <code>send_or_update_status()</code>، التي تحتفظ بذاكرة تخزين مؤقت <code>{(chat_id, status_key) → message_id}</code> و<strong>تعدّل الفقاعة الموجودة</strong> عند الإصدارات اللاحقة بدلًا من إلحاق فقاعة جديدة في كل مرة. تحصل كل قيمة <code>status_key</code> مختلفة على رسالتها الخاصة، ولا تتداخل المحادثات المختلفة أبدًا. وإذا فشل التعديل (مثلًا إذا حذف المستخدم الرسالة، أو كانت أقدم مما يسمح به Telegram للتعديل)، يُحذف الإدخال من ذاكرة التخزين المؤقت وينشر الإصدار التالي رسالة جديدة ويعيد تخزين معرّفها. لا يلزم أي إعداد — فهذا هو السلوك الافتراضي في Telegram. أما المحوّلات الأخرى التي لا تطبّق <code>send_or_update_status</code> فتعود إلى <code>send()</code> العادية دون تغيير.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pin-incoming-user-message-during-agent-turn">تثبيت رسالة المستخدم الواردة أثناء دور الوكيل</h2>
 <p>عندما يرسل مستخدم رسالة تُطلق دورًا للوكيل، يثبّت محوّل Telegram تلك الرسالة الواردة طوال مدة الدور، ثم يلغي تثبيتها عند اكتمال الرد — وهو مؤشر مرئي خفيف على أن البوت يعمل فعليًا على الرسالة ولا يتجاهلها. يستخدم التثبيت <code>disable_notification=true</code> لتجنّب التنبيهات الإضافية. لا يلزم أي إعداد.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h2>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="74"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>TELEGRAM_ALLOWED_USERS</code> لتقييد من يمكنه التفاعل مع البوت الخاص بك. فبدونه، يرفض الـ gateway جميع المستخدمين افتراضيًا كإجراء أمان.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="76"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>اضبط دائمًا <code>TELEGRAM_ALLOWED_USERS</code> لتقييد من يمكنه التفاعل مع البوت الخاص بك. فبدونه، يرفض الـ gateway جميع المستخدمين افتراضيًا كإجراء أمان.</p></div></div>
 <p>لا تشارك token البوت علنًا أبدًا. وإذا تعرّض للاختراق، ألغِه فورًا عبر الأمر <code>/revoke</code> في BotFather.</p>
-<p>لمزيد من التفاصيل، راجع <a href="/docs/user-guide/security">توثيق الأمان</a>. ويمكنك أيضًا استخدام <a href="/docs/user-guide/messaging#dm-pairing-alternative-to-allowlists">الاقتران عبر الرسائل المباشرة (DM pairing)</a> كنهج أكثر مرونة لتفويض المستخدمين.</p>
+<p>لمزيد من التفاصيل، راجع <a href="/docs/user-guide/security">توثيق الأمان</a>. يمكنك أيضًا استخدام <a href="/docs/user-guide/messaging/#dm-pairing-alternative-to-allowlists">اقتران الرسائل المباشرة (DM)</a> كنهج أكثر مرونة لتفويض المستخدمين.</p>

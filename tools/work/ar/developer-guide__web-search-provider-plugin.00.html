@@ -6,11 +6,11 @@
 <ol>
 <li><strong>مضمّن (Bundled)</strong> — <code>&lt;repo&gt;/plugins/web/&lt;name&gt;/</code> (يُحمَّل تلقائيًا بـ <code>kind: backend</code>، متاح دائمًا)</li>
 <li><strong>المستخدم (User)</strong> — <code>~/.hermes/plugins/web/&lt;name&gt;/</code> (اختياري عبر <code>plugins.enabled</code> أو <code>hermes plugins enable &lt;name&gt;</code>)</li>
-<li><strong>Pip</strong> — حزم تعلن نقطة دخول <code>hermes_agent.plugins</code></li>
+<li><strong>Pip</strong>— حزم تعلن نقطة دخول من نوع <code>hermes_agent.plugins</code></li>
 </ol>
 <p>تستدعي دالة <code>register(ctx)</code> الخاصة بكل إضافة <code>ctx.register_web_search_provider(...)</code> — وهذا ما يضع النسخة في السجل الموجود في <code>agent/web_search_registry.py</code>. يُختار المزوّد النشط لكل قدرة عبر الإعدادات:</p>
 <table><thead><tr><th>القدرة</th><th>مفتاح الإعدادات</th><th>يرجع احتياطيًا إلى</th></tr></thead><tbody><tr><td><code>web_search</code></td><td><code>web.search_backend</code></td><td><code>web.backend</code></td></tr><tr><td><code>web_extract</code></td><td><code>web.extract_backend</code></td><td><code>web.backend</code></td></tr><tr><td>أوضاع الزحف العميق داخل <code>web_extract</code></td><td><code>web.extract_backend</code></td><td><code>web.backend</code></td></tr></tbody></table>
-<p>عندما لا يُضبَط أي من المفتاحين، يكتشف Hermes تلقائيًا الـ backend من أي مفتاح API/رابط موجود في البيئة. تُرشِد <code>hermes tools</code> المستخدمين خلال الاختيار.</p>
+<p>عندما لا يُضبَط أي من المفتاحين، يكتشف Hermes تلقائيًا backend استنادًا إلى مفتاح API أو URL الموجود في البيئة. يرشدك <code>hermes tools</code> خلال الاختيار.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure">هيكل الدليل</h2>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
 <p><code>brave_free/</code> و<code>ddgs/</code> هما أصغر مرجعين ضمن الشجرة — <code>brave_free</code> لمزوّد بحث فقط مقيّد بمفتاح API، و<code>ddgs</code> لمزوّد بلا مفتاح يثبّت SDK الخاص به بشكل كسول (lazy).</p>
@@ -20,10 +20,10 @@
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pluginyaml">plugin.yaml</h2>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
-<table><thead><tr><th>المفتاح</th><th>الغرض</th></tr></thead><tbody><tr><td><code>kind: backend</code></td><td>يوجّه الإضافة عبر مسار تحميل backend</td></tr><tr><td><code>provides_web_providers</code></td><td>قائمة أسماء (<code>name</code>) المزوّدين الذين تسجّلهم هذه الإضافة — يستخدمها المحمّل لعرض الإضافة في <code>hermes tools</code> حتى قبل تشغيل <code>register()</code></td></tr><tr><td><code>requires_env</code></td><td>مطالبة تفاعلية ببيانات الاعتماد أثناء <code>hermes plugins install</code> (راجع <a href="/docs/developer-guide/plugins#gate-on-environment-variables">بناء إضافة Hermes</a> للصيغة الغنية)</td></tr></tbody></table>
+<table><thead><tr><th>المفتاح</th><th>الغرض</th></tr></thead><tbody><tr><td><code>kind: backend</code></td><td>يوجّه الإضافة عبر مسار تحميل backend</td></tr><tr><td><code>provides_web_providers</code></td><td>قائمة قيم <code>name</code> للمزوّدين الذين تسجّلهم هذه الإضافة — يستخدمها المحمّل لعرض الإضافة في <code>hermes tools</code> حتى قبل تشغيل <code>register()</code></td></tr><tr><td><code>requires_env</code></td><td>مطالبة تفاعلية ببيانات الاعتماد أثناء <code>hermes plugins install</code> (راجع <a href="/docs/developer-guide/plugins#gate-on-environment-variables">بناء إضافة Hermes</a> للصيغة الغنية)</td></tr></tbody></table>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="abc-reference">مرجع الصنف المجرد</h2>
 <p>العقد الكامل في <code>agent/web_search_provider.py</code>. الدوال التي يمكنك تجاوزها (override):</p>
-<table><thead><tr><th>العضو</th><th>مطلوب</th><th>الافتراضي</th><th>الغرض</th></tr></thead><tbody><tr><td><code>name</code></td><td>✅</td><td>—</td><td>معرّف ثابت يُستخدَم في إعدادات <code>web.*_backend</code></td></tr><tr><td><code>display_name</code></td><td>—</td><td><code>name</code></td><td>التسمية المعروضة في <code>hermes tools</code></td></tr><tr><td><code>is_available()</code></td><td>✅</td><td>—</td><td>بوابة توفّر رخيصة التكلفة — متغيرات بيئة، اعتماديات اختيارية</td></tr><tr><td><code>supports_search()</code></td><td>—</td><td><code>True</code></td><td>علامة قدرة لتوجيه <code>web_search</code></td></tr><tr><td><code>supports_extract()</code></td><td>—</td><td><code>False</code></td><td>علامة قدرة لتوجيه <code>web_extract</code></td></tr><tr><td><code>search(query, limit)</code></td><td>مشروط</td><td>يُطلق استثناءً</td><td>مطلوب عندما تعيد <code>supports_search()</code> القيمة <code>True</code></td></tr><tr><td><code>extract(urls, **kwargs)</code></td><td>مشروط</td><td>يُطلق استثناءً</td><td>مطلوب عندما تعيد <code>supports_extract()</code> القيمة <code>True</code></td></tr></tbody></table>
+<table><thead><tr><th>العضو</th><th>مطلوب</th><th>الافتراضي</th><th>الغرض</th></tr></thead><tbody><tr><td><code>name</code></td><td>✅</td><td>—</td><td>معرّف ثابت يُستخدم في إعدادات <code>web.*_backend</code></td></tr><tr><td><code>display_name</code></td><td>—</td><td><code>name</code></td><td>التسمية المعروضة في <code>hermes tools</code></td></tr><tr><td><code>is_available()</code></td><td>✅</td><td>—</td><td>بوابة توفّر رخيصة التكلفة — متغيرات بيئة، اعتماديات اختيارية</td></tr><tr><td><code>supports_search()</code></td><td>—</td><td><code>True</code></td><td>علامة قدرة لتوجيه <code>web_search</code></td></tr><tr><td><code>supports_extract()</code></td><td>—</td><td><code>False</code></td><td>علامة قدرة لتوجيه <code>web_extract</code></td></tr><tr><td><code>search(query, limit)</code></td><td>مشروط</td><td>يُطلق استثناءً</td><td>مطلوب عندما تعيد <code>supports_search()</code> القيمة <code>True</code></td></tr><tr><td><code>extract(urls, **kwargs)</code></td><td>مشروط</td><td>يُطلق استثناءً</td><td>مطلوب عندما تعيد <code>supports_extract()</code> القيمة <code>True</code></td></tr></tbody></table>
 <p>يمكن للمزوّدين الإعلان عن عدة قدرات من صنف واحد — تنفّذ Firecrawl وTavily وPerplexity وKeenable وExa وParallel كلًا من البحث والاستخراج. Brave Search وDDGS للبحث فقط؛ وSearXNG للبحث فقط مع سير عمل موثَّق &quot;اقرنّي بمزوّد استخراج&quot;.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="response-shape">شكل الاستجابة</h2>
 <p>يتوقع مغلّف الأداة مغلَّفًا (envelope) ثابتًا حتى لا يضطر إلى الترجمة بين الـ backends.</p>
@@ -43,14 +43,16 @@
 <p>تعيش أداتا <code>web_search</code> و<code>web_extract</code> في <code>tools/web_tools.py</code>. عند الاستدعاء، تقومان بـ:</p>
 <ol>
 <li>قراءة مفتاح الإعدادات المناسب (<code>web.search_backend</code> لـ <code>web_search</code>، و<code>web.extract_backend</code> لـ <code>web_extract</code>)</li>
-<li>سؤال السجل عن المزوّد بذلك الاسم (<code>name</code>)</li>
+<li>سؤال السجل عن المزوّد بذلك الاسم (<code>name</code></li>
 <li>التحقق من <code>is_available()</code> وعلامة <code>supports_*()</code> المطابقة</li>
 <li>الإرسال إلى <code>search()</code> / <code>extract()</code> (يعمل الزحف العميق كوضع داخل <code>extract()</code>)، مع الانتظار (await) إذا كانت الدالة coroutine</li>
 <li>تسلسل الاستجابة إلى JSON وتسليمها إلى LLM</li>
 </ol>
 <p>تظهر الأخطاء كنتيجة الأداة؛ ويقرر LLM كيفية شرحها. إذا لم يكن هناك مزوّد مسجَّل (أو فشل كل المزوّدين المتاحين في اجتياز بوابة القدرة)، تعيد الأداة خطأً مفيدًا يشير إلى <code>hermes tools</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lazy-installing-optional-dependencies">التثبيت الكسول للاعتماديات الاختيارية</h2>
-<p>إذا كان مزوّدك يغلّف SDK تابعًا لطرف ثالث (كما تفعل DDGS مع حزمة <code>ddgs</code>)، فلا تستورده (<code>import</code>) في أعلى الوحدة (module). استخدم <code>tools.lazy_deps.ensure(...)</code> داخل <code>is_available()</code> أو <code>search()</code> — سيُثبّت Hermes الحزمة عند أول استخدام، مقيّدًا بـ <code>security.allow_lazy_installs</code>. راجع <a href="/docs/developer-guide/plugins#lazy-install-optional-python-dependencies">بناء إضافة Hermes → التثبيت الكسول</a> للنموذج الأمني.</p>
+<p>أبقِ فحوصات التوفّر للقراءة فقط. إذا كانت SDK مشمولة ضمن إحدى إضافات Hermes (extras)،
+فاستخدم <code>pm.available(&quot;extra-name&quot;)</code> في <code>is_available()</code>. اطلب <code>pm.ensure_import(&quot;extra-name&quot;)</code> من العملية التي تحتاج إليها. أبلغ المستدعي بنتيجة <code>InstallError</code>، بما في ذلك أي حاجة إلى إعادة التشغيل.</p>
+<p>أعلن اعتماديات إضافة الطرف الثالث نفسها في manifest الخاص بها أو في <code>pyproject.toml</code> بدل اختراع إضافة Hermes (extra) جديدة. راجع <a href="/docs/developer-guide/plugins#lazy-install-optional-python-dependencies">بناء إضافة Hermes → التثبيت الكسول</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations">التنفيذات المرجعية</h2>
 <ul>
 <li><strong><code>plugins/web/brave_free/</code></strong> — مزوّد HTTP صغير، مقيّد بمفتاح API، للبحث فقط. قالب بداية جيد.</li>
@@ -61,7 +63,7 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-via-pip">التوزيع عبر pip</h2>
 <div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<p>يجب أن تعرض <code>my_backend_web_package</code> دالة <code>register</code> على المستوى الأعلى. راجع <a href="/docs/developer-guide/plugins#distribute-via-pip">التوزيع عبر pip</a> في دليل الإضافات العام للإعداد الكامل.</p>
+<p><code>my_backend_web_package</code> دالة <code>register</code> على المستوى الأعلى. راجع <a href="/docs/developer-guide/plugins#distribute-via-pip">التوزيع عبر pip</a> في دليل الإضافات العام للإعداد الكامل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-pages">صفحات ذات صلة</h2>
 <ul>
 <li><a href="/docs/user-guide/features/web-search">البحث في الويب</a> — توثيق الميزة الموجَّه للمستخدم وإعدادات كل backend</li>

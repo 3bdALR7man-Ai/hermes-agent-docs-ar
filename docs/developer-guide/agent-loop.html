@@ -49,8 +49,8 @@
 <p><strong>ترتيب تحديد النمط:</strong></p>
 <ol>
 <li>وسيط المُنشئ الصريح <code>api_mode</code> (الأولوية الأعلى)</li>
-<li>الاكتشاف الخاص بالمزوّد (مثل مزوّد <code>anthropic</code> ← <code>anthropic_messages</code><bdi>)</bdi></li>
-<li>قواعد استدلال base URL (مثل <code>api.anthropic.com</code> ← <code>anthropic_messages</code><bdi>)</bdi></li>
+<li>الاكتشاف الخاص بالمزوّد (مثل مزوّد <code>anthropic</code> → <code>anthropic_messages</code><bdi>)</bdi></li>
+<li>قواعد استدلال base URL (مثل <code>api.anthropic.com</code> → <code>anthropic_messages</code><bdi>)</bdi></li>
 <li>الافتراضي: <code>chat_completions</code></li>
 </ol>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="turn-lifecycle">دورة حياة الدور <bdi class="term">(Turn)</bdi><a href="#turn-lifecycle" class="hash-link" aria-label="رابط مباشر إلى دورة حياة الدور (Turn)" title="رابط مباشر إلى دورة حياة الدور (Turn)" translate="no">​</a></h2>
@@ -83,8 +83,8 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sequential-vs-concurrent">تسلسلي مقابل متزامن<a href="#sequential-vs-concurrent" class="hash-link" aria-label="رابط مباشر إلى تسلسلي مقابل متزامن" title="رابط مباشر إلى تسلسلي مقابل متزامن" translate="no">​</a></h3>
 <p>عندما يعيد النموذج استدعاءات أدوات:</p>
 <ul>
-<li><strong>استدعاء أداة واحد</strong> ← يُنفَّذ مباشرةً في المسار الرئيسي</li>
-<li><strong>استدعاءات أدوات متعددة</strong> ← تُنفَّذ بالتزامن عبر <code>ThreadPoolExecutor</code>
+<li><strong>استدعاء أداة واحد</strong> → يُنفَّذ مباشرةً في المسار الرئيسي</li>
+<li><strong>استدعاءات أدوات متعددة</strong> → تُنفَّذ بالتزامن عبر <code>ThreadPoolExecutor</code>
 <ul>
 <li>استثناء: الأدوات الموسومة كتفاعلية (مثل <code>clarify</code>) تفرض التنفيذ التسلسلي</li>
 <li>تُعاد النتائج إلى ترتيبها الأصلي في استدعاء الأدوات بصرف النظر عن ترتيب اكتمالها</li>
@@ -98,7 +98,7 @@
 <table><thead><tr><th>الأداة</th><th>سبب الاعتراض</th></tr></thead><tbody><tr><td><code>todo</code></td><td>تقرأ/تكتب حالة مهام محلية للوكيل</td></tr><tr><td><code>memory</code></td><td>تكتب إلى ملفات الذاكرة الدائمة مع حدود للأحرف</td></tr><tr><td><code>session_search</code></td><td>تستعلم سجل الجلسة عبر قاعدة بيانات جلسات الوكيل</td></tr><tr><td><code>delegate_task</code></td><td>تُنشئ subagent واحدًا أو أكثر بسياق معزول</td></tr></tbody></table>
 <p>تُعدِّل هذه الأدوات حالة الوكيل مباشرةً وتعيد نتائج أدوات اصطناعية دون المرور عبر السجل <bdi class="term">(registry)</bdi>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="callback-surfaces">أسطح رد النداء <bdi class="term">(Callback)</bdi><a href="#callback-surfaces" class="hash-link" aria-label="رابط مباشر إلى أسطح رد النداء (Callback)" title="رابط مباشر إلى أسطح رد النداء (Callback)" translate="no">​</a></h2>
-<p>يدعم <code>AIAgent</code> عمليات رد نداء خاصة بكل منصّة تتيح عرض التقدّم في الوقت الفعلي داخل CLI وgateway وتكاملات ACP:</p>
+<p>يدعم <code>AIAgent</code> عمليات رد نداء خاصة بكل منصّة تتيح عرض التقدّم في الوقت الفعلي داخل CLI و gateway وتكاملات ACP:</p>
 <table><thead><tr><th>رد النداء <bdi class="term">(Callback)</bdi></th><th>وقت الإطلاق</th><th>يُستخدم بواسطة</th></tr></thead><tbody><tr><td><code>tool_progress_callback</code></td><td>قبل/بعد كل تنفيذ أداة</td><td>مؤشر التحميل <bdi class="term">(spinner)</bdi> في CLI، رسائل تقدّم gateway</td></tr><tr><td><code>thinking_callback</code></td><td>عند بدء/توقّف النموذج عن التفكير</td><td>مؤشّر &quot;thinking...&quot; في CLI</td></tr><tr><td><code>reasoning_callback</code></td><td>عند إعادة النموذج لمحتوى استدلال</td><td>عرض الاستدلال في CLI، كتل الاستدلال في gateway</td></tr><tr><td><code>clarify_callback</code></td><td>عند استدعاء أداة <code>clarify</code></td><td>موجّه الإدخال في CLI، رسالة تفاعلية في gateway</td></tr><tr><td><code>step_callback</code></td><td>بعد كل دور كامل للوكيل</td><td>تتبّع خطوات gateway، تقدّم ACP</td></tr><tr><td><code>stream_delta_callback</code></td><td>عند كل رمز بث <bdi class="term">(streaming)</bdi> (عند التفعيل)</td><td>عرض البث في CLI</td></tr><tr><td><code>tool_gen_callback</code></td><td>عند تحليل استدعاء أداة من البث</td><td>معاينة الأداة في مؤشر التحميل بـ CLI</td></tr><tr><td><code>status_callback</code></td><td>تغييرات الحالة (تفكير، تنفيذ، إلخ)</td><td>تحديثات حالة ACP</td></tr></tbody></table>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="budget-and-fallback-behavior">سلوك الميزانية والاحتياط<a href="#budget-and-fallback-behavior" class="hash-link" aria-label="رابط مباشر إلى سلوك الميزانية والاحتياط" title="رابط مباشر إلى سلوك الميزانية والاحتياط" translate="no">​</a></h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iteration-budget">ميزانية التكرار<a href="#iteration-budget" class="hash-link" aria-label="رابط مباشر إلى ميزانية التكرار" title="رابط مباشر إلى ميزانية التكرار" translate="no">​</a></h3>
@@ -115,6 +115,7 @@
 <li>تُجرَّب كل بديل بالترتيب</li>
 <li>عند النجاح، تستمر المحادثة مع المزوّد الجديد</li>
 <li>عند 401/403، تُجرَّب إعادة تحديث بيانات الاعتماد قبل التحويل</li>
+<li>الدور في Codex Responses الذي يتعثر عند مخرجات الاستدلال وحدها (ثلاث متابعات متتالية دون نص ظاهر أو استدعاء أداة) يتحول أيضًا إلى البديل الاحتياطي التالي بالسبب <code>incomplete_response</code>؛ وإذا استهلك التعثر ميزانية التكرار، يحصل البديل على استدعاء سماح واحد محدود بالضبط</li>
 </ol>
 <p>يغطّي نظام الاحتياط أيضًا المهام المساعدة بشكل مستقل — الرؤية <bdi class="term">(vision)</bdi> والضغط واستخراج الويب لكل منها سلسلة احتياط خاصة قابلة للضبط عبر قسم الإعدادات <code>auxiliary.*</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compression-and-persistence">الضغط والاستمرارية<a href="#compression-and-persistence" class="hash-link" aria-label="رابط مباشر إلى الضغط والاستمرارية" title="رابط مباشر إلى الضغط والاستمرارية" translate="no">​</a></h2>

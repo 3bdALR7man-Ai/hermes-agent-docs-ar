@@ -25,10 +25,19 @@
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <p>أما الملفات المرفوعة (<code>file</code> / <code>input_file</code> / <code>file_id</code>) وعناوين <code>data:</code> التي لا تمثّل صورًا فتُرجع <code>400 unsupported_content_type</code>.</p>
 <p><strong>البث (Streaming)</strong> (<code>&quot;stream&quot;: true</code>): يُرجع Server-Sent Events (SSE) تتضمن أجزاء الاستجابة token تلو الآخر. في <strong>Chat Completions</strong>، يستخدم البث أحداث <code>chat.completion.chunk</code> القياسية إضافةً إلى الحدث المخصص <code>hermes.tool.progress</code> من Hermes لإظهار بدء تشغيل الأدوات في الواجهة. وفي <strong>Responses</strong>، يستخدم البث أنواع أحداث OpenAI Responses مثل <code>response.created</code> و <code>response.output_text.delta</code> و <code>response.output_item.added</code> و <code>response.output_item.done</code> و <code>response.completed</code>.</p>
+<p>تصدر جميع تدفقات SSE (Chat Completions و Responses و <code>/api/sessions/{id}/chat/stream</code> و <code>/v1/runs/{id}/events</code>) سطر تعليق <code>: keepalive</code> كلما لم يُرسل حدث لمدة 10 ثوانٍ، كي لا تؤدي استدعاءات الأدوات الطويلة إلى انتهاء مهلة خمول العميل. تتجاهل عملاء SSE القياسية أسطر التعليقات؛ ويجب على المحلّلات المخصّصة تخطّي الأسطر التي تبدأ بـ <code>:</code>.</p>
 <p><strong>تقدّم الأدوات أثناء البث</strong>:</p>
 <ul>
-<li><strong>Chat Completions</strong>: يُصدر Hermes الحدث <code>event: hermes.tool.progress</code> لإظهار بدء الأدوات دون تلويث نص المساعد المحفوظ.</li>
-<li><strong>Responses</strong>: يُصدر Hermes عناصر مُخرَجات <code>function_call</code> و <code>function_call_output</code> الأصلية وفق المواصفة أثناء بث SSE، لكي يتمكن العملاء من عرض واجهة أدوات منظّمة في الوقت الفعلي.</li>
+<li><strong>Chat Completions</strong>: يُصدر Hermes الحدث <code>event: hermes.tool.progress</code> لإظهار بدء الأدوات دون تلويث نص المساعد المحفوظ. يمكن لعملاء OpenAI الصارمة التي لا تقبل أحداث SSE المسمّاة تعطيل هذه الأُطر باستخدام <code>gateway.platforms.api_server.tool_progress_events: false</code> (القيمة الافتراضية <code>true</code>)؛ ولا تتأثر أجزاء المحتوى. ينطبق التعطيل على Chat Completions فقط — يُصدر <code>/v1/runs/{id}/events</code> أحداث الأدوات دائمًا، وهو ما تصفه ميزة <code>tool_progress_events</code> في <code>/v1/capabilities</code>.</li>
+<li><strong>Responses</strong>: يُصدر Hermes عناصر مُخرَجات <code>function_call</code> و <code>function_call_output</code> الأصلية للمواصفة أثناء تدفق SSE، ليتمكن العملاء من عرض واجهة أدوات منظّمة في الوقت الفعلي.</li>
+</ul>
+<p><strong>استدلال النموذج</strong> (لا يُصدر إلا عندما ينتج النموذج استدلالًا فعليًا وتسمح به إعدادات <code>reasoning</code> المحددة؛ وخيار تعطيله من المدخلات هو <code>model_options.reasoning.enabled: false</code>):</p>
+<ul>
+<li><strong>Chat Completions</strong>: تصل تغيّرات الاستدلال كأجزاء <code>choices[0].delta.reasoning_content</code> (الحقل بأسلوب DeepSeek الذي يعرضه Open WebUI و opencode و Vercel AI SDK ككتلة تفكير)؛ ويبقى نص الإجابة في <code>delta.content</code>.</li>
+<li><strong>Responses</strong>: كل دفعة تفكير عنصر مخرج <code>reasoning</code> أصلي للمواصفة — <code>response.output_item.added</code> (<code>item.type: &quot;reasoning&quot;</code>)، <code>response.reasoning_summary_part.added</code>، <code>response.reasoning_summary_text.delta</code> … <code>response.reasoning_summary_text.done</code>، <code>response.reasoning_summary_part.done</code>، <code>response.output_item.done</code> — يُغلق قبل فتح الرسالة التالية أو عنصر <code>function_call</code>، ويُكرر في مخرج <code>response.completed</code> بصيغة <code>{&quot;id&quot;: &quot;rs_…&quot;, &quot;type&quot;: &quot;reasoning&quot;, &quot;status&quot;: &quot;completed&quot;, &quot;summary&quot;: [{&quot;type&quot;: &quot;summary_text&quot;, &quot;text&quot;: &quot;…&quot;}]}</code>. يظل <code>sequence_number</code> متزايدًا رتيبًا عبر أحداث الاستدلال والنص والأدوات.</li>
+<li><strong>دون بث</strong>: <code>/v1/chat/completions</code> يُرجع استدلال الدور في <code>choices[0].message.reasoning_content</code>؛ و <code>/v1/responses</code> يُرجع عناصر مخرج <code>reasoning</code> نفسها قبل الرسالة (وقبل عناصر <code>function_call</code> الخاصة بتلك الخطوة)، وكذلك عند إعادة عرض <code>GET /v1/responses/{id}</code>.</li>
+<li>يمكن إعادة إرسال قائمة <code>output</code> لاستجابة سابقة بوصفها <code>input</code> التالية (ما تفعله عملاء Responses SDK): تُتجاهل عناصر <code>reasoning</code> عند الإدخال بدلًا من تحليلها كأدوار مستخدم فارغة.</li>
+<li>يُعلن الدعم بوصفه <code>features.reasoning_streaming: true</code> في <code>GET /v1/capabilities</code>.</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1responses">POST /v1/responses</h3>
 <p>صيغة OpenAI Responses API. تدعم الاحتفاظ بحالة المحادثة على جانب الخادم عبر <code>previous_response_id</code> — إذ يخزّن الخادم سجل المحادثة الكامل (بما في ذلك استدعاءات الأدوات ونتائجها)، فيُحفظ السياق عبر الأدوار المتعددة دون أن يضطر العميل إلى إدارته.</p>
@@ -37,13 +46,15 @@
 <p><strong>الاستجابة:</strong></p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
 <p>استدعاءات الأدوات الموجودة في المصفوفة <code>output</code> نفّذها وكيل Hermes مسبقًا على جانب الخادم — وتُعاد مع <code>&quot;status&quot;: &quot;completed&quot;</code> لعرض واجهة أدوات منظّمة، ولا تُقدَّم أبدًا كاستدعاءات معلّقة ينفّذها العميل.</p>
-<p><strong>إدخال الصور المضمّنة:</strong> يمكن أن يحتوي <code>input[].content</code> على أجزاء <code>input_text</code> و <code>input_image</code>. وتُدعم كلٌّ من عناوين URL البعيدة وعناوين <code>data:image/...</code>:</p>
+<p>مع <code>&quot;stream&quot;: true</code>، يصل تعليق المساعد في منتصف الدور (تمهيدات التقدم <code>openai-codex</code> الخاصة بـ backend <code>phase=&quot;commentary&quot;</code>، أو النص الذي يكتبه نموذج مع استدعاءات أدواته) كعنصر مخرج <code>message</code> مكتمل مستقل يحمل <code>&quot;phase&quot;: &quot;commentary&quot;</code> (<code>response.output_item.added</code> + <code>response.output_item.done</code>، ومدرج أيضًا في <code>response.completed</code>). لا يُدمج أبدًا في عنصر الإجابة النهائية، فيستطيع العملاء عرضه كتقدم مباشر وتخطّيه عند تجميع الرد. لا يصل الاستدلال الخاص إلى هذا العنصر مطلقًا. يؤدي <code>display.interim_assistant_messages: false</code> (أو تجاوز <code>display.platforms.api_server</code>) إلى كتمه على جميع واجهات خادم API.</p>
+<p><strong>إدخال الصور المضمّنة:</strong> <code>input[].content</code> يمكن أن يحتوي على أجزاء <code>input_text</code> و <code>input_image</code>. وتُدعم كلٌّ من عناوين URL البعيدة وعناوين <code>data:image/...</code>:</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
 <p>أما الملفات المرفوعة (<code>input_file</code> / <code>file_id</code>) وعناوين <code>data:</code> التي لا تمثّل صورًا فتُرجع <code>400 unsupported_content_type</code>.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-turn-with-previous_response_id">المحادثات متعددة الأدوار باستخدام previous_response_id</h4>
 <p>اربط الاستجابات بسلسلة للحفاظ على السياق الكامل (بما في ذلك استدعاءات الأدوات) عبر الأدوار:</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
-<p>يعيد الخادم بناء المحادثة الكاملة من سلسلة الاستجابات المخزّنة — مع الاحتفاظ بجميع استدعاءات الأدوات ونتائجها السابقة. كما تتشارك الطلبات المتسلسلة الجلسة نفسها، لذا تظهر المحادثات متعددة الأدوار كمُدخل واحد في لوحة التحكم وفي سجل الجلسات.</p>
+<p>يعيد الخادم بناء المحادثة الكاملة من سلسلة الاستجابات المخزّنة — وتُحفظ جميع استدعاءات الأدوات ونتائجها السابقة. وتشترك الطلبات المتسلسلة أيضًا في الجلسة نفسها، فتظهر المحادثات متعددة الأدوار كمدخل واحد في لوحة التحكم وسجل الجلسات.</p>
+<p>لا تسرد قائمة <code>output</code> لكل استجابة إلا عناصر ذلك الدور (مدخلات <code>function_call</code> / <code>function_call_output</code> و <code>message</code> النهائي)، ولا تسرد استدعاءات أدوات الأدوار السابقة أبدًا — بما في ذلك عندما يصلح Hermes السجل المقدَّم قبل الاستدعاء (بدمج عناصر <code>assistant</code> أو <code>user</code> المتتالية وإسقاط نتائج الأدوات اليتيمة)، أو يضغطه وسط السلسلة. تكون السلسلة المخزّنة هي نص المحادثة المُصلح، فلا ينمو السجل بنسخة ثانية في كل دور.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="named-conversations">المحادثات المسمّاة</h4>
 <p>استخدم المعامل <code>conversation</code> بدلًا من تتبّع معرّفات الاستجابات:</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
@@ -54,7 +65,7 @@
 <p>يحذف استجابة مخزّنة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-v1models">GET /v1/models</h3>
 <p>يسرد الوكيل كنموذج متاح. ويكون اسم النموذج المُعلَن افتراضيًا هو اسم الـ <a href="/docs/user-guide/profiles">profile</a> (أو <code>hermes-agent</code> للـ profile الافتراضي). تحتاج إليه معظم الواجهات الأمامية لاكتشاف النماذج.</p>
-<p>المسار <code>/v1/models</code> هو عمدًا الواجهة الخفيفة المتوافقة مع OpenAI. فهو <strong>لا</strong>
+<p><code>/v1/models</code> هو عمدًا الواجهة الخفيفة المتوافقة مع OpenAI. فهو <strong>لا</strong>
 يسرد كل تركيبات المزوّد/النموذج المصادَق عليها التي يمكن لـ Hermes التوجيه إليها،
 ولا يُثري النتائج بمعلومات الأسعار أو القدرات.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apimodeloptions">GET /api/model/options</h3>
@@ -162,10 +173,7 @@
 <li>قيمتا <code>model</code> / <code>provider</code> المباشرتان في الطلب عندما لا يتطابق أي اسم مستعار لمسار</li>
 <li>الإعدادات العامة لـ gateway / القيم الافتراضية من البيئة</li>
 </ol>
-<p>يظل <code>model_options</code> خاصًا بالطلب بغض النظر عن النموذج/المزوّد الذي يُعتمد في النهاية.
-وإذا أرسل طلبٌ <code>provider</code> يتعارض مع اسم مستعار مُعدّ في <code>model_routes</code>،
-يرفض Hermes الطلب مع <code>400</code> بدلًا من خلط بيانات اعتماد المسار
-بصمت مع مزوّد آخر.</p>
+<p><code>model_options</code> يظل خاصًا بالطلب بغض النظر عن النموذج/المزوّد الذي يُعتمد. إذا أرسل طلب <code>provider</code> يتعارض مع اسم مستعار مضبوط في <code>model_routes</code>، يرفض Hermes الطلب مع <code>400</code> بدلًا من خلط بيانات اعتماد المسار بمزوّد آخر بصمت.</p>
 <p><strong>قيم <code>model</code> المجرّدة على endpoints المتوافقة مع OpenAI تتطلب تفعيلًا صريحًا.</strong> فعملاء
 OpenAI العامّون كثيرًا ما يثبّتون أسماء النماذج في الكود (<code>gpt-4o</code>، ...)، وتعتمد
 عمليات النشر القائمة على عودة هذه القيم إلى النموذج الافتراضي في gateway. لذلك، على
@@ -188,82 +196,3 @@ OpenAI العامّون كثيرًا ما يثبّتون أسماء النماذ
 <p>يبقى المسار العام <code>/health</code> فحصًا خفيفًا لبقاء الخدمة حيّة (liveness) ولا يُجري
 فحوص الجاهزية. ونتيجة الجاهزية المتدهورة لا تزال تستخدم HTTP 200؛ لذا افحص
 الحقلين <code>status</code> و <code>readiness.checks</code> في المستوى الأعلى.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="runs-api-streaming-friendly-alternative">Runs API (بديل ملائم للبث)</h2>
-<p>إلى جانب <code>/v1/chat/completions</code> و <code>/v1/responses</code>، يوفّر الخادم واجهة <strong>runs</strong> API للجلسات الطويلة التي يريد فيها العميل الاشتراك في أحداث التقدّم بدلًا من إدارة البث بنفسه.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runs">POST /v1/runs</h3>
-<p>ينشئ تشغيلًا (run) جديدًا للوكيل. ويُرجع <code>run_id</code> يمكن استخدامه للاشتراك في أحداث التقدّم.</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
-<p>تقبل عمليات التشغيل سلسلة <code>input</code> بسيطة، ويمكن اختياريًا إرسال <code>session_id</code> أو <code>instructions</code> أو <code>conversation_history</code> أو <code>previous_response_id</code>. وعند تقديم <code>session_id</code>، يُظهره Hermes في حالة التشغيل لتتمكن الواجهات الخارجية من ربط عمليات التشغيل بمعرّفات المحادثات الخاصة بها.</p>
-<p>لجعل عملية الإنشاء آمنة لإعادة المحاولة، أرسل الترويسة <code>Idempotency-Key</code> (من 1 إلى 255 حرف ASCII مرئي). يحجز Hermes المفتاح بشكل دائم قبل بدء العمل. وتُرجع إعادة المحاولة المطابقة <code>run_id</code> الأصلي مع HTTP 202 و <code>Idempotency-Replayed: true</code>، حتى بعد إعادة تشغيل gateway وبعد اكتمال التشغيل أو فشله أو إلغائه. وإعادة استخدام المفتاح نفسه مع حمولة JSON مختلفة تُرجع HTTP 409 مع الرمز <code>idempotency_key_conflict</code>. تُعزل المفاتيح حسب profile/بيانات اعتماد API المصادَق عليها، وتُحفظ لمدة 24 ساعة بعد آخر تحديث لحالتها؛ لذا ينبغي للعملاء استخدام مفاتيح فريدة يصعب تخمينها، ويجب ألا يعيدوا استخدامها في عمليات غير ذات صلة. أما الطلبات التي لا تتضمن الترويسة فتحتفظ بالسلوك القديم وتنشئ دائمًا تشغيلًا جديدًا.</p>
-<p>عندما يحدد <code>session_id</code> جلسة Hermes موجودة، ولا يُقدَّم
-<code>conversation_history</code> أو <code>previous_response_id</code> صريح، يحمّل التشغيل
-النص الكامل النشط لتلك الجلسة (transcript). وتعمل عقود إيجار أدوار الجلسة (session turn leases) على ترتيب
-الكتّاب المتزامنين تسلسليًا، وتحديث النص الكامل بعد انتظار ناتج عن التنافس.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-v1runsrun_id">GET /v1/runs/{run_id}</h3>
-<p>استطلع حالة التشغيل الحالية. وهذا مفيد للوحات التحكم التي تحتاج إلى الحالة دون إبقاء اتصال SSE مفتوحًا، أو للواجهات التي تعيد الاتصال بعد التنقل.</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
-<p>تُحفظ الحالات لفترة وجيزة بعد بلوغ الحالات النهائية (<code>completed</code> أو <code>failed</code> أو <code>cancelled</code>) لأغراض الاستطلاع ومزامنة الواجهة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-v1runsrun_idevents">GET /v1/runs/{run_id}/events</h3>
-<p>بث Server-Sent Events لتقدّم استدعاءات الأدوات في التشغيل، وتغيّرات الـ tokens، وأحداث دورة الحياة. صُمّم للوحات التحكم وتطبيقات العميل الكاملة (thick clients) التي تريد الارتباط/الانفصال دون فقدان الحالة.</p>
-<p>عندما يفوّض الوكيل العمل إلى subagents في الخلفية، يحمل البث أيضًا
-أحداث دورة الحياة <code>subagent.start</code> و <code>subagent.complete</code>، لكي يتمكن العملاء من
-مراقبة نتائج التفويض — بما في ذلك انتهاء المهلة والإخفاقات — بدلًا من
-صمت التشغيل بينما يعمل الوكيل الفرعي. وتحمل حمولة <code>subagent.complete</code>
-حالة الوكيل الفرعي، وملخّصه، ومدته، وأرقام الـ tokens/التكلفة، و
-<code>child_session_id</code> لأغراض الربط، و <code>delegation_id</code> الخاص بالدفعة التي
-ينتمي إليها (لتبقى عمليات التوزيع المتزامنة أو المتداخلة قابلة للتمييز)؛ وتخضع الحقول النصية الحرة لإخفاء إلزامي للأسرار
-قبل مغادرة العملية. أما أحداث الوكيل الفرعي الخاصة بكل أداة
-(<code>subagent.tool</code>، ونبضات التقدّم) فهي عمدًا <strong>لا</strong> تُمرَّر — لأنها
-ضجيج كثيف في الواجهة؛ استخدم ملفات النص الحي لكل وكيل فرعي لمتابعة
-التفاصيل خطوة بخطوة. هذه الأحداث متاحة ما دام بث الأصل مفتوحًا؛ وأي
-إكمال منفصل متأخر لا يعيد فتح بث SSE لتشغيل منتهٍ ولا يغيّر
-حالته النهائية.</p>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="detached-results-and-session-history">النتائج المنفصلة وسجل الجلسة</h4>
-<p>يتطلب التفويض في الخلفية استئنافًا يقرأ سجل الجلسة على جانب
-الخادم: أي ترويسة <code>X-Hermes-Session-Id</code> صريحة في Chat Completions، أو طلب
-<code>/api/sessions/{id}/chat</code> أصلي، أو طلب Runs يستخدم سجل الجلسة.
-أما طلبات Chat Completions بلا ترويسة، وسلاسل Responses، وطلبات Runs التي تتضمن
-<code>previous_response_id</code> أو سجلًا يقدّمه المستدعي، فتنفّذ التفويض
-بشكل متزامن بدلًا من ذلك، وتُرجع النتيجة في الدور الأصلي. ومجرد اشتقاق
-معرّف جلسة من محتوى الطلب لا يُفعّل التسليم المنفصل.</p>
-<p>في الطلبات القابلة للاستئناف، تُحفظ نتيجة الإكمال مرة واحدة لكل وحدة تفويض.
-وهي متاحة عبر <code>GET /api/sessions/{id}/messages</code> وفي سجل الجلسة
-للدور الفعلي التالي من العميل. ولا تُدرج إعادة المحاولة النتيجة نفسها مجددًا؛
-أما إشعارات فشل المهام المؤقتة فلها هويات منفصلة. وينتظر التسليم ما دام
-دور العميل يملك عقد إيجار الجلسة، ويتبع عمليات الاستئناف الناتجة عن الضغط (compression).
-ويعيد Chat Completions معرّف الجلسة الصريح الذي قدّمته في كلٍّ من استجابات JSON
-واستجابات البث؛ لذا استمر في إرسال ذلك المعرّف حتى بعد الضغط.</p>
-<p>لا تبدأ نتيجة الإكمال <strong>أبدًا دورًا للنموذج دون طلب</strong>، ولا تتجاوز
-تأكيدًا بشريًا معلّقًا. فالعميل هو من يملك الدور التالي. أما العملاء الذين يواصلون استخدام
-لقطات (snapshots) السجل الخاصة بهم فينبغي أن يستخدموا التفويض المتزامن بدلًا من
-توقّع دمج صف تسليم من جانب الخادم في تلك اللقطات.</p>
-<p>تنتهي صلاحية مخازن الأحداث غير المستهلكة بعد خمس دقائق، حتى لا يتسبب عميل منفصل في
-تضخّم الذاكرة إلى ما لا نهاية. ولا ينتهي بذلك إلا حالة وسيلة النقل: فالتشغيل الذي
-لا يزال قيد التنفيذ يبقى مرئيًا لاستطلاع الحالة، والموافقة، والتحكم في الإيقاف، و
-احتساب التزامن إلى أن ينتهي عمل المنفّذ الخاص به فعليًا. ويواصل مشترك SSE
-المتصل استهلاك الأحداث بشكل طبيعي.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idstop">POST /v1/runs/{run_id}/stop</h3>
-<p>يقاطع دور وكيل قيد التشغيل. يُرجع الـ endpoint فورًا <code>{&quot;status&quot;: &quot;stopping&quot;}</code> بينما يطلب Hermes من الوكيل النشط التوقف عند نقطة المقاطعة الآمنة التالية.
-ويبقى التشغيل مُتتبَّعًا بالحالة <code>stopping</code> إلى أن ينتهي العمل المدعوم بالمنفّذ، ثم
-يستقر على الحالة <code>cancelled</code>؛ فطلب الإيقاف لا يُخفي أبدًا عاملًا (worker) لا يزال
-قيد التشغيل.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idapproval">POST /v1/runs/{run_id}/approval</h3>
-<p>يحسم موافقة معلّقة لتشغيل ينتظر قرارًا بشريًا (مثل استدعاء أداة يخضع لسياسة موافقة). يحمل جسم الطلب قرار الموافقة، ويُستأنف التشغيل بمجرد تسجيل القرار. ويُعلَن عن هذا الـ endpoint في <code>/v1/capabilities</code> على أنه الميزة <code>run_approval</code>، لكي تتمكن الواجهات الخارجية من اكتشاف الدعم قبل عرض طلب موافقة.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jobs-api-background-scheduled-work">Jobs API (أعمال مجدولة في الخلفية)</h2>
-<p>يوفّر الخادم واجهة CRUD خفيفة للمهام (jobs) لإدارة عمليات تشغيل الوكيل المجدولة / العاملة في الخلفية من عميل بعيد. وجميع الـ endpoints محمية بمصادقة bearer نفسها.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apijobs">GET /api/jobs</h3>
-<p>يسرد جميع المهام المجدولة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-apijobs">POST /api/jobs</h3>
-<p>ينشئ مهمة مجدولة جديدة. يقبل جسم الطلب البنية نفسها التي يقبلها <code>hermes cron</code> — الـ prompt، والجدول الزمني، والمهارات، وتجاوز المزوّد، ووجهة التسليم.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apijobsjob_id">GET /api/jobs/{job_id}</h3>
-<p>يجلب تعريف مهمة واحدة وحالة آخر تشغيل لها.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="patch-apijobsjob_id">PATCH /api/jobs/{job_id}</h3>
-<p>يحدّث حقول مهمة موجودة (الـ prompt، والجدول الزمني، وغيرها). وتُدمج التحديثات الجزئية.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-apijobsjob_id">DELETE /api/jobs/{job_id}</h3>
-<p>يزيل مهمة. ويلغي أيضًا أي تشغيل جارٍ لها.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-apijobsjob_idpause">POST /api/jobs/{job_id}/pause</h3>
-<p>يوقف مهمة مؤقتًا دون حذفها. وتُعلَّق الطوابع الزمنية للتشغيل المجدول التالي حتى الاستئناف.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-apijobsjob_idresume">POST /api/jobs/{job_id}/resume</h3>
-<p>يستأنف مهمة أُوقفت مؤقتًا في السابق.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-apijobsjob_idrun">POST /api/jobs/{job_id}/run</h3>
-<p>يُطلق تشغيل المهمة فورًا، خارج جدولها الزمني.</p>

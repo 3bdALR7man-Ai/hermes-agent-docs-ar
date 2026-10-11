@@ -1,0 +1,108 @@
+<header><h1>Hooks المراقبة في Hermes</h1></header>
+<p>Hooks المراقبة في Hermes هي عقد قياس للقراءة فقط للإضافات التي تحتاج إلى إعادة بناء تنفيذ الوكيل دون تغيير سلوك وقت التشغيل. يدعم هذا العقد تكاملات التتبّع والمقاييس والتدقيق وإعادة العرض والتصدير، مثل Langfuse، ومجمّعات على نمط OpenTelemetry، و NeMo Relay.</p>
+<p>Hooks المراقبة مستقلة عمدًا عن backend. تكشف أحداث دورة حياة ثابتة، ومعرّفات ارتباط، وحمولات منقَّاة، وحقول التوقيت والحالة والخطأ. لا تستبدل مخطِّط Hermes، أو مزوّدي النماذج، أو الذاكرة، أو سجل الأدوات، أو تجربة الموافقة، أو CLI، أو سلوك gateway، أو دلالات التنفيذ.</p>
+<p>أغلفة الطلبات أو التنفيذ التي تغيّر السلوك خارج عقد المراقبة هذا. ينبغي لـ hooks المراقبة الإبلاغ عما حدث؛ ولا ينبغي أن تستبدل طلبات المزوّد أو وسائط الأدوات أو callbacks التنفيذ.</p>
+<p>لدى Hermes أيضًا مسار مقاييس مشتركة مباشر من NeMo Relay. يستخدم حدود دورة الحياة هذه مباشرةً ولا يتطلب تفعيل إضافة للرصد. راجع <a href="/docs/developer-guide/relay-shared-metrics">مقاييس Relay المشتركة</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contract">العقد</h2>
+<p>تسجّل الإضافات callbacks المراقبة من <code>register(ctx)</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>يتلقى كل callback للـ hook وسائط مفتاحية. ينبغي أن تقبل الإضافات <code>**kwargs</code> كي تظل الحقول الإضافية متوافقة مع الإصدارات السابقة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يحقن مدير الإضافات هذا الحقل في كل حمولة hook:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>لا توقف callbacks الـ hook التنفيذ عند الفشل. يلتقط Hermes استثناءاتها، ويسجّل تحذيرًا، ويُبقي حلقة الوكيل تعمل.</p>
+<p>تُتجاهَل معظم قيم إرجاع hooks المراقبة. الاستثناءات هي hooks أقدم تؤثر في السلوك:</p>
+<table><thead><tr><th>Hook</th><th>سلوك الإرجاع</th></tr></thead><tbody><tr><td><code>pre_llm_call</code></td><td>قد يعيد سلسلة نصية أو <code>{&quot;context&quot;: &quot;...&quot;}</code> لحقن سياق مؤقت في رسالة المستخدم الحالية.</td></tr><tr><td><code>pre_tool_call</code></td><td>قد يعيد <code>{&quot;action&quot;: &quot;block&quot;, &quot;message&quot;: &quot;...&quot;}</code> لحظر أداة قبل التنفيذ، أو <code>{&quot;action&quot;: &quot;modify&quot;, &quot;args&quot;: {...}}</code> لتحويل وسائط إدخال الأداة.</td></tr><tr><td><code>transform_tool_result</code></td><td>قد يعيد سلسلة بديلة لنتيجة أداة بعد <code>post_tool_call</code>.</td></tr><tr><td><code>transform_llm_output</code></td><td>قد يعيد سلسلة بديلة للنص النهائي للمساعد.</td></tr></tbody></table>
+<p>ينبغي لإضافات القياس التعامل مع قيم الإرجاع المؤثرة في السلوك كميزات توافق اختيارية، لا كمتطلبات للرصد.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="correlation-ids">معرّفات الارتباط</h2>
+<p>تستخدم حمولات المراقبة معرّفات ثابتة كي تربط الإضافات الأحداث دون الاعتماد على ترتيب callbacks وحده.</p>
+<table><thead><tr><th>الحقل</th><th>المعنى</th></tr></thead><tbody><tr><td><code>session_id</code></td><td>هوية المحادثة/الجلسة.</td></tr><tr><td><code>task_id</code></td><td>هوية المهمة، مفيدة خصوصًا لـ subagents والتنفيذ المعزول.</td></tr><tr><td><code>turn_id</code></td><td>هوية دور المستخدم التي تشترك فيها محاولات API واستدعاءات الأدوات داخل الدور.</td></tr><tr><td><code>api_request_id</code></td><td>هوية معتمة لمحاولة المزوّد. لا تحلّل صيغتها النصية.</td></tr><tr><td><code>api_call_count</code></td><td>العدد الرقمي لمحاولات API داخل حلقة الوكيل.</td></tr><tr><td><code>tool_call_id</code></td><td>معرّف استدعاء الأداة الذي يقدّمه المزوّد عند توفره.</td></tr><tr><td><code>parent_session_id</code> / <code>child_session_id</code></td><td>رابط الجلسة لـ subagents المفوَّضة.</td></tr><tr><td><code>parent_subagent_id</code> / <code>child_subagent_id</code></td><td>رابط subagent عند توفره.</td></tr><tr><td><code>parent_turn_id</code></td><td>الدور الأب الذي أطلق العمل المفوَّض.</td></tr></tbody></table>
+<p>ينبغي للمستهلكين تفضيل الحقول الصريحة على تحليل معرّفات مركَّبة. تحديدًا، <code>api_request_id</code> قيمة ارتباط معتمة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-families">عائلات الأحداث</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-lifecycle">دورة حياة الجلسة</h3>
+<p>تصف hooks الجلسة حدود المحادثات وإعادة الضبط:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>on_session_start</code></td><td>تبدأ جلسة جديدة تمامًا بعد بناء system prompt.</td></tr><tr><td><code>on_session_end</code></td><td>ينتهي استدعاء <code>run_conversation</code>، بما فيه الأدوار المقاطَعة أو غير المكتملة.</td></tr><tr><td><code>on_session_finalize</code></td><td>ينهي CLI أو gateway هوية جلسة نشطة.</td></tr><tr><td><code>on_session_reset</code></td><td>ينتقل CLI أو gateway من هوية جلسة قديمة إلى أخرى جديدة.</td></tr></tbody></table>
+<p>تشمل الحقول المشتركة <code>session_id</code>، <code>completed</code>، <code>interrupted</code>، <code>reason</code>، <code>old_session_id</code>، و <code>new_session_id</code> عند توفرها.</p>
+<p><code>on_session_end</code> محدد النطاق بالدور/التشغيل. ليس بالضرورة حد نهاية عمر هوية محادثة. استخدم <code>on_session_finalize</code> و <code>on_session_reset</code> لتنظيف دورة الحياة الذي يجب أن يحدث مرة واحدة لكل هوية جلسة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="turn-scoped-llm-hooks">Hooks LLM المحددة النطاق بالدور</h3>
+<p>تؤطر هذه hooks دور المستخدم، لا محاولات API الفردية لدى المزوّد:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>pre_llm_call</code></td><td>قبل بدء حلقة الأدوات لدور مستخدم.</td></tr><tr><td><code>post_llm_call</code></td><td>بعد اكتمال الدور بمخرجات نهائية للمساعد.</td></tr></tbody></table>
+<p>تشمل حقول <code>pre_llm_call</code> المشتركة <code>session_id</code>، <code>turn_id</code>، <code>user_message</code>، <code>conversation_history</code>، <code>is_first_turn</code>، <code>model</code>، <code>platform</code>، و <code>sender_id</code>.</p>
+<p>تشمل حقول <code>post_llm_call</code> المشتركة <code>session_id</code>، <code>turn_id</code>، <code>user_message</code>، <code>assistant_response</code>، <code>conversation_history</code>، <code>model</code>، و <code>platform</code>.</p>
+<p>استخدم hooks API المحددة النطاق بالطلب لقياس spans الخاصة بـ LLM. استخدم <code>pre_llm_call</code> و <code>post_llm_call</code> لسياق الدور، والتوافق، والملخّص النهائي للدور.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="request-scoped-api-hooks">Hooks API المحددة النطاق بالطلب</h3>
+<p>تصف hooks API محاولات المزوّد داخل حلقة الوكيل:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>pre_api_request</code></td><td>مباشرةً قبل طلب API للمزوّد.</td></tr><tr><td><code>post_api_request</code></td><td>بعد استجابة ناجحة من المزوّد.</td></tr><tr><td><code>api_request_error</code></td><td>بعد طلب مزوّد فاشل أو مسار خطأ قابل لإعادة المحاولة.</td></tr><tr><td><code>pre_auxiliary_call</code></td><td>قبل كل محاولة لدى المزوّد لاستدعاء LLM مساعد (التسمية، والضغط، و MoA، والرؤية، ...). يحمل <code>aux_task</code>؛ وتظل hooks <code>*_api_request</code> للحلقة الرئيسية فقط.</td></tr><tr><td><code>post_auxiliary_call</code></td><td>بعد عودة تلك المحاولة أو إثارتها استثناءً (يُضبط <code>error</code> عند الفشل).</td></tr></tbody></table>
+<p><code>pre_api_request</code> يتضمن:</p>
+<ul>
+<li>الهوية: <code>session_id</code>، <code>task_id</code>، <code>turn_id</code>، <code>api_request_id</code></li>
+<li>وقت التشغيل: <code>platform</code>، <code>model</code>، <code>provider</code>، <code>base_url</code>، <code>api_mode</code></li>
+<li>بيانات المحاولة الوصفية: <code>api_call_count</code>، <code>message_count</code>، <code>tool_count</code>، <code>approx_input_tokens</code>، <code>request_char_count</code>، <code>max_tokens</code></li>
+<li>التوقيت: <code>started_at</code></li>
+<li>حمولة الطلب المنقَّاة: <code>request</code></li>
+</ul>
+<p><code>post_api_request</code> يتضمن حقول الهوية/وقت التشغيل نفسها، مع:</p>
+<ul>
+<li><code>api_duration</code>، <code>started_at</code>، <code>ended_at</code></li>
+<li><code>finish_reason</code>، <code>message_count</code>، <code>response_model</code></li>
+<li><code>usage</code></li>
+<li><code>assistant_content_chars</code>، <code>assistant_tool_call_count</code></li>
+<li>حمولة الاستجابة المنقَّاة: <code>response</code></li>
+<li>كائن التوافق: <code>assistant_message</code></li>
+</ul>
+<p><code>api_request_error</code> يتضمن حقول الهوية/وقت التشغيل نفسها، مع:</p>
+<ul>
+<li><code>api_duration</code>، <code>started_at</code>، <code>ended_at</code></li>
+<li><code>status_code</code>، <code>retry_count</code>، <code>max_retries</code>، <code>retryable</code>، <code>reason</code></li>
+<li>كائن منظّم من <code>error = {&quot;type&quot;: ..., &quot;message&quot;: ...}</code></li>
+<li>حمولة الطلب الفاشل المنقَّاة: <code>request</code></li>
+</ul>
+<p>الحقول المنقَّاة <code>request</code>، <code>response</code>، و <code>error</code> هي المدخلات المعتمدة للمراقبة لدى المستهلكين الجدد.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-lifecycle">دورة حياة الأداة</h3>
+<p>تصف hooks الأدوات استدعاءات الأدوات الفردية:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>pre_tool_call</code></td><td>قبل إرسال أداة وافقت عليها الضوابط الوقائية.</td></tr><tr><td><code>post_tool_call</code></td><td>بعد إرسال الأداة، أو إلغائها، أو حظرها، أو اكتمالها بخطأ.</td></tr><tr><td><code>transform_tool_result</code></td><td>بعد <code>post_tool_call</code>، وقبل إلحاق النتيجة بسياق النموذج.</td></tr></tbody></table>
+<p><code>pre_tool_call</code> يتضمن <code>tool_name</code>، <code>args</code>، <code>task_id</code>، <code>session_id</code>، <code>tool_call_id</code>، <code>turn_id</code>، و <code>api_request_id</code>.</p>
+<p><code>post_tool_call</code> يتضمن حقول الهوية نفسها مع <code>result</code>، <code>duration_ms</code>، <code>status</code>، <code>error_type</code>، و <code>error_message</code>.</p>
+<p><code>status</code> هو نتيجة دورة الحياة الملائمة للمراقبة. تشمل القيم الشائعة:</p>
+<table><thead><tr><th>الحالة</th><th>المعنى</th></tr></thead><tbody><tr><td><code>ok</code></td><td>اكتملت الأداة طبيعيًا.</td></tr><tr><td><code>error</code></td><td>عملت الأداة وأعادت نتيجة خطأ أو أثارتها.</td></tr><tr><td><code>blocked</code></td><td>حظر hook <code>pre_tool_call</code> التنفيذ.</td></tr><tr><td><code>cancelled</code></td><td>أُلغي التنفيذ قبل اكتماله الطبيعي.</td></tr></tbody></table>
+<p><code>post_tool_call</code> يُصدر للمسارات المحظورة والملغاة كي تغلق إضافات القياس spans بصورة سليمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="human-input-lifecycle">دورة حياة الإدخال البشري</h3>
+<p><code>on_human_input_request</code> / <code>on_human_input_resolved</code> يُطلَقان حول كل نقطة يتوقف فيها الوكيل منتظرًا شخصًا: مطالبات كلمة مرور sudo (<code>kind=&quot;sudo&quot;</code>)، وأسئلة أداة <code>clarify</code> (<code>kind=&quot;clarify&quot;</code>)، ومطالبات الموافقة (<code>kind=&quot;approval&quot;</code>) في CLI، و TUI/Desktop، و ACP، ومنصات gateway. الحقول: <code>kind</code>، <code>request_id</code> (مشترك بين الزوج)، و <code>session_id</code>، <code>session_key</code>، <code>platform</code>، و <code>prompt</code> محجوب إلزاميًا؛ ويضيف hook الحسم <code>outcome</code>. لا تُضمَّن أبدًا كلمة المرور أو الإجابة المكتوبة. لا تطلقه الموافقات الذكية (LLM المساعد). المصدر: <code>tools/human_input_hooks.py</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="approval-lifecycle">دورة حياة الموافقة</h3>
+<p>تصف hooks الموافقة مطالبات الموافقة على الأوامر الخطرة:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>pre_approval_request</code></td><td>قبل عرض طلب الموافقة أو إرساله.</td></tr><tr><td><code>post_approval_response</code></td><td>بعد إجابة المستخدم أو انتهاء مهلة الطلب.</td></tr></tbody></table>
+<p>تشمل الحقول المشتركة <code>command</code>، <code>description</code>، <code>pattern_key</code>، <code>pattern_keys</code>، <code>session_key</code>، و <code>surface</code>.</p>
+<p><code>post_approval_response</code> يتضمن أيضًا <code>choice</code>، بقيم مثل <code>once</code>، <code>session</code>، <code>always</code>، <code>deny</code>، <code>timeout</code>، و <code>cancelled</code> (لم يُجب أحد: سُحبت المطالبة — قُوطع الدور أو انتهى — أو لم تصل إلى المستخدم في CLI).</p>
+<p>Hooks الموافقة للمراقبة فقط. لا تستطيع الإضافات الإجابة المسبقة عن الموافقات أو نقضها من هذه hooks. لمنع أداة من الوصول إلى الموافقة، استخدم حظر <code>pre_tool_call</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="subagent-lifecycle">دورة حياة Subagent</h3>
+<p>تصف hooks الـ subagent عمل الوكيل الفرعي المفوَّض:</p>
+<table><thead><tr><th>Hook</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>subagent_start</code></td><td>يُنشأ وكيل فرعي مفوَّض.</td></tr><tr><td><code>subagent_stop</code></td><td>يعود وكيل فرعي مفوَّض أو يفشل.</td></tr></tbody></table>
+<p><code>subagent_start</code> تشمل حقوله <code>parent_session_id</code>، <code>parent_turn_id</code>، <code>parent_subagent_id</code>، <code>child_session_id</code>، <code>child_subagent_id</code>، <code>child_role</code>، و <code>child_goal</code>.</p>
+<p><code>subagent_stop</code> تشمل حقوله معرّفات جلسات الأب/الفرع، وحقول الدور/الحالة، و <code>child_summary</code>، <code>duration_ms</code>، و <code>tool_call_history</code> لا يتضمن إلا البيانات الوصفية. تتضمن كل مدخلة سجل اسم الأداة، وأسماء الوسائط، وأهداف آثار جانبية محدودة، وعدد بايتات الإدخال/الإخراج، والنتيجة. تُزال سلاسل استعلام URL وأجزاؤه؛ وتُستثنى عمدًا الوسائط الخام، و prompts، والأوامر، والمحتويات، والترويسات، والنتائج.</p>
+<p>يمكن للمراقبين استخدام هذه hooks لنمذجة مسارات متداخلة مع إبقاء تنفيذ الوكيل الفرعي مرتبطًا بالدور الأب الذي أطلقه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="payload-safety">أمان الحمولة</h2>
+<p>صُممت حمولات المراقبة لمستهلكي القياس، لا للوصول إلى الكائنات الخام. ينبغي للمستهلكين الجدد استخدام حمولات API المنقَّاة:</p>
+<ul>
+<li><code>pre_api_request.request</code></li>
+<li><code>post_api_request.response</code></li>
+<li><code>api_request_error.request</code></li>
+<li><code>api_request_error.error</code></li>
+</ul>
+<p>تحوّل التنقية كائنات المزوّد إلى بنى متوافقة مع JSON، وتحدّ الحمولات الكبيرة، وتحجب المفاتيح الحساسة، وتتجنب كشف كائنات الاستجابة الخام في الحقول المنقَّاة.</p>
+<p>قد تظل حقول التوافق القديمة مثل <code>request_messages</code>، <code>conversation_history</code>، و <code>assistant_message</code> موجودة للإضافات الحالية. ينبغي لمستهلكي الرصد الجدد تفضيل الحمولات المنقَّاة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="performance">الأداء</h2>
+<p>ينبغي أن يبقى المسار الافتراضي دون قياس منخفض التكلفة. يُقيَّد بناء حمولات الطلب/الاستجابة المكلف خلف <code>has_hook(...)</code>، فلا يبني Hermes حمولات قياس API المنقَّاة إلا عندما تسجّل إضافة واحدة على الأقل الـ hook المعني.</p>
+<p>ينبغي لمؤلفي الإضافات الحفاظ على هذه الخاصية:</p>
+<ul>
+<li>لا تسجّل إلا hooks التي تستهلكها الإضافة فعلًا.</li>
+<li>تجنب النسخ العميق أو إعادة تنقية حمولات منقَّاة بالفعل.</li>
+<li>أبقِ callbacks الـ hook سريعة ولا توقف التنفيذ عند فشلها.</li>
+<li>أحِل التصدير الشبكي أو الكتابات الدفعية إلى خارج المسار المباشر عندما يكون ذلك عمليًا.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="writing-an-observer-plugin">كتابة إضافة مراقبة</h2>
+<p>إضافة مراقبة بالحد الأدنى:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>استخدم <code>session_id</code>، <code>turn_id</code>، <code>api_request_id</code>، و <code>tool_call_id</code> لربط spans. استخدم hooks الـ subagent والموافقة عندما تدعم صيغة التصدير عمل وكلاء متداخلًا أو أحداث دورة حياة الأمان.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="existing-consumers">المستهلكون الحاليون</h2>
+<p>توضح إضافة Langfuse المضمّنة الرصد المباشر القائم على hooks للأدوار وطلبات المزوّد واستدعاءات الأدوات.</p>
+<p>يربط تكامل NeMo Relay SDK الأصلي دورات حياة الجلسة والدور و LLM والأداة في Hermes بـ Relay. يمكن لإعدادات المستخدم والنظام التي يكتشفها Relay، أو ملف صريح محدد باستخدام <code>HERMES_NEMO_RELAY_PLUGINS_TOML</code>، إضافة مصدِّرات <a href="https://docs.nvidia.com/nemo/relay/configure-plugins/observability/about" data-ext>ATOF، أو ATIF، أو OTEL</a> ووسيط تنفيذ؛ راجع <a href="/docs/developer-guide/relay-shared-metrics">مقاييس Relay المشتركة</a>.</p>

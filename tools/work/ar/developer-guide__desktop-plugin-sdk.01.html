@@ -1,191 +1,111 @@
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-layer--react-query--nanostores">طبقة البيانات — React Query + nanostores</h2>
-<p>تشارك الإضافات <code>QueryClient</code> الوحيد الخاص بالتطبيق، لذا تخزَّن استعلامات الإضافة مؤقتًا وتُنقّى من التكرار وتُستطلع وتُبطَل تمامًا مثل الشاشات الأساسية — لا تبنِ أبدًا حلقة جلب (fetch) يدوية.</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
-<p>بالنسبة للحالة المشتركة بين مُشغِّل (trigger) ولوحته (panel) — أو حلقة استطلاع — استخدم <code>atom</code> /
-<code>computed</code> — نفس البدائية (primitive) التي يستخدمها <code>host.state</code>. اشترك في الورقة (leaf) التي
-تعرض القيمة باستخدام <code>useValue</code>. لإبطال استعلام من <strong>خارج</strong> React
-(مثلًا وصول إطار عبر <code>ctx.socket</code>)، استورد <code>queryClient</code> المشترك:</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-ui-kit-and-theming">طقم واجهة المستخدم (UI Kit) والسمات (Theming)</h2>
-<p>استورد مكوّنات التطبيق الحقيقية مباشرة حتى تكون واجهتك أصيلة (native) افتراضيًا:</p>
-<blockquote>
-<p><code>Button</code>، و<code>Input</code>، و<code>Textarea</code>، و<code>Select*</code>، و<code>Switch</code>، و<code>Checkbox</code>،
-و<code>SegmentedControl</code>، و<code>Tabs*</code>، و<code>Dialog*</code>، و<code>ConfirmDialog</code>، و<code>DropdownMenu*</code>،
-و<code>ContextMenu*</code>، و<code>Popover*</code>، و<code>Tip</code>/<code>Tooltip*</code>، و<code>Badge</code>، و<code>Kbd</code>/<code>KbdGroup</code>،
-و<code>SearchField</code>، و<code>ScrollArea</code>، و<code>Separator</code>، و<code>Skeleton</code>، و<code>GlyphSpinner</code>، و<code>Loader</code>،
-و<code>EmptyState</code>، و<code>ErrorState</code>، و<code>CopyButton</code>، و<code>StatusDot</code>، و<code>LogView</code>، و<code>Codicon</code>،
-و<code>DecodeText</code>.</p>
-</blockquote>
-<p>بالإضافة إلى مساعدات: <code>cn</code> (دمج classes)، و<code>icons.*</code> (مجموعة lucide الخاصة بالتطبيق)، و<code>haptic</code>،
-و<code>profileColor</code> / <code>profileColorSoft</code> (ألوان هوية حتمية)، ومنسّقات الوقت
-<code>relativeTime</code> / <code>fmtDateTime</code> / <code>fmtDayTime</code> / <code>coarseElapsed</code>،
-و<code>useI18n</code> (نصوص محلَّية — تبقى إضافتك قابلة للترجمة)، و
-<code>evaluateRuntimeReadiness</code>.</p>
-<p><strong>صمّم باستخدام متغيرات السمة (theme variables)، ولا تستخدم ألوانًا ثابتة أبدًا.</strong> تجلس اللوحات (panes) بالفعل على
-خلفية محرر التطبيق — اترك الخلفية كما هي واستخدم المتغيرات لكل شيء
-آخر: <code>var(--ui-text-secondary)</code>، و<code>var(--ui-text-tertiary)</code>،
-و<code>var(--ui-text-quaternary)</code>، و<code>var(--ui-stroke-secondary)</code>، و<code>var(--ui-accent)</code>.
-بالنسبة للرسم على canvas، حلّها مرة واحدة باستخدام
-<code>getComputedStyle(canvas).getPropertyValue(&#x27;--ui-accent&#x27;)</code>. هذا ما يجعل
-الإضافة تُعيد تلوين نفسها تلقائيًا مع كل سمة.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-backend-for-your-plugin">backend لإضافتك</h2>
-<p>إذا احتاجت إضافتك عملًا من جهة الخادم، اشحن ملف Python <code>plugin_api.py</code> واستدعِه
-عبر <code>ctx.rest</code> / <code>ctx.socket</code> — نطاق مقيّد بإضافتك <strong>بحكم البناء</strong>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="one-package-both-sdks">حزمة واحدة، وSDK لكلا الجانبين</h3>
-<p>الميزة التي تحتاج إلى واجهة desktop <strong>و</strong>كود من جهة الوكيل (إضافة Python، مسارات الـ backend الخاصة بها، مهارات) لا تحتاج إلى الشحن كتثبيتين مترابطين. ضع
-ملف <code>desktop/plugin.js</code> داخل حزمة الوكيل. عندما تحطّ الحزمة في أي
-جذر <code>plugins/</code> محلي (المنزل الافتراضي أو profile)، تنسخ عملية Electron الرئيسية
-هذا النصف إلى <code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/</code> بجانب علامة
-<code>.hermes-package.json</code>، ويحمّله عارض الواجهة (renderer) عبر خط أنابيب مطابق تمامًا
-لباب القرص المستقل (hot reload متضمَّن):</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
-<p>نصف <code>desktop/plugin.js</code> هو إضافة قرص عادية — نفس العقد، ونفس
-الاستيرادات، ونفس <code>ctx.rest(&#x27;/…&#x27;)</code> الذي يصل إلى <code>plugin_api.py</code> الموجود بجانبه.
-تثبيت أو مشاركة أو إزالة الميزة هو مجلد واحد: تُحدَّث نسخة جذر التطبيق
-عندما يتغير ملف <code>plugin.js</code> المصدر (<code>hermes plugins update</code>، أو
-<strong>Rescan</strong>) وتُزال عندما يختفي مجلد الحزمة. النسخ هو ما
-يجعل النصف الخاص بـ desktop على <strong>مستوى التطبيق</strong>: فهو موجود مرة واحدة، مهما كان عدد
-الـ profiles التي تحمل الحزمة، ولا يظهر أو يختفي أبدًا عندما يبدّل المستخدم
-محدد profile الخاص بالإمكانيات (Capabilities). لا يفحص عارض الواجهة <code>plugins/</code> بنفسه أبدًا.
-تسجّل العلامة اسم الحزمة ومصدرها (ملحق كتالوج أو
-remote git)، وهذا ما يستخدمه زر <strong>Install here</strong> في صفحة الإضافات
-لتثبيت نصف الوكيل في profile آخر.</p>
-<p>ما زال هناك مفتاحا تفعيل ينطبقان، بشكل مقصود، وكلاهما افتراضيًا <strong>معطَّل</strong>: نصف
-desktop يُشحَن كخيار اختياري (opt-in) — يُدرَج ضمن الجرد في <strong>Capabilities → Plugins</strong> لكنه يبقى
-معطَّلًا حتى يبدّله المستخدم — مطابقًا لتقييد <code>plugins.enabled</code> الخاص
-بنصف Python في <code>config.yaml</code> (الحد الأمني أدناه). وضع
-حزمة في <code>~/.hermes/plugins</code> خامل على كل الأسطح حتى يقول المستخدم
-غير ذلك. يتدهور نصف desktop بأمان عندما يكون نصف الـ backend
-معطَّلًا — يعيد <code>ctx.rest</code> أخطاء، لا انهيارات.</p>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>النسخة محلية للجهاز الذي يعمل عليه تطبيق desktop. مقابل
-backend بعيد، لا يمكن الوصول إلى <code>~/.hermes/plugins</code> الخاص بالجهاز البعيد كنظام ملفات —
-فقط الحزم المثبَّتة محليًا تسهم بنصف desktop بهذه الطريقة. بالنسبة
-لـ backend بعيد، يستنسخ حوار التثبيت نصف desktop بشكل منفصل إلى
-<code>desktop-plugins/</code>، تمامًا كما يحدث مع مستودع خاص بـ desktop فقط.</p></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="install-link">التوزيع برابط تثبيت</h3>
-<p>اشحن مستودع إضافتك (نصف الوكيل، أو نصف desktop، أو كليهما) واربطه باستخدام
-مخطط <code>hermes://</code> — رابط بسيط على موقعك أو في README:</p>
-<div class="language-html codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
-<p>يحصل المستخدم على حوار تأكيد (معرّف المستودع، روابط المصدر، فحص لما
-يشحنه المستودع) ويختار المكوّنات قبل تثبيت أي شيء — الروابط العميقة
-لا تُثبّت تلقائيًا أبدًا. <code>force=1</code> يستبدل تثبيتًا موجودًا؛ نُسخ التطوير تستخدم
-<code>hermes-dev://</code>. مرجع الروابط الكامل:
-<a href="/docs/user-guide/features/plugins#one-click-install-links-desktop">روابط التثبيت بنقرة واحدة</a>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-python-side">جانب Python</h3>
-<p>تعيد إضافات desktop استخدام نقطة تركيب backend الخاصة بإضافة لوحة التحكم. ضع الـ backend في مجلد فرعي
-<code>dashboard/</code> ضمن إضافة Hermes عادية وأعلن عنه في
-<code>manifest.json</code>:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
-<p>تُركَّب المسارات تحت <code>/api/plugins/&lt;id&gt;/</code> (<code>GET /api/plugins/&lt;id&gt;/board</code>، …).
-يعمل كود الـ backend داخل عملية gateway، بحيث يمكنه الاستيراد مباشرة من
-قاعدة كود hermes-agent (<code>hermes_state</code>، و<code>hermes_cli.config</code>، …). راجع
-<a href="/docs/user-guide/features/extending-the-dashboard#backend-api-routes">توسيع لوحة التحكم → مسارات API للـ backend</a>
-للمرجع الكامل للـ backend — نقطة التركيب متطابقة.</p>
-<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>backend الخاص بـ Python مقيّد بشكل منفصل</div><div class="admonitionContent_BuS1"><p>تفعيل إضافة في لوحة <strong>Capabilities → Plugins</strong> الخاصة بـ desktop اختيار
-من جانب عارض الواجهة (renderer)؛ وهو <strong>لا</strong> يستورد Python. يُستورد <code>plugin_api.py</code>
-الخاص بإضافة المستخدم فقط عندما تكون الإضافة في قائمة السماح <code>plugins.enabled</code> ضمن
-<code>config.yaml</code> (وليست في <code>plugins.disabled</code>). إضافات المشروع (<code>./.hermes/</code>)
-لا تستورد Python تلقائيًا أبدًا. هذا حد أمني، لا إغفال
-(GHSA-mcfc-hp25-cjv7).</p></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-it-from-the-plugin">استدعاؤه من الإضافة</h3>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
-<p><code>ctx.rest</code> يراعي profile ويرفض اجتياز المسارات (<code>..</code>) بحيث لا يمكنك أبدًا
-التوجّه إلى واجهة API خاصة بإضافة أخرى أو مسار أساسي عبره. <code>PluginRestOptions</code> هو
-<code>{ method?, body?, upload?: { filename, contentType?, bytes }, timeoutMs? }</code>.</p>
-<p><code>ctx.socket</code> يعيد الاتصال تلقائيًا بتراجع تدريجي (backoff) حتى يُستبعَد. <strong>ينحل إلى عملية تجاهل (no-op)
-على remotes بـ OAuth</strong> (تذاكر WS أحادية الاستخدام مُدارة من النواة) — عامِله كمُسرِّع
-فوق الاستطلاع (polling)، لا كبديل عنه. يحتاج كل مستهلك إلى بديل استطلاع
-على أي حال، لأن أي مقبس (socket) قد ينقطع.</p>
-<p>بالنسبة لبيانات على نطاق gateway بأكمله (وليست في نطاقك الخاص)، استخدم <code>host.request</code> (JSON-RPC) و
-<code>host.onEvent</code> (تدفق أحداث gateway) بدلًا من ذلك.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="settings-enable-state-and-storage">الإعدادات، وحالة التفعيل، والتخزين</h2>
-<p>كل إضافة — سواء مفعَّلة أم لا — تُدرَج ضمن الجرد في <strong>Capabilities → Plugins</strong>، حيث
-يبدّلها المستخدم حيًا (بلا إعادة تشغيل للتطبيق)، أو يكشف مجلدها، أو يعيد الفحص. اختيار
-المستخدم يُتذكَّر:</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="contribution-areas--the-cookbook">مناطق المساهمة — دليل الوصفات</h2>
+<p>استورد ثوابت المنطقة (area) من الـ SDK؛ ولكل منطقة حمولة <code>data</code> الخاصة بها.</p>
+<table><thead><tr><th>السطح</th><th><code>area</code></th><th>ما تُقدّمه</th></tr></thead><tbody><tr><td>جزء التخطيط (Layout pane)</td><td><code>PANES_AREA</code> (<code>&#x27;panes&#x27;</code>)</td><td><code>title</code> + <code>render</code> + <code>data: { placement, dock?, width?, height? }</code></td></tr><tr><td>صفحة كاملة</td><td><code>ROUTES_AREA</code></td><td><code>data: { path }</code> + <code>render</code></td></tr><tr><td>تنقّل الشريط الجانبي</td><td><code>SIDEBAR_NAV_AREA</code></td><td><code>data: { path, label, codicon }</code></td></tr><tr><td>شريط الحالة</td><td><code>STATUSBAR_AREAS.left</code> / <code>.right</code></td><td><code>render</code> (أو <code>data</code> كـ <code>StatusbarItem</code>)</td></tr><tr><td>شريط العنوان</td><td><code>TITLEBAR_AREAS.left</code> / <code>.center</code> / <code>.right</code></td><td><code>data</code> كـ <code>TitlebarTool</code>، أو <code>&lt;Contribute&gt;</code></td></tr><tr><td>رأس الصفحة</td><td><code>WORKSPACE_PAGE_HEADER_AREA</code></td><td><code>&lt;WorkspacePageHeaderControl&gt;</code> داخل صفحتك (في الموضع نفسه داخل بلاطة مقسمة)</td></tr><tr><td>لوحة ⌘K</td><td><code>PALETTE_AREA</code></td><td><code>data: PaletteContribution</code></td></tr><tr><td>اختصار لوحة مفاتيح</td><td><code>KEYBINDS_AREA</code></td><td><code>data: KeybindContribution</code></td></tr><tr><td>سمة (Theme)</td><td><code>THEMES_AREA</code></td><td><code>data</code> كـ <code>DesktopTheme</code></td></tr><tr><td>محرّر الرسائل (Composer)</td><td><code>COMPOSER_AREAS.*</code></td><td>خانات عرض، أو برمجيات وسيطة / مزوّدو مرفقات</td></tr><tr><td>صفوف قائمة النماذج</td><td><code>MODEL_MENU_ROW_AREA</code></td><td><code>data: ModelMenuRowContribution</code> — أيقونة في البداية / شارة في النهاية لكل نموذج</td></tr><tr><td>إعدادات المظهر</td><td><code>APPEARANCE_AREAS.extra</code></td><td><code>render</code> — عناصر تحكم تُضاف إلى Settings → Appearance</td></tr><tr><td>صفحة إعدادات الإضافة</td><td><code>SETTINGS_PLUGINS_AREA</code> (<code>&#x27;settings.plugins&#x27;</code>)</td><td>استخدم <code>ctx.registerSettingsPage({ id, title, render, icon?, order?, children? })</code> — إدخالًا خاصًا بك (مع صفحات فرعية) ضمن Settings → Plugins</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="panes">الأجزاء (Panes)</h3>
+<p>الجزء (pane) هو بلاطة في شجرة التخطيط. <code>placement</code> هو الدور الدلالي — يتكدّس
+الجزء (كتبويبات) مع الأجزاء الحالية التي تحمل نفس الدور؛ ويمكن للمستخدم سحبه إلى أي مكان
+لاحقًا.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p><code>placement</code> هي <code>&#x27;main&#x27; | &#x27;left&#x27; | &#x27;right&#x27; | &#x27;top&#x27; | &#x27;bottom&#x27;</code>. للاستقرار على
+<strong>حافة</strong> معينة بدلًا من التكديس، أضف إيماءة <code>dock</code> — وهي بالضبط ما يحدث عند
+سحب العنصر إلى شريحة إفلات جزء ما:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p><code>dock.pane</code> هو أي معرّف جزء (<code>workspace</code> هو الخيط الرئيسي؛ وأيضًا <code>sessions</code>،
+<code>terminal</code>، <code>files</code>، <code>review</code>، <code>logs</code>)؛ و<code>dock.pos</code> هو
+<code>&#x27;top&#x27; | &#x27;bottom&#x27; | &#x27;left&#x27; | &#x27;right&#x27; | &#x27;center&#x27;</code>. حدّد <code>width</code>/<code>height</code> حتى لا
+يستحوذ الجزء على نصف المنطقة.</p>
+<p>إغلاق الجزء الوحيد الذي ساهمت به إضافة ما يعطّل تلك الإضافة، ويمكن
+إعادة تفعيلها من <strong>Capabilities → Plugins</strong>. عندما تساهم إضافة بعدة
+أجزاء، لا يؤدي إغلاق أحدها إلا لإخفاء ذلك الجزء فقط، ويبقى بقية أجزاء الإضافة،
+وأوامرها، والـ middleware الخاص بها نشطًا. تُعيد <strong>Reset layout</strong> الأجزاء المُساهَم بها
+التي تم إغلاقها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pages-and-sidebar-nav">الصفحات وتنقّل الشريط الجانبي</h3>
+<p>يُحمّل المسار (route) صفحة كاملة داخل جزء مساحة العمل، تمامًا كأي عرض مدمج. اقرن
+ذلك بصفّ تنقّل في الشريط الجانبي (و/أو أمر في لوحة الأوامر) لجعله قابلًا للوصول.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p><code>codicon</code> هو معرّف <a href="https://microsoft.github.io/vscode-codicons/dist/codicon.html" data-ext>VS Code codicon</a>.
+انتقل إلى مسار من أي مكان باستخدام <code>host.navigate(&#x27;/my-page&#x27;)</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="status-bar-and-title-bar">شريط الحالة وشريط العنوان</h3>
+<p>تُعرَض عناصر شريط الحالة في التجمّع الأيسر أو الأيمن من الشريط السفلي.
+الأبسط هو دالة <code>render</code>؛ ولزر بسيط استخدم <code>data</code> كـ
+<code>StatusbarItem</code> (<code>{ id, label?, icon?, detail?, variant?, menuItems?, … }</code>).</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>أدوات شريط العنوان تعيش في <code>TITLEBAR_AREAS.left | .center | .right</code> كبيانات
+<code>TitlebarTool</code> (<code>{ id, label, icon, active?, onSelect? }</code>).</p>
+<p>خانات شريط العنوان <strong>نقاط تركيب دائمة</strong>: يظل المكوّن الذي تسجّله هناك مركّبًا بينما يتنقل المستخدم بين المحادثة والصفحات الكاملة (Capabilities و Messaging و Artifacts والمسارات المضافة)، لذلك تنفّذ <code>useEffect</code> التي تضيف آثارًا جانبية عامة (وسم <code>&lt;style&gt;</code>، أو خصائص <code>html[data-*]</code>، أو <code>MutationObserver</code>) إعدادها مرة واحدة لكل تسجيل وتنظيفها مرة واحدة عند التخلص منها — لا أثناء التنقل مطلقًا.</p>
+<p>أما عناصر التحكم التي تنتمي إلى صفحة واحدة (مبدّل لوحة Kanban) فتُوضع في <code>WORKSPACE_PAGE_HEADER_AREA</code>: إذ تُعرَض في صف رأس التبويب بلوحة مساحة العمل ما دامت الصفحة على الشاشة، وتكون فارغة خلاف ذلك. غلّف عنصر التحكم بـ <code>&lt;WorkspacePageHeaderControl&gt;</code> (أدناه) داخل صف رأس صفحتك نفسه. في جزء مساحة العمل يُسقط على رأس الصفحة؛ وعند فتح الصفحة في بلاطة مسار مقسّمة لا تملك رأس صفحة، يُعرَض في الموضع الذي وضعته فيه. ولا يظهر <code>&lt;Contribute area={WORKSPACE_PAGE_HEADER_AREA}&gt;</code> المجرد إلا في جزء مساحة العمل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="palette-commands-and-keybinds">أوامر لوحة الأوامر واختصارات لوحة المفاتيح</h3>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>اختصارات لوحة المفاتيح قابلة لإعادة الربط من قِبل المستخدم في الإعدادات؛ <code>defaults</code> ليس إلا الربط الأولي.</p>
+<p>لتفعيل أحد إجراءات التطبيق <strong>الخاصة به</strong> (تبديل لوحة المتصفح، أو فتح Settings، أو التركيز على مربع الكتابة)، لا ترسل <code>KeyboardEvent</code> اصطناعيًا لاختصاره مطلقًا — فقد يكون المستخدم أعاد ربطه. استدعِ <a href="#run-app-actions"><code>ctx.runAction(id)</code></a> بدلًا من ذلك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="themes">السمات (Themes)</h3>
+<p>مساهمة السمة تشحن كائن <code>DesktopTheme</code> كاملًا كبياناتها <code>data</code> (الاسم، التسمية،
+الألوان، …). تظهر في منتقي السمات كأنها سمة مدمجة.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تسجيل سمة يدرجها في القائمة فقط؛ ولا يختارها. تقرأ <code>useTheme()</code> المظهر
+المُطبَّق حاليًا (<code>theme</code>، <code>themeName</code>، <code>availableThemes</code>، <code>resolvedMode</code>) وتغيّره
+(<code>setTheme</code>، <code>setMode</code>، <code>previewTheme</code>) من داخل مكوّن:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>التبديل الناتج عن شيء آخر غير عملية render — اتصال gateway، حدث socket،
+أي رد نداء <code>host.onEvent</code> — لا يملك مكوّنًا (component) يمكن تعليق الخطاف (hook) عليه.
+استخدم <code>requestTheme(name)</code> في هذه الحالة. يُرفض الاسم غير القابل للحل بدلًا من
+إجباره إلى السمة الافتراضية، بحيث تُستخدم القيمة المُعادة نفسها كفحص للتوفر
+ولا يمكن لاسم خاطئ أن يعيد ضبط مظهر أحدهم بصمت:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<p>كلا البابين يحفظان الاختيار لكل profile، لذا فإن التبديل الذي تقوده الإضافة يبقى محفوظًا
+تمامًا كالاختيار اليدوي. لتلوين السمة <em>النشطة</em> بدلًا من استبدالها، استخدم
+<code>setAccentOverride(hex)</code> وأزِله في <code>ctx.onDispose</code> — إضافة
+<a href="https://github.com/NousResearch/hermes-desktop-accent-picker" data-ext>Accent Picker</a>
+المستقلة هي المثال العملي (وهي أيضًا إضافة قرص كاملة وقابلة للتثبيت).</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="styling-the-chat-switch--data-session-switching">تنسيق تبديل المحادثة — <code>data-session-switching</code></h4>
+<p>يعرض فتح المحادثة سجلها على مراحل: تُحمَّل الجلسة، وتظهر الصفوف، ثم يستقر موضع التمرير المستعاد بعد بضعة إطارات. تستهدف السمة التي تريد إخفاء ذلك (أو تلاشيه) خاصية موثّقة واحدة بدلًا من مراقبة المسار أو DOM: تضبط النواة <code>data-session-switching=&quot;true&quot;</code> على جذر واجهة المحادثة (<code>[data-chat-surface]</code>) من الإطار الذي يبدأ فيه التبديل حتى ظهور صفوف السجل الجديد واستقرار موضع تمريرها، ثم تزيلها.</p>
+<div class="language-css codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
 <ul>
-<li>لا اختيار بعد ← <code>defaultEnabled</code> الخاصة بالإضافة نفسها (الافتراضي <code>true</code>). اضبط
-<code>defaultEnabled: false</code> لشحن إضافة اختيارية تبقى معطَّلة حتى
-يشغّلها المستخدم.</li>
-<li>اختيار صريح ← يُحفظ ويُحترَم عبر إعادات التشغيل. إضافة معطَّلة
-تبقى معطَّلة — لا تقاوم ذلك؛ فقد أطفأك المستخدم.</li>
+<li><strong>لكل واجهة.</strong> تملك المحادثة الأساسية وكل بلاطة <code>[data-chat-surface]</code> خاصة بها؛ وتوسم الخاصية الواجهة التي تبدّل وحدها. احصر الاستهداف بالجزء الأساسي عبر <code>[data-composer-target=&quot;main&quot;]</code>.</li>
+<li><strong>تنتهي دائمًا.</strong> تتحكم فيها مرحلتا التحميل واستعادة التمرير في النواة: تنتهي مرحلة التحميل عند وصول السجل أو توقف محاولة الاستئناف، وتنتهي مرحلة الاستعادة عند الاستقرار (ضمن عدد محدود من الإطارات) أو أول إدخال من المستخدم بالتمرير/المفاتيح/المؤشر، وتنتهيان عند إلغاء التركيب — فلا تستطيع سمة تخفي المحتوى اعتمادًا عليها إبقاء المحادثة مخفية. ولا تضبطها مسودة جديدة فارغة مطلقًا.</li>
+<li><strong>العقد هو الخاصية.</strong> استهدف <code>[data-session-switching]</code> و hooks <code>data-chat-surface</code> / <code>data-slot</code>؛ فأسماء الفئات الداخلية ليست عقدًا وتتغير دون إشعار. لا تبدّل الخاصية بنفسك ولا تعِد إنتاجها بمستمع للمسار أو <code>MutationObserver</code> (قاعدة الكتالوج 8).</li>
 </ul>
-<p>احفظ حالتك الخاصة باستخدام <code>ctx.storage</code>، بنطاق مُميّز باسم إضافتك
-(<code>hermes.plugin.&lt;id&gt;.*</code>) بحيث لا تستطيع الإضافات قراءة أو إتلاف بيانات بعضها البعض:</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bundled-plugins">الإضافات المضمّنة (Bundled)</h2>
-<p>يمكن لإضافة أن تُشحَن ضمن الشجرة عند <code>apps/desktop/src/plugins/&lt;id&gt;/plugin.tsx</code> (تصدير
-افتراضي <code>HermesPlugin</code>). تُكتشَف بواسطة <code>discoverBundledPlugins()</code> عند الإقلاع —
-بلا استيراد، بلا تعديل سجل — وتشارك نفس عقد الجرد + التفعيل/التعطيل الحي
-كإضافة قرص. الفرقان الاثنان:</p>
-<ol>
-<li>تمر عبر بناء Vite الخاص بالتطبيق، لذا يمكنك كتابة <strong>JSX حقيقي</strong> واستيراد
-الـ SDK عبر اسمه المستعار <code>@hermes/plugin-sdk</code>.</li>
-<li>لا تزال مقيَّدة بأدوات lint إلى <code>@hermes/plugin-sdk</code> + <code>react</code> فقط — بلا داخليات <code>@/…</code>
-خاصة بالتطبيق.</li>
-</ol>
-<p>لا تُشحَن إضافات desktop في الشجرة الأساسية اليوم؛ يبقى التطبيق المُشحَن غير مزدحم
-والعروض التوضيحية موجودة في مستودع
-<a href="https://github.com/NousResearch/hermes-example-plugins" data-ext><code>hermes-example-plugins</code></a>
-المصاحب.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">النموذج الأمني</h2>
-<p>تُقيَّم الإضافة المحمَّلة كـ ESM في عالم عارض الواجهة (renderer realm) بـ<strong>سلطة كاملة على
-التطبيق</strong> — النسخة الوحيدة (singleton) من React، وكامل الـ SDK (RPC الخاص بـ gateway عبر
-<code>host.request</code>، و<code>ctx.rest</code>، والتخزين، و<code>navigate</code>). العزل الذي يوفّره المحمّل هو
-<strong>عزل الأخطاء فقط</strong>: لا يمكن لإضافة أن تُسقط التطبيق (المساهمات محدودة الأخطاء،
-والمستمعون معزولون)، لكن يمكنها فعل أي شيء يستطيع التطبيق فعله.</p>
-<p>هذا مقبول بالنسبة لمصادر <strong>محلية</strong> — إذ يمكن لملف على القرص أصلًا تشغيل كود على
-جهازك — وهذا سبب أن باب القرص لا يحمّل إلا ملفات محلية كتبتَها أنت
-(أو وكيلك). فحص <code>integrity</code> (<code>sha256-…</code>) الاختياري يثبت فقط أن البايتات
-تطابق تجزئة (hash)؛ ولا <strong>يعزل</strong>. باب مصدر بعيد مستقبلي سيحتاج
-حدًا حقيقيًا (iframe/worker + CSP + تقييد صلاحيات) قبل أن يصبح جاهزًا؛ لا
-تعامل خط الأنابيب هذا كحد ثقة.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">مزالق</h2>
+<p>يحل هذا محل نمط <code>installSwitchFade</code> في t3-code-theme (مستمع لمخزن التركيز مع حلقة <code>requestAnimationFrame</code> تستطلع صفوف السجل وموضع التمرير، ثم تبدّل خاصية جذر خاصة بها): يمثل CSS أعلاه الانتقال كاملًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="composer-extensions">امتدادات محرّر الرسائل (Composer)</h3>
+<p><code>COMPOSER_AREAS</code> (<code>top</code>، <code>bottom</code>, <code>underside</code>, <code>leading</code>، <code>actions</code>، <code>attachments</code>،
+<code>middleware</code>) للإضافة إضافة عناصر تحكم حول محرّر الرسائل، أو توفير مصدر
+مرفقات، أو تحويل مسودة قبل إرسالها (<code>ComposerMiddleware</code>
+مع <code>handler(draft) =&gt; draft | null</code>). <code>top</code> شريط تنبيه فوق الإدخال، و <code>bottom</code> صف تحت شبكة الإدخال، وكلاهما داخل إطار مربع الكتابة؛ أما <code>underside</code> فهو شريط عائم تحت مربع الكتابة كله دون إطار خاص به — موضع لشارة اقتراح أو تلميح حالة ينبغي أن يقع خارج إطار الإدخال (تعرض إضافة next-prompt شارة &quot;next prompt&quot; هناك).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="composer-draft-api--read-and-write-the-live-input">API مسودة مربع الكتابة — قراءة الإدخال الحي وكتابته</h3>
+<p>لكل ما تعجز مناطق مربع الكتابة عن فعله — وضع نص داخل الإدخال، أو استبدال ما فيه، أو قراءة المسودة الحالية، أو إرسالها — استخدم <code>host.composer</code>. هذا هو المسار المدعوم؛ أما الوصول إلى ProseMirror DOM، أو البحث عن <code>[data-composer-target]</code>، أو إنشاء أحداث <code>InputEvent</code> اصطناعية، فهو خارج واجهة الإضافات (قاعدة الكتالوج 8) ويتعطل فور تغير markup التطبيق. العنونة: <code>null</code> = مربع الكتابة الذي يكتب فيه المستخدم؛ ومعرّف جلسة (مخزّن أو وقت التشغيل) = مربع تلك الجلسة، في الجزء الأساسي أو بلاطة؛ و <code>&#x27;new&#x27;</code> = المسودة الجديدة التي لا تملك معرّف جلسة بعد.</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p><strong>التحكيم.</strong> تتعامل كل عملية مع عنوانها بالرفض عند عدم التطابق: لا يجيب الطلب إلا مربع الكتابة المركّب الذي يملك تلك الجلسة (بلاطتها، أو الجزء الأساسي إذا كان يعرضها)؛ ولا يجيب <code>null</code> إلا الواجهة التي يوجّه إليها ناقل التركيز في التطبيق حاليًا؛ ولا تجيب <code>&#x27;new&#x27;</code> إلا في الجزء الأساسي عندما لا يعرض جلسة — ولا تنتقل مطلقًا إلى مربع الكتابة النشط. في غياب واجهة مطابقة → <code>null</code>/<code>false</code>، ولا يحدث بث إلى أي جزء صادف أنه مركّب. تمر الكتابات عبر مسار العرض الخاص بالتطبيق، فتُحمَّل tokens المراجع <code>@</code> وأوامر <code>/</code> كشارات، وتطابق النتيجة على مستوى البايتات ما يحصل عليه المستخدم عند اللصق. هذه إجراءات منفصلة يطلقها المستخدم ولها صلاحية الكتابة نفسها — ولا تملك أي إضافة المسودة بعدها، ولذلك <strong>لا يوجد ما يلزم إزالته</strong> عند التعطيل؛ وتستخدم الإضافة التي تريد حضورًا دائمًا حول الإدخال خانة <code>COMPOSER_AREAS</code> بدلًا من ذلك.</p>
+<p>تحتفظ الإضافة متعددة الجلسات بحالتها لكل جلسة من جانبها (الجلسة التي تحررها لوحتها) وتمرّر ذلك المعرّف هنا؛ ويضمن الناقل عدم وصول كتابة إضافة إلى مربع جلسة أخرى مطلقًا.</p>
+<p><strong>الانتقال من التدخل في DOM</strong> (إضافات الكتالوج الموقوفة التي حفزت إنشاء هذه API ونظيراتها؛ ويستخدم صف pet-wallet مسار <a href="#pet-bubble">فقاعة الحيوان الأليف</a>):</p>
+<table><thead><tr><th>الإضافة</th><th>سابقًا</th><th>الآن</th></tr></thead><tbody><tr><td>next-prompt (#120660)</td><td><code>window.dispatchEvent(new CustomEvent(&#x27;hermes:composer-insert&#x27;, …))</code> + <code>setTimeout</code> <code>hermes:composer-focus</code>; <code>[data-composer-target]</code>/<code>[data-pane-hidden]</code> فحص للهدف الظاهر</td><td><code>await host.composer.insertText(null, suggestion.text, { mode: &#x27;block&#x27; })</code>، ثم <code>host.composer.focus(null)</code> إذا فقدت الشارة مؤشر الكتابة</td></tr><tr><td>prompt-snippets (#116030)</td><td>حدث <code>hermes:composer-insert</code> نفسه؛ و <code>[data-slot=&quot;composer-input&quot;]</code> /ProseMirror <code>textContent</code> + أحداث <code>InputEvent</code> اصطناعية احتياطية؛ و <code>surfaceEditorEl().focus()</code></td><td><code>host.composer.insertText(sid, text, { mode: &#x27;block&#x27; })</code>; <code>setDraft(sid, (await getDraft(sid) ?? &#x27;&#x27;) + &#x27;\n&#x27; + text)</code> تحل محل المسار الاحتياطي؛ و <code>host.composer.focus(sid)</code> — <code>sid = host.state.focusedSessionId.get()</code></td></tr><tr><td>prompt-enhancer (#116031)</td><td>يتنقل عبر عقد المحرّر الفرعية لتسلسلها، ويعيد بناء DOM للشارات، و <code>replaceChildren</code> + أحداث <code>InputEvent</code></td><td><code>const draft = await host.composer.getDraft(sid)</code> → تحويل → <code>await host.composer.setDraft(sid, enhanced)</code> (تُحمَّل الشارات من جانب التطبيق)؛ والتراجع استدعاء <code>setDraft</code></td></tr><tr><td>memory-review (#115966)</td><td><code>host.request(&#x27;slash.exec&#x27;, { session_id, command })</code> لـ <code>/memory …</code> — يستخدم SDK فقط بالفعل</td><td>اختياريًا: <code>host.composer.insertText(sid, &#x27;/memory pending&#x27;, { mode: &#x27;prefix&#x27; })</code> لوضع الأمر للمستخدم بدلًا من تنفيذه</td></tr><tr><td>intelligent-tool-break (#115964)</td><td>زر &quot;Message&quot; يعرض فقط تنبيهًا &quot;type /break&quot; (دون كتابة في مربع الإدخال)</td><td><code>host.composer.setDraft(host.state.focusedSessionId.get(), &#x27;/break &#x27;)</code> ثم <code>host.composer.focus(null)</code> تستعيد السلوك المقصود</td></tr><tr><td>pet-wallet (#135178)</td><td><code>document.querySelector(&#x27;canvas[aria-label$=&quot; pet&quot;]&#x27;)</code> للعثور على الحيوان الأليف الأساسي، و overlay <code>position:fixed; z-index:9999</code> على <code>document.body</code> تتبعه في كل إطار، ومستمعات للمؤشر في مرحلة الالتقاط على مستوى المستند</td><td><code>ctx.pet.say(text, { id: &#x27;balance&#x27;, tone?, ttlMs? })</code> — تعرض الفقاعة الأساسية النص فوق الحيوان الأليف، داخل النافذة وخارجها، مع اسم الإضافة؛ وتخبرك <code>ctx.pet.visible</code> عند عدم وجود حيوان أليف، لتعود إلى شارة شريط الحالة</td></tr><tr><td>browser-toggle</td><td><code>document.body.dispatchEvent(new KeyboardEvent(&#x27;keydown&#x27;, { key: &#x27;L&#x27;, ctrlKey: true, shiftKey: true, … }))</code> لمحاكاة اختصار لوحة المتصفح المدمج؛ ويتوقف عن العمل بصمت عندما يعيد المستخدم ربطه أو يزيل ربطه</td><td><code>ctx.runAction(&#x27;view.showBrowser&#x27;)</code> — يشغّل المعالج نفسه الذي يستخدمه الاختصار وإدخال لوحة الأوامر، مهما كان الربط (<a href="#run-app-actions">تشغيل إجراءات التطبيق</a>)</td></tr></tbody></table>
+<p><code>sessionId</code> في الجدول هو المعرّف الذي ترتبط به واجهة الإضافة؛ ولعرض خانة مربع الكتابة يكون <code>host.state.focusedSessionId.get()</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-rows--decorations--the-session-list-api">صفوف الجلسات — الزخارف + API قائمة الجلسات</h3>
+<p><code>SESSION_ROW_AREAS</code> (<code>leading</code>, <code>trailing</code>) تتيح للإضافة تزيين صفوف الجلسات في الشريط الجانبي. سجّل مساهمة <code>data</code> تعيد فيها <code>render({ sessionId })</code> عنصرًا صغيرًا (شارة، أو عينة لون، أو وسمًا) أو <code>null</code> للصفوف التي لا تملكها — فلا يكلف التسجيل شيئًا على كل صف آخر:</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>اقرنها بـ API قائمة الجلسات، التي تكتب في المخازن نفسها التي تكتب فيها عناصر التطبيق نفسه (فلا يمكن أن يختلف إجراء إضافة ونقرة يدوية):</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>المعرّفات معرّفات جلسات مخزّنة: يُربَط المعرّف الحي بجذر سلالته الدائم، فتبقى التثبيتات والألوان بعد تدوير المعرّفات عند الضغط — وتسلم خانات زخرفة الصفوف دالة العرض ذلك المعرّف الدائم نفسه (<code>_lineage_root_id ?? id</code>)، لا الحي مطلقًا. يمر التحديد بالصفوف التي حمّلتها هذه النافذة؛ ويُكتب المعرّف الذي لا يطابق صفًا محمّلًا كما هو، لذلك مرّر معرّف الخانة الدائم (لا معرّفًا حيًا حفظته) لجلسة قد خرجت من القائمة بالتمرير. تقبل <code>reorder</code> المعرّفات نفسها وتربط كلًّا منها بمعرّف صفه الحي داخليًا — يُفهرَس مخزن ترتيب Recents بالمعرّف الحي، مثل مسار السحب. تضع <code>pin(id, true, index)</code> التثبيت في ذلك الموضع من قائمة Pinned (هدف إفلات بين تثبيتين)؛ ودون <code>index</code> تضيفه إلى النهاية، مثل نقرة ⇧ على الصف.</p>
+<p><strong>التحكيم.</strong> العمليات تعديلات منفصلة على بيانات المستخدم يطلقها بنفسه — تفوز الكتابة الأخيرة، تمامًا كما لو نقر المستخدم، ولا تملك أي إضافة النتيجة بعدها. تُركَّب كل مساهمات الخانات (بترتيب التسجيل، لا بفوز الأول)، كل منها داخل حدود أخطائها: لا تستطيع إضافة تطلق استثناءً أو تعيد <code>null</code> لصف منع زخرفة إضافة أخرى عليه، وتُعرض زخرفتان على صف واحد جنبًا إلى جنب. تحتفظ النواة بتخطيط الصف وإيماءاته وعنوانه — تضيف الخانات ولا تستبدل مطلقًا.</p>
+<p><strong>الإزالة.</strong> لا تحتاج إليها العمليات. تُزال مساهمات الخانات بواسطة دالة التخلص التي تعيدها <code>ctx.register</code> (يُسقطها التعطيل/إعادة التحميل ويُعاد عرض الصف دون الزخرفة).</p>
+<p>الانتقال لإضافات الكتالوج الموقوفة:</p>
 <ul>
-<li><strong>JSX لا يُحلَّل (parse) في إضافة قرص.</strong> يُحمَّل الملف دون تجميع — استخدم <code>jsx()</code> /
-<code>jsxs()</code> (أو <code>React.createElement</code>)، لا صياغة JSX. (الإضافات المضمّنة مبنية،
-لذا JSX مقبول فيها.)</li>
-<li><strong>ثلاثة معرّفات فقط قابلة للحل (resolve):</strong> <code>@hermes/plugin-sdk</code>، و<code>react</code>،
-و<code>react/jsx-runtime</code>. أي استيراد آخر يُظهر خطأ تحميل فوري.</li>
-<li><strong>لا تستخدم ألوانًا ثابتة أبدًا</strong> (<code>#000</code>، <code>black</code>، <code>rgb(...)</code>). اترك الخلفية
-كما هي؛ واستخدم متغيرات السمة (<code>var(--ui-*)</code>) لكل شيء.</li>
-<li><strong>أشِر فقط إلى ما استوردته.</strong> مكوّن نسيت استيراده (مثل
-<code>StatusDot</code>) يسبب <code>ReferenceError</code> عند العرض — تحقق مرة أخرى من أن كل معرّف في
-استدعاءات <code>jsx()</code> الخاصة بك موجود في سطر الاستيراد.</li>
-<li><strong>اقرأ الحالة بشكل أمري (imperatively) في المعالجات</strong> (<code>$atom.get()</code>)، وليس من إغلاق
-(closure) خاص بالعرض — فالأحداث السريعة ستَرى قيمًا قديمة خلاف ذلك. اشترك (<code>useValue</code>)
-فقط في الورقة (leaf) التي تعرض القيمة.</li>
-<li><strong>يجب أن تتبع لوحات canvas حاويتها</strong> باستخدام <code>ResizeObserver</code> وتُعيد قياس
-canvas (سمتا العرض/الارتفاع، وليس CSS فقط) — فاللوحات تُعاد قياسها باستمرار.</li>
-<li><strong>لا تستطلع أسرع من بضع ثوانٍ</strong> باستخدام <code>host.request</code>؛ فضّل
-<code>host.onEvent</code> / <code>ctx.socket</code> ودع React Query يزيل التكرار.</li>
-<li><strong><code>ctx.socket</code> عملية تجاهل (no-op) على remotes بـ OAuth.</strong> احرص دائمًا على بديل استطلاع.</li>
+<li><strong>drag-to-pin-session</strong> — استبدل التنقل عبر <code>__reactFiber$*</code> للوصول إلى <code>onTogglePin</code>
+/ <code>onReorderSessions</code> / <code>session._lineage_root_id</code> بمعرّف خانة الصف (تمنحك <code>render: ({ sessionId }) =&gt; …</code> ضمن <code>SESSION_ROW_AREAS.leading</code> المعرّف الدائم لكل صف)، ثم <code>host.sessions.pin(sessionId, true, dropIndex)</code> للإفلات في قسم Pinned، و <code>host.sessions.pin(sessionId, false)</code> للإفلات مجددًا في Recents، و <code>host.sessions.reorderPinned(ids)</code> للسحب داخل قسم Pinned، و <code>host.sessions.reorder([])</code> لمسار &quot;reset manual order&quot; الخاص بها.</li>
+<li><strong>better-session-appearance</strong> — استبدل كتابة <code>localStorage</code>
+<code>hermes.desktop.sessionColors</code> و <code>onChange</code> الملتقطة من fiber بـ <code>host.sessions.setColor(sessionId, hex)</code> (<code>null</code> تمسح اللون)، واعرض رمزها لكل صف عبر <code>SESSION_ROW_AREAS.leading</code> بدلًا من تعديل نقطة حالة الصف (المعرّف الدائم الذي احتاجته من <code>_lineage_root_id</code> هو <code>sessionId</code> الخاصة بالخانة).</li>
 </ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference">المرجع</h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="sdk-exports-at-a-glance">صادرات SDK بنظرة سريعة</h3>
-<table><thead><tr><th>الفئة</th><th>الصادرات (Exports)</th></tr></thead><tbody><tr><td>Host</td><td><code>host</code> (<code>.state.*</code>، <code>.notify</code>، <code>.notifyError</code>، <code>.navigate</code>، <code>.onEvent</code>، <code>.logs</code>، <code>.status</code>، <code>.restartGateway</code>، <code>.request</code>)</td></tr><tr><td>عقد الإضافة</td><td><code>HermesPlugin</code>، <code>PluginContext</code>، <code>PluginContribution</code>، <code>PluginStorage</code>، <code>PluginOs</code>، <code>PluginRestOptions</code>، <code>PluginNativeNotificationInput</code>، <code>PluginNotificationAction</code>، <code>HermesOpenTarget</code>، <code>Contribution</code></td></tr><tr><td>ثوابت المنطقة</td><td><code>PANES_AREA</code>، <code>ROUTES_AREA</code>، <code>SIDEBAR_NAV_AREA</code>، <code>STATUSBAR_AREAS</code>، <code>TITLEBAR_AREAS</code>، <code>PALETTE_AREA</code>، <code>KEYBINDS_AREA</code>، <code>THEMES_AREA</code>، <code>COMPOSER_AREAS</code></td></tr><tr><td>حمولات المنطقة</td><td><code>RouteContribution</code>، <code>SidebarNavContribution</code>، <code>StatusbarItem</code>، <code>TitlebarTool</code>، <code>PaletteContribution</code>، <code>KeybindContribution</code>، <code>ComposerMiddleware</code>، <code>ComposerAttachmentProvider</code></td></tr><tr><td>React / الحالة</td><td><code>useValue</code>، <code>atom</code>، <code>computed</code>، <code>useQuery</code>، <code>useMutation</code>، <code>useQueryClient</code>، <code>queryClient</code>، <code>Contribute</code></td></tr><tr><td>السمات (Theming)</td><td><code>useTheme</code>، <code>requestTheme</code>، <code>setAccentOverride</code>، <code>$accentOverride</code>، <code>retintTheme</code>، <code>themeHue</code>، <code>DesktopTheme</code>، <code>DesktopThemeColors</code>، بالإضافة إلى رياضيات OKLCH (<code>hexToOklch</code>، <code>oklchToHex</code>، <code>oklchToSrgb255</code>، <code>mixOklab</code>، <code>maxChroma</code>، <code>hueDelta</code>، <code>contrastRatio</code>، <code>readableOn</code>، <code>normalizeHex</code>)</td></tr><tr><td>طقم واجهة المستخدم (UI kit)</td><td><code>Button</code>، <code>Input</code>، <code>Textarea</code>، <code>Select*</code>، <code>Switch</code>، <code>Checkbox</code>، <code>SegmentedControl</code>، <code>Tabs*</code>، <code>Dialog*</code>، <code>ConfirmDialog</code>، <code>DropdownMenu*</code>، <code>ContextMenu*</code>، <code>Popover*</code>، <code>Tip</code>/<code>Tooltip*</code>، <code>Badge</code>، <code>Kbd</code>/<code>KbdGroup</code>، <code>SearchField</code>، <code>ScrollArea</code>، <code>Separator</code>، <code>Skeleton</code>، <code>GlyphSpinner</code>، <code>Loader</code>، <code>EmptyState</code>، <code>ErrorState</code>، <code>CopyButton</code>، <code>StatusDot</code>، <code>LogView</code>، <code>Codicon</code>، <code>DecodeText</code></td></tr><tr><td>المساعدات</td><td><code>cn</code>، <code>icons</code>، <code>haptic</code>، <code>useI18n</code>، <code>profileColor</code>، <code>profileColorSoft</code>، <code>relativeTime</code>، <code>fmtDateTime</code>، <code>fmtDayTime</code>، <code>coarseElapsed</code>، <code>evaluateRuntimeReadiness</code></td></tr></tbody></table>
-<p>قائمة الصادرات المرجعية الدائمة التحديث هي <code>apps/desktop/src/sdk/index.ts</code>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="agents-the-hermes-desktop-plugins-skill">الوكلاء: مهارة <code>hermes-desktop-plugins</code></h3>
-<p>عندما يكتب وكيل إضافة desktop، عليه تحميل مهارة
-<strong><code>hermes-desktop-plugins</code></strong> المضمّنة — فهي تحمل نفس عقد هذه الصفحة في
-صيغة موجَّهة للوكيل، مع <code>templates/plugin.js</code> جاهز للنسخ. هذه الصفحة هي
-المرجع البشري/الخاص بالمطوّر؛ والمهارة هي قائمة التحقق العملية.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
-<p><strong>إضافتي لا تظهر.</strong> تأكد أن الملف موجود في
-<code>$HERMES_HOME/desktop-plugins/&lt;id&gt;/plugin.js</code> وأن اسم المجلد يطابق
-<code>id</code> المُصدَّر. نفّذ ⌘K → <strong>Reload desktop plugins</strong>. تحقق من التطبيق بحثًا عن رسالة خطأ منبثقة
-تسمّي الإخفاق، وتابع سجل <code>hermes logs gui -f</code>.</p>
-<p><strong>&quot;unsupported import&quot; عند التحميل.</strong> إضافة القرص لا يجوز أن تستورد سوى
-<code>@hermes/plugin-sdk</code>، و<code>react</code>، و<code>react/jsx-runtime</code>. أزل أي استيراد آخر.</p>
-<p><strong>عنصر <code>jsx</code> لا يعرض شيئًا / يُطلق <code>ReferenceError</code>.</strong> معرّف مستخدَم
-في استدعاء <code>jsx()</code> غير مستورَد. أضفه إلى سطر الاستيراد.</p>
-<p><strong><code>ctx.rest</code> يعيد 404.</strong> الـ backend غير مُركَّب: تأكد من أن
-<code>~/.hermes/plugins/&lt;id&gt;/dashboard/manifest.json</code> يحتوي <code>&quot;api&quot;: &quot;plugin_api.py&quot;</code>،
-وأن الإضافة مدرجة في <code>plugins.enabled</code> ضمن <code>config.yaml</code>، وأعد تشغيل gateway
-(تُركَّب مسارات الـ backend عند بدء التشغيل). تابع <code>~/.hermes/logs/errors.log</code> بحثًا عن
-<code>Failed to load plugin &lt;id&gt; API routes</code>.</p>
-<p><strong><code>ctx.socket</code> لا يُطلَق أبدًا.</strong> على remote بـ OAuth هو عملية تجاهل (no-op) بالتصميم — استخدم
-بديل الاستطلاع الخاص بك. وإلا تحقق من أن الـ backend يعرض
-مسار <code>@router.websocket(...)</code> المطابق تحت نطاقه.</p>
-<p><strong>الألوان تبدو خاطئة بعد تبديل السمة.</strong> لقد استخدمت لونًا ثابتًا. استبدله بـ
-متغير سمة <code>var(--ui-*)</code>.</p>
+<p><code>COMPOSER_AREAS.modelPill</code> تتجاوز <strong>تسمية</strong> شارة النموذج — يتلقى المزوّد (<code>{ label: (ctx: ComposerModelPillContext) =&gt; string | null }</code>) <code>{ model, reasoningEffort, compact }</code> ويعيد النص المطلوب عرضه، أو <code>null</code> ليترك المجال للمزوّد التالي (ثم تسمية النواة). تحتفظ الشارة بإطارها ونقطة التثبيت وقائمتها؛ ولا تتغير إلا التسمية — وهو البديل المعتمد لإعادة كتابة النص عبر MutationObserver التي تفعلها الإضافات اليوم.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-pill-label-providers">مزوّدو تسمية شارة النموذج</h4>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p><strong>التحكيم.</strong> يُستشار المزوّدون بترتيب السجل، وتفوز <em>أول سلسلة غير فارغة</em>؛ ولا يُستدعى المزوّدون اللاحقون. تعني أي قيمة أخرى الرفض ويُسأل المزوّد التالي: <code>null</code>, <code>&#x27;&#x27;</code>، وسلسلة من مسافات فقط، وأي قيمة غير نصية (لا يُعرض كائن أو مصفوفة أو عدد مطلقًا — توضع التسمية مباشرةً في JSX). ويرفض أيضًا المزوّد الذي <strong>يطلق استثناءً</strong> — يُبتلع الخطأ وتنتقل الشارة إلى المزوّد التالي، ثم تسمية النواة، فلا تستطيع إضافة معطلة إفراغ الشارة مطلقًا. تكون <code>reasoningEffort</code> دائمًا <code>string</code> (<code>&#x27;&#x27;</code> عندما لا يملك النموذج مستوى جهد، ولا تكون <code>undefined</code> مطلقًا). في الوضع المضغوط (العائم)، لا تعرض الشارة إلا علامة السهم، ولا يُستدعى أي مزوّد. ولا تُقيَّم <code>label()</code> مجددًا إلا عند تغير السجل أو النموذج أو مستوى الجهد أو خيار الوضع المضغوط.</p>
+<p><strong>الإزالة.</strong> المزوّد مساهمة بيانات عادية: تعيد <code>ctx.register</code> دالة التخلص الخاصة به، ويُسقطه المحمّل عند تعطيل الإضافة أو إعادة تحميلها، وعندئذ تُستعاد تسمية النواة. لا يوجد شيء لإلغائه في <code>ctx.onDispose</code>.</p>
+<p><strong>نقل compact-reasoning-label.</strong> كانت الإضافة تعثر على الشارة عبر <code>[data-slot=&quot;composer-root&quot;] button span.truncate</code>، وتحذف كلمة جهد أخيرة من <code>span.textContent</code> باستخدام regex، وتكرر ذلك من <code>MutationObserver</code> على مستوى body مع <code>setInterval</code> كل ثانية. في نسخ البناء الحالية لم تعد تسمية النواة تتضمن كلمة الجهد (للمستوى <code>ReasoningPill</code> خاصة به)، فيكون الحذف بلا أثر؛ والصيغة المعتمدة حساب التسمية من السياق بدلًا من تحرير النص المعروض:</p>
+<div class="language-js codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p>لا توجد hook لـ CSS رؤية شارة الاستدلال الذي كانت الإضافة تحقنه أيضًا؛ ولا يلزم إلا إذا أخفى التطبيق تلك التسمية عند عرض ضيق.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-menu-row-decorations">زخارف صفوف قائمة النماذج</h4>
+<p><code>MODEL_MENU_ROW_AREA</code> تضع علامة لكل نموذج داخل قائمة النماذج الأصلية — التي تفتحها شارة مربع الكتابة وكل واجهة أخرى تعرض <code>ModelCatalogMenu</code>. توفر المساهمة <code>decorate(row)</code>؛ وتعرض النواة ما تعيده في خانتين ثابتتين بالصف: <strong>أيقونة في البداية</strong> قبل اسم النموذج، و <strong>شارة في النهاية</strong> بعد شارات النواة نفسها. تظل markup الصف واسمه ونجمته وقائمته الفرعية والنقر عليه ملكًا للنواة.</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p><strong>التحكيم.</strong> تعمل دوال التزيين بترتيب السجل <strong>لكل خانة</strong>: تملأ أول دالة تعيد <code>icon</code> صالحة خانة الأيقونة، وتملأ أول <code>badge</code> صالحة خانة الشارة، فتجتمع إضافة أيقونة وإضافة شارة تسعير على الصف نفسه. تعني <code>null</code> (أو غياب قيمة صالحة) الرفض. لا تُقبل كأيقونة إلا عناصر React أو سلسلة غير فارغة، ولا تُقبل كشارات إلا سلسلة غير فارغة؛ ويُتجاهل أي شيء آخر بدلًا من عرضه. وترفض أيضًا دالة تزيين <strong>تطلق استثناءً</strong>، ولا يُفرغ مكوّن أيقونة يطلق استثناءً أثناء العرض إلا خانته (إذ يقع داخل حدود أخطائه) — فلا تستطيع إضافة معطلة إسقاط القائمة مطلقًا. ولا تُنفّذ <code>decorate()</code> مجددًا إلا عند تغير السجل أو مزوّد الصف/نموذجه/تسميته، فاجعلها عملية بحث خالصة.</p>
+<p><strong>الإزالة.</strong> مساهمة بيانات عادية: تزيلها دالة التخلص الخاصة بـ <code>ctx.register</code> (وكذلك تعطيل الإضافة/إعادة تحميلها)، وتُعاد الصفوف للعرض دون الزخارف.</p>
+<p><strong>نقل t3-code-theme.</strong> كانت علامات المزوّدين الخاصة بها تُرسَم في القائمة المفتوحة بواسطة <code>MutationObserver</code> يعثر على الصفوف في DOM القائمة ويكتب صور أقنعة عليها. تأتي العلامات نفسها من <code>decorate({ provider })</code> التي تعيد <code>{ icon: &lt;img alt=&quot;&quot; src={providerSvgDataUrl(provider)} /&gt; }</code> — دون قراءة DOM، ويظل الصف يعمل عندما تتغير markup القائمة.</p>

@@ -1,0 +1,70 @@
+<header><h1>عزل اتصال الشبكة الصادر لنشر Docker</h1></header>
+<p>عند تشغيل Hermes داخل Docker، يمنح <code>network_mode: host</code> الافتراضي
+عملية الوكيل وصولًا غير مقيّد إلى الشبكة الصادرة. يوضح هذا الدليل كيفية
+تقسيم حركة البيانات بحيث لا يصل جوهر الوكيل إلا إلى الخدمات المطلوبة، مع
+حظر الاتصالات الصادرة العشوائية.</p>
+<p>هذا دفاع بالأساس ضد هجمات حقن الـ prompt التي تحاول
+تسريب البيانات عبر <code>curl</code>, <code>wget</code> أو HTTP الخام من أوامر الـ shell
+التي تولّدها الأدوات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="threat-model">نموذج التهديد</h2>
+<p>يحدّد ملف Hermes <a href="https://github.com/NousResearch/hermes-agent/blob/main/SECURITY.md" data-ext>SECURITY.md</a> §2 نموذج الثقة. يُعد
+terminal backend حدّ التنفيذ الرئيسي. لكن عند التشغيل باستخدام
+ <code>network_mode: host</code> ، يمكن لأي أمر ينفّذه الوكيل الوصول إلى أي endpoint على
+الشبكة، بما في ذلك endpoints الخارجية.</p>
+<p>يضيف عزل الاتصال الصادر طبقة ثانية: حتى لو نُفّذ أمر خبيث
+داخل الحاوية، فلن يستطيع الوصول إلى endpoints خارج
+المجموعة المسموح بها صراحة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture">البنية المعمارية (Architecture)</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>شبكتا Docker:</p>
+<ul>
+<li><strong><code>internal</code></strong> — دون مسار افتراضي أو اتصال إنترنت. يعمل هنا الوكيل ولوحة التحكم
+و gateway.</li>
+<li><strong><code>egress</code></strong> — تتصل بالإنترنت. ولا تتصل بها إلا الخدمات التي تحتاج الوصول إلى
+واجهات API خارجية.</li>
+</ul>
+<p>خدمة gateway متصلة بالشبكتين، لتستطيع
+استقبال رسائل Telegram/Slack وغيرها وتمريرها إلى
+الوكيل على الشبكة الداخلية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compose-configuration">إعدادات Compose</h2>
+<p>تجاوز <code>docker-compose.yml</code> الافتراضي باستخدام
+ <code>docker-compose.override.yml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="with-an-egress-proxy-recommended">باستخدام Egress Proxy (موصى به)</h3>
+<p>لتحكم أدق، وجّه كل حركة البيانات الصادرة عبر HTTP proxy مع
+قائمة سماح صريحة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>مثال <code>config/squid-allowlist.conf</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>عدّل قائمة السماح لتطابق مزوّد LLM ومنصة المراسلة لديك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="validating-the-setup">التحقق من الإعداد</h2>
+<p>بعد تشغيل الحزمة، تحقّق من العزل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="limitations">القيود</h2>
+<ul>
+<li>
+<p><strong>حلّ أسماء DNS:</strong> لا تزال شبكة <code>internal</code> قادرة على حلّ أسماء DNS
+الخارجية ما لم تشغّل أيضًا محلّل DNS محليًا يمنع الاستعلامات الخارجية.
+هذا مقبول في معظم نماذج التهديد، لأن حل أسماء DNS وحده لا
+يسرّب بيانات ذات قيمة.</p>
+</li>
+<li>
+<p><strong>ليس بديلًا لـ sandbox backends:</strong> يعزل هذا الدليل شبكة
+<em>حاوية</em> الوكيل. إذا استخدمت terminal backend المحلي الافتراضي، تُنفّذ أوامر
+الأدوات داخل الحاوية نفسها. لعزل أقوى، اجمع
+تقسيم الشبكة مع terminal backend في sandbox (Docker و Modal
+و Daytona).</p>
+</li>
+<li>
+<p><strong>تحتاج محوّلات المنصات إلى اتصال صادر:</strong> تحتاج خدمة gateway إلى وصول صادر
+لبلوغ APIs منصات المراسلة. إذا أضفت محوّلات منصات جديدة، فأضف
+endpoints الخاصة بـ APIs إلى قائمة سماح proxy.</p>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذات صلة</h2>
+<ul>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/SECURITY.md" data-ext>SECURITY.md</a> — نموذج ثقة Hermes والإبلاغ عن الثغرات</li>
+<li><a href="/docs/user-guide/docker">Docker</a> — تشغيل Hermes في حاوية</li>
+<li><a href="/docs/user-guide/egress/iron-proxy">Egress proxy</a> — جدار حماية لحقن بيانات الاعتماد لـ sandbox</li>
+<li><a href="https://github.com/NousResearch/hermes-agent/blob/main/docker-compose.yml" data-ext>docker-compose.yml</a> — إعدادات compose الافتراضية</li>
+</ul>

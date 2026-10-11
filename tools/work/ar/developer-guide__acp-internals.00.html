@@ -53,15 +53,16 @@
 <li><code>thinking_callback</code> (مضبوط حاليًا على <code>None</code> في جسر ACP — إذ يُمرَّر الاستدلال (reasoning) عبر <code>step_callback</code> بدلًا منه)</li>
 <li><code>step_callback</code></li>
 </ul>
-<p>لأن <code>AIAgent</code> يعمل في خيط عامل بينما تعمل عمليات الإدخال والإخراج الخاصة بـ ACP على حلقة الأحداث الرئيسية، يستخدم الجسر:</p>
+<p>يبلغ كل استدعاء أداة ACP حالة نهائية: يُغلق <code>tool.completed</code> الاستدعاء بنتيجته الخاصة (<code>completed</code> / <code>failed</code>)؛ ومرحلة <code>step_callback</code> <code>prev_tools</code> مجرد بديل احتياطي لبيئات تشغيل لا تعرض اكتمالًا أبدًا، وأي استدعاء يظل مفتوحًا عند انتهاء الدور — مرفوض أو محظور أو مقاطَع — يُوسَم بـ <code>failed</code> قبل إعادة الاستجابة.</p>
+<p>لأن <code>AIAgent</code> يعمل في خيط عامل بينما يعمل إدخال/إخراج ACP على حلقة الأحداث الرئيسية، يستخدم الجسر:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-bridge">جسر الصلاحيات</h3>
 <p>يكيّف <code>acp_adapter/permissions.py</code> طلبات الموافقة على أوامر الطرفية الخطرة لتصبح طلبات صلاحية في ACP.</p>
 <p>التعيين:</p>
 <ul>
-<li><code>allow_once</code> -&gt; <code>once</code> في Hermes</li>
-<li><code>allow_always</code> -&gt; <code>always</code> في Hermes</li>
-<li>خيارات الرفض -&gt; <code>deny</code> في Hermes</li>
+<li><code>allow_once</code> -&gt; Hermes <code>once</code> في Hermes</li>
+<li><code>allow_always</code> -&gt; Hermes <code>always</code> في Hermes</li>
+<li>خيارات الرفض -&gt; Hermes <code>deny</code> في Hermes</li>
 </ul>
 <p>عند انقضاء المهلة أو فشل الجسر، يكون الرفض هو السلوك الافتراضي.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-rendering-helpers">أدوات مساعدة لعرض الأدوات</h3>
@@ -75,6 +76,7 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-lifecycle">دورة حياة الجلسة</h2>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تُغلق الحلقة الأساسية دورًا ينتهي بفشل نهائي (رفض المزوّد، أو خطأ غير قابل لإعادة المحاولة، أو استنفاد المحاولات، أو مقاطعة قبل أي رد) بصف مساعد كتبه Hermes (&quot;Your request was not processed…&quot; / &quot;This turn did not complete…&quot;)، فلا ينتهي سجل المحادثة الدائم بصف <code>user</code> مفتوح أبدًا. دونه، سيُدمَج الـ prompt التالي في الطلب الفاشل ويُعاد عرضه. تُستثنى إخفاقات تجاوز السياق: إصلاحها تدوير الجلسة، لا صف آخر.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="cancelation">الإلغاء</h3>
 <p><code>cancel(session_id)</code>:</p>
 <ul>
@@ -112,8 +114,8 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-files">ملفات ذات صلة</h2>
 <ul>
-<li><code>tests/acp/</code> — مجموعة اختبارات ACP</li>
-<li><code>toolsets.py</code> — تعريف toolset <code>hermes-acp</code></li>
+<li><code>tests/acp_adapter/</code> — مجموعة اختبارات ACP</li>
+<li><code>toolsets.py</code> — تعريف toolset <code>hermes-acp</code> تعريف toolset</li>
 <li><code>hermes_cli/main.py</code> — الأمر الفرعي <code>hermes acp</code> في CLI</li>
-<li><code>pyproject.toml</code> — الاعتمادية الاختيارية <code>[acp]</code> + السكربت <code>hermes-acp</code></li>
+<li><code>pyproject.toml</code> — الاعتمادية الاختيارية <code>[acp]</code> اعتماد اختياري + سكربت <code>hermes-acp</code></li>
 </ul>

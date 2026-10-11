@@ -1,0 +1,28 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="troubleshooting">استكشاف الأخطاء وإصلاحها</h2>
+<p><strong>الخطأ 401 Unauthorized مع deployments نماذج gpt-5.x.</strong>
+يقدّم Azure نماذج gpt-5.x على <code>/chat/completions</code>، وليس على <code>/responses</code>. يتعامل Hermes مع ذلك تلقائيًا عندما يحتوي الرابط على <code>openai.azure.com</code>، لكن إذا ظهر لك الخطأ 401 مع نص <code>Invalid API key</code>، فتحقّق من أن <code>api_mode</code> في <code>config.yaml</code> مضبوط على <code>chat_completions</code>.</p>
+<p><strong>الخطأ 404 على <code>/v1/messages?api-version=.../v1/messages</code>.</strong>
+هذا هو خطأ الرابط التالف الذي كان يظهر في إعدادات Azure Anthropic قبل الإصلاح. حدّث Hermes — إذ صار المعامل <code>api-version</code> يُمرَّر الآن عبر <code>default_query</code> بدلًا من دمجه في الرابط الأساسي، فلا يستطيع الـ SDK إفساده أثناء ضمّ الروابط.</p>
+<p><strong>يعرض المعالج الرسالة &quot;Auto-detection incomplete.&quot;</strong>
+رفض الـ endpoint كلًّا من استكشاف <code>/models</code> واستكشاف Anthropic Messages. وهذا أمر طبيعي مع الـ endpoints الخاصة خلف جدار ناري أو المقيّدة بقائمة سماح لعناوين IP. انتقل إلى اختيار وضع الـ API يدويًا واكتب اسم الـ deployment — سيظل كل شيء يعمل، لكن Hermes لن يتمكن من ملء المنتقي مسبقًا.</p>
+<p><strong>اختيار بروتوكول نقل خاطئ.</strong>
+شغّل <code>hermes model</code> مجددًا وسيعيد المعالج الاستكشاف. وإذا ظل الاستكشاف يختار الوضع الخاطئ، فيمكنك تعديل <code>config.yaml</code> مباشرةً:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p><strong>Entra ID: الرسالة &quot;credential chain exhausted&quot; أو الخطأ 401 Unauthorized بعد التبديل إلى <code>auth_mode: entra_id</code>.</strong></p>
+<ul>
+<li>شغّل <code>az login</code> لتجديد جلسة المطوّر (ربما انتهت صلاحية الـ token المخزّن مؤقتًا).</li>
+<li>تحقّق من أن إسناد الدور <code>Azure AI User</code> (أو <code>Foundry User</code>) قد سرى: يجب أن يُظهره <code>az role assignment list --assignee &lt;user-or-identity-id&gt;</code> على مورد Foundry لديك. وقد يستغرق انتشار الدور ما يصل إلى 5 دقائق.</li>
+<li>بالنسبة إلى الهويات المُدارة التي يعيّنها المستخدم، تأكّد جيدًا من أن <code>AZURE_CLIENT_ID</code> يطابق الهوية المرتبطة بمورد الحوسبة.</li>
+<li>شغّل <code>hermes doctor</code> — إذ يُبلغ اختبار Azure Entra عمّا إذا نجح الحصول على الـ token، ويتضمن تلميحًا للمعالجة.</li>
+</ul>
+<p><strong>Entra ID: الاختبار التمهيدي في المعالج يتعلّق أو تنتهي مهلته.</strong>
+الاختبار التمهيدي ذو الـ 10 ثوانٍ فحصٌ غير مُلزِم. اختر &quot;Save anyway and validate later&quot; وشغّل <code>hermes doctor</code> بعد النشر في البيئة المستهدفة. ومن الأسباب الشائعة تعذّر الوصول إلى خدمة الـ token أو حالة تسجيل دخول محلية قديمة — يُفضَّل استخدام workload identity في CI، واضبط <code>AZURE_TENANT_ID</code>+<code>AZURE_CLIENT_ID</code>+<code>AZURE_CLIENT_SECRET</code> عند استخدام service principal، أو شغّل <code>az login</code> للتطوير المحلي.</p>
+<p><strong>الخطأ 401 على endpoint بنمط Anthropic مع Entra ID.</strong>
+تحقّق من أن الدور نفسه <code>Azure AI User</code> (أو <code>Foundry User</code>) مُسنَد على مورد Foundry (فهو يغطي المسارين <code>/openai/v1</code> و <code>/anthropic</code> معًا). وإذا نجح استكشاف نمط OpenAI أثناء تشغيل المعالج لكن فشلت طلبات <code>claude-*</code> وقت التشغيل، فالسبب الأكثر شيوعًا هو بقاء قيمة قديمة لـ <code>model.entra.scope</code> من تشغيل سابق للمعالج — احذف السطر <code>entra.scope</code> من <code>config.yaml</code> حتى يعود وقت التشغيل إلى النطاق الافتراضي <code>https://ai.azure.com/.default</code> كنطاق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related">ذو صلة</h2>
+<ul>
+<li><a href="/docs/reference/environment-variables">متغيرات البيئة (Environment Variables)</a></li>
+<li><a href="/docs/user-guide/configuration">الإعدادات</a></li>
+<li><a href="/docs/guides/aws-bedrock">AWS Bedrock</a> — التكامل الرئيسي الآخر مع مزوّد سحابي</li>
+<li><a href="https://learn.microsoft.com/azure/ai-foundry/foundry-models/how-to/configure-entra-id" data-ext>Microsoft: إعداد Entra ID لـ Foundry</a> — الوثائق الأصلية للمسار دون مفاتيح</li>
+</ul>

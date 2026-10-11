@@ -1,3 +1,31 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">آلية العمل</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<ol>
+<li>تُرسل الـ sandbox طلب HTTPS، مثل <code>POST https://openrouter.ai/v1/chat/completions</code> مع <code>Authorization: Bearer hermes-proxy-openrouter-…</code> (الـ proxy token، وليس المفتاح الحقيقي).</li>
+<li>لأن <code>HTTPS_PROXY</code> مضبوط، يذهب الطلب إلى iron-proxy كنفق CONNECT.</li>
+<li>يتحقق iron-proxy من قائمة السماح، والمضيف <code>openrouter.ai</code> مسموح به.</li>
+<li>يُنشئ iron-proxy شهادة طرفية (leaf cert) موقّعة من الـ CA الخاصة بنا لـ <code>openrouter.ai</code>، ويُنهي اتصال TLS، ويفحص الطلب.</li>
+<li>يطابق تحويل <code>secrets</code> سلسلة الـ proxy token في ترويسة <code>Authorization</code> ويستبدل بها القيمة الحقيقية لـ <code>OPENROUTER_API_KEY</code> المأخوذة من بيئة iron-proxy نفسه.</li>
+<li>يُعاد تشفير الطلب ويُمرَّر إلى OpenRouter.</li>
+<li>يُسجَّل الطلب في <code>~/.hermes/proxy/iron-proxy.log</code> في v0.39. وعندما يدعم إصدار الملف التنفيذي المثبّت فصل التدفقات (v0.40+)، ستتدفق سجلات كل طلب إلى <code>~/.hermes/proxy/audit.log</code> وستبقى تشخيصات مستوى الـ daemon في <code>iron-proxy.log</code>. راجع <a href="#logging-on-iron-proxy-v039">التسجيل في iron-proxy v0.39</a>.</li>
+</ol>
+<p>يُرفض أي طلب إلى مضيف غير مسموح به (مثل <code>https://attacker.example.com/leak?key=...</code>) بالرمز HTTP 403 قبل أن يغادر أي بايت الجهاز المضيف. ويُسجَّل الرفض في <code>iron-proxy.log</code> مع مضيف upstream والـ sandbox المصدر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="ca-distribution-into-the-sandbox">توزيع CA داخل الـ sandbox</h3>
+<p>عندما يبدأ الـ backend الخاص بـ Docker حاوية مع <code>proxy.enabled: true</code> وكان الـ daemon في وضع الاستماع، فإنه يضيف الوسائط التالية إلى <code>docker run</code>:</p>
+<table><thead><tr><th>الوسيط</th><th>الغرض</th></tr></thead><tbody><tr><td><code>-v ~/.hermes/proxy/ca.crt:/etc/ssl/certs/hermes-egress-ca.crt:ro</code></td><td>تركيب الـ CA للقراءة فقط</td></tr><tr><td><code>-e HTTPS_PROXY=http://host.docker.internal:9090</code></td><td>Python httpx / curl / الـ transport الافتراضي في Go / Node fetch</td></tr><tr><td><code>-e HTTP_PROXY=http://host.docker.internal:9091</code></td><td>curl + wget لطلبات HTTP العادية — إذ يعمل مستمع التمرير (forward listener) الخاص بـ HTTP العادي على <code>tunnel_port + 1</code></td></tr><tr><td><code>-e NO_PROXY=127.0.0.1,localhost,::1</code></td><td>خوادم التطوير على loopback داخل الـ sandbox تتجاوز الـ proxy</td></tr><tr><td><code>-e REQUESTS_CA_BUNDLE=…ca.crt</code></td><td>مكتبة Python <code>requests</code></td></tr><tr><td><code>-e SSL_CERT_FILE=…ca.crt</code></td><td>وحدة <code>ssl</code> في Python / OpenSSL — <strong>يستبدل</strong> مخزن النظام</td></tr><tr><td><code>-e CURL_CA_BUNDLE=…ca.crt</code></td><td>curl — <strong>يستبدل</strong> مخزن النظام</td></tr><tr><td><code>-e NODE_EXTRA_CA_CERTS=…ca.crt</code></td><td>Node.js — <strong>يُضيف</strong> إلى مخزن النظام</td></tr><tr><td><code>-e NODE_OPTIONS=&quot;&lt;your value&gt; --use-openssl-ca&quot;</code></td><td>Node.js — المرور عبر مخزن OpenSSL (يُلحَق بالقيمة الحالية؛ ويُحافَظ على <code>--max-old-space-size</code> وغيره من خياراتك)</td></tr><tr><td><code>-e HERMES_EGRESS_PROXY=1</code></td><td>علامة يمكن للوكيل قراءتها ليعرف أنه يعمل عبر الـ proxy</td></tr><tr><td><code>-e OPENROUTER_API_KEY=&lt;proxy-token&gt;</code></td><td>تتلقى أسماء متغيرات البيئة القياسية للمزوّدين proxy tokens كي تستمر SDKs الحالية في العمل</td></tr><tr><td><code>-e HERMES_PROXY_TOKEN_&lt;NAME&gt;=…</code></td><td>اسم بديل تشخيصي لكل ربط؛ بنفس قيمة متغير البيئة القياسي للمزوّد</td></tr><tr><td><code>--add-host=host.docker.internal:host-gateway</code></td><td>لـ Linux فقط؛ إذ يربطه Docker Desktop تلقائيًا</td></tr></tbody></table>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="nodejs-asymmetric-ca-caveat">تحفّظ عدم تماثل CA في Node.js</h4>
+<p><code>REQUESTS_CA_BUNDLE</code> / <code>SSL_CERT_FILE</code> / <code>CURL_CA_BUNDLE</code> <strong>تستبدل</strong> مخزن CA الخاص بالنظام داخل الـ sandbox، أما <code>NODE_EXTRA_CA_CERTS</code> <strong>فيُضيف</strong> إليه. ويمكن نظريًا لعملية Node.js داخل الـ sandbox تجاوز الـ proxy بفتح <code>net.Socket</code> خام وبدء مصافحة TLS خاصة بها — إذ سيظل مخزن CA الخاص بالنظام يثق بشهادات upstream الحقيقية، فينجح الطلب في حين يفشل التحقق في Python / curl.</p>
+<p><code>NODE_OPTIONS=--use-openssl-ca</code> بأي قيمة موجودة لديك في <code>docker_env.NODE_OPTIONS</code>. وهذا يجبر Node على المرور عبر مخزن OpenSSL الذي يتحكم فيه <code>SSL_CERT_FILE</code>، مما يقلّص عدم التماثل. لكنه لا يغطي الكود الذي يمرّر صراحةً خيار <code>ca</code> خاصًا به إلى <code>tls.connect()</code> أو <code>https.request()</code>، وإن كان يسدّ الحالة السهلة.</p>
+<p>هذا قيد معروف في v1. تابع <a href="https://github.com/ironsh/iron-proxy/issues" data-ext>github.com/ironsh/iron-proxy/issues</a> لمعرفة الحل من المشروع الأصلي؛ وفي الأثناء، لا تشغّل كود Node غير موثوق يفتح مقابس خام داخل sandbox تعتمد فيها على عزل الاتصالات الصادرة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker_env-collisions">تعارضات docker_env</h3>
+<p>إذا ضبطت متغيرات بيئة تتحكم في الـ proxy داخل كتلة الإعدادات <code>docker_env:</code> (وهذا نادر لكنه ممكن)، يرفض Hermes بدء الـ sandbox عند ضبط <code>enforce_on_docker: true</code>. ويشمل ذلك كلًّا من:</p>
+<ul>
+<li>متغيرات التحكم في الاتصالات الصادرة: <code>HTTPS_PROXY</code>، <code>HTTP_PROXY</code>، <code>NO_PROXY</code>، <code>REQUESTS_CA_BUNDLE</code>، <code>SSL_CERT_FILE</code>، <code>CURL_CA_BUNDLE</code>، <code>NODE_EXTRA_CA_CERTS</code></li>
+<li>متغيرات البيئة الحقيقية للمزوّدين: كل اسم في <code>mappings.json</code> (مثل <code>OPENROUTER_API_KEY</code>، <code>OPENAI_API_KEY</code>)</li>
+</ul>
+<p>مثال على الخطأ:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>مع <code>enforce_on_docker: false</code> تظهر الحالة نفسها كتحذير وتكون الأولوية لقيم <code>docker_env</code> لديك — وهذا مفيد لعمليات الترحيل أو الاختبار، لكنك بذلك تتخلى صراحةً عن ضمان العزل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pid-and-nonce-defense">الحماية عبر PID و nonce</h2>
 <p>يُكتب ملف PID الخاص بالـ daemon باستخدام <code>O_EXCL</code> + <code>O_NOFOLLOW</code> مع التحقق من الملكية. وتؤدي استدعاءات <code>hermes egress start</code> المتزامنة إلى إحدى نتيجتين:</p>
 <ul>
@@ -34,7 +62,7 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-modes">حالات الإخفاق</h2>
 <ul>
 <li><strong>الملف التنفيذي غير مثبّت، و <code>auto_install: true</code></strong> — يُنزّله أول تشغيل لـ <code>hermes egress setup</code> أو <code>hermes egress start</code>، مع التحقق من SHA-256 مقابل <code>checksums.txt</code> من المشروع الأصلي.</li>
-<li><strong>الملف التنفيذي غير مثبّت، و <code>auto_install: false</code></strong> — يفشل <code>start</code> مع رسالة واضحة تُرشدك إلى التثبيت اليدوي.</li>
+<li><strong>الملف التنفيذي غير مثبّت، و <code>auto_install: false</code></strong> — يفشل <code>start</code> يفشل برسالة واضحة ترشد إلى التثبيت اليدوي.</li>
 <li><strong><code>enabled: true</code> لكن الـ proxy لا يعمل</strong> — مع <code>enforce_on_docker: true</code> (الافتراضي)، يُرفض إنشاء sandbox في Docker مع خطأ توضيحي. ومع <code>enforce_on_docker: false</code>، يعود إلى الاتصال الصادر المباشر ببيانات الاعتماد الحقيقية ويسجّل تحذيرًا.</li>
 <li><strong>تعارض المنافذ</strong> — يخرج iron-proxy فورًا؛ ويعرض <code>hermes egress start</code> آخر 20 سطرًا من السجل ويفشل برمز خروج غير صفري.</li>
 <li><strong>رفض مضيف upstream</strong> — تتلقى الـ sandbox الرمز HTTP 403 من الـ proxy مع جسم يوضح أي مضيف لم يُسمح به. ويرى الوكيل الخطأ ويُبلغ عنه.</li>
