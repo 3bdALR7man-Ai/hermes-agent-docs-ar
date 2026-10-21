@@ -1,30 +1,70 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="register-native-platform-handlers-any-platform">تسجيل معالجات المنصة الأصلية (أي منصة)</h3>
+<p>يمكن للإضافات التي تحتاج إلى استقبال أحداث منصة لا يوجّهها الـ adapter الأساسي — أنواع تحديثات إضافية، ودوال رد نداء الأزرار الأصلية، وأحداث التفاعلات/الأعضاء، ومسارات webhook — أن تسجّل مصنع معالجات (handler factory) يستدعيه adapter المنصة وقت الاتصال. يعمل ذلك على <strong>كل</strong> منصات gateway.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="65"></x-keep></div></div>
+<p><strong>التوقيع (Signature):</strong> <code>ctx.register_platform_handler(platform, factory) -&gt; None</code></p>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>platform</code></td><td><code>str</code></td><td>اسم منصة gateway بأحرف صغيرة (<code>&quot;telegram&quot;</code> و <code>&quot;discord&quot;</code> و <code>&quot;slack&quot;</code> و <code>&quot;matrix&quot;</code>، ...)</td></tr><tr><td><code>factory</code></td><td>كائن قابل للاستدعاء (callable)</td><td>يستقبل <code>(native, adapter)</code> وقت الاتصال</td></tr></tbody></table>
+<p><strong>ماهية <code>native</code> لكل منصة:</strong></p>
+<table><thead><tr><th>المنصة</th><th><code>native</code>كائن </th><th>نقاط الربط المعتادة (hooks)</th></tr></thead><tbody><tr><td><code>telegram</code></td><td>كائن PTB <code>Application</code></td><td><code>add_handler</code> — أي نوع تحديث، ودوال رد نداء مقيّدة بنمط</td></tr><tr><td><code>discord</code></td><td><code>discord.ext.commands.Bot</code></td><td><code>add_listener</code> — التفاعلات، وأحداث الأعضاء، والسلاسل (threads)، والصوت</td></tr><tr><td><code>slack</code></td><td><code>slack_bolt.AsyncApp</code></td><td><code>app.event()</code> / <code>app.action()</code> / <code>app.command()</code></td></tr><tr><td><code>matrix</code></td><td>عميل Matrix</td><td>دوال رد نداء الأحداث</td></tr><tr><td><code>teams</code></td><td>كائن Teams <code>App</code></td><td><code>on_message</code> / <code>on_card_action</code> decorators</td></tr><tr><td><code>dingtalk</code></td><td><code>DingTalkStreamClient</code></td><td><code>register_callback_handler</code> لمواضيع البث (stream topics) الأخرى</td></tr><tr><td><code>feishu</code></td><td>عميل lark_oapi</td><td>استدعاءات API؛ وتوجيه الأحداث</td></tr><tr><td><code>line</code>, <code>api_server</code>, <code>msgraph_webhook</code></td><td>كائن aiohttp <code>web.Application</code></td><td><code>router.add_get/post</code> — مسارات مخصصة (تُربط قبل تجميد الموجّه router)</td></tr><tr><td>كل ما عدا ذلك (whatsapp و signal و irc و email و sms و ntfy و wecom و weixin و bluebubbles و yuanbao، ...)</td><td><code>None</code></td><td>hook وقت الاتصال؛ اعمل عبر مقبض <code>adapter</code></td></tr></tbody></table>
+<p><strong>السلوك وقت التشغيل:</strong></p>
+<ul>
+<li>توضع المصانع في قائمة الانتظار وقت تحميل الإضافة وتُستدعى عند اتصال المنصة — وفي المنصات التي يهمّ فيها ترتيب التوزيع (Telegram و Slack و Teams وموجّهات aiohttp) تعمل <strong>قبل</strong> تسجيل المعالجات الأساسية، فتحظى معالجات الإضافة المقيّدة بالأولوية بينما يمرّ كل ما عداها إلى المعالجات التالية.</li>
+<li><strong>قيّد دائمًا نطاق المعالجات التي تضيفها إلى جداول التوزيع القائمة على أول تطابق.</strong> في Telegram، استخدم <code>CallbackQueryHandler(..., pattern=r&quot;^myplugin:&quot;)</code> — فالمعالج غير المقيّد سيبتلع تدفقات الأزرار الأساسية (موافقات التنفيذ، ومنتقي النموذج، وطلبات التوضيح).</li>
+<li>كل مصنع معزول: إذا أطلق استثناءً، يُسجَّل الخطأ وتواصل المنصة الاتصال بشكل طبيعي.</li>
+<li>استورد SDK المنصة داخل جسم المصنع، لا على مستوى الوحدة (module) — إذ يجب أن تعمل <code>register()</code> حتى عندما لا تكون SDK مثبّتة.</li>
+<li>يمكن لإضافة واحدة تسجيل مصانع لعدة منصات؛ ويُطلَق كل منها فقط عند اتصال منصته.</li>
+</ul>
+<p><strong>الاسم البديل لـ Telegram:</strong> <code>ctx.register_telegram_handler(factory)</code> هو اسم بديل للتوافق مع الإصدارات السابقة لـ <code>ctx.register_platform_handler(&quot;telegram&quot;, factory)</code>.</p>
+<p>مثال — Telegram، أزرار مضمّنة (inline) مقيّدة بنمط:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="66"></x-keep></div></div>
+<p>مثال — Discord، أحداث التفاعلات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="67"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mid-run-plugin-loading-what-activates-now-vs-next-session">تحميل الإضافات أثناء التشغيل: ما يُفعَّل الآن وما ينتظر الجلسة التالية</h3>
+<p>يمكن تحميل إضافة بينما gateway (أو خادم TUI/Desktop) تعمل بالفعل: <code>hermes plugins install</code>/<code>enable</code> أو تثبيت في Desktop أو لوحة التحكم أو تغيير تثبيت الكتالوج أو إعادة
+اكتشاف قسرية تفعّلها أداة. ينفّذ كل مسار منها <strong>إعادة فحص قسرية فعلية</strong> (<code>discover_plugins(force=True)</code>)، وتتفعّل <code>PluginManager.on_plugin_loaded(callback)</code> من داخله مع ملخص واحد لكل إضافة حُمّلت
+<strong>حديثًا</strong>
+(<code>hermes_cli/plugins_activation.py</code>):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="68"></x-keep></div></div>
+<ul>
+<li><strong>نشطة فورًا</strong> — slash commands في gateway و transform hooks / الـ hooks الأخرى و callbacks للمنصة:
+يشترك مشغّل gateway عند الإقلاع ويستدعي <code>rewire_plugin_handlers()</code> idempotent في كل محوّل حي، لذا يُربَط مصنع <code>register_platform_handler</code> (أو معالج إجراء Slack) تسجّله
+إضافة متأخرة دون إعادة تشغيل. تُزال تكرارات إعادة الربط لكل عميل أصلي باستخدام <code>(plugin, factory qualname)</code>؛ وفي Telegram تُقدَّم المعالجات المتأخرة قبل معالجات النواة الجامعة <code>filters.COMMAND</code> /
+<code>CallbackQueryHandler</code> (يوزّع PTB أول تطابق لكل مجموعة)، تمامًا كما تُرتَّب عند الاتصال.</li>
+<li><strong>مؤجّلة</strong> — <code>tools</code> و <code>prompt</code> تُطبَّق بدءًا من <strong>الجلسة التالية</strong> (تظل
+صياغة prompt/مخطط الأدوات في الجلسة الجارية مستقرة للتخزين المؤقت، كالقاعدة نفسها في <code>/skills install</code>); <code>mcp_servers</code> (خوادم <code>mcp.json</code> الخاصة بالإضافة، بحسب أسمائها في mcp.json) تتصل عند <code>mcp.reload</code> أو الجلسة التالية.</li>
+<li>لا يوجد فك للربط: يحتفظ تعطيل الإضافة أثناء التشغيل بمعالجاتها المرتبطة بالفعل حتى تعاد
+تشغيل gateway، وتوضح الواجهات ذلك.</li>
+</ul>
+<p>تبلّغ واجهات التثبيت بهذا التقسيم نفسه: تطبعه <code>hermes plugins install/enable</code> بعد تنبيه gateway
+الجارية (فعل <code>reload-plugins</code> في control socket)، وتعيد <code>plugins.manage install/toggle/update</code> <code>activation</code> +
+<code>gateway_reloaded</code> (<code>restart_required</code> لا تكون true إلا عندما لم تجب أي gateway).</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="98"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يغطي هذا الدليل <strong>الإضافات العامة</strong> (الأدوات، و hooks، و slash commands، وأوامر CLI). تعرض الأقسام التالية بإيجاز نمط كتابة كل نوع من أنواع الإضافات المتخصصة؛ ويرتبط كل قسم بدليله الكامل الذي يتضمن مرجع الحقول والأمثلة.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="specialized-plugin-types">أنواع الإضافات المتخصصة</h2>
 <p>يضم Hermes خمسة أنواع متخصصة من الإضافات إلى جانب الواجهة العامة. يأتي كل منها على شكل مجلد ضمن <code>plugins/&lt;category&gt;/&lt;name&gt;/</code> (للإضافات المضمّنة) أو <code>~/.hermes/plugins/&lt;category&gt;/&lt;name&gt;/</code> (لإضافات المستخدم). يختلف العقد (contract) باختلاف الفئة — اختر ما تحتاجه، ثم اقرأ دليله الكامل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-provider-plugins--add-an-llm-backend">إضافات مزوّدي النماذج — إضافة backend لـ LLM</h3>
 <p>ضع ملف تعريف المزوّد (profile) في <code>plugins/model-providers/&lt;name&gt;/</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="62"></x-keep></div></div>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="63"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="69"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="70"></x-keep></div></div>
 <p>يُكتشف بشكل كسول (lazy) عند أول استدعاء لـ <code>get_provider_profile()</code> أو <code>list_providers()</code> — <code>auth.py</code>, <code>config.py</code>, <code>doctor.py</code>, <code>models.py</code>, <code>runtime_provider.py</code> وطبقة النقل chat_completions. تتجاوز إضافات المستخدم الإضافات المضمّنة التي تحمل الاسم نفسه.</p>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/developer-guide/model-provider-plugin">إضافات مزوّدي النماذج</a> — مرجع الحقول، و hooks القابلة للتجاوز (<code>prepare_messages</code>, <code>build_extra_body</code>, <code>build_api_kwargs_extras</code>, <code>fetch_models</code>)، واختيار api_mode، وأنواع المصادقة، والاختبار.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-plugins--add-a-gateway-channel">إضافات المنصات — إضافة قناة gateway</h3>
 <p>ضع adapter في <code>plugins/platforms/&lt;name&gt;/</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="64"></x-keep></div></div>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="65"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="71"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="72"></x-keep></div></div>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/developer-guide/adding-platform-adapters">إضافة Platform Adapters</a> — عقد <code>BasePlatformAdapter</code> الكامل، وتوجيه الرسائل، وتقييد الوصول بالمصادقة، والتكامل مع معالج الإعداد. اطّلع على <code>plugins/platforms/irc/</code> للحصول على مثال عملي يعتمد على المكتبة القياسية (stdlib) فقط.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-provider-plugins--add-a-cross-session-knowledge-backend">إضافات مزوّدي الذاكرة — إضافة backend للمعرفة عبر الجلسات</h3>
 <p>ضع تنفيذًا لـ <code>MemoryProvider</code> في <code>plugins/memory/&lt;name&gt;/</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="66"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="73"></x-keep></div></div>
 <p>مزوّدو الذاكرة أحاديو الاختيار — لا ينشط إلا مزوّد واحد في كل مرة، ويُحدَّد عبر <code>memory.provider</code> في <code>config.yaml</code>.</p>
 <p>إذا حُمِّل المزوّد أيضًا بوصفه إضافة عامة، فإن آلية الاكتشاف العامة هي التي تتولى hooks دورة حياته. ولا يوفّر مُحمِّل الذاكرة hooks إلا كخيار احتياطي (fallback) إلى أن يُحمَّل مصدر الإضافة نفسه بنجاح عبر الاكتشاف العام. تستبدل عمليات تحميل المزوّد المتكررة مجموعة hooks الاحتياطية، مع الحفاظ على دوال رد النداء المتمايزة داخل المجموعة. ولا يؤدي ذلك إلى إزالة تكرار hooks القادمة من مصادر إضافات مختلفة، ولا يغيّر آلية تفعيل المزوّد.</p>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a> — الصنف الأساسي المجرد (ABC) <code>MemoryProvider</code> كاملًا، وعقد تعدد الخيوط (threading)، وعزل الـ profiles، وتسجيل أوامر CLI عبر <code>cli.py</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-engine-plugins--replace-the-context-compressor">إضافات Context Engine — استبدال ضاغط السياق</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="67"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="74"></x-keep></div></div>
 <p>محركات السياق (Context engines) أحادية الاختيار — تُحدَّد عبر <code>context.engine</code> في <code>config.yaml</code>.</p>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-generation-backends">واجهات backend لتوليد الصور</h3>
 <p>ضع مزوّدًا في <code>plugins/image_gen/&lt;name&gt;/</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="68"></x-keep></div></div>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="69"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="75"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="76"></x-keep></div></div>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/developer-guide/image-gen-provider-plugin">إضافات مزوّدي توليد الصور</a> — الصنف المجرد <code>ImageGenProvider</code> كاملًا، والبيانات الوصفية عبر <code>list_models()</code> / <code>get_setup_schema()</code> ، والدوال المساعدة <code>success_response()</code>/<code>error_response()</code> ، والمخرجات بصيغة base64 مقابل URL، وتجاوزات المستخدم، والتوزيع عبر pip.</p>
 <p><strong>أمثلة مرجعية:</strong> <code>plugins/image_gen/openai/</code> (DALL-E / GPT-Image عبر OpenAI SDK)، و <code>plugins/image_gen/openai-codex/</code>, <code>plugins/image_gen/xai/</code> (توليد الصور عبر Grok).</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="computer-use-backend-plugins">إضافات backend لاستخدام الحاسوب</h3>
@@ -34,11 +74,11 @@ cua-driver المدمج، الذي يأتي كمزوّد عادي في <code>plu
 فهو إضافة مزوّد في <code>~/.hermes/plugins/&lt;name&gt;/</code> يستدعي فيها <code>register(ctx)</code>
 <code>ctx.register_computer_use_provider()</code>. اسم المجلد هو القيمة التي تضعها في <code>computer_use.backend</code>.
 يُختار مزوّد واحد لاستخدام الحاسوب، مثل مزوّدي الذاكرة ومحركات السياق:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="70"></x-keep></div></div>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="71"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="77"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="78"></x-keep></div></div>
 <p>اختره في <code>hermes tools</code> → Computer Use (تُسرد المزوّدات المثبّتة تحت cua-driver، في
 CLI وفي لوحة toolset في Desktop)، أو اضبطه مباشرة. لا تحتاج إلى إدخال <code>plugins.enabled</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="72"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="79"></x-keep></div></div>
 <p>القواعد:</p>
 <ul>
 <li><strong>ينشط مزوّد واحد في كل مرة.</strong> لا يُستورد ولا يُنشأ إلا المزوّد المحدد. تبقى المزوّدات
@@ -60,32 +100,32 @@ driver. أبلغ عن النواقص لكل إجراء باستخدام <code>Ac
 <p>يقبل Hermes أيضًا توسعات ليست إضافات Python على الإطلاق. تظهر هذه التوسعات في <a href="/docs/user-guide/features/plugins#pluggable-interfaces--where-to-go-for-each">جدول الواجهات القابلة للتوسعة</a>؛ وتعرض الأقسام التالية كل أسلوب كتابة منها بإيجاز.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-servers--register-external-tools">خوادم MCP — تسجيل أدوات خارجية</h3>
 <p>تسجّل خوادم Model Context Protocol (MCP) أدواتها الخاصة في Hermes دون الحاجة إلى أي إضافة Python. صرّح بها في <code>~/.hermes/config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="73"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="80"></x-keep></div></div>
 <p>يتصل Hermes بكل خادم عند بدء التشغيل، ويستعرض أدواته، ويسجّلها إلى جانب الأدوات المدمجة. ويراها LLM تمامًا مثل أي أداة أخرى. <strong>الدليل الكامل:</strong> <a href="/docs/user-guide/features/mcp">MCP</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-event-hooks--fire-on-lifecycle-events">hooks أحداث Gateway — التنفيذ عند أحداث دورة الحياة</h3>
 <p>ضع ملف manifest ومعالجًا في <code>~/.hermes/hooks/&lt;name&gt;/</code>. على خلاف الإضافات، لا توجد خطوة <code>plugins.enabled</code>: يستورد gateway كل مجلد hook صالح عند التشغيل، لذا فإن وضع الملفات <strong>هو</strong> التفعيل الاختياري (<a href="/docs/user-guide/features/hooks#gateway-hook-trust">نموذج الثقة</a>):</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="74"></x-keep></div></div>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="75"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="81"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="82"></x-keep></div></div>
 <p>تشمل الأحداث <code>gateway:startup</code>, <code>session:start</code>, <code>session:end</code>, <code>session:reset</code>, <code>agent:start</code>, <code>agent:step</code>, <code>agent:end</code> ، إضافةً إلى الحدث الشامل (wildcard) <code>command:*</code>. تُلتقط الأخطاء في hooks وتُسجَّل — ولا تعطّل الـ pipeline الرئيسي أبدًا.</p>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/user-guide/features/hooks#gateway-event-hooks">hooks أحداث Gateway (Gateway Event Hooks)</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="shell-hooks--run-a-shell-command-on-tool-calls">Shell hooks — تشغيل أمر shell عند استدعاء الأدوات</h3>
 <p>إذا كنت تريد فقط تشغيل سكربت عند إطلاق أداة (الإشعارات، وسجلات التدقيق، وتنبيهات سطح المكتب، وأدوات التنسيق التلقائي)، فاستخدم shell hooks في <code>config.yaml</code> — دون الحاجة إلى Python:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="76"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="83"></x-keep></div></div>
 <p>تدعم جميع الأحداث نفسها التي تدعمها hooks إضافات Python (<code>pre_tool_call</code>, <code>post_tool_call</code>, <code>pre_llm_call</code>, <code>post_llm_call</code>, <code>on_session_start</code>, <code>on_session_end</code>, <code>pre_gateway_dispatch</code>)، إضافةً إلى مخرجات JSON منظّمة لقرارات الحظر في <code>pre_tool_call</code> قرارات الحظر.</p>
 <p><strong>الدليل الكامل:</strong> <a href="/docs/user-guide/features/hooks#shell-hooks">Shell Hooks</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-sources--add-a-custom-skill-registry">مصادر المهارات — إضافة سجل مهارات مخصص</h3>
 <p>إذا كنت تدير مستودع GitHub للمهارات (أو تريد السحب من فهرس مجتمعي غير المصادر المدمجة)، فأضفه بوصفه <strong>tap</strong>:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="77"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="84"></x-keep></div></div>
 <p>لا يتطلب نشر tap خاص بك أكثر من مستودع GitHub يحتوي على مجلدات <code>skills/&lt;skill-name&gt;/SKILL.md</code> — دون الحاجة إلى خادم أو تسجيل في أي سجل.</p>
 <p><strong>الأدلة الكاملة:</strong> <a href="/docs/user-guide/features/skills#skills-hub">Skills Hub</a> · <a href="/docs/user-guide/features/skills#publishing-a-custom-skill-tap">نشر tap مخصص</a> (بنية المستودع، ومثال مصغّر، والمسارات غير الافتراضية، ومستويات الثقة).</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tts--stt-via-command-templates">TTS / STT عبر قوالب الأوامر</h3>
 <p>يمكن ربط أي CLI يقرأ/يكتب الصوت أو النص عبر <code>config.yaml</code> — دون أي شيفرة Python:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="78"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="85"></x-keep></div></div>
 <p>بالنسبة إلى STT، اجعل <code>HERMES_LOCAL_STT_COMMAND</code> يشير إلى قالب مُقسَّم إلى وسائط argv. يعمل القالب دون تفسير ضمني عبر الـ shell؛ لذا غلّفه صراحةً بـ <code>sh -c</code>, <code>cmd /c</code> أو PowerShell إذا كان الأمر المحلي الموثوق يتطلب صياغة shell. العناصر النائبة المدعومة: <code>{input_path}</code>, <code>{output_path}</code>, <code>{format}</code>, <code>{voice}</code>, <code>{model}</code>, <code>{speed}</code> (لـ TTS)؛ و <code>{input_path}</code>, <code>{output_dir}</code>, <code>{language}</code>, <code>{model}</code> (لـ STT). أي CLI يتعامل مع المسارات يصبح إضافة تلقائيًا.</p>
 <p><strong>الأدلة الكاملة:</strong> <a href="/docs/user-guide/features/tts#custom-command-providers">مزوّدو TTS القائمون على أوامر مخصصة</a> · <a href="/docs/user-guide/features/tts#voice-message-transcription-stt">STT</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-via-pip">التوزيع عبر pip</h2>
 <p>لمشاركة الإضافات علنًا، أضف نقطة دخول (entry point) إلى حزمة Python الخاصة بك:</p>
-<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="79"></x-keep></div></div>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="86"></x-keep></div></div>
 <p>يظل اكتشاف entry-point مدعومًا عندما يكون التوزيع موجودًا في
 البيئة التي يوفّرها مالك التثبيت (مثل Nix derivation).
 هذا اكتشاف، وليس إذنًا بحقن حزم في جيل اختاره PM.
@@ -94,19 +134,19 @@ driver. أبلغ عن النواقص لكل إجراء باستخدام <code>Ac
 من قبولها ضمن معاملة. أعد تشغيل Hermes بعد اختيار بيئة جديدة.
 <code>hermes pm install</code> يقبل أسماء أدوات مُدارة، لا حزم PyPI عشوائية.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-for-nixos">التوزيع لـ NixOS</h2>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="92"></x-keep></span>لم يعد Nix مدعومًا صراحةً</div><div class="admonitionContent_BuS1"><p>لم يعد Nix/NixOS مسار تثبيت مدعومًا صراحةً (الدعم بأفضل جهد فقط) — راجع <a href="/docs/getting-started/nix-setup">إعداد Nix</a>. أُبقي هذا القسم للمستخدمين الذين ينشرون بالفعل على NixOS.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="99"></x-keep></span>لم يعد Nix مدعومًا صراحةً</div><div class="admonitionContent_BuS1"><p>لم يعد Nix/NixOS مسار تثبيت مدعومًا صراحةً (الدعم بأفضل جهد فقط) — راجع <a href="/docs/getting-started/nix-setup">إعداد Nix</a>. أُبقي هذا القسم للمستخدمين الذين ينشرون بالفعل على NixOS.</p></div></div>
 <p>يستطيع مستخدمو NixOS تثبيت إضافتك بشكل تصريحي إذا وفّرت ملف <code>pyproject.toml</code> يتضمن نقاط دخول:</p>
 <p><strong>الإضافات القائمة على نقاط الدخول</strong> (موصى بها للتوزيع):</p>
-<div class="language-nix codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="80"></x-keep></div></div>
+<div class="language-nix codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="87"></x-keep></div></div>
 <p><strong>الإضافات القائمة على المجلدات</strong> (لا حاجة إلى <code>pyproject.toml</code> مطلوب):</p>
-<div class="language-nix codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="81"></x-keep></div></div>
+<div class="language-nix codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="88"></x-keep></div></div>
 <p>راجع <a href="/docs/getting-started/nix-setup#plugins">دليل إعداد Nix</a> للاطلاع على التوثيق الكامل، بما في ذلك استخدام overlay والتحقق من التعارضات.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-mistakes">أخطاء شائعة</h2>
 <p><strong>المعالج لا يُرجع سلسلة JSON:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="82"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="89"></x-keep></div></div>
 <p><strong>غياب <code>**kwargs</code> من توقيع المعالج:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="83"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="90"></x-keep></div></div>
 <p><strong>المعالج يُطلق استثناءات:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="84"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="91"></x-keep></div></div>
 <p><strong>وصف المخطط (schema) مبهم أكثر من اللازم:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="85"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="92"></x-keep></div></div>

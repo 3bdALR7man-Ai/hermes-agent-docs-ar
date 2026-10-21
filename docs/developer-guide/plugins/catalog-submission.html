@@ -132,49 +132,59 @@ commit من 40 حرفًا. يرفض المحمّل الـ branches والوسو�
 (<code>dangerous</code> يظل مانعًا). راجع التحذيرات؛ ولا تدمج متجاهلًا إياها.</p>
 </li>
 <li>
-<p><strong>إضافات Desktop تلتزم بواجهة SDK.</strong> يعمل ملف <code>desktop/plugin.js</code>
+<p><strong>تبقى إضافات Desktop داخل حدود SDK.</strong> يعمل ملف <code>desktop/plugin.js</code>
 في renderer الخاص بـ Desktop بكامل صلاحيات التطبيق (يعزل المحمّل
-الأخطاء لا القدرات)، لذا لا يجوز للنسخة المُدرَجة إلا استخدام SDK الإضافات:
-لا تعديل prototype (<code>X.prototype.y =</code>، <code>Object.defineProperty(...prototype</code>)،
-ولا <code>eval</code> / <code>new Function</code>، ولا <code>import()</code> لأي شيء غير
-<code>@hermes/plugin-sdk</code> / <code>react</code> (بما في ذلك أجزاء حزمة التطبيق و blob أو عناوين http)، ولا حقن
-وسوم script، ولا وصول إلى مخازن التطبيق الداخلية أو وسومه
-(الاستعلام عن عناصر <code>data-slot</code> / <code>data-tour</code> / <code>data-sidebar</code> / <code>data-testid</code> من
-<code>document</code>، أو MutationObserver على <code>document.body</code> لإعادة تنسيق
+الأخطاء لا القدرات)، لذا لا يجوز للإضافة المُدرَجة إلا استخدام SDK الإضافات:
+لا تعديل لـ prototype كائنات renderer أو المتصفح (<code>Storage.prototype.y =</code>،
+<code>Object.defineProperty(...prototype</code>)، ويتحقق المراجعون من ذلك يدويًا (إذ لا يفحصه
+lint)؛ أما مكتبة مضمّنة تضبط حقولًا على فئات تعرّفها بنفسها
+(مثل three.js وما شابهها) فلا بأس بها،
+ولا <code>eval</code>/<code>new Function</code>، ولا <code>import()</code> لأي شيء غير <code>@hermes/plugin-sdk</code>
+/ <code>react</code> (بما في ذلك أجزاء حزمة التطبيق وعناوين blob أو http)، ولا حقن
+وسوم script، ولا وصول إلى مخازن التطبيق الداخلية أو إلى وسومه الخاصة
+(الاستعلام عن عناصر <code>data-slot</code> / <code>data-tour</code> / <code>data-sidebar</code> / <code>data-testid</code>
+من <code>document</code>، أو استخدام MutationObserver على <code>document.body</code>، لإعادة تنسيق
 الواجهة الأساسية أو إخفائها أو النقر عليها أو إعادة كتابتها). يرفض <code>hermes plugins validate</code> هذه الممارسات عند
 القبول (فحص <code>desktop surface</code>)؛ وتطلب الإضافة التي تحتاج قدرة
-لا تتيحها SDK hook في SDK بدل التحايل بالتعديل.</p>
+لا تتيحها SDK إضافة SDK hook بدلًا من التحايل بالتعديل.</p>
 </li>
 <li>
 <p><strong>لا تجاوزات وقت التشغيل لنواة Hermes.</strong> توسّع الإضافة المُدرَجة Hermes فقط
-عبر الواجهات العامة: الـ hooks والـ middleware و profiles المزوّدين
-وواجهات API الأخرى الخاصة بـ <code>register_*</code> وخانات SDK Desktop ومساراته. يجب ألا
-تستبدل الدوال أو الأساليب أو خصائص الوحدات أو القواميس الخاصة الأساسية
-أو تغلّفها أو تعيد ربطها في مكانها (<code>AIAgent.&lt;method&gt; = ...</code>، <code>setattr(server, ...)</code>، <code>sys.modules[...]</code>، أو الكتابة في جداول وحدة أساسية). تؤدي إضافتان
-تعدّلان نقطة التكامل نفسها إلى تعطيل بعضهما بصمت، وقد يعطّلهما
-كل إصدار جديد للنواة. يرفض <code>hermes plugins validate</code> ذلك عند القبول (فحص
-<code>no core override</code>). إذا كان الـ hook الذي تحتاجه غير موجود، افتح issue
-تصفه: نفضّل إضافة نقطة التكامل على إدراج تعديل.</p>
+عبر الواجهات العامة: الـ hooks والـ middleware وprofiles المزوّدين
+وواجهات <code>register_*</code> الأخرى، وخانات Desktop SDK ومساراته. يجب ألا
+تستبدل الدوال أو الأساليب أو خصائص الوحدات أو القواميس الخاصة في النواة
+أو تغلّفها أو تعيد ربطها في مكانها (<code>AIAgent.&lt;method&gt; = ...</code>، <code>setattr(server, ...)</code>،
+<code>sys.modules[...]</code>، أو الكتابة في جداول وحدة أساسية). تؤدي إضافتان
+تعدّلان نقطة التكامل نفسها إلى تعطيل إحداهما الأخرى بصمت، وقد يعطّلهما
+كل إصدار جديد للنواة. يرفض <code>hermes plugins validate</code> ذلك عند القبول (فحص <code>no core override</code>)، ويحذّر (دون إفشال) عند كل استيراد
+لوحدة أساسية غير موثّقة، مع ذكر الملف والسطر. إذا كان الـ hook الذي تحتاجه غير
+موجود، فافتح issue
+تصفه: نفضّل إضافة نقطة التكامل على إدراج
+تعديل مُرقَّع.</p>
 </li>
 <li>
-<p><strong>سياسة أمان الاعتماديات تخص الإضافة.</strong> فترة الحجر البالغة 14 يومًا
-التي يطبّقها Hermes عبر <code>exclude-newer</code> تشمل اعتماديات Hermes نفسه فقط؛ ويُثبَّت
-<code>python_dependencies</code> / <code>pyproject.toml</code> الخاصان بالإضافة وفق سياسة الإضافة
-(دون حجر، مع الالتزام بقيود Hermes الأساسية). يقرأ المراجعون
+<p><strong>سياسة أمان الاعتماديات تخص الإضافة.</strong> يغطي فحص عمر الإصدار
+<code>exclude-newer</code> البالغ 3 أيام في Hermes اعتماديات Hermes نفسه فقط، وفي
+وقت تثبيت Hermes لها؛ أما <code>python_dependencies</code> /
+<code>pyproject.toml</code> الخاصان بالإضافة فيُثبَّتان وفق سياسة الإضافة (دون فحص للعمر)، ضمن
+قيود Hermes الأساسية: فلا يمكن تحريك التثبيتات الدقيقة لـ Hermes. يقرأ المراجعون
 قائمة الاعتماديات عند SHA المثبّت: الحدود الدنيا وحدها (<code>&gt;=X</code> دون حد أعلى)
 والحدود الدنيا عند أحدث إصدار تؤدي إلى طلب أقدم حد أدنى
-متوافق مع API مع حد أعلى، ويُنصح المؤلفون بشدة
+متوافق مع API إضافةً إلى حد أعلى، ويُنصح المؤلفون بشدة
 بتطبيق حجر إصدارات خاص بهم (<code>uv --exclude-newer</code> في
 CI الخاص بهم) — راجع <em>سياسة أمان الاعتماديات</em> في دليل المطوّر.
-لا يُعدّ الحد الأدنى الحديث وحده سببًا لتعليق المدخل.</p>
+ولا يُعدّ الحد الأدنى الحديث وحده سببًا لتعليق مدخل.</p>
 </li>
 <li>
 <p><strong>تأتي بيانات الاعتماد عبر Hermes، لا من الملفات.</strong> لا تحصل الإضافة على
-الأسرار إلا عبر مسارات Hermes. تُقرأ أسرار <code>requires_env</code> و <code>config_schema</code> التي تعلنها باستخدام <code>agent.secret_scope.get_secret(NAME)</code>،
-التي تلتزم بالـ profile النشط (قد تلتقط قراءة مباشرة عبر <code>os.environ</code> مفتاح profile
-آخر ضمن multiplex). لا يُستخدَم تسجيل الدخول للاشتراك (Codex / ChatGPT
-حاليًا) إلا عبر <code>credentialed_provider_request</code> مع <code>requires_auth</code>، لكي يُرفِق Hermes الـ token دون أن تمتلكه الإضافة.
-لا تقرأ الإضافة أبدًا ملفات <code>.env</code> أو <code>auth.json</code> الخاصة بـ Hermes أو بيانات دخول أداة أخرى (ملف
+الأسرار إلا عبر مسارات Hermes. تُقرأ أسرار <code>requires_env</code> و<code>config_schema</code> التي تصرّح بها باستخدام <code>agent.secret_scope.get_secret(NAME)</code>،
+الذي يلتزم بالـ profile النشط (قد تلتقط قراءة مباشرة عبر <code>os.environ</code> مفتاح profile
+آخر ضمن multiplexing). ولا يُستخدَم تسجيل الدخول للاشتراك (Codex / ChatGPT
+حاليًا) إلا عبر <code>credentialed_provider_request</code> مع <code>requires_auth</code>، لكي يُرفِق Hermes الـ token دون أن تحتفظ به الإضافة أبدًا.
+ويُصرَّح بعميل OAuth لواجهة API تابعة لطرف ثالث (مثل عميل Google Cloud الخاص بالمستخدم) تحت <code>oauth:</code> في <code>plugin.yaml</code>، ويُسجَّل الدخول به عبر
+<code>hermes auth add &lt;plugin&gt;:&lt;id&gt;</code> ويُستخدم عبر المساعد نفسه؛ ويخزّن Hermes
+هذا الـ token ويجدّده أيضًا. ويجب أن تكون <code>authorize_url</code> و<code>token_url</code> و
+<code>hosts</code> بـ <code>https</code> فقط، وأن تنتمي <code>hosts</code> إلى واجهة API التي تخصها النطاقات <bdi class="term">(scopes)</bdi>. لا تقرأ الإضافة أبدًا ملفات <code>.env</code> أو <code>auth.json</code> الخاص بـ Hermes أو بيانات دخول أداة أخرى (ملف
 token لواجهة CLI من مورّد أو profile متصفح أو keychain) أو أي
 مخزن بيانات اعتماد آخر مباشرةً، ولا تجدّد أو تدوّر أو تكتب OAuth tokens
 ولا تقدّم نفسها كعميل لمورّد آخر. إذا لم يوفر Hermes مسارًا
@@ -217,6 +227,26 @@ PR على <code>hermes-agent</code>، لا إدراج منافس، ولا تُد
 ويُرفَض fork الذي يغيّر الاسم أو العلامة أو يضيف تغييرات صغيرة لصالح
 الأصل. يذكر fork المُدرَج أصله في سطر الإفصاح
 (<code>Derived from &lt;entry&gt;</code><bdi>).</bdi></p>
+</li>
+<li>
+<p><strong>لا حمولات تنفيذية يتعذّر فحصها.</strong> يجب أن يكون كل ما يقرؤه المراجع
+وماسح التثبيت عند الـ commit المثبّت شيفرة مصدرية يمكنهما قراءتها. يجب ألا
+تشحن الإضافة ملفًا ثنائيًا مترجمًا (ملفًا تنفيذيًا أو مكتبة أصلية لأي نظام تشغيل —
+يُكتشف بترويسة الملف لا بامتداده: ELF وMach-O وPE/<code>MZ</code>
+وWebAssembly)، ولا bytecode لـ Python مُودَعًا (<code>.pyc</code>/<code>.pyo</code>، بما في ذلك الـ caches
+بلا مصدر أو المزوّرة بالـ hash التي تعمل بدلًا من ملف <code>.py</code> المجاور لها)، ولا
+أرشيفًا لا تكون محتوياته شيفرة مصدرية قابلة للمراجعة. أما حزمة مصدرية نصية صرفة
+(ملف <code>.tar.gz</code> من ملفات <code>.py</code>/<code>.ts</code>/<code>.md</code> تفكّه الإضافة) فتُقرأ
+كأي مصدر آخر؛ بينما الحزمة التي تخفي ملفًا ثنائيًا لا تُقبل. لا يستطيع الماسح
+قراءة شيفرة الآلة، ولا يثبت الـ checksum المودَع في الـ commit نفسه إلا أن
+الملف لم يتغير بعد ذلك الـ commit، لا من أين جاء. وإذا كانت
+الإضافة تحتاج فعلًا إلى مكوّن أصلي، فيجب أن يُبنى الملف الثنائي بواسطة
+GitHub Actions العامة الخاصة بمستودع الإضافة نفسه انطلاقًا من المصدر في ذلك المستودع
+وأن يحمل شهادة بناء من GitHub (<code>actions/attest-build-provenance</code>) تربطه
+بذلك الـ workflow وذلك الـ commit؛ وتتحقق البوابة من الشهادة مقابل
+الـ commit المثبّت (<code>gh attestation verify --repo &lt;owner/repo&gt; --source-digest    &lt;pinned sha&gt;</code>). ولا يُسمح بملف ثنائي يجلبه جهاز المستخدم نفسه وقت الإعداد
+إلا من المصدر الرسمي للأداة الأصلية، مثبّتًا بـ checksum،
+ومُفصحًا عنه (القاعدة 13) — وليس مضمّنًا أبدًا، ولا من مرآة غير رسمية.</p>
 </li>
 </ol>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-your-entry">تحديث مدخلك<a href="#updating-your-entry" class="hash-link" aria-label="رابط مباشر إلى تحديث مدخلك" title="رابط مباشر إلى تحديث مدخلك" translate="no">​</a></h2>

@@ -1,3 +1,50 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-request-model-selection">اختيار النموذج لكل طلب</h2>
+<p>يمكن للعملاء المصادَق عليهم تجاوز اختيار النموذج الافتراضي في Hermes لكل طلب على حدة
+بإرسال:</p>
+<ul>
+<li><code>model</code> — معرّف النموذج المستهدف لهذا الدور</li>
+<li><code>provider</code> — المعرّف المختصر (slug) لمزوّد Hermes لتحديد بيانات الاعتماد/بيئة التشغيل لهذا الدور</li>
+<li><code>model_options</code> — عناصر تحكم الاستدلال (reasoning) / فئة الخدمة (service tier) الخاصة بهذا الطلب فقط</li>
+</ul>
+<p>تُقبل حقول الطلب نفسها على:</p>
+<ul>
+<li><code>POST /v1/chat/completions</code></li>
+<li><code>POST /v1/responses</code></li>
+<li><code>POST /v1/runs</code></li>
+<li><code>POST /api/sessions/{session_id}/chat</code></li>
+<li><code>POST /api/sessions/{session_id}/chat/stream</code></li>
+</ul>
+<p>ترتيب الأولوية حتمي:</p>
+<ol>
+<li>تجاوز <code>/model</code> على مستوى الجلسة، إن كان للجلسة تجاوز بالفعل</li>
+<li>ربط ثابت في <code>gateway.platforms.api_server.model_routes</code> يُختار عندما
+تكون قيمة <code>model</code> في الطلب اسمًا مستعارًا لمسار مُعدّ</li>
+<li>قيمتا <code>model</code> / <code>provider</code> المباشرتان في الطلب عندما لا يتطابق أي اسم مستعار لمسار</li>
+<li>الإعدادات العامة لـ gateway / القيم الافتراضية من البيئة</li>
+</ol>
+<p><code>model_options</code> يظل خاصًا بالطلب بغض النظر عن النموذج/المزوّد الذي يُعتمد. إذا أرسل طلب <code>provider</code> يتعارض مع اسم مستعار مضبوط في <code>model_routes</code>، يرفض Hermes الطلب مع <code>400</code> بدلًا من خلط بيانات اعتماد المسار بمزوّد آخر بصمت.</p>
+<p><strong>قيم <code>model</code> المجرّدة على endpoints المتوافقة مع OpenAI تتطلب تفعيلًا صريحًا.</strong> فعملاء
+OpenAI العامّون كثيرًا ما يثبّتون أسماء النماذج في الكود (<code>gpt-4o</code>، ...)، وتعتمد
+عمليات النشر القائمة على عودة هذه القيم إلى النموذج الافتراضي في gateway. لذلك، على
+<code>POST /v1/chat/completions</code> و <code>POST /v1/responses</code>، تُتجاهل قيمة <code>model</code> المُرسلة
+دون أي <code>provider</code> ما لم تفعّل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>أما الطلبات التي تتضمن <code>provider</code> صريحًا — وكذلك endpoints الأصلية في Hermes مثل
+<code>/v1/runs</code> و endpoints محادثة الجلسات — فتلتزم دائمًا بالنموذج المطلوب
+بغض النظر عن هذا الخيار.</p>
+<p>مثال:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-health">GET /health</h3>
+<p>فحص السلامة (health check). يُرجع <code>{&quot;status&quot;: &quot;ok&quot;}</code>. ومتاح أيضًا على <strong>GET /v1/health</strong> لعملاء OpenAI المتوافقين الذين يتوقعون البادئة <code>/v1/</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-healthdetailed">GET /health/detailed</h3>
+<p>فحص جاهزية مصادَق عليه لأنظمة المراقبة ومستويات التحكم. يعرض
+حالة موجزة لإعدادات الـ profile النشط، وقاعدة بيانات الحالة، والنموذج
+المُعدّ، ومساحة القرص، وحالة gateway/المنصات، وعمليات API الجارية، وعمليات إكمال
+العمليات المعلّقة، والتفويضات النشطة. وتكشف الاستجابة عن الحالة والأعداد فقط،
+لا عن قيم الإعدادات أو بيانات الاعتماد أو المسارات أو الأوامر أو حمولات قوائم الانتظار أو الأخطاء الخام.</p>
+<p>يبقى المسار العام <code>/health</code> فحصًا خفيفًا لبقاء الخدمة حيّة (liveness) ولا يُجري
+فحوص الجاهزية. ونتيجة الجاهزية المتدهورة لا تزال تستخدم HTTP 200؛ لذا افحص
+الحقلين <code>status</code> و <code>readiness.checks</code> في المستوى الأعلى.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="runs-api-streaming-friendly-alternative">Runs API (بديل ملائم للبث)</h2>
 <p>إلى جانب <code>/v1/chat/completions</code> و <code>/v1/responses</code>، يوفّر الخادم واجهة <strong>عمليات التشغيل</strong> API للجلسات الطويلة التي يريد فيها العميل الاشتراك في أحداث التقدّم بدلًا من إدارة البث بنفسه.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runs">POST /v1/runs</h3>
@@ -5,15 +52,31 @@
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
 <p>تقبل عمليات التشغيل سلسلة <code>input</code> بسيطة، ويمكن اختياريًا إرسال <code>session_id</code>, <code>instructions</code>, <code>conversation_history</code> أو <code>previous_response_id</code>. وعند تقديم <code>session_id</code>، يُظهره Hermes في حالة التشغيل لتتمكن الواجهات الخارجية من ربط عمليات التشغيل بمعرّفات المحادثات الخاصة بها.</p>
 <p>لجعل عملية الإنشاء آمنة لإعادة المحاولة، أرسل الترويسة <code>Idempotency-Key</code> (من 1 إلى 255 حرف ASCII مرئي). يحجز Hermes المفتاح بشكل دائم قبل بدء العمل. وتُرجع إعادة المحاولة المطابقة <code>run_id</code> الأصلي مع HTTP 202 و <code>Idempotency-Replayed: true</code>، حتى بعد إعادة تشغيل gateway وبعد اكتمال التشغيل أو فشله أو إلغائه. وإعادة استخدام المفتاح نفسه مع حمولة JSON مختلفة تُرجع HTTP 409 مع الرمز <code>idempotency_key_conflict</code>. تُعزل المفاتيح حسب profile/بيانات اعتماد API المصادَق عليها، وتُحفظ لمدة 24 ساعة بعد آخر تحديث لحالتها؛ لذا ينبغي للعملاء استخدام مفاتيح فريدة يصعب تخمينها، ويجب ألا يعيدوا استخدامها في عمليات غير ذات صلة. أما الطلبات التي لا تتضمن الترويسة فتحتفظ بالسلوك القديم وتنشئ دائمًا تشغيلًا جديدًا.</p>
+<p>التشغيل الذي لم يستطع الـ gateway قبوله لا يحتفظ بأي حجز، لذا فإعادة المحاولة المطابقة آمنة. وعندما يكون الـ profile في حالة
+تصريف (draining) أو تقاعد، أو عندما تبقى قاعدة بيانات الحالة مقفلة بعد مهلة الكتابة، يُجيب <code>POST /v1/runs</code>
+وعناصر التحكم في التشغيل بـ HTTP 503 (<code>runtime_draining</code> أو <code>storage_unavailable</code>) مع <code>Retry-After</code>؛
+ويُجيب جسم تحكم مشوَّه بـ 400 <code>invalid_params</code>؛ وتبقى حالات رفض الملكية والجيل (generation) والهوية
+برمز 409.</p>
 <p>عندما يحدد <code>session_id</code> جلسة Hermes موجودة، ولا يُقدَّم
 <code>conversation_history</code> أو <code>previous_response_id</code> صريح، يحمّل التشغيل
 النص الكامل النشط لتلك الجلسة (transcript). وتعمل عقود إيجار أدوار الجلسة (session turn leases) على ترتيب
 الكتّاب المتزامنين تسلسليًا، وتحديث النص الكامل بعد انتظار ناتج عن التنافس.</p>
+<p><strong>جلسات API هي جلسات خاصة بها.</strong> يجوز لـ <code>session_id</code> (هنا) وللترويسة
+<code>X-Hermes-Session-Id</code> (في <code>/v1/chat/completions</code> و <code>/v1/responses</code>) أن
+تسمّي جلسة أنشأها خادم API أو جلسة يجوز له إنشاؤها؛ ولا يمكنها ربط
+جلسة تملكها واجهة أخرى — محادثة CLI أو TUI أو Desktop أو ACP أو
+المراسلة. يُرفض مثل هذا الطلب بـ HTTP 409 ورمز الخطأ
+<code>permission_denied</code> قبل أي قبول: فلا يُنشأ تشغيل، ولا
+يُحتفظ بحجز <code>Idempotency-Key</code>، وتُجاب إعادة المحاولة المطابقة بـ 409 مرة أخرى. وهذا
+يحل محل السلوك السابق الذي كان خادم API يشغّل فيه وكيله الخاص على
+سجل جلسة غريبة بالتوازي مع مالكها الحي. وللعمل على محادثة من
+واجهة أخرى، اتصل عبر WebSocket الخاص بالـ gateway (<code>prompt.submit</code> على
+الجلسة المشتركة) بدلًا من المسارات المتوافقة مع OpenAI.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-v1runsrun_id">GET /v1/runs/{run_id}</h3>
 <p>استطلع حالة التشغيل الحالية. وهذا مفيد للوحات التحكم التي تحتاج إلى الحالة دون إبقاء اتصال SSE مفتوحًا، أو للواجهات التي تعيد الاتصال بعد التنقل.</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
 <p><code>model</code> يعكس ما طلبه الطلب. وفي تشغيل مكتمل، يكون <code>runtime</code> زوج المزوّد/النموذج الذي خدم الدور فعليًا — وبعد الانتقال إلى <a href="/docs/user-guide/features/fallback-providers">مزوّد احتياطي</a> يذكر الزوج الاحتياطي، كي ينسب نظام استقصاء التكلفة التشغيل إلى المزوّد الصحيح. و <code>usage.cache_read_tokens</code> / <code>usage.cache_write_tokens</code> هي قراءات التخزين المؤقت للـ prompt وكتاباته في الجلسة، فلا يُسعّر الإدخال المخزّن مؤقتًا بالسعر الكامل. ولـ <code>runtime</code> البنية نفسها الموجودة في <code>/v1/chat/completions</code> و <code>/v1/responses</code>: <code>route_source</code> يوضح كيفية اختيار بيئة التشغيل (<code>global</code>, <code>raw_request</code>, <code>model_routes</code>)، ويحصل الطلب الذي حدد <code>model</code>/<code>provider</code> أيضًا على <code>requested: {provider, model}</code> كي يمكن مقارنة الزوج المطلوب بالزوج المستخدم. ويحمل حدث <code>run.completed</code> في stream الأحداث الحقلين <code>usage</code> و <code>runtime</code> نفسيهما.</p>
-<p>تُحفظ الحالات لفترة وجيزة بعد بلوغ الحالات النهائية (<code>completed</code>, <code>failed</code>, <code>cancelled</code>، أو <code>interrupted</code>) للاستقصاء والتوفيق مع UI. عندما يتوقف الـ gateway بينما التشغيل نشط، يُحفظ التشغيل بوصفه <code>interrupted</code> (الخطأ <code>Gateway shutdown interrupted the run.</code>، والحدث النهائي <code>run.interrupted</code>) قبل طلب توقف الوكيل، فلا يبقى أي تشغيل دائم بعد إعادة التشغيل بوصفه <code>running</code>؛ ولا تستطيع نتيجة متأخرة من الدور الذي قوطع الكتابة فوقه.</p>
+<p>تُحفظ الحالات لفترة وجيزة بعد بلوغ الحالات النهائية (<code>completed</code> أو <code>failed</code> أو <code>cancelled</code> أو <code>interrupted</code>) للاستطلاع والتوفيق مع UI. وعندما يتوقف الـ gateway بينما التشغيل نشط، يُحفظ التشغيل بوصفه <code>interrupted</code> (الخطأ <code>Gateway shutdown interrupted the run.</code>، والحدث النهائي <code>run.interrupted</code>) قبل طلب توقف الوكيل، فلا يبقى أي تشغيل دائم بعد إعادة التشغيل بوصفه <code>running</code>؛ ولا تستطيع نتيجة متأخرة من الدور الذي قوطع الكتابة فوقه. أما التشغيل المرجعي الذي أُعيد تشغيل مالكه في منتصف الدور فيُبلغ عن <code>unknown</code> بدلًا من ذلك، وهي حالة غير نهائية: تنتظر الأدوار اللاحقة في تلك الجلسة إلى أن يُقَرّ بها عبر <code>POST /v1/runs/{run_id}/resolve-unknown</code> (أدناه).</p>
 <p>بينما ما زال الـ gateway يصرف الأعمال الجارية (<code>hermes gateway stop</code>/<code>restart</code> أو SIGTERM أثناء تنفيذ دور)، يحمل كل تشغيل غير نهائي أيضًا <code>shutdown_requested_at</code> (ثواني Unix) منذ لحظة رفض الأدوار الجديدة. ويبقى <code>status</code> بالقيمة <code>running</code> لأن الدور ما زال يُخدم؛ ويعرف نظام الاستقصاء الذي يرى الحقل أن العملية في طريقها إلى التوقف وأن التشغيل سينتهي <code>interrupted</code> على أبعد تقدير عند انتهاء ميزانية تصريف العمل. ولا تحصل عمليات التشغيل النهائية على هذا الحقل مطلقًا.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-v1runsrun_idevents">GET /v1/runs/{run_id}/events</h3>
 <p>stream عبر Server-Sent Events يعرض تقدم استدعاءات الأدوات، وفروق tokens ، وأحداث دورة حياة التشغيل. صُمم للوحات التحكم والعملاء متكاملين الوظائف الذين يريدون الاتصال/الانفصال دون فقدان الحالة.</p>
@@ -57,6 +120,42 @@
 لا يزال قيد التنفيذ يبقى مرئيًا لاستطلاع الحالة، والموافقة، والتحكم في الإيقاف، و
 احتساب التزامن إلى أن ينتهي عمل المنفّذ الخاص به فعليًا. ويواصل مشترك SSE
 المتصل استهلاك الأحداث بشكل طبيعي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idresolve-unknown">POST /v1/runs/{run_id}/resolve-unknown</h3>
+<p>بعد إعادة تشغيل مالك الجهة (authority-owner)، يكون لدور سبقت المطالبة به
+نتيجة تنفيذ مجهولة، ويُبلغ عنها <code>GET /v1/runs/{run_id}</code> بالقيمة
+<code>&quot;status&quot;: &quot;unknown&quot;</code> (غير نهائية). يوقف Hermes الأعمال اللاحقة في تلك الجلسة
+بدلًا من المخاطرة بإعادة تشغيل الرأس المفقود. اقرأ <code>admission_id</code> و
+<code>execution_generation</code> بدقة من ذلك الجسم، ثم أقِرّ بأن
+التنفيذ المفقود لن يكتمل:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>الطلب مصادَق عليه ومحصور بمالك التشغيل مثل عناصر التحكم الأخرى في التشغيل؛
+ويحتاج المستدعون من الغرف المستضافة (hosted-room) إلى منحة <code>stop</code> الموجودة. والاستجابة الناجحة هي
+إيصال النهاية المرجعي (<code>outcome: &quot;interrupted&quot;</code>) مع <code>run_id</code>. وهي تحرر
+طابور FIFO مرة واحدة وتجدول التابع المصطف دون إعادة تشغيل الرأس
+المجهول. وتعيد الإعادة المطابقة لحسم سبق تثبيته الإيصال نفسه
+(200)، فإعادة المحاولة بعد ضياع الاستجابة آمنة. ويعيد الجيل (generation) القديم أو غير الصحيح، أو
+التشغيل غير المجهول حاليًا، الرمز <code>409 stale_generation</code>؛
+ويعيد معرّف قبول لا ينتمي إلى تشغيل المسار <code>409 not_found</code>. ويجب أن يحتوي
+الجسم على هذين الحقلين بالضبط، وإلا يُرجع الخادم <code>400 invalid_params</code>.</p>
+<p>تحسم homes الغرف المستضافة تشغيلَ عضو بحالة <code>unknown</code> بهذه الطريقة عند استطلاعها التالي
+وتُنهي مهمة الغرفة بوصفها مقاطَعة (&quot;member gateway restarted&quot;). أما room home على
+إصدار أقدم فلا يعرف الحالة <code>unknown</code> ويُبلغ عن حالة تشغيل غير مطابقة
+إلى أن تتم ترقيته.</p>
+<p>يُعلَن عن عنصر التحكم في الاسترداد هذا بوصفه <code>features.run_unknown_resolution</code> وبوصفه
+endpoint باسم <code>run_unknown_resolution</code> فقط عندما تكون جهة صلاحية الجلسات المرجعية
+(canonical session authority) نشطة. ولا يعلن عنه وضع تنفيذ API القديم. أما
+<code>POST /v1/runs/{run_id}/stop</code> العادي فيبقى عمدًا منفصلًا ويُرجع
+<code>409 unknown_execution</code> لقبول مجهول.</p>
+<p>بالنسبة إلى عمليات القبول التي أنشأها هذا الإصدار، يُخزَّن نطاق مالك التشغيل المعتم (opaque run-owner scope)
+ذريًّا مع القبول المرجعي ويُحتفظ به طوال عمر التحكم/الحالة لذلك القبول، بما في ذلك الحالة النهائية. وهو حالة خاصة بالخادم،
+وليس بيانات اعتماد حامل (bearer) ولا مدخلًا للنموذج ولا حقلًا في استجابة API. تبقى الطلبات
+غير ذات المفتاح غير متكافئة القوة (non-idempotent)، فتظل أجسام الطلبات المتطابقة تُنشئ تشغيلات منفصلة.
+أما عمليات القبول القديمة غير ذات المفتاح فلا نطاق مالك محفوظًا لها وتستمر في الفشل
+بإغلاق آمن (fail closed) بعد إعادة تشغيل المحوّل (adapter)؛ ولا يمكن ملؤها راجعًا بأمان. وتواصل التشغيلات القديمة
+ذات المفتاح استخدام سجل idempotency القائم. ويزيل إنهاء الجلسة الصريح
+حمولة القبول المرجعي ومالكها القابل للاسترداد.
+سجل الإعادة والقبول المرجعي معاملتان منفصلتان في قاعدة البيانات؛
+ولا يعد عنصر التحكم في الاسترداد هذا بتنفيذ مرة واحدة بالضبط (exactly-once) على المستوى العام.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idstop">POST /v1/runs/{run_id}/stop</h3>
 <p>يقاطع دور وكيل قيد التشغيل. يُرجع الـ endpoint فورًا <code>{&quot;status&quot;: &quot;stopping&quot;}</code> بينما يطلب Hermes من الوكيل النشط التوقف عند نقطة المقاطعة الآمنة التالية.
 ويبقى التشغيل مُتتبَّعًا بالحالة <code>stopping</code> إلى أن ينتهي العمل المدعوم بالمنفّذ، ثم
@@ -64,7 +163,18 @@
 قيد التشغيل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idapproval">POST /v1/runs/{run_id}/approval</h3>
 <p>يحسم موافقة معلّقة لتشغيل ينتظر قرارًا بشريًا (مثل استدعاء أداة يخضع لسياسة موافقة). يحمل جسم الطلب قرار الموافقة، ويُستأنف التشغيل بمجرد تسجيل القرار. ويُعلَن عن هذا الـ endpoint في <code>/v1/capabilities</code> على أنه الميزة <code>run_approval</code>، لكي تتمكن الواجهات الخارجية من اكتشاف الدعم قبل عرض طلب موافقة.</p>
-<p>تظهر موافقة بوابة الثقة في MCP — لأداة قادرة على الكتابة في خادم مُعدّ بالقيمة <code>trust: untrusted</code> — بالطريقة نفسها: يُصدر التشغيل حدث <code>approval.request</code> ويتوقف في <code>waiting_for_approval</code> إلى أن يحسمه endpoint هذا (<code>once</code> يشغّل الأداة، و <code>deny</code> يمنعها).</p>
+<p>مع مالك gateway المرجعي، يعرض <code>GET /v1/runs/{run_id}</code> الحقل
+<code>pending_controls</code>، مستخدمًا <code>prompt_id</code> و <code>execution_generation</code> نفسيهما اللذين يراهما
+مشاهدو WebSocket المرتبطون. أجِب بالهوية الحالية الدقيقة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>لا تقبل عناصر التحكم المرجعية ردودًا بلا هوية أو جماعية. وتعيد الأجيال القديمة،
+ومعرّفات prompt الغريبة، والتشغيلات المستقرة HTTP 409. وتظل قيود مصادقة التشغيل القائمة
+وموافقة الغرف المستضافة سارية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1runsrun_idclarify">POST /v1/runs/{run_id}/clarify</h3>
+<p>أجِب عن توضيح مرجعي بالحقول <code>request_id</code> و <code>execution_generation</code> و
+<code>answer</code> (سلسلة نصية). يحسم هذا الـ endpoint المصادَق عليه و <code>clarify.respond</code> في WebSocket
+الأداة المنتظرة نفسها؛ والإجابة لا تُرسل دور inference آخر.
+وتظهر موافقة بوابة الثقة في MCP — لأداة قادرة على الكتابة في خادم مُعدّ بالقيمة <code>trust: untrusted</code> — بالطريقة نفسها: يُصدر التشغيل حدث <code>approval.request</code> ويتوقف في <code>waiting_for_approval</code> إلى أن يحسمه هذا الـ endpoint (<code>once</code> يشغّل الأداة، و <code>deny</code> يمنعها).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="jobs-api-background-scheduled-work">Jobs API (أعمال مجدولة في الخلفية)</h2>
 <p>يوفّر الخادم واجهة CRUD خفيفة للمهام (jobs) لإدارة عمليات تشغيل الوكيل المجدولة / العاملة في الخلفية من عميل بعيد. وجميع الـ endpoints محمية بمصادقة bearer نفسها.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apijobs">GET /api/jobs</h3>
@@ -87,74 +197,13 @@
 <p>يمكن للواجهات الخارجية إدارة جلسات Hermes عبر REST دون الحاجة إلى تشغيل لوحة التحكم. جميع الـ endpoints محمية بـ <code>API_SERVER_KEY</code> وتقع تحت <code>/api/sessions/*</code>.</p>
 <table><thead><tr><th>الطريقة</th><th>المسار</th><th>الوصف</th></tr></thead><tbody><tr><td><code>GET</code></td><td><code>/api/sessions</code></td><td>يسرد الجلسات (مع ترقيم الصفحات — <code>limit</code>, <code>offset</code>, <code>source</code>, <code>include_children</code>)</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions</code></td><td>ينشئ جلسة فارغة</td></tr><tr><td><code>GET</code></td><td><code>/api/sessions/{id}</code></td><td>يقرأ البيانات الوصفية للجلسة</td></tr><tr><td><code>PATCH</code></td><td><code>/api/sessions/{id}</code></td><td>يحدّث العنوان أو <code>end_reason</code></td></tr><tr><td><code>DELETE</code></td><td><code>/api/sessions/{id}</code></td><td>يحذف جلسة</td></tr><tr><td><code>GET</code></td><td><code>/api/sessions/{id}/messages</code></td><td>سجل رسائل الجلسة<code>include_compacted=true</code> يعيد أيضًا الأدوار التي أرشفها ضغط السياق (الافتراضي: نص المحادثة الحي فقط). ويعرض <code>inline_images=false</code> مرفقات الصور كعناصر نائبة <code>[image]</code> بدل data URIs المضمّنة — فيُرسل نص المحادثة بالكيلوبايتات للعملاء الذين يقرأونه عبر الشبكة</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/fork</code></td><td>يتفرّع من الجلسة عبر سلسلة النَّسب في <code>SessionDB</code> (بنفس دلالات الأمر <code>/branch</code> في CLI)</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/chat</code></td><td>يشغّل دورًا واحدًا متزامنًا للوكيل</td></tr><tr><td><code>POST</code></td><td><code>/api/sessions/{id}/chat/stream</code></td><td>wrapper بتقنية SSE حول دور واحد — يُصدر الأحداث <code>assistant.delta</code>, <code>assistant.commentary</code> (تعليق منتصف الدور: <code>message_id</code>, <code>text</code>, <code>already_streamed</code>؛ ولا يُدمج مطلقًا في <code>assistant.completed</code>), <code>tool.started</code>, <code>tool.completed</code>, <code>tool.failed</code> (أداة انتهت بخطأ)، ثم حدث نهائي <code>run.completed</code> / <code>run.failed</code> / <code>run.cancelled</code> يطابق طريقة انتهاء الدور (راجع <a href="/docs/developer-guide/programmatic-integration#terminal-run-status">الحالة النهائية للتشغيل</a>)</td></tr></tbody></table>
 <p><code>/v1/capabilities</code> عن الواجهة الكاملة عبر علامات الميزات <code>session_*</code> ومُدخلات <code>endpoints.session_*</code>، لكي تتمكن الواجهات الخارجية من اكتشاف الدعم والرجوع إلى بديل بأمان. وتُدعم الصور المضمّنة في حمولات <code>chat</code> و <code>chat/stream</code> (عبر مسار يدعم الوسائط المتعددة).</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skills-and-toolsets-discovery">اكتشاف المهارات و toolsets</h2>
 <p><code>GET /v1/skills</code> و <code>GET /v1/toolsets</code> للعملاء الخارجيين سرد قدرات الوكيل بشكل حتمي عبر REST بدلًا من سؤال النموذج. كلاهما للقراءة فقط ومحميّ بـ <code>API_SERVER_KEY</code>.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
 <p><code>/v1/skills</code> البيانات الوصفية نفسها التي يستخدمها Skills Hub داخليًا. ويُرجع <code>/v1/toolsets</code> مجموعات toolsets كما تُحلّ لمنصة <code>api_server</code>، مع قائمة <code>tools</code> الفعلية التي تتوسع إليها كل منها. ويُعلَن عن كليهما تحت <code>endpoints.*</code> في <code>/v1/capabilities</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-term-memory-scoping-x-hermes-session-key">تحديد نطاق الذاكرة طويلة المدى (<code>X-Hermes-Session-Key</code>)</h2>
 <p>تحتاج الواجهات الأمامية متعددة المستخدمين مثل Open WebUI إلى معرّف ثابت لكل قناة من أجل الذاكرة طويلة المدى (Honcho وغيرها)، يكون <strong>مستقلًا</strong> عن <code>X-Hermes-Session-Id</code> المرتبط بنطاق النص الكامل للمحادثة (والذي يتغيّر عند <code>/new</code>). مرّر <code>X-Hermes-Session-Key</code> على <code>/v1/chat/completions</code>, <code>/v1/responses</code> أو <code>/v1/runs</code>، وسيمرّره Hermes حتى <code>AIAgent(gateway_session_key=...)</code>، حيث يستخدمه مزوّد ذاكرة Honcho لاشتقاق نطاق ثابت.</p>
-<div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-http codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
 <p>القواعد: الحد الأقصى 256 حرفًا، وتُرفض محارف التحكم (<code>\r</code>, <code>\n</code>, <code>\x00</code>) تُرفض، وتُعاد القيمة في الاستجابات (JSON + SSE). <code>/v1/capabilities</code> عن الدعم عبر <code>&quot;session_key_header&quot;: &quot;X-Hermes-Session-Key&quot;</code>. دون المفتاح، فإن استراتيجية Honcho <code>per-session</code> في Honcho نطاقًا مختلفًا لكل <code>session_id</code> — وهو سلوك Hermes السابق بالضبط.</p>
 <p>يتبع الاسترجاع التلقائي <strong>نص المحادثة</strong>: يُهيّأ مزوّد الذاكرة مرة واحدة لكل جلسة ويُحتفظ به عبر الطلبات، لذا تتلقى الجلسة المستمرة (<code>X-Hermes-Session-Id</code>, <code>previous_response_id</code>، أو محادثة <code>X-Hermes-Session-Key</code> مُعلنة) الاسترجاع الذي أعده المزوّد بعد الدور السابق، تمامًا مثل محادثة Telegram أو Discord. أما الطلب دون أي استمرارية فيبدأ جلسة جديدة، ومثل الدور الأول في أي جلسة CLI جديدة لا تكون هناك عناصر مُدرجة بعد. وتحرر الجلسات الخاملة مزوّدها بعد TTL الخمول نفسه الخاص بالتخزين المؤقت لوكلاء الـ gateway (<code>agent.agent_cache.idle_ttl_secs</code> — وهو تمامًا السلوك الذي كان عليه Hermes سابقًا.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="system-prompt-handling">التعامل مع System Prompt</h2>
-<p>عندما ترسل واجهة أمامية رسالة <code>system</code> (في Chat Completions) أو حقل <code>instructions</code> (في Responses API)، فإن hermes-agent <strong>يضيفها كطبقة فوق</strong> الـ system prompt الأساسي الخاص به. يحتفظ وكيلك بجميع أدواته وذاكرته ومهاراته — ويضيف الـ system prompt الخاص بالواجهة الأمامية تعليمات إضافية فقط.</p>
-<p>هذا يعني أنه يمكنك تخصيص السلوك لكل واجهة أمامية دون فقدان أي قدرات:</p>
-<ul>
-<li>الـ system prompt في Open WebUI: &quot;أنت خبير في Python. أضف دائمًا تلميحات الأنواع (type hints).&quot;</li>
-<li>يظل لدى الوكيل الطرفية، وأدوات الملفات، والبحث في الويب، والذاكرة، وغيرها.</li>
-</ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authentication">المصادقة</h2>
-<p>مصادقة Bearer token عبر الترويسة <code>Authorization</code> في الترويسة:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
-<p>اضبط المفتاح عبر متغير البيئة <code>API_SERVER_KEY</code>. وإذا كنت تحتاج إلى أن يستدعي متصفحٌ Hermes مباشرةً، فاضبط أيضًا <code>API_SERVER_CORS_ORIGINS</code> على قائمة سماح صريحة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multi-profile-routing-pprofile">التوجيه متعدد الـ profiles (<code>/p/&lt;profile&gt;/…</code>)</h3>
-<p>عند تفعيل <a href="/docs/user-guide/multi-profile-gateways">توجيه gateway متعدد الـ profiles</a> مفعّل (<code>gateway.multiplex_profiles</code>)، يخدم المستمع المشترك كل
-profile عبر بادئة URL بالشكل <code>/p/&lt;profile&gt;/</code> — و<strong>ترتبط المصادقة
-بالـ profile الموجَّه إليه</strong>:</p>
-<ul>
-<li>يجب أن تقدّم الطلبات الموجّهة إلى <code>/p/&lt;profile&gt;/v1/...</code> المفتاح الخاص بذلك الـ profile نفسه
-<code>API_SERVER_KEY</code> (من <code>~/.hermes/profiles/&lt;profile&gt;/.env</code>). ويُرفض مفتاح
-المستمع الافتراضي على بادئات الـ profiles المسمّاة.</li>
-<li>تواصل المسارات بلا بادئة و <code>/p/default/...</code> استخدام مفتاح الـ profile الافتراضي.</li>
-<li>الـ profile المسمّى الذي ليس له <code>API_SERVER_KEY</code> خاص به يفشل بشكل مغلق — إذ تبقى
-بادئته غير قابلة للوصول حتى تضبط مفتاحًا له.</li>
-<li>نطاق عمليات التشغيل خاص بكل profile: فالمسار <code>/v1/runs/{run_id}</code> ومساراته <code>events</code>, <code>stop</code>,
-<code>steer</code> و <code>approval</code> لا تستجيب إلا للـ profile الذي أنشأ
-التشغيل (بما في ذلك عمليات التشغيل التي بدأت عبر <code>/api/sessions/{id}/chat/stream</code>)؛
-أما معرّف تشغيل يخص profile آخر فيُرجع <code>404</code>، وليس <code>403</code>.</li>
-</ul>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>تغيير كاسر للتوافق (يوليو 2026)</div><div class="admonitionContent_BuS1"><p>قبل هذا الإصلاح، كان مفتاح الـ profile الافتراضي الصالح مقبولًا على أي بادئة
-<code>/p/&lt;profile&gt;/</code>. إذا كنت تعتمد على مفتاح واحد مشترك عبر بادئات
-الـ profiles ، فاضبط <code>API_SERVER_KEY</code> مختلفًا في ملف <code>.env</code> لكل profile — إذ أصبحت المفاتيح
-الافتراضية المُعاد استخدامها على البادئات المسمّاة تُرجع الآن <code>401</code>.</p></div></div>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>الأمان</div><div class="admonitionContent_BuS1"><p>يمنح خادم API وصولًا كاملًا إلى مجموعة أدوات hermes-agent ، <strong>بما في ذلك أوامر الطرفية</strong>. <code>API_SERVER_KEY</code> هو <strong>مطلوب في كل عملية نشر</strong>، بما في ذلك الربط الافتراضي بعنوان loopback على <code>127.0.0.1</code>. أبقِ <code>API_SERVER_CORS_ORIGINS</code> ضيق النطاق للتحكم في وصول المتصفحات عندما تسمح صراحةً بالاستدعاء من المتصفح.</p></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="environment-variables">متغيرات البيئة (Environment Variables)</h3>
-<table><thead><tr><th>المتغير</th><th>القيمة الافتراضية</th><th>الوصف</th></tr></thead><tbody><tr><td><code>API_SERVER_ENABLED</code></td><td><code>false</code></td><td>يفعّل خادم API</td></tr><tr><td><code>API_SERVER_PORT</code></td><td><code>8642</code></td><td>منفذ خادم HTTP</td></tr><tr><td><code>API_SERVER_HOST</code></td><td><code>127.0.0.1</code></td><td>عنوان الربط (localhost فقط افتراضيًا)</td></tr><tr><td><code>API_SERVER_KEY</code></td><td><em>(مطلوب)</em></td><td>Bearer token للمصادقة</td></tr><tr><td><code>API_SERVER_CORS_ORIGINS</code></td><td><em>(لا شيء)</em></td><td>مصادر المتصفح المسموح بها، مفصولة بفواصل</td></tr><tr><td><code>API_SERVER_MODEL_NAME</code></td><td><em>(اسم الـ profile)</em></td><td>اسم النموذج على <code>/v1/models</code>. القيمة الافتراضية هي اسم الـ profile ، أو <code>hermes-agent</code> للـ profile الافتراضي.</td></tr></tbody></table>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="configyaml">config.yaml</h3>
-<p>يمكن وضع الإعدادات نفسها في <code>~/.hermes/config.yaml</code> ضمن قسم متداخل <code>gateway.api_server:</code> في القسم:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
-<p><code>port</code>, <code>key</code>, <code>host</code>, <code>cors_origins</code> و <code>model_name</code> تلقائيًا إلى إعدادات <code>extra</code> الخاصة بالمنصة، لذا تتصرف تمامًا مثل نظيراتها من متغيرات البيئة <code>API_SERVER_*</code> المكافئة من متغيرات البيئة. تتقدم متغيرات البيئة على <code>config.yaml</code>. كما تُقبل هذه الكتلة أيضًا تحت <code>gateway.platforms.api_server:</code> أو ضمن قسم <code>platforms.api_server:</code> في المستوى الأعلى.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="concurrent-run-cap">حدّ عمليات التشغيل المتزامنة</h3>
-<p>يحد خادم API عدد عمليات تشغيل الوكيل التي يمكن تنفيذها معًا عبر endpoints التي تبدأ تشغيلًا مباشرة: endpoints المتوافقة مع OpenAI ، و endpoints الخاصة بـ Runs ، و endpoints محادثة الجلسة (<code>POST /api/sessions/{id}/chat</code> ونسخته <code>/stream</code>، اللذان يحملان رسائل الوكلاء المباشرة بين الأجهزة). تمر عمليات التشغيل التي يفعّلها cron (<code>POST /api/jobs/{id}/run</code>, <code>POST /api/cron/fire</code>) عبر مُجدول cron وتخضع لحدود cron نفسها، لا لهذا السقف. ويُقرأ السقف من <code>gateway.api_server.max_concurrent_runs</code> (القيمة الافتراضية <strong>10</strong>; <code>0</code> تعطّل الحد، والقيم السالبة تُقيَّد إلى 0). وعند بلوغ الحد، تُرفض الطلبات الجديدة التي تبدأ عمليات تشغيل مع <strong>HTTP 429</strong> <code>Too many concurrent runs (max N)</code> — على العملاء زيادة مهلة الانتظار ثم إعادة المحاولة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="stored-history-size-for-previous_response_id-chaining">حجم السجل المخزّن لتسلسل <code>previous_response_id</code></h3>
-<p>تضمّن كل لقطة <code>/v1/responses</code> مخزّنة سجل المحادثة التراكمي الكامل (وهذا ما يعيد تسلسل <code>previous_response_id</code> و <code>conversation</code> تشغيله)، بما في ذلك كل مخرجات الأدوات حرفيًا. لذا قد تجعل محادثة ذات بضعة مخرجات أدوات كبيرة عملية <code>response_store.db</code> واحدة تكتب عدة مئات KB. اضبط <code>gateway.api_server.history_tool_output_max_chars</code> (الافتراضي <strong>0</strong> = التخزين حرفيًا) لتقييد كل مُخرج أداة وكل وسيط نصي لاستدعاء أداة في السجل <strong>المخزّن</strong> بهذا العدد من المحارف؛ ويُقتطع أي شيء أطول إلى بدايته بالإضافة إلى علامة <code>...[N more chars]</code>. ولا يُمس نص المستخدم والمساعد مطلقًا، و <code>response.completed</code> وأحداث SSE التزايدية لا تتأثر. ولأن السجل المخزّن هو ما يراه النموذج في الدور المتسلسل التالي، فإن تفعيل السقف يقلّص أيضًا ما يُعاد عرضه على النموذج — اتركه عند 0 إذا احتاج سير عملك مخرجات أدوات كاملة عبر الأدوار.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-headers">ترويسات الأمان</h2>
-<p>تتضمن جميع الاستجابات ترويسات أمان:</p>
-<ul>
-<li><code>X-Content-Type-Options: nosniff</code> — تمنع تخمين نوع MIME (MIME sniffing)</li>
-<li><code>Referrer-Policy: no-referrer</code> — تمنع تسريب المُحيل (referrer)</li>
-</ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cors">CORS</h2>
-<p>خادم API <strong>لا</strong> يفعّل CORS للمتصفحات افتراضيًا.</p>
-<p>للوصول المباشر من المتصفح، اضبط قائمة سماح صريحة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
-<p>عند تفعيل CORS:</p>
-<ul>
-<li><strong>استجابات Preflight</strong> تتضمن <code>Access-Control-Max-Age: 600</code> (تخزين مؤقت لمدة 10 دقائق)</li>
-<li><strong>استجابات البث عبر SSE</strong> تتضمن ترويسات CORS لكي تعمل عملاء EventSource في المتصفح بشكل صحيح</li>
-<li><strong><code>X-Hermes-Session-Id</code></strong> ترويسة طلب مسموح بها، لذا يمكن للمتصفحات على مصدر مُدرج في قائمة السماح طلب استئناف الجلسة.</li>
-<li><strong><code>Idempotency-Key</code></strong> ترويسة طلب مسموح بها — ويمكن للعملاء إرسالها لمنع التكرار (تُخزَّن الاستجابات مؤقتًا حسب المفتاح لمدة 5 دقائق)</li>
-</ul>
-<p>معظم الواجهات الأمامية الموثّقة مثل Open WebUI تتصل من خادم إلى خادم ولا تحتاج إلى CORS إطلاقًا.</p>

@@ -15,10 +15,25 @@ GitHub منشور يحمل <code>vX.Y.Z</code> (لا مسودة ولا إصدا�
 ويبلّغ عن تغييرات الإعدادات ونتائج إعادة تشغيل العمليات.</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
 <p>يُحفَظ الاختيار لكل تثبيت ضمن <code>update.installs</code> في <code>config.yaml</code>. لا يتقدّم
-التثبيت الذي لم يختر قناة إلا إلى الأمام: النسخة الأحدث بالفعل
+التثبيت الذي لم يختر قناة إلا إلى الأمام: فالنسخة المسحوبة الأحدث بالفعل
 من أحدث إصدار (مثل نسخة كانت تتبع <code>main</code> قبل هذه القيمة الافتراضية)
-تبقى في مكانها حتى صدور إصدار أحدث. يثبّت تشغيل <code>--set-channel stable</code> النسخة عند commit الإصدار نفسه، حتى إن كان أقدم.
-لا تتأثر تثبيتات Windows Store و MSIX و Desktop المُحزّم؛ فقناتها
+تبقى في مكانها حتى صدور إصدار أحدث. ويثبّت تشغيل <code>--set-channel stable</code>
+النسخة المسحوبة عند commit الإصدار نفسه، حتى لو كان أقدم؛
+ويسمّي Desktop هذا الانتقال رجوعًا إلى الإصدار (rollback)، ويقول <code>hermes update --check</code>
+إن النسخة المسحوبة أحدث، بدلًا من الإعلان عن تحديث جديد.</p>
+<p>تضع المُثبّتات (<code>install.sh</code> و <code>install.ps1</code> و Hermes-Setup) التثبيت الجديد
+على أحدث إصدار مستقر أيضًا. وإعادة تشغيل أحدها فوق تثبيت لم يختر قناة قط
+تنقله إلى ذلك الإصدار فقط إذا كان الإصدار منحدرًا من
+نسخته المسحوبة. أما أي نسخة مسحوبة أخرى (تتبع <code>main</code>، أو تجاوزت الإصدار بالفعل)
+فتبقى في مكانها، ويقرّر <code>hermes update</code> ذلك الانتقال: إذ يرفض
+إصدارًا يسبق مخازن الجلسات التي تستخدمها النسخة المسحوبة بالفعل. وفوق
+تثبيت اختار قناة غير <code>main</code>، تُبقي إعادة التشغيل نسخته المسحوبة في
+مكانها: فلا ينقلها إلا <code>hermes update</code>.
+لتثبيت أحدث ما في <code>main</code> بدلًا من ذلك، مرّر <code>--channel main</code> (<code>-Channel main</code>
+لـ <code>install.ps1</code>، أو اضبط <code>HERMES_INSTALL_CHANNEL=main</code> قبل أمر
+<code>irm | iex</code> المختصر)؛ ويحفظ المُثبّت هذا الاختيار بالطريقة نفسها التي يفعلها
+<code>hermes update --set-channel main</code>. ويظل تثبيت <code>--commit</code> الصريح ساريًا.
+ولا تتأثر تثبيتات Windows Store و MSIX و desktop المُحزَّم؛ فقناتها
 مدمجة في الحزمة (انظر أدناه).</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bundled-desktop-updates">تحديثات Desktop المُحزّم</h3>
 <p>في Windows، يفحص التطبيق المثبّت جانبيًا مصدر App Installer المسجّل. ينزّل Apply
@@ -84,6 +99,54 @@ canary التنبيه المعلّق لـ stable. يظل مخطط URL <code>herm
 <li>لا يعيق الإيقاف المؤقت التحديث مطلقًا. إذا تعذّر تعداد gateways أو تسجيلها أو إيقافها، يعيد تشغيل كل ما أوقفه ويذكر ذلك، ويواصل التحديث بالطريقة السابقة لوجود الإيقاف المؤقت: تعمل gateways أثناء التبديل وتُعاد تشغيلها بعده.</li>
 </ul>
 <p>كان Windows يوقف gateways مؤقتًا قبل التحديث بالفعل (لأنها تقفل ملفات تستبدلها مزامنة الاعتماديات) ويعيد تشغيلها عند اكتمال التحديث بعد البناء.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="upgrading-to-the-gateway-owned-session-runtime">الترقية إلى بيئة تشغيل الجلسات التي يملكها الـ gateway</h3>
+<p>بدءًا من هذا الإصدار يملك gateway واحد لكل مضيف كل جلسة محلية (CLI و TUI و Desktop
+و API و ACP و cron و Bot Chat). وهذا ما يراه التثبيت الحالي عند أول تحديث:</p>
+<ul>
+<li><strong>أُلغي <code>cron.bot_chat_delivery_timeout_seconds</code>.</strong> تُقبَل عمليات تسليم Bot Chat
+إلى gateway العامل للـ profile المستهدف وتُتتبَّع بإيصال؛ ولم يبقَ أي دور على جانب cron
+ينتهي بمهلة. ويزيل ترحيل الإعدادات v51 المفتاح مع
+ملاحظة لمرة واحدة (حتى من <code>config.yaml</code> بلا إصدار). وبدون gateway عامل يُسجَّل التشغيل
+<code>delivery_failed</code>؛ ولا يُعاد تسليمه تلقائيًا.</li>
+<li><strong>سجلات Bot Chat المعلقة القديمة</strong> (<code>cron/bot_chat_pending/*.json</code> التي خلّفتها
+مسار تسليم <code>hermes chat</code> الملغى) تُسلَّم إلى المالك الحي للهدف في دورات المجدوِل اللاحقة
+بمعرّفاتها الخاصة. وكان السجل <code>claimed</code> دور CLI غير مؤكد
+ولا يُعاد إرساله أبدًا. وتُحفظ السجلات بحالتها النهائية بوصفها دليلًا.</li>
+<li><strong>لا يُعاد تشغيل العمل الذي قاطعته إعادة التشغيل أثناء الانتقال أبدًا.</strong> عند أول بدء للـ gateway،
+يصبح أي إدخال كان في منتصف دور (<code>started</code>) وأي عامل مُدار كان يعمل
+<code>unknown</code>؛ وتنتظر المدخلات المصطفّة خلفه. افحص الجلسة، ثم أقرّ
+بـ <code>/discard &lt;admission_id&gt;</code> في <code>hermes chat</code> (أو ما يعادله في Desktop/TUI)، أو من
+سكربت بـ <code>hermes sessions discard &lt;session&gt; --yes</code>، قبل تشغيل المدخلات اللاحقة. وبالمثل، يُسوَّر تسليم cron كان gateway قد طالب به ولم ينهه
+بالحالة <code>unknown</code> ويُسجَّل <code>delivery_failed</code>.</li>
+<li><strong>الرجوع إلى إصدار أقدم غير مدعوم بمجرد أن يكتب الـ gateway الجديد في <code>state.db</code>.</strong> انظر
+<a href="#rolling-back-to-an-older-release">الرجوع إلى إصدار أقدم</a>.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rolling-back-to-an-older-release">الرجوع إلى إصدار أقدم</h3>
+<p>لا يمكن لإصدار أقدم أن يعمل على <code>state.db</code> كتبته بيئة تشغيل الـ gateway. ويرفض كل موضع
+قد يفعل ذلك بدلًا من إفساد السجل:</p>
+<ul>
+<li>يرفض <strong><code>hermes update</code></strong> هدفًا (<code>--branch</code> أو تبديل قناة أو إصدارًا مثبّتًا)
+يسبق بيئة تشغيل الـ gateway ما دام <code>state.db</code> لأي profile يحتوي على سجل
+لبيئة تشغيل الـ gateway. ويتوقف قبل المساس بالنسخة المسحوبة، ويعرض المخازن المتأثرة وطريق
+العودة.</li>
+<li><strong>إصدار أقدم يعمل على المخزن المُرقّى</strong> (عبر <code>git checkout</code> يدوي لوسم قديم)
+لا يستطيع حذف الجلسات التي لها سجل بيئة تشغيل gateway أو تقليمها. ويتوقف <code>hermes sessions delete</code>
+و <code>prune</code> مع <code>Refused to delete a session that has gateway runtime history</code>.
+وما زالت الإصدارات الأقدم تطبع هذا داخل traceback، ويتراجع <code>prune</code> عن
+دفعته كاملة.</li>
+<li><strong>الـ gateway العامل</strong> الذي تُنقل نسخته المسحوبة إلى إصدار كهذا يوقف نفسه
+خلال نحو 30 ثانية، ليتمكن الإصدار الأقدم من بدء gateway الخاص به.</li>
+</ul>
+<p>وللرجوع على أي حال، استعد الحالة السابقة للتحديث بدلًا من تشغيل
+الإصدار الأقدم على قاعدة البيانات المُرقّاة:</p>
+<ol>
+<li><code>hermes gateway stop</code></li>
+<li>اسحب (check out) الإصدار الأقدم.</li>
+<li>استعد أحدث لقطة قبل التحديث (<code>/snapshot restore &lt;id&gt;</code>)، أو نسخة احتياطية كاملة
+أُخذت بـ <code>hermes update --backup</code> (<code>hermes import &lt;backup.zip&gt;</code>). تتخطى اللقطات السريعة
+أي <code>state.db</code> أكبر من 1 GiB؛ وتحتاج المخازن الكبيرة إلى النسخة الاحتياطية الكاملة.</li>
+</ol>
+<p>الجلسات والرسائل التي أُنشئت بعد التحديث ليست في تلك اللقطة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-the-gateway-restart-can-take-a-while">لماذا قد تستغرق إعادة تشغيل gateway وقتًا</h3>
 <p>تُفرِّغ إعادة التشغيل العمل أولًا: ترفض gateway الجارية الأدوار الجديدة ثم تنتظر اكتمال الأعمال قيد التنفيذ (أدوار المحادثة ومهام cron وتشغيلات API) قبل الخروج، بحد أقصى تضبطه <code>agent.restart_after_turn_timeout</code> (30 دقيقة افتراضيًا) حتى لا تُقطع مهمة طويلة في منتصف التشغيل. أثناء الانتظار، يطبع المحدّث كل 30 ثانية ما تزال gateway تنتظره — مثل:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
@@ -109,31 +172,3 @@ canary التنبيه المعلّق لـ stable. يظل مخطط URL <code>herm
 الكائنات الناقصة وتحقق من عدم بقاء أي منها قبل إعادة تفعيل التنظيف التلقائي:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="git-keeps-growing-in-a-partial-clone"><code>.git</code> يواصل النمو في partial clone</h3>
-<p>النسخة التي ينشئها المُثبّت partial clone بلا blobs: كل commit وقائمة أدلة موجودان محليًا،
-وينزّل git محتوى الملفات عند الطلب، ويُكتَب كل تنزيل عند الطلب كملف pack صغير مستقل.
-أنشأت مُثبّتات أواخر سبتمبر 2026 نسخًا بلا أشجار (<code>--filter=tree:0</code>) بدلًا من ذلك. يطلب git
-شجرة مفقودة دون تحديد الأشجار التي يملكها بالفعل، لذا كانت النسخة بلا أشجار تنزّل لقطات
-الأدلة الكاملة مجددًا عند كل checkout وعند استعراض التاريخ بترشيح المسار. يحوّل <code>hermes update</code>
-هذه النسخة مرة واحدة كأول خطوة بعد سحب الكود الجديد وقبل عمل
-الاعتماديات: تجلب <code>git fetch --refetch --filter=blob:none</code> واحدة كل commits والأشجار (نحو
-120 MB)، وتتوقف التحديثات اللاحقة عن إعادة تنزيلها. تحوّل إعادة تشغيل المُثبّت على تلك النسخة
-الأمر بالطريقة نفسها. إذا فشل الجلب، يطبع التحديث تحذيرًا ويواصل ويعيد
-محاولة التحويل في المرة التالية.</p>
-<p>يشغّل Hermes Desktop المبني قبل وجود التحويل عمليات استعراض تاريخ بترشيح المسار كل بضع
-دقائق، لذا قد يملأ قرص نسخة بلا أشجار بملفات pack (بلغت إحدى الحالات 434 GB)
-ويواصل بعد تحديث فاشل. للتعافي إذا حدث ذلك بالفعل:</p>
-<ol>
-<li>أغلق Hermes Desktop ثم أنهِ أي عمليات متبقية من <code>git rev-list</code>, <code>git maintenance</code> أو <code>git commit-graph</code>؛ إغلاق التطبيق لا يوقفها.</li>
-<li>إذا امتلأ القرص تمامًا، احذف ملفات النقل المتروكة لتحرير مساحة:
-<code>rm -f &quot;$repo&quot;/.git/objects/pack/tmp_pack_*</code> (في Windows: احذف <code>tmp_pack_*</code> في <code>.git\objects\pack</code>). يزيلها كل تحديث أيضًا تلقائيًا عندما لا توجد عملية git جارية.</li>
-<li>نفّذ <code>hermes update</code>. يحوّل النسخة أولًا، ثم يقلّص تراكم ملفات pack خلال هذا
-التحديث والتحديثات اللاحقة كما يرد أدناه.</li>
-</ol>
-<p>إذا تعذّر على <code>hermes update</code> نفسه بدء العمل، فالتحويل اليدوي هو:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-against-a-non-default-branch---branch">التحديث من branch غير افتراضي: <code>--branch</code></h3>
-<p><code>--branch NAME</code> تجاوز لهذا التشغيل وحده يحدّث وفق رأس branch
-بدل القناة المختارة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
-<p>إذا كانت نسختك المحلية على branch مختلف، يُجري Hermes تلقائيًا stash لأي عمل غير مُثبَّت بـ commit، ويحوّل HEAD إلى الـ branch المستهدف، ثم يسحب التحديثات. الـ branches غير الموجودة محليًا تُتتبَّع تلقائيًا من <code>origin/&lt;name&gt;</code> (<code>git checkout -B &lt;name&gt; origin/&lt;name&gt;</code>). أما الـ branches غير الموجودة في أي مكان فتفشل بشكل نظيف — إذ تُستعاد تغييراتك المحفوظة في stash قبل الخروج، فلا تبقى عالقًا في حالة غريبة أبدًا. ويُتخطى تلقائيًا منطق مزامنة الـ fork مع upstream المخصص لـ <code>main</code> فقط، وذلك على الـ branches الأخرى غير <code>main</code>.</p>

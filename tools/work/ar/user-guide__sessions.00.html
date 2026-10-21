@@ -16,6 +16,31 @@
 <li>الطوابع الزمنية (started_at، ended_at)</li>
 <li>معرّف الجلسة الأصل (لتقسيم الجلسة الناتج عن الضغط)</li>
 </ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="authenticated-gateway-session-access-and-attribution">الوصول إلى جلسات الـ gateway بعد المصادقة ونسبتها إلى أصحابها</h3>
+<p>يملك الـ gateway التنفيذ؛ ولا يملك العميل الوكيل العامل. ويمكن للمشغّلين الموثّقين لـ profile الـ gateway نفسه الارتباط بجلسات CLI أو TUI أو
+Desktop المحلية المعتمدة (canonical) التي أُنشئت عبر طريقة مصادقة مشغّل أخرى. فمثلًا، يمكن لمشغّل محلي أصلي (native) ومشغّل لوحة تحكم موثّق
+الوصول إلى المحادثة نفسها دون إنشاء بيئة تشغيل أخرى. ويؤدي إغلاق اتصال العميل إلى فصل ذلك العميل؛ أما العمل المقبول فيبقى لدى الـ gateway.</p>
+<p>يحلّ هذا عمدًا محل الوصول المقتصر على المُنشئ بالنسبة إلى المشغّلين الموثّقين، مع الحفاظ على
+صلاحيات المشغّل القائمة في لوحة التحكم. وتظل هويات كلمة المرور و OAuth
+متمايزة، لكنها لا تنشئ حواجز وصول منفصلة إلى الجلسات المحلية المعتمدة
+عندما يكون لكلا الاتصالين وصول مشغّل إلى الـ profile. وتشمل مسارات الخادم الموثوقة
+التهيئة التفاعلية الأصلية (native interactive bootstrap)، وتذاكر لوحة التحكم الموثّقة،
+وبيانات الاعتماد الداخلية التي تستخدمها عملاء PTY التي يطلقها الخادم، ورمز لوحة التحكم القديم الموثّق (legacy dashboard token). كما تقبل تعديلات جلسات HTTP
+منحة المالك HTTP الأصلية الموثّقة. ولا يمنح هذا صلاحيات المشغّل لبيانات اعتماد العامل أو المراسلة أو
+الغرفة أو الخدمة المقيّدة، ولا يزيل الفحوصات الخاصة بالـ profile أو بكل عملية.</p>
+<p>تظل النسبة إلى أصحابها خاصة بكل هوية. وتتضمن هويات لوحة التحكم المزوّد،
+وجهة إصدار OAuth الموثّقة (عند وجودها)، والموضوع (subject). وتحتفظ إيصالات الإنشاء
+بالهوية الأصلية؛ وتحتفظ عمليات الإرسال وإعادة محاولات التعديل بالهوية القائمة بالفعل.
+ولا يستبدل انضمام مشغّل إلى جلسة مالكها المسجَّل ولا يدمج هويات إعادة المحاولة.
+وتبقى مفاتيح المالك في التهيئة الأصلية ومعرّفات الجلسات دون تغيير.</p>
+<p>لا تستطيع الجلسات البعيدة الأقدم التي لا تحتوي إيصالاتها إلا على subject مجرد أن تحدّد
+أي مزوّد كان يملكها. فتبقى مخزّنة لكنها لا تُسنَد تلقائيًا
+إلى أول حساب موثّق يطلبها. ولا يسمح وصول المشغّل
+بالتبنّي البعيد بالأسبقية (first-claim) لنصوص محادثات تاريخية بلا مالك.</p>
+<p>يتطلب الارتباط عبر الأجهزة أيضًا مسارًا مدعومًا وموثّقًا إلى الـ gateway نفسه. ولا يكشف
+وصول المشغّل المشترك بحد ذاته مستمعًا بعيدًا ولا يضيف استمرار الجلسات المحلية
+عبر API المتوافق مع OpenAI. ويختلف انهيار الـ gateway عن انقطاع اتصال العميل: إذ يصبح العمل المقاطَع <code>unknown</code> بدلًا من
+أن يُعاد تشغيله تلقائيًا، وقد يحتاج إلى معالجة قبل أن تتابع المدخلات المصطفّة خلفه.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-counts-toward-context">ما الذي يُحتسب ضمن السياق</h3>
 <p>يخزّن Hermes سجل الجلسة حتى يتمكن من استئناف المحادثات، لكنه لا
 يُعيد إرسال كل بايت تعامل معه على الإطلاق. في كل دور، يرى النموذج
@@ -43,13 +68,14 @@ system prompt المختار، ونافذة المحادثة الحالية، و
 وتقارير الحالة المكرَّرة، وتفريغات الإثبات المفصَّلة. فضِّل الملخصات، ومسارات
 الملفات، والمقتطفات المركَّزة، والاستعلامات المدعومة بالأدوات على نسخ الأصول الكبيرة
 في المحادثة.</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="40"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>/compress</code> عندما تطول الجلسة، و <code>/new</code> لبدء خيط جديد، و
- <code>hermes sessions prune</code> فقط عندما تريد حذف الجلسات المنتهية القديمة من
-التخزين. إذا نما <code>state.db</code> ببساطة إلى حجم كبير، ابدأ بالخيار غير المدمِّر أولًا:
-<code>hermes sessions optimize</code> يدمج أجزاء فهرس FTS5
-وينفّذ VACUUM لقاعدة البيانات دون المساس بأي بيانات جلسة. يرفض كل من <code>optimize</code> و <code>prune</code> التنفيذ
-بينما تحتفظ عملية Hermes أخرى (gateway أو Desktop أو لوحة التحكم أو cron) بـ <code>state.db</code> — أوقفها
-أولًا، أو مرّر <code>--force</code> ؛ راجع <a href="/docs/user-guide/session-storage-recovery">استعادة تخزين الجلسات</a>.
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="42"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>استخدم <code>/compress</code> عندما تطول الجلسة، و <code>/new</code> لبدء خيط جديد، و
+<code>hermes sessions prune</code> فقط عندما تريد حذف الجلسات المنتهية القديمة من
+التخزين. وإذا نما <code>state.db</code> ببساطة إلى حجم كبير، فابدأ بالخيار غير المدمِّر أولًا:
+يدمج <code>hermes sessions optimize</code> أجزاء فهرس FTS5
+وينفّذ VACUUM لقاعدة البيانات دون المساس بأي بيانات جلسة. وعند عمل الـ gateway، يطلب <code>prune</code>
+من الـ gateway حذف الجلسات التي اختارها. أما <code>optimize</code>، و <code>prune</code> دون gateway
+عامل، فيرفضان التنفيذ بينما تحتفظ عملية Hermes أخرى (Desktop أو لوحة التحكم أو cron) بـ <code>state.db</code>. أوقفها
+أولًا، أو مرّر <code>--force</code>؛ راجع <a href="/docs/user-guide/session-storage-recovery">استعادة تخزين الجلسات</a>.
 يقلّل الضغط السياق النشط؛ وليس حذفًا لحماية الخصوصية.
 مرّر اسمًا إلى <code>/new</code> (مثل <code>/new payments-refactor</code>) لضبط العنوان
 الأولي للجلسة الجديدة مسبقًا — مفيد لإيجادها لاحقًا باستخدام <code>/resume &lt;name&gt;</code> أو
@@ -71,7 +97,7 @@ system prompt المختار، ونافذة المحادثة الحالية، و
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-specific-session">استئناف جلسة محدَّدة</h3>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
 <p>تُعرَض معرّفات الجلسات عند خروجك من جلسة CLI، ويمكن إيجادها باستخدام <code>hermes sessions list</code>.</p>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="41"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p><code>latest</code> كلمة محجوزة لـ <code>--resume</code>. تظل الجلسة المُسمَّاة حرفيًا &quot;latest&quot; قابلة للوصول عبر معرّفها أو عبر <code>-c latest</code> (تطابق العنوان).</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p><code>latest</code> كلمة محجوزة لـ <code>--resume</code>. تظل الجلسة المُسمَّاة حرفيًا &quot;latest&quot; قابلة للوصول عبر معرّفها أو عبر <code>-c latest</code> (تطابق العنوان).</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resume-in-a-specific-directory">الاستئناف في دليل محدَّد</h3>
 <p>مرّر <code>--in &lt;dir&gt;</code> للانتقال إلى دليل قبل البدء أو الاستئناف. مع الجمع مع <code>--resume latest</code> (أو <code>-c</code>)، تُختار أحدث جلسة لمساحة عمل ذلك الدليل — دون الحاجة إلى تنفيذ <code>cd</code> أولًا أو تذكّر معرّفات الجلسات:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
@@ -80,12 +106,13 @@ system prompt المختار، ونافذة المحادثة الحالية، و
 <p>استئناف جلسة CLI يُنفّذ أيضًا <code>cd</code> عائدًا إلى دليل العمل المسجَّل للجلسة (جذر مستودع git أو دليل المشروع الخاص بها)، بحيث تستأنف المحادثة في مساحة العمل التي تنتمي إليها. إذا فضّلت البقاء حيث أنت، مرّر <code>--no-restore-cwd</code>:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <p>يؤكِّد سطر <code>↪ restored workspace dir: …</code> التبديل. فشل الاستعادة لا يُعطِّل الاستئناف نفسه أبدًا.</p>
+<p>يلتقط استئناف جلسة خاملة إعدادات الـ profile الحالية: toolsets وخوادم MCP وإعدادات <code>terminal</code> و <code>max_turns</code> ونقاط الحفظ (checkpoints) ومستوى الاستدلال الافتراضي (reasoning effort). وتحتفظ الجلسة بنموذجها وخيارات إطلاقها وأي تغيير أجريته عبر <code>/reasoning</code> أو في مساحة العمل. وأي اختلاف يبدأ بادئة prompt-cache جديدة، لذا يكلّف الدور الأول بعد الاستئناف أكثر. كما أن أي تغيير في إعدادات <code>terminal</code>، حتى لو كان غير ذي صلة مثل <code>terminal.timeout</code>، يعيد أيضًا ضبط أي <code>cd</code> سابق إلى دليل الجلسة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="filtering-sessions-by-workspace">تصفية الجلسات حسب مساحة العمل</h3>
 <p><code>hermes sessions list</code> الخيار <code>--workspace &lt;needle&gt;</code> لعرض الجلسات فقط التي يطابق مفتاح مساحة عملها (جذر مستودع git، وإلا دليل العمل) — عبر جزء من المسار أو اسم الدليل الأساسي المطابق تمامًا:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="conversation-recap-on-resume">ملخّص المحادثة عند الاستئناف</h3>
 <p>عندما تستأنف جلسة، يعرض Hermes ملخصًا مُختصرًا للمحادثة السابقة في لوحة مُنسَّقة قبل موجّه الإدخال:</p>
-<x-keep id="47"></x-keep>
+<x-keep id="49"></x-keep>
 <p class="docs-figure-caption">يعرض وضع الاستئناف لوحة ملخص مُختصرة بأدوار المستخدم والمساعد الأخيرة قبل إعادتك إلى الموجّه الحي.</p>
 <p>الملخّص:</p>
 <ul>
@@ -98,7 +125,7 @@ system prompt المختار، ونافذة المحادثة الحالية، و
 </ul>
 <p>لتعطيل الملخّص والإبقاء على سلوك السطر الواحد المُقتضب، اضبط في <code>~/.hermes/config.yaml</code>:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="42"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تتبع معرّفات الجلسات الصيغة <code>YYYYMMDD_HHMMSS_&lt;hex&gt;</code> — تستخدم جلسات CLI/TUI لاحقة سداسية عشرية من 6 أحرف (مثل <code>20250305_091523_a1b2c3</code>)، وتستخدم جلسات gateway لاحقة من 8 أحرف (مثل <code>20250305_091523_a1b2c3d4</code>). يمكنك الاستئناف بالمعرّف (كاملًا أو بادئة فريدة) أو بالعنوان — يعمل كلاهما مع <code>-c</code> و <code>-r</code>.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="44"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>تتبع معرّفات الجلسات الصيغة <code>YYYYMMDD_HHMMSS_&lt;hex&gt;</code> — تستخدم جلسات CLI/TUI لاحقة سداسية عشرية من 6 أحرف (مثل <code>20250305_091523_a1b2c3</code>)، وتستخدم جلسات gateway لاحقة من 8 أحرف (مثل <code>20250305_091523_a1b2c3d4</code>). يمكنك الاستئناف بالمعرّف (كاملًا أو بادئة فريدة) أو بالعنوان — يعمل كلاهما مع <code>-c</code> و <code>-r</code>.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-platform-handoff">التسليم عبر المنصات</h2>
 <p>استخدم <code>/handoff &lt;platform&gt;</code> من جلسة CLI لنقل المحادثة الحية إلى قناة المنزل (home channel) لمنصة مراسلة. يتابع الوكيل بالضبط من حيث توقف CLI — نفس معرّف الجلسة، وسجل نصي كامل يراعي الأدوار، واستدعاءات الأدوات وكل شيء.</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>

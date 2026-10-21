@@ -1,3 +1,59 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="oauth-21-authentication">المصادقة عبر OAuth 2.1</h2>
+<p>لخوادم HTTP التي تتطلب OAuth، اضبط <code>auth: oauth</code> في إدخال الخادم:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p>السلوك:</p>
+<ul>
+<li>يستخدم Hermes تدفّق OAuth 2.1 PKCE الخاص بـ MCP SDK (اكتشاف البيانات الوصفية، وتعريف العميل، وتبادل الـ token، والتحديث)</li>
+<li>عند الاتصال الأول، تُفتح نافذة متصفح للتفويض</li>
+<li>تُحفَظ الـ tokens في <code>~/.hermes/mcp-tokens/&lt;server&gt;.json</code> (يستخدم profile مُسمّى <code>~/.hermes/profiles/&lt;name&gt;/mcp-tokens/</code>) ويُعاد استخدامها عبر الجلسات</li>
+<li>يتم تحديث الـ token تلقائيًا؛ ولا يُطلَب التفويض من جديد إلا عند فشل التحديث</li>
+<li>ينطبق فقط على ناقل HTTP/StreamableHTTP (الخوادم المعتمدة على <code>url</code>)</li>
+<li>في <a href="/docs/user-guide/multi-profile-gateways">gateway متعدد الإرسال</a>، لا يُشارك اتصال OAuth بين profiles أبدًا: يصادق كل profile بـ token الخاص به ويفتح اتصاله الخاص، حتى عندما تتطابق مدخلات <code>mcp_servers</code></li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="device-code-login-rfc-8628">تسجيل الدخول برمز الجهاز (RFC 8628)</h3>
+<p>بالنسبة إلى خادم تفويض يُعلن عن <code>device_authorization_endpoint</code>، اختر صراحةً
+تفويض الجهاز من طرفية على الجهاز الذي يشغّل Hermes:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<p>افتح عنوان URL الخاص بالتحقق المطبوع على أي جهاز وأدخل رمز المستخدم المعروض.
+يستطلع Hermes حالة الموافقة، ويحترم <code>authorization_pending</code> و <code>slow_down</code>، ويتوقف
+عند الرفض أو انتهاء الصلاحية. لا يُفتح أي متصفح ولا حاجة إلى مستمع لاستقبال الـ callback.
+يحدّد <code>oauth.timeout</code> مدة انتظار الموافقة (300 ثانية افتراضيًا)، وتحدّها أيضًا صلاحية الرمز. عندما تسرد بيانات المورد المحمي الوصفية عدة خوادم تفويض، يفحصها تسجيل الدخول بالجهاز بالترتيب ويستخدم أول خادم يطابق مُصدر بياناته الوصفية URL المُعلن ويتيح منحة <code>device_code</code> (يُتخطّى الخادم المخصص للمتصفح فقط المدرج أولًا)؛ والاختلاف الوحيد المقبول هو الصيغة ذات نطاق المسار الموضّحة ضمن &quot;OAuth-authenticated HTTP servers&quot; في دليل ميزة MCP (خادم مُعلن بوصفه <code>https://host/path</code> ويسمّي مستنده في <code>/.well-known/oauth-authorization-server/path</code> القيمة <code>https://host</code>).</p>
+<p>اضبط <code>oauth.flow: device</code> على الخادم لجعل <code>hermes mcp login</code> و <code>hermes mcp reauth</code>
+(بما في ذلك <code>reauth --all</code>) تستخدم تفويض الجهاز. يتجاوز <code>login --flow browser</code> هذا
+الإعداد لعملية تسجيل دخول واحدة؛ ويبقى PKCE عبر المتصفح هو الافتراضي. تؤدي البيانات الوصفية غير المدعومة
+إلى خطأ يوضّح ما يجب فعله بدلًا من الرجوع بصمت إلى تدفّق مختلف.</p>
+<p>يطلب تسجيل الدخول بالجهاز منحتَي device و refresh أثناء التسجيل الديناميكي، أو يستخدم
+قيم <code>oauth.client_id</code> و <code>oauth.client_secret</code> و <code>oauth.token_endpoint_auth_method</code> التي ضبطتها.
+يجب أن يسمح العميل المسجَّل بتفويض الجهاز. لا يُستخدَم مستند CIMD الخاص بالمتصفح.
+يُرسَل <code>oauth.scope</code> مع طلب تفويض الجهاز؛ وينطبق <code>oauth.user_agent</code> أيضًا
+على استطلاع الـ token. تبقى الـ tokens والتسجيل والبيانات الوصفية للجهة المُصدِرة في مخزن tokens الخاص بـ MCP
+ضمن الـ profile النشط، ويعيد مسار التحديث الحالي وقت التشغيل استخدامها بعد إعادة التشغيل.
+لا تحلّ منح الأجهزة الفاشلة محلّ بيانات الاعتماد المحفوظة سابقًا.</p>
+<p>تسجيل الدخول الأولي بالجهاز متاح من الطرفية فقط: فلا تبدأ الـ callbacks الخاصة بلوحة التحكم/المتصفح ولا عمليات إعادة الاتصال في الخلفية
+تفويضَ الجهاز. شغّل أمر تسجيل الدخول على <strong>الـ profile نفسه والمضيف نفسه</strong>
+اللذين يعمل عليهما الـ gateway. تتطلب منحة الجهاز المنتهية/المرفوضة التي لا يرافقها refresh token صالح
+تسجيل دخول صريحًا آخر.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-identification-cimd-and-dcr">تعريف العميل: CIMD و DCR</h3>
+<p>يعرّف Hermes نفسه لخوادم التفويض عبر <strong>Client ID Metadata Document</strong> ‏(CIMD)، وهي الآلية التي اعتمدتها مواصفة MCP ‏<code>2026-07-28</code> بدلًا من Dynamic Client Registration. يُنشَر المستند على
+<code>https://nousresearch.github.io/hermes-agent/docs/oauth/client-metadata.json</code>، وهذا العنوان <em>هو</em> قيمة <code>client_id</code> — إذ يجلبه خادم التفويض ليتعرّف على اسم Hermes وشعاره وعناوين URI المسموح بإعادة التوجيه إليها. لا يُسجَّل أي شيء لكل عملية تثبيت، ولا يوجد أي شيء خاص بالمستخدم.</p>
+<p>القرار النهائي يعود إلى خادم التفويض: إذ يرسل الـ SDK عنوان المستند بوصفه <code>client_id</code> فقط عندما يُعلن الخادم عن <code>client_id_metadata_document_supported: true</code> في بياناته الوصفية، وإلا فإنه يسجّل عبر DCR تمامًا كما كان من قبل. أصبح DCR مهملًا (deprecated) في مواصفة MCP، لكنه لا يزال ما تستخدمه تقريبًا كل الخوادم المنشورة اليوم.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="callback-ports">منافذ الـ Callback</h4>
+<p>يُصرّح المستند بمجموعة ثابتة من عناوين URI لإعادة التوجيه عبر loopback، وتشترط المواصفة أن يكون عنوان URI لإعادة التوجيه في طلب التفويض <em>مطابقًا حرفيًا</em> لأحدها — لذا لا يستطيع تدفّق CIMD استخدام المنفذ العالي العشوائي الذي يختاره Hermes عادةً. ولهذا يثبّت Hermes الـ callback على أحد المنافذ <code>27890</code>–<code>27894</code>.</p>
+<p>يجب اختيار هذا المنفذ المثبّت قبل معرفة قدرات الخادم، لأن عنوان URI لإعادة التوجيه يُحدَّد في بداية التدفّق بينما لا تصل البيانات الوصفية للخادم إلا في منتصفه. لذا يثبّت Hermes المنفذ لأي تدفّق <em>قد</em> ينتهي باستخدام CIMD، ويعود إلى منفذ عشوائي في بقية الحالات:</p>
+<ul>
+<li>الخادم الذي اتصل به Hermes من قبل ولا تُعلن بياناته الوصفية المخزّنة مؤقتًا عن دعم CIMD يحتفظ بالمنفذ العشوائي الذي استخدمه دائمًا.</li>
+<li>الخادم الذي لم يصل إليه Hermes قط يحصل على منفذ مثبّت في أول تسجيل دخول، إذ إن التخمين هو السبيل الوحيد لاستخدام CIMD أصلًا.</li>
+<li>كل ما من شأنه نقل الـ callback إلى مكان آخر يعيد الأمر إلى المنفذ العشوائي أيضًا: قيمة <code>oauth.client_id</code> مسجّلة مسبقًا، أو <code>oauth.client_secret</code>، أو قيمة مخصّصة لـ <code>oauth.client_name</code> أو <code>oauth.token_endpoint_auth_method</code>، أو تجاوز عبر <code>oauth.redirect_uri</code> أو <code>oauth.redirect_port</code>، أو تسجيل دخول تقوده لوحة التحكم أو تطبيق سطح المكتب، أو تسجيل عميل موجود مسبقًا على القرص، أو انشغال المنافذ الخمسة كلها بعمليات أخرى.</li>
+</ul>
+<p>يُربَط كل منفذ مثبّت فور اختياره ويبقى محجوزًا حتى تصل إعادة التوجيه من المتصفح، لذا لا يمكن لعمليتَي تسجيل دخول متزامنتين — لـ profile ثانٍ، أو لخادم آخر في العملية نفسها — أن تنتهيا على المستمع نفسه.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-a-server-rejects-the-document">عندما يرفض الخادم المستند</h4>
+<p>إذا جلب الخادم المستند ثم رفضه عند endpoint الخاص بالـ <em>token</em> ‏(<code>invalid_client</code>)، يسجّل Hermes هذا الرفض في السجلات، ويدوّنه في <code>~/.hermes/mcp-tokens/&lt;server&gt;.cimd-off</code>، ويستخدم DCR مع ذلك الخادم من ذلك الحين فصاعدًا.</p>
+<p>أما الخادم الذي لا يستطيع جلب المستند أو التحقق من صحته أصلًا، فيُجهض العملية عند endpoint الخاص بـ <em>التفويض</em>، قبل حدوث أي إعادة توجيه. لا توجد هناك إشارة يستطيع Hermes رصدها، لذا يعرض المتصفح خطأ invalid-client وتنتهي مهلة تسجيل الدخول بعد خمس دقائق. تذكر رسالة انتهاء المهلة المستند وتشير إلى <code>cimd: false</code>. يؤدي تشغيل <code>hermes mcp login &lt;server&gt;</code> إلى مسح الرفض المسجّل، لتحظى النسخة المصحّحة من المستند بفرصة أخرى.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-per-server-keys">مفاتيح اختيارية لكل خادم</h4>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><code>client_metadata_url</code> يجب أن يكون URL بـ HTTPS مع مسار (دون أصل مجرّد أو fragment أو userinfo أو مقاطع <code>.</code>/<code>..</code>) ويُرجِع <code>200</code> و <code>Content-Type: application/json</code> مع <strong>دون إعادة توجيه</strong> — إذ يُحظَر على خوادم التفويض اتّباع إعادة التوجيه عند جلبه. لا يزال Hermes يثبّت الـ callback على النطاق نفسه <code>27890</code>–<code>27894</code>، لذا يجب أن يُصرّح المستند المستضاف ذاتيًا بعناوين loopback العشرة كلها (<code>http://127.0.0.1:&lt;port&gt;/callback</code> و <code>http://localhost:&lt;port&gt;/callback</code> لكل منفذ)، ويجب أن تكون قيمة <code>client_id</code> فيه هي عنوان URL الخاص به.</p>
+<p><code>user_agent</code> يستبدل <code>User-Agent</code> الافتراضي في <strong>طلبات endpoint الخاص بالـ token فقط</strong> (تبادل authorization-code، والتحديث، واستطلاع token لتدفق الجهاز). دونه يرسل Hermes <code>Hermes-Agent/&lt;version&gt;</code> — لا يرسل طلبًا بلا ترويسة أبدًا، لأن خوادم التفويض خلف WAF تجيب عنه بـ <code>403</code>. لا ينطبق مطلقًا على حركة MCP، ولا يمكن ضبط ترويسات طلب token أخرى. تُتجاهل القيم الفارغة أو null. يُبلغ التبادل الفاشل عن الحالة ومقتطف قصير محجوب البيانات من متن الخطأ (صفحة &quot;Request blocked&quot; من WAF مقابل <code>invalid_grant</code> من المُصدر)، فيظهر السبب دون التقاط الحزم. يمحو <code>hermes mcp login</code> المنحة وتسجيل العميل القديمين قبل إعادة التفويض، لكنه يحتفظ بالبيانات الوصفية المخزّنة مؤقتًا لخادم التفويض، فيبقى URL التفويض المُعلن هو المكتشف حتى إذا تعذّر إعادة جلب مستند البيانات الوصفية.</p>
+<p>تحمل طلبات اكتشاف OAuth وتسجيل العميل الديناميكي (مستندات البيانات الوصفية <code>/.well-known/...</code> وطلب POST الخاص بـ <code>registration_endpoint</code>) دائمًا <code>User-Agent: Hermes-Agent/&lt;version&gt;</code>. يبني MCP SDK هذه الطلبات دون ترويسات عميل افتراضية، وتجيب خوادم التفويض خلف WAF عن طلب بلا ترويسة بـ <code>403</code> — فيبدو مستند البيانات الوصفية غير قابل للقراءة، ويرجع التسجيل إلى <code>/register</code> مُخمّن على مضيف MCP، ويفشل الدخول بـ <code>Registration failed: 404</code>. عندما يفشل جلب جميع البيانات الوصفية، يبدأ الخطأ الآن بتلك الحالات (<code>Could not read authorization-server metadata (403 from https://…/.well-known/oauth-authorization-server; …)</code>) قبل خطأ مسار التسجيل الاحتياطي نفسه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="add-to-hermes-link">رابط Add to Hermes</h2>
 <p>يمكن لمورّدي MCP ولصفحات التوثيق تقديم زر <strong>&quot;Add to Hermes&quot;</strong> بنقرة واحدة يفتح تطبيق Hermes لسطح المكتب مع إعدادات خادم معبّأة مسبقًا، على غرار مخطط <code>cursor://anysphere.cursor-deeplink/mcp/install</code> الخاص بـ Cursor:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>

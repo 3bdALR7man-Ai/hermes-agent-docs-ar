@@ -89,6 +89,15 @@
 <li><code>POST /api/plugins/my-plugin/action</code></li>
 </ul>
 <p>تقع مسارات API الخاصة بالإضافات خلف بوابة المصادقة المعتادة في لوحة التحكم — فالطلبات غير المصادَق عليها تتلقى <code>401</code> قبل تنفيذ مسار الإضافة، والطلبات الموجّهة إلى مسارات إضافة معطّلة تُرفض وقت الطلب. ومع ذلك، <strong>لا تعرض لوحة التحكم على واجهة شبكة عامة باستخدام <code>--host 0.0.0.0</code> إذا كنت تشغّل إضافات غير موثوقة</strong> — فأي جلسة مصادَق عليها يمكنها الوصول إلى مساراتها أيضًا.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="dont-block-the-event-loop">لا تحجب حلقة الأحداث (event loop)</h4>
+<p>مع القيمة الافتراضية <code>plugins.isolation: in_process</code>، تعمل معالجات API على حلقة أحداث gateway نفسها،
+وهي الحلقة التي تجيب عن كل طلبات لوحة التحكم وDesktop والمحادثة الأخرى. أي معالج يحجب الحلقة (<code>time.sleep</code>، أو
+عميل HTTP متزامن، أو فحص ملفات طويل) يوقف كل تلك الطلبات حتى يعود: فمعالج ينام 3 ثوانٍ
+يؤخر طلب <code>/api/status</code> غير المرتبط به بعدة ثوانٍ، وقد تنتهي مهلة اتصال Desktop. استخدم <code>async def</code> مع
+عمليات إدخال/إخراج غير متزامنة، أو انقل العمل الحاجب خارج الحلقة باستخدام <code>await asyncio.to_thread(...)</code> (كما أن معالج <code>def</code>
+العادي يعمل أيضًا في thread عامل). أما <code>plugins.isolation: host</code> فيشغّل المعالجات في عملية منفصلة
+(<a href="/docs/user-guide/features/plugins#running-plugins-out-of-process-pluginsisolation">مضيف الإضافات</a>): فالمعالج البطيء هناك
+يؤخر فقط طلبات الإضافات المستضافة لذلك الـ profile، ومن لا يأتيه رد بعد 60 ثانية يحصل على HTTP 504.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="accessing-hermes-internals">الوصول إلى مكوّنات Hermes الداخلية</h4>
 <p>تعمل مسارات الـ backend داخل عملية لوحة التحكم، لذا يمكنها الاستيراد مباشرةً من قاعدة كود hermes-agent:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
@@ -101,6 +110,12 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-discovery--reload">اكتشاف الإضافات وإعادة تحميلها</h3>
 <p>تفحص لوحة التحكم ثلاثة مجلدات بحثًا عن <code>dashboard/manifest.json</code>:</p>
 <table><thead><tr><th>الأولوية</th><th>المجلد</th><th>تسمية المصدر</th></tr></thead><tbody><tr><td>1 (يفوز عند التعارض)</td><td><code>~/.hermes/plugins/&lt;name&gt;/dashboard/</code></td><td><code>user</code></td></tr><tr><td>2</td><td><code>&lt;repo&gt;/plugins/memory/&lt;name&gt;/dashboard/</code></td><td><code>bundled</code></td></tr><tr><td>2</td><td><code>&lt;repo&gt;/plugins/&lt;name&gt;/dashboard/</code></td><td><code>bundled</code></td></tr><tr><td>3</td><td><code>./.hermes/plugins/&lt;name&gt;/dashboard/</code></td><td><code>project</code> — فقط عند ضبط <code>HERMES_ENABLE_PROJECT_PLUGINS</code></td></tr></tbody></table>
+<p>في gateway يخدم عدة profiles، يرى الطلب الموجَّه إلى profile غير الذي بدأ به gateway
+مجلد <code>plugins/&lt;name&gt;/dashboard/</code> الخاص بذلك الـ profile، ثم المجلد الجذر <code>~/.hermes/plugins/&lt;name&gt;/dashboard/</code>
+(كما كان يفعل الأمر المستقل <code>hermes --profile &lt;name&gt; dashboard</code>؛ وتتغلب نسخة الـ profile الخاصة عند تعارض الاسم نفسه)، ثم الإضافات المضمّنة، وذلك بحسب
+<code>plugins.enabled</code> / <code>plugins.disabled</code> الخاصين بذلك الـ profile. أما API الإضافة الخاص به، بما في ذلك إضافة الجذر،
+فيعمل في <a href="/docs/user-guide/features/plugins#running-plugins-out-of-process-pluginsisolation">مضيف الإضافات</a> الخاص بذلك الـ profile،
+ولا يعمل أبدًا داخل gateway.</p>
 <p>تُخزَّن نتائج الاكتشاف مؤقتًا لكل عملية من عمليات لوحة التحكم. بعد إضافة إضافة جديدة، إما أن:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
 <p>…أو تعيد تشغيل <code>hermes dashboard</code>.</p>

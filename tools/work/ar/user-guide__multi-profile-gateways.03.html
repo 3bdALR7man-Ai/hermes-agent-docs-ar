@@ -17,6 +17,14 @@ profile نفسه أيضًا.</p>
 (<code>hermes profile create</code>، أو لوحة التحكم، أو Desktop، أو TUI) فورًا:
 يُرسل المنشئ إشارة إلى المضاعِف عبر مقبس التحكم (control socket) الخاص به، كما
 يعيد المضاعِف فحص <code>profiles/</code> كل 30 ثانية كإجراء أمان إضافي. تُبنى مهايئات الـ profile الجديد بمجرد أن يتضمن <code>config.yaml</code>/<code>.env</code> token لبوت (عادةً ينشئ المستخدم الـ profile أولًا ثم يضيف الـ token)، وتُحدَّث <code>served_profiles</code> في ملف <code>gateway_state.json</code> الخاص بالـ profile الافتراضي، ويبلّغ <code>hermes -p &lt;name&gt; gateway status</code> أنه مقدَّم — دون إعادة تشغيل، ودون المساس بمهايئات الـ profiles الأخرى أو أدوارها الجارية. ويؤدي حذف profile إلى إيقاف مهايئاته وإزالة توجيهها بالطريقة نفسها، ويزيل <code>hermes profile rename</code> توجيه الاسم القديم قبل نقل المجلد ويقدّم الاسم الجديد أثناء التشغيل (ولا تعيد المهايئات أو مؤقّت cron اللذان كانا مرتبطين بالاسم القديم إحياءه). وتظل قاعدة بيانات اعتماد واحدة لكل مستقصٍ سارية: يُعلَّق الـ profile المضاف أثناء التشغيل الذي يعيد استخدام token لـ profile آخر مع <code>duplicate_credential</code> كخطأ، ولا يُشغَّل أبدًا كمستقصٍ ثانٍ.</p>
+<p>يوسّع الخدمة الساخنة (hot-serving) أيضًا <strong>حجز profile</strong> الخاص بالمُضاعِف (multiplexer): إذ يُؤخذ
+<code>gateway.lock</code> الخاص بالـ profile الجديد وتُبنى سلطة الجلسات الخاصة به، فيجد
+<code>hermes -p &lt;name&gt;</code> المُضاعِف بوصفه مالكه (دون daemon منفصل شارد لكل profile)، ويحجز
+<code>hermes gateway restart</code> التالي المجموعة كلها بسلاسة.
+أما الـ profile الذي يتعذّر فتح <code>state.db</code> الخاص به فيُوضع في <strong>الركن</strong> (parked) — يُسجَّل باسم
+<code>Profile &#x27;&lt;name&gt;&#x27; not served</code> ويُستبعد من <code>served_profiles</code> — وتستمر بقية
+الـ profiles في الإقلاع؛ أصلح المخزن ثم أعد تشغيل <code>hermes profile create</code> أو انتظر
+الفحص الدوري.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="routing-shared-bot-chats-to-profiles-profile_routes">توجيه محادثات البوت المشتركة إلى الـ profiles (<code>profile_routes</code>)</h3>
 <p>يختار الـ multiplexing profile لكل <strong>بيانات اعتماد</strong> (رمز البوت الخاص بكل profile)
 أو لكل <strong>بادئة رابط (URL prefix)</strong> (<code>/p/&lt;profile&gt;/</code> لمنصات HTTP). عندما تشترك عدة مجتمعات في <strong>token واحد</strong> للبوت — مثل بوت Discord واحد يخدم guilds متعددة — يمكنك أيضًا توجيه مستخدمين/guilds/قنوات/threads محدَّدة إلى profiles مختلفة باستخدام <code>gateway.profile_routes</code>:</p>
@@ -99,18 +107,3 @@ profile، لُفّها في حلقة shell. ضع المقطع أدناه في
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
 <p>بعد تحرير <code>.env</code> أو <code>config.yaml</code>، أعد تشغيل الـ gateway المتأثرة:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="keeping-the-host-awake">إبقاء الجهاز المضيف مستيقظًا</h2>
-<p>يمكن لعملية الـ gateway أن تعمل طوال اليوم، لكن نظام التشغيل سيحاول
-مع ذلك النوم عند عدم النشاط. نمطان:</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos--caffeinate">macOS — <code>caffeinate</code></h3>
-<p><code>caffeinate</code> مدمجة في macOS وتمنع النوم أثناء عملها. لا حاجة إلى تثبيت.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
-<table><thead><tr><th>الخيار</th><th>الأثر</th></tr></thead><tbody><tr><td><code>-d</code></td><td>حظر نوم الشاشة</td></tr><tr><td><code>-i</code></td><td>حظر نوم النظام عند الخمول (الافتراضي)</td></tr><tr><td><code>-m</code></td><td>حظر نوم القرص</td></tr><tr><td><code>-s</code></td><td>حظر نوم النظام (لأجهزة Mac الموصولة بالتيار الكهربائي فقط)</td></tr><tr><td><code>-u</code></td><td>محاكاة نشاط المستخدم (يمنع قفل الشاشة)</td></tr><tr><td><code>-t N</code></td><td>الخروج تلقائيًا بعد <code>N</code> ثانية</td></tr><tr><td><code>-w P</code></td><td>الخروج عند خروج PID <code>P</code> في حالة الخروج</td></tr></tbody></table>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>إغلاق الغطاء ما زال يُنيم الـ Mac</div><div class="admonitionContent_BuS1"><p>لا تستطيع <code>caffeinate</code> تجاوز نوم إغلاق الغطاء المدفوع بالعتاد على أجهزة MacBook.
-للتشغيل والغطاء مغلق، غيّر تفضيلات موفِّر الطاقة/البطارية أو
-استخدم أداة من طرف ثالث.</p></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="linux--systemd-inhibit-or-loginctl">Linux — <code>systemd-inhibit</code> أو <code>loginctl</code></h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
-<p>بعد تفعيل lingering، تستمر وحدات مستخدم systemd لديك (بما في ذلك
-<code>hermes-gateway-&lt;profile&gt;.service</code>) في العمل عبر انقطاعات SSH
-وإعادة التشغيل.</p>

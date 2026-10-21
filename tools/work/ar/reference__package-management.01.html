@@ -150,8 +150,8 @@ PM. تنتمي مجموعتا الاعتماديات <code>dev</code> و <code>t
 <p>أعد إنشاء lock:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
 <p>يعيد هذا حل <code>uv.lock</code> من <code>pyproject.toml</code> بالإعدادات نفسها التي يفحصها
-CI، بما فيها حجر <code>exclude-newer</code> لمدة 14 يومًا. لا يغيّر
-أي بيئة. عندما يكون lock محدّثًا أصلًا، يذكر ذلك ولا يكتب
+CI، بما فيها فحص عمر الإصدار <code>exclude-newer</code> البالغ 3 أيام. لا يغيّر
+أي بيئة. وعندما يكون lock محدّثًا أصلًا، يذكر ذلك ولا يكتب
 شيئًا. (<code>hermes pm lock --bump NAME VERSION</code> عملية مختلفة: تثبّت
 أداة مُدارة في <code>pm/lock.json</code> ولا تمس <code>uv.lock</code>.)</p>
 </li>
@@ -234,6 +234,16 @@ Python المستدعي. هذه العمليات ليست bootstrap لمفسّر
 يحافظ على احتياط CDN: محاولة تسلسلية واحدة للنطاقات المفقودة. لا تتكرر عمليات
 الاستخراج والتحقق والنشر. تبقى طلبات حزم Python و npm
 تحت سياسات إعادة المحاولة الخاصة بـ uv و npm.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="release-age-and-package-mirrors">عمر الإصدار ومرايا الحِزم (package mirrors)</h2>
+<p>يجب أن يكون عمر كل حزمة Python يعتمد عليها Hermes نفسه ثلاثة أيام على الأقل
+عند قفلها بواسطة Hermes (الخيار <code>exclude-newer</code> في uv، ويفرضه فحص lock في CI)، فلا يمكن لإصدار
+منشور حديثًا وربما مخترَق أن يصل إلى <code>uv.lock</code>. ويثبّت المستخدمون
+من ذلك lock، ولا يعيد تثبيت إضافة (plugin) أو تفعيلها فحص
+التواريخ، لذلك تعمل مرايا الحِزم التي لا تنشر أوقات الرفع. اضبط مرآة عبر <code>index-url</code> في <code>pip.conf</code>،
+وسيمرّره Hermes إلى uv، أو عبر <code>UV_INDEX_URL</code>.</p>
+<p><code>hermes pm lock</code> هو الخطوة الوحيدة التي تطبّق هذا الفحص. وإذا نفّذته على مرآة
+لا تحتوي أوقات رفع، فسيتوقف برسالة <code>has no publish time</code>؛ استخدم
+<code>https://pypi.org/simple</code> لتلك الخطوة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="diagnostics">التشخيص</h2>
 <ul>
 <li><strong>بناء اعتماديات Python بطيء:</strong> تفعّل أوامر uv المتدفقة من PM المخرجات التفصيلية. تعرض سجلات الحزم والبناء نشاط الحزم و stdout/stderr الخاص بـ build-backend أثناء البناء، لا بعد الفشل فقط.</li>

@@ -1,3 +1,32 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="worktree-isolation">العزل عبر Worktree</h2>
+<p>افتراضيًا، تتشارك الـ subagents مجلد العمل الخاص بالوكيل الأب، وهذا مناسب للبحث
+والأعمال التي يغلب عليها القراءة، لكن الوكلاء الفرعيين المتوازين الذين يعدّلون المستودع نفسه قد يتصادمون.
+اضبط <code>delegation.worktree_isolation: true</code> لمنح كل وكيل فرعي git
+worktree خاصًا به، متفرعًا من <code>HEAD</code> الحالي للمستودع (مستوحى من الخيار
+ <code>--subagent-worktree-isolation</code> في Muse Code):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p>عند تفعيل العزل:</p>
+<ul>
+<li>يبدأ كل وكيل فرعي طرفيته في <code>&lt;repo&gt;/.worktrees/subagent-&lt;id&gt;</code> على
+الـ branch الخاص به <code>hermes-subagent/subagent-&lt;id&gt;</code> ، وتوجّهه رسالة الهدف إلى
+العمل وإنشاء الـ commits هناك.</li>
+<li>تبقى النسخة المسحوبة (checkout) الخاصة بالوكيل الأب دون مساس؛ ولا يستطيع الوكلاء الفرعيون الكتابة فوق
+تعديلات بعضهم.</li>
+<li>عندما ينتهي وكيل فرعي، يُضاف إلى إدخال نتيجته حقل <code>worktree</code> يُبلغ عن
+ <code>path</code> و <code>branch</code> و <code>commits</code> (المتقدمة على الأساس) و <code>dirty</code>. ويراجع الوكيل الأب
+كل branch أو يدمجه (<code>git log &lt;branch&gt;</code> ، <code>git merge &lt;branch&gt;</code>).</li>
+<li>الـ worktree الذي يُترك <strong>دون commits وبشجرة نظيفة يُحذف تلقائيًا</strong>
+(<code>pruned: true</code>)؛ أما أي worktree يحتوي على عمل فيُحتفظ به.</li>
+<li>يتطلب الحذف دليلًا. فإذا فشل فحص git، أو حدث خطأ في مرحلة الإنهاء
+نفسها، يُحتفظ بالـ worktree والـ branch ويحمل الإدخال
+ <code>inspection_failed: true</code> إضافة إلى <code>note</code> ، وعندها تكون <code>commits</code>/<code>dirty</code>
+قيمًا افتراضية لا قياسات، لذا افحص الـ worktree بدلًا من افتراض أن
+الوكيل الفرعي لم يُنتج شيئًا.</li>
+</ul>
+<p>النطاق: اختياري، ويقتصر على git، وعلى terminal backend المحلي فقط. في مجلد لا يستخدم
+git، أو على backends من نوع docker/ssh/modal، أو إذا فشل إنشاء الـ worktree، يتراجع
+الإعداد بصمت إلى سلوك مساحة العمل المشتركة المعتاد حاليًا، ولا يُنتج
+خطأً أبدًا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delegation-vs-execute_code">التفويض مقابل execute_code</h2>
 <table><thead><tr><th>العامل</th><th>delegate_task</th><th>execute_code</th></tr></thead><tbody><tr><td><strong>الاستدلال</strong></td><td>حلقة استدلال LLM كاملة</td><td>تنفيذ كود Python فقط</td></tr><tr><td><strong>السياق</strong></td><td>محادثة جديدة معزولة</td><td>لا محادثة، مجرد سكربت</td></tr><tr><td><strong>الوصول إلى الأدوات</strong></td><td>كل الأدوات غير المحظورة مع الاستدلال</td><td>7 أدوات عبر RPC، دون استدلال</td></tr><tr><td><strong>التوازي</strong></td><td>10 subagents متزامنة افتراضيًا (قابل للضبط)</td><td>سكربت واحد</td></tr><tr><td><strong>الأنسب لـ</strong></td><td>المهام المعقدة التي تتطلب حُسن تقدير</td><td>الـ pipelines الآلية متعددة الخطوات</td></tr><tr><td><strong>تكلفة الـ tokens</strong></td><td>أعلى (حلقة LLM كاملة)</td><td>أقل (لا يُعاد سوى stdout)</td></tr><tr><td><strong>تفاعل المستخدم</strong></td><td>لا يوجد (لا تستطيع الـ subagents طلب التوضيح)</td><td>لا يوجد</td></tr></tbody></table>
 <p><strong>قاعدة عامة:</strong> استخدم <code>delegate_task</code> عندما تتطلب المهمة الفرعية استدلالًا أو حُسن تقدير أو حلًّا للمشكلات على عدة خطوات. واستخدم <code>execute_code</code> عندما تحتاج إلى معالجة بيانات آلية أو سير عمل قائم على السكربتات.</p>

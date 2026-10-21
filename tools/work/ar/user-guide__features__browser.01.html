@@ -87,40 +87,41 @@
 ولا تريد أن يحدد &quot;أيّ profile استخدمته آخر مرة&quot; هوية
 الوكيل، فثبّت مصدر اللقطة صراحةً:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<p>التثبيت الذي يسمّي مجلد profile غير موجود يفشل بشكل مغلق (fails closed) مع
-رسالة تُرشدك إلى الإصلاح — ولا يرجع أبدًا بصمت إلى آخر profile مُستخدم.</p>
+<p>لا يعود الـ pin الذي يسمّي مجلد profile غير موجود إلى آخر profile مستخدم بصمت أبدًا:
+يحصل الوكيل على متصفح جديد دون تسجيلات دخولك مع رسالة تسمّي الـ pin الخاطئ.</p>
 <p>عند إيقاف المفتاح مجددًا، يحذف Hermes مخزن اللقطات
 (<code>~/.hermes/browser-profile/</code>) عند الاستخدام التالي للمتصفح، حتى لا تبقى بيانات الاعتماد
 المنسوخة بعد سحب موافقتك.</p>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>Windows: يجب إغلاق المتصفح بالكامل</div><div class="admonitionContent_BuS1"><p>في Windows، يحتفظ متصفح Chrome/Edge/Brave قيد التشغيل بقواعد بيانات ملفات تعريف الارتباط وتسجيلات الدخول
-بقفل حصري (يمنع الجميع)، لذا لا يستطيع Hermes نسخها بينما المتصفح
-مفتوح — فيفشل سريعًا مع رسالة &quot;fully quit the browser and retry&quot; بدلًا من
-التعليق أو إنتاج جلسة غير مسجّلة الدخول. لذلك يتطلب التصفح بالـ profile الحقيقي في Windows
-إغلاق المتصفح <strong>بالكامل</strong>، بما في ذلك أي نسخة تعمل في الخلفية أو في شريط النظام
-(فخيار &quot;continue running background apps when closed&quot; في Chrome يُبقي
- <code>chrome.exe</code> قيد التشغيل بعد إغلاق النافذة).</p><p>في macOS و Linux، لا يُقفل profile على مستوى الملف، لكن تؤخذ لقطة لكل قاعدة بيانات
-مصادقة عبر النسخ الاحتياطي المتصل في SQLite، بميزانية خمس ثوانٍ، وعادة يحتفظ Chrome قيد التشغيل بـ <code>Login Data</code>, <code>Login Data For Account</code> و <code>Web Data</code> بقفل كتابة نشط لا يُفرج عنه خلال تلك
-الميزانية (تُلتقط <code>Cookies</code> عادة بلا مشكلة). عند حدوث ذلك، يوقف Hermes
-التشغيل ويذكر قواعد البيانات التي تعذّرت قراءتها — مثل &quot;chrome is
-running and holds the profile&#x27;s Login Data, Login Data For Account, Web Data
-with a write lock&quot; — لذا عمليًا <strong>أغلق المتصفح قبل بدء
-جلسة profile حقيقي على macOS/Linux أيضًا</strong>. يمكنك إعادة فتحه بعد بدء
-الجلسة (اللقطة مجلد مستقل)، لكن تُعاد مزامنة ملفات المصادقة عند
-كل إطلاق لجلسة جديدة، لذا يؤدي ترك المتصفح يعمل حينئذ إلى القفل نفسه.
-يحافظ Hermes على بيانات
-WAL المُعتمدة عبر SQLite بدلًا من الرجوع إلى نسخ الملفات الخام، الذي قد
-يفقد بيانات دخول حديثة بصمت. توقف قواعد البيانات غير المقروءة أو التالفة
-التشغيل أيضًا، مع ذكر خطأ SQLite في الرسالة.</p><p>اضبط <code>browser.real_profile_autoclose: true</code> لتسمح لـ Hermes <strong>بأن يعرض عليك إغلاق
-المتصفح نيابةً عنك</strong> عندما يكون محتفظًا بالـ profile. وحتى مع تفعيل هذا الخيار، لا يُغلق Hermes
-المتصفح تلقائيًا أبدًا — فعندما يكون الـ profile مقفلًا يتوقف دائمًا ويسألك
-الوكيل أولًا؛ ولا يُنفّذ <code>hermes browser close-profile</code> إلا بعد موافقتك (وهو يُنهي شجرة عمليات المتصفح المرتبطة بذلك الـ profile،
-مع فقدان علامات التبويب غير المحفوظة)، ثم يعيد المحاولة. وإذا ظل الـ profile مقفلًا بعد ذلك
-(مثلًا إذا أُعيد إطلاق نسخة في الخلفية أو في شريط النظام)، يبقى Hermes متوقفًا ويطلب منك
-إغلاق المتصفح بالكامل — ولن يكرر المحاولة أو يُنهي العملية مجددًا من تلقاء نفسه.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="43"></x-keep></span>عندما يتعذّر نسخ profile الخاص بك، يظل المتصفح يعمل</div><div class="admonitionContent_BuS1"><p>لا يحرمك التصفح بالـ profile الحقيقي من المتصفح أبدًا. وإذا تعذّر على Hermes نسخ
+profile الخاص بك، يحصل الوكيل على متصفح جديد <strong>دون تسجيلات دخولك</strong> في تلك الجلسة،
+وتذكر أول نتيجة متصفح السبب (<code>real_profile_unavailable</code>)، ليتمكن من إخبارك
+بدلًا من التصرف كأنه مسجّل الدخول. ويحدث ذلك في الحالات التالية:</p><ul>
+<li><strong>Windows، عند أول استخدام فقط:</strong> يحتفظ Chrome/Edge/Brave قيد التشغيل بقاعدة بيانات
+ملفات تعريف الارتباط بقفل حصري (يمنع الجميع)، ولذلك تتطلب النسخة الأولى أن يكون المتصفح
+<strong>مغلقًا بالكامل</strong>، بما في ذلك أي نسخة تعمل في الخلفية أو شريط النظام (فخيار &quot;continue
+running background apps when closed&quot; في Chrome يُبقي <code>chrome.exe</code> قيد التشغيل بعد إغلاق
+النافذة). وبعد نسخة ناجحة واحدة، يعيد أي إطلاق لاحق والمتصفح مفتوح استخدام تلك النسخة:
+تكون تسجيلات دخولك كما كانت وقت آخر نسخة، وتتحدث
+في المرة التالية التي يشغّل فيها Hermes متصفحه بينما متصفحك مغلق.</li>
+<li><strong>المتصفح الافتراضي لديك ليس Chromium مدعومًا</strong> (Firefox، أو قناة Beta/Dev/Canary)،
+أو أن الـ profile المثبَّت غير موجود.</li>
+<li><strong>قاعدة بيانات ملفات تعريف الارتباط غير قابلة للقراءة أو تالفة</strong>: تسمّيها الرسالة
+وتذكر خطأ SQLite.</li>
+</ul><p>في macOS و Linux يحتفظ Chrome قيد التشغيل بالملفات <code>Login Data</code> و<code>Login Data For Account</code>
+و<code>Web Data</code> (كلمات المرور المحفوظة والملء التلقائي) بقفل كتابة، لكن الملف <code>Cookies</code>
+يمكن نسخه مع ذلك، وملفات تعريف الارتباط هي ما يُبقيك مسجّل الدخول في المواقع. ينسخ Hermes
+ملفات تعريف الارتباط ويتخطى ملفات كلمات المرور/الملء التلقائي المقفلة، فيمكنك إبقاء متصفحك
+مفتوحًا. وتُنسخ كل قاعدة بيانات عبر النسخ الاحتياطي المتصل في SQLite (وليس نسخًا خامًا للملف،
+وقد يفقد تسجيلات الدخول الحديثة).</p><p>اضبط <code>browser.real_profile_autoclose: true</code> ليتمكن Hermes من أن <strong>يعرض عليك إغلاق
+المتصفح نيابةً عنك</strong> عندما يكون محتفظًا بقفل الـ profile (حالة Windows). وحتى مع
+تفعيل هذا الخيار، لا يغلقه Hermes تلقائيًا أبدًا: يسألك الوكيل أولًا، ولا ينفّذ
+إلا بعد موافقتك الأمر <code>hermes browser close-profile</code> (الذي يُنهي شجرة عمليات المتصفح المرتبطة
+بذلك الـ profile، مع فقدان علامات التبويب غير المحفوظة). وعندها تلتقط جلسة المتصفح الجديدة
+profile الخاص بك.</p></div></div>
 <ul>
 <li><strong>المتصفحات المدعومة:</strong> Chrome و Edge و Brave و Brave Origin و Chromium (أيّها كان الافتراضي في نظام
-التشغيل). وإذا كان المتصفح الافتراضي من خارج عائلة Chromium (مثل Firefox) فيفشل بشكل مغلق مع
-رسالة واضحة بدلًا من التخمين.</li>
+التشغيل). وإذا كان المتصفح الافتراضي من خارج عائلة Chromium (مثل Firefox) فيحصل الوكيل على متصفح جديد
+ورسالة واضحة بدلًا من تخمين الـ profile المطلوب استخدامه.</li>
 <li><strong>يعمل على أي backend.</strong> على backend محلي يعمل تلقائيًا بمجرد تفعيل
 المفتاح. وتحت backend متصفح <strong>سحابي</strong>، لا يزال بإمكان الوكيل فتح
 جلسة محلية بالـ profile الحقيقي عند الطلب عبر أداة <code>browser_exec</code> باستخدام وسيطها <code>local</code>
@@ -155,9 +156,10 @@ Settings → Config ضمن قسم <code>browser</code> القسم.</li>
 <a href="/docs/user-guide/features/credential-vault#headless-sessions">خزنة بيانات الاعتماد</a>، وهي
 ما يتيح استمرار التشغيل بعد انتهاء جلستك الشخصية.</li>
 </ul>
-<p><strong>متطلب Windows:</strong> يجب إغلاق المتصفح تمامًا قبل إمكان
-أخذ اللقطة أصلًا، لذا تحتاج النبضة المجدولة إلى إغلاقه مسبقًا — لا يغلقه Hermes
-مطلقًا دون أن يسألك أولًا (راجع الملاحظة أعلاه).</p>
+<p><strong>متطلب Windows:</strong> يجب إغلاق المتصفح تمامًا قبل أخذ اللقطة الأولى.
+وبعد ذلك، تعيد النبضة التي تعمل والمتصفح مفتوح استخدام آخر لقطة (تسجيلات الدخول كما كانت وقت
+تلك النسخة)؛ وإذا لم توجد لقطة بعد، تعمل النبضة على متصفح جديد غير مسجّل الدخول. ولا يغلقه Hermes أبدًا دون أن يسألك أولًا
+(راجع الملاحظة أعلاه).</p>
 <p>المهارة المضمّنة <code>product-price-monitor</code> مثال تطبيقي للشكل
 المتكرر — عقد مراقبة JSON يُكتب أثناء الإعداد، ثم نبضة مجدولة واحدة
 تعيد قراءته وتقارن وتُنبه عند التغيير — لكنها تغطي جانب الجدولة
@@ -206,3 +208,4 @@ Settings → Config ضمن قسم <code>browser</code> القسم.</li>
 <p>إذا سجّلت الخطوة 5 خروجك، فهذا يعني أن خادم Camofox لا يحترم <code>userId</code> الثابت. راجع مسار الإعدادات مجددًا، وتأكد من أنك أعدت تشغيل Hermes بالكامل بعد تعديل <code>config.yaml</code> ، وتحقّق من أن إصدار خادم Camofox لديك يدعم profiles دائمة لكل مستخدم.</p>
 <h5 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-state-lives">أين تُخزَّن الحالة</h5>
 <p>يستمد Hermes قيمة <code>userId</code> الثابتة من المجلد المرتبط بالـ profile <code>~/.hermes/browser_auth/camofox/</code> (أو ما يكافئه تحت <code>$HERMES_HOME</code> للـ profiles غير الافتراضية). أما بيانات profile المتصفح الفعلية فتوجد على جانب خادم Camofox، مفهرسةً بقيمة <code>userId</code> تلك. لإعادة ضبط profile دائم بالكامل، امسحه على خادم Camofox واحذف مجلد الحالة الخاص بـ Hermes profile المقابل.</p>
+

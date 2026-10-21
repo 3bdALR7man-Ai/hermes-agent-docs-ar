@@ -1,3 +1,31 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="git-keeps-growing-in-a-partial-clone"><code>.git</code> يواصل النمو في partial clone</h3>
+<p>النسخة التي ينشئها المُثبّت partial clone بلا blobs: كل commit وقائمة أدلة موجودان محليًا،
+وينزّل git محتوى الملفات عند الطلب، ويُكتَب كل تنزيل عند الطلب كملف pack صغير مستقل.
+أنشأت مُثبّتات أواخر سبتمبر 2026 نسخًا بلا أشجار (<code>--filter=tree:0</code>) بدلًا من ذلك. يطلب git
+شجرة مفقودة دون تحديد الأشجار التي يملكها بالفعل، لذا كانت النسخة بلا أشجار تنزّل لقطات
+الأدلة الكاملة مجددًا عند كل checkout وعند استعراض التاريخ بترشيح المسار. يحوّل <code>hermes update</code>
+هذه النسخة مرة واحدة كأول خطوة بعد سحب الكود الجديد وقبل عمل
+الاعتماديات: تجلب <code>git fetch --refetch --filter=blob:none</code> واحدة كل commits والأشجار (نحو
+120 MB)، وتتوقف التحديثات اللاحقة عن إعادة تنزيلها. تحوّل إعادة تشغيل المُثبّت على تلك النسخة
+الأمر بالطريقة نفسها. إذا فشل الجلب، يطبع التحديث تحذيرًا ويواصل ويعيد
+محاولة التحويل في المرة التالية.</p>
+<p>يشغّل Hermes Desktop المبني قبل وجود التحويل عمليات استعراض تاريخ بترشيح المسار كل بضع
+دقائق، لذا قد يملأ قرص نسخة بلا أشجار بملفات pack (بلغت إحدى الحالات 434 GB)
+ويواصل بعد تحديث فاشل. للتعافي إذا حدث ذلك بالفعل:</p>
+<ol>
+<li>أغلق Hermes Desktop ثم أنهِ أي عمليات متبقية من <code>git rev-list</code>, <code>git maintenance</code> أو <code>git commit-graph</code>؛ إغلاق التطبيق لا يوقفها.</li>
+<li>إذا امتلأ القرص تمامًا، احذف ملفات النقل المتروكة لتحرير مساحة:
+<code>rm -f &quot;$repo&quot;/.git/objects/pack/tmp_pack_*</code> (في Windows: احذف <code>tmp_pack_*</code> في <code>.git\objects\pack</code>). يزيلها كل تحديث أيضًا تلقائيًا عندما لا توجد عملية git جارية.</li>
+<li>نفّذ <code>hermes update</code>. يحوّل النسخة أولًا، ثم يقلّص تراكم ملفات pack خلال هذا
+التحديث والتحديثات اللاحقة كما يرد أدناه.</li>
+</ol>
+<p>إذا تعذّر على <code>hermes update</code> نفسه بدء العمل، فالتحويل اليدوي هو:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-against-a-non-default-branch---branch">التحديث من branch غير افتراضي: <code>--branch</code></h3>
+<p><code>--branch NAME</code> تجاوز لهذا التشغيل وحده يحدّث وفق رأس branch
+بدل القناة المختارة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>إذا كانت نسختك المحلية على branch مختلف، يُجري Hermes تلقائيًا stash لأي عمل غير مُثبَّت بـ commit، ويحوّل HEAD إلى الـ branch المستهدف، ثم يسحب التحديثات. الـ branches غير الموجودة محليًا تُتتبَّع تلقائيًا من <code>origin/&lt;name&gt;</code> (<code>git checkout -B &lt;name&gt; origin/&lt;name&gt;</code>). أما الـ branches غير الموجودة في أي مكان فتفشل بشكل نظيف — إذ تُستعاد تغييراتك المحفوظة في stash قبل الخروج، فلا تبقى عالقًا في حالة غريبة أبدًا. ويُتخطى تلقائيًا منطق مزامنة الـ fork مع upstream المخصص لـ <code>main</code> فقط، وذلك على الـ branches الأخرى غير <code>main</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checkout-parked-on-a-feature-branch">نسخة مسحوبة متوقفة على branch ميزة</h3>
 <p>إذا تُركت النسخة المسحوبة من الكود المصدري على branch ميزة (بفعل أدوات ما، أو تجربة worktree، أو checkout يدوي)، فإن <code>hermes update</code> يعيدها تلقائيًا إلى هدف التحديث كلما كانت شجرة العمل نظيفة:</p>
 <ul>
@@ -99,33 +127,3 @@
 <li><code>Ctrl-C</code> (SIGINT) وإيقاف النظام (SIGTERM) يظلان مُحترَمَين — فهما إلغاءان مقصودان لا حادثان. تُخرج <code>Ctrl-C</code> بعد وجود الكود الجديد بالرمز 130 وتوضح ذلك: تبقى الخطوات المتبقية (الاعتماديات والبناء وإعادة تشغيل gateway) مستحقة، ويكملها التشغيل التالي أو <code>hermes update</code>.</li>
 </ul>
 <p>لم تعد بحاجة إلى تغليف <code>hermes update</code> داخل <code>screen</code> أو <code>tmux</code> لتجاوز انقطاع الطرفية.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-an-update-or-launch-refuses-instead-of-guessing">متى يرفض تحديث أو تشغيل بدل التخمين</h3>
-<p>تتوقف بعض الحالات برسالة بدل المتابعة، لأن المتابعة قد تترك نسخة محدّثة جزئيًا أو gateway تشغّل كودًا قديمًا:</p>
-<ul>
-<li><strong>تشغيل آخر يصلح تحديثًا منقطعًا.</strong> عندما أُنهي تحديث بينما كان git ينقل النسخة، يعيد تشغيل <code>hermes</code> التالي النسخة أولًا. تتناوب التشغيلات التي تبدأ معًا (gateway يعاد تشغيلها أو backend Desktop بجانب CLI). يخرج التشغيل الذي ينتظر إصلاح تشغيل آخر أكثر من 10 ثوانٍ بالحالة 1: <code>hermes: another Hermes launch is finishing an interrupted &#x27;hermes update&#x27;; launch again in a moment.</code>شغّل مجددًا بعد انتهاء الآخر. يظهر backend الذي أطلقه Hermes Desktop عندئذ كبدء فاشل؛ وتكفي إعادة فتحه.</li>
-<li><strong>فشل git في Windows → بديل ZIP الاحتياطي.</strong> في Windows، يعود خطأ git أثناء <code>hermes update</code> إلى تنزيل ZIP الإصدار فقط عندما لم يمس git النسخة بعد: commit و branch نفسهما منذ بدء التحديث، ودون stash أو بدء انتقال الشجرة. بمجرد تنفيذ git لـ stash أو تبديل branch أو بدء نقل الملفات، يبلّغ التحديث عن خطأ git ويخرج بالرمز 1 بدل ذلك، لأن overlay الخاص بـ ZIP سيدفن تلك الحالة. أعد تشغيل <code>hermes update</code> بعد إصلاح مشكلة git.</li>
-<li><strong>تحتاج بنى Desktop إلى <code>.git</code>.</strong> بناء Hermes Desktop من نسخة باستخدام <code>hermes desktop</code> يأخذ قفل النسخة نفسه الذي يستخدمه <code>hermes update</code> (ويحتاجه أيضًا)، والمحفوظ في دليل git للنسخة. إذا لم يكن ذلك الدليل قابلًا للكتابة لمستخدمك (مثل نسخة يملكها حساب آخر)، يرفض البناء برسالة <code>.../.git/hermes-update.lock is not writable</code> بدل البناء بجانب تحديث محتمل. أصلح ملكية <code>.git</code> أو صلاحياته. في macOS/Linux يظل ملف قفل جعله <code>sudo hermes update</code> للقراءة فقط قابلًا للاستخدام.</li>
-<li><strong>سجل إعادة التشغيل غير قابل للكتابة.</strong> <code>hermes update</code> يسجّل إعادة تشغيل gateway المستحقة قبل نقل النسخة، في دليل حالة المضيف (<code>$HERMES_GATEWAY_LOCK_DIR</code>، وإلا <code>$XDG_STATE_HOME/hermes/gateway-locks</code>). إذا تعذّرت الكتابة إلى الدليل، يُحفَظ السجل في مجلد Hermes الرئيسي للـ profile الحالي بدلًا منه. لا يقرؤه إلا ذلك profile، لذا لا يتابع التحديث إلا في تثبيت لا يحتوي profile آخر. إذا وجدت profiles أخرى أو تعذّرت قراءة قائمتها، يرفض التحديث قبل نقل أي شيء. اجعل دليل الحالة قابلًا للكتابة ثم أعد تشغيله.</li>
-</ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="checking-your-current-version">التحقق من إصدارك الحالي</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
-<p>قارنه بأحدث إصدار في <a href="https://github.com/NousResearch/hermes-agent/releases" data-ext>صفحة الإصدارات على GitHub</a>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-from-messaging-platforms">التحديث من منصات المراسلة</h3>
-<p>يمكنك أيضًا التحديث مباشرةً من Telegram أو Discord أو Slack أو WhatsApp أو Teams بإرسال:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
-<p>يسحب هذا أحدث كود، ويحدّث الاعتماديات، ويعيد تشغيل الـ gateways العاملة. سيصبح البوت غير متصل لفترة وجيزة أثناء إعادة التشغيل (عادةً 5–15 ثانية) ثم يستأنف عمله.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-source-maintenance-and-rollback">صيانة المصدر والتراجع يدويًا</h3>
-<p>استخدم <a href="/docs/user-guide/switching-to-source">دليل التثبيت من المصدر</a> لنسخة
-تطوير مستقلة. أنشئ commit للعمل المحلي أو احفظه بوسيلة أخرى
-قبل تغيير إصدار Git. أوقف الخدمات التي تملكها قبل استبدال
-الكود الذي تشغّله.</p>
-<p>بعد تغيير إصدار المصدر، نفّذ إجراء الاعتماديات/bootstrap
-الخاص بذلك الإصدار. تستخدم النسخ التي يديرها PM <code>python -m pm.cli install</code> من بيئة
-المصدر المختارة. تثبيت pip مباشر ليس مكافئًا: لا يجهّز
-مخزن الأدوات المُدار ولا اختيار بيئة التشغيل في PM.</p>
-<p>نسخة الكود وحدها ليست تراجعًا عن البيانات. قد ترحّل الإصدارات الأحدث
-الإعدادات أو قواعد البيانات بصيغ لا يستطيع الكود الأقدم قراءتها. استخدم نسخة
-احتياطية متسقة من قبل التحديث إذا تطلب إصدار أقدم تنسيق البيانات
-السابق. احفظ البيانات الحالية قبل محاولة الاستعادة.</p>
-<p>تستخدم التثبيتات المملوكة للحزم إجراء التراجع أو إعادة التثبيت
-الخاص بمدير حزمتها. لا تشغّل Git أو pip داخل تطبيق موقّع أو صورة غير قابلة للتغيير.</p>

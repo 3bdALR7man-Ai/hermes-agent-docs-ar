@@ -2,6 +2,12 @@
 <p>يستخدم Hermes Agent قاعدة بيانات SQLite (<code>~/.hermes/state.db</code>) لحفظ بيانات
 الجلسات الوصفية، وسجل الرسائل الكامل، وإعدادات النموذج عبر جلسات CLI وgateway.
 هذا يحلّ محلّ أسلوب ملفات JSONL السابق لكل جلسة على حدة.</p>
+<p>الـ gateway الخاص بالـ profile هو <strong>الكاتب الوحيد للجلسات المعتمدة (canonical sessions)</strong>: فـ <code>hermes chat</code>
+و TUI و Desktop (المحلي) و API server و ACP و cron و Bot Chat وعمّال Kanban
+كلها عملاء يمرّرون المدخلات إلى سلطة الجلسات لديه عبر <code>/api/ws</code> (راجع
+<a href="/docs/developer-guide/gateway-local-sessions">جلسات الـ gateway المحلية</a>). أما العمّال المُدارون خارج العملية
+فيكتبون عبر ذلك المالك (RPC الخاص بـ <code>RuntimeSessionStore</code>)، ولا يفتحون أبدًا
+<code>state.db</code> بأنفسهم لكتابة النص الكامل للمحادثة.</p>
 <p>ملفات المصدر: <code>hermes_state.py</code> (الواجهة الأمامية) بالإضافة إلى ملفات <code>hermes_state_*.py</code> المجاورة (المخطط، و fts، والبحث، والضغط، وقابلية النقل، و gateway، وغيرها)</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-home-and-profile-isolation">مجلد Hermes الرئيسي وعزل profiles</h2>
 <p><code>get_hermes_home()</code> هي الدالة المعتمدة لتحديد مسارات الحالة والإعدادات في نظام الملفات. تستخدم أولًا تجاوزًا محليًا للسياق، ثم متغير البيئة <code>HERMES_HOME</code>، ثم القيمة الافتراضية للمنصة (<code>~/.hermes</code> على macOS و Linux؛ و <code>%LOCALAPPDATA%/hermes</code> على Windows). ولذلك تكون قاعدة البيانات الافتراضية دائمًا <code>get_hermes_home() / &quot;state.db&quot;</code>، لا مسارًا ينبغي أن يكتبه المستدعون صراحةً مثل <code>~/.hermes/state.db</code>.</p>
@@ -13,15 +19,17 @@
 <p><code>HERMES_STATE_DB_GUARD_BYPASS=1</code> منفذ تجاوز للاختبار فقط، يُستخدم لعملية فرعية مُطلَقة تحتاج فعلًا إلى الوصول إلى قاعدة البيانات الحية. ويقابله داخل العملية <code>@pytest.mark.live_system_guard_bypass</code>. لا تضبط أيًّا من التجاوزين في أوامر Hermes العادية، أو shells التطوير، أو إعدادات التطبيق: إذ يعطّل الحارس (استثناءً حاسمًا من نوع <code>RuntimeError</code>) الذي يحمي سجل الجلسات الحية؛ وينقل shell الذي يصدّره التجاوز إلى كل تشغيل pytest لاحق.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-profile-isolation-and-compaction-generations">عزل profile في Desktop وأجيال الضغط (compaction)</h3>
 <p>يخزّن كل profile مُسمّى نصّه الكامل (transcript) في <code>$HERMES_HOME/state.db</code> الخاص به،
-حتى عندما تخدم عملية <code>hermes serve</code> واحدة عدة profiles. يجب أن تحتفظ عمليات إعادة
+حتى عندما تخدم عملية واحدة (الـ multiplex gateway أو <code>hermes serve</code>) عدة profiles. يجب أن تحتفظ عمليات إعادة
 بناء الوكيل أثناء الجلسة (تحديث قدرات Bot Chat و <code>tools.configure</code>) بمقبض قاعدة بيانات
-تلك الجلسة، وأن تربط الصفحة الرئيسية (home) الخاصة بـ profile أثناء الإنشاء. يجب ألا يُغلق
-تحرير الوكيل الخارج المقبضَ الذي يرثه بديله. يحلّ <code>tools.configure</code> الإعدادات من
-<code>profile_home</code> الخاص بالجلسة الحيّة، حتى عندما يزوّد العميل <code>session_id</code> فقط. تُعِدّ عمليات
-إعادة البناء إعدادات النموذج قبل تخصيص بديل، ثم تُثبّت الوكيل وتنقل الملكية معًا؛ فشل
-التحضير يترك الوكيل الحالي مسؤولًا عن التفكيك. تفشل الـ profiles الصريحة التي يتعذّر
-حلّها أو التي اختفى مجلدها قبل الوصول إلى إعدادات الإطلاق أو السجل. وبالمثل، يُعيد
-معرّف جلسة <code>tools.configure</code> القديم (stale) رسالة <code>session not found</code> دون تغيير الإعدادات؛
+تلك الجلسة، وأن تربط home الخاص بالـ profile أثناء الإنشاء.
+يجب ألا يُغلق تحرير الوكيل الخارج المقبضَ الذي يرثه بديله.
+يحلّ <code>tools.configure</code> الإعدادات من <code>profile_home</code> الخاص بالجلسة الحيّة،
+حتى عندما يزوّد العميل <code>session_id</code> فقط. تُعِدّ عمليات إعادة البناء إعدادات النموذج
+قبل تخصيص بديل، ثم تُثبّت الوكيل وتنقل الملكية
+معًا؛ وفشل التحضير يترك الوكيل الحالي مسؤولًا عن التفكيك.
+تفشل الـ profiles الصريحة التي يتعذّر حلّها أو التي اختفى مجلدها
+قبل الوصول إلى إعدادات الإطلاق أو السجل. وبالمثل، يعيد معرّف جلسة <code>tools.configure</code>
+القديم (stale) رسالة <code>session not found</code> دون تغيير الإعدادات؛
 وحذف معرّف الجلسة لا يزال يدعم عملية الإعدادات العامة.</p>
 <p>يؤرشف الضغط في المكان (in-place compaction) الصفوف القديمة بوضع <code>active=0</code> ويُدرج
 السياق المُحتفَظ به كصفوف <code>active=1</code>. لذا يمكن لرسالة محمية أن تظهر بشكل مشروع في
@@ -58,10 +66,19 @@ arbitration)، وليس تسليمًا شاملاً لمرة واحدة بالض
 التاريخية غير المُعلَّمة إثبات الملكية لحدث مُعاد تسليمه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
-<p><code>hermes sessions recover</code> الجداول أعلاه التي تحمل صفوفًا إلى قاعدة البيانات
+<p>تشير <code>session_admissions</code> و <code>worker_executions</code> و <code>worker_receipts</code> إلى <code>sessions</code>
+بالخيار <code>ON DELETE RESTRICT</code>: يؤدي حذف جلسة أو تقليمها (prune) إلى إخراج صفوف سجلها النهائي (terminal ledger)
+من الخدمة في المعاملة نفسها، ويُرفض ما دام العمل جاريًا أو بحالة <code>unknown</code>. والمدخل الذي
+كان <code>started</code> عند موت مالكه يصبح <code>unknown</code> عند بدء المالك التالي ولا يُعاد
+تشغيله أبدًا؛ وتنتظر مدخلاته اللاحقة إلى أن يُحسم (<code>prompt.resolve_unknown</code>).</p>
+<p>ينسخ <code>hermes sessions recover</code> الجداول أعلاه التي تحمل صفوفًا إلى قاعدة البيانات
 المُستعادة (يُعاد توليد فهارس FTS و <code>schema_version</code>)، بما في ذلك سجلّ (ledger)
 <code>delivery_obligations</code> المُنشأ بشكل كسول (lazily) عندما يمتلك المصدر واحدًا — يُتحقّق من
-عدد صفوفه كما هو الحال في <code>sessions</code>/<code>messages</code>.</p>
+عدد صفوفه كما هو الحال في <code>sessions</code>/<code>messages</code>. أما جداول سجل وقت التشغيل الأربعة
+(<code>runtime_epoch</code> و <code>session_admissions</code> و <code>worker_executions</code> و <code>worker_receipts</code>) فتُجرَد
+وتُذكر على أنها مستبعدة، ولا تُنسخ: فقد يؤدي سجل جزئي إلى إعادة تشغيل آثار
+بدأت بالفعل أو إلى تبنّي عمّال مالك آخر. أما استعادة <code>hermes backup</code> الكاملة فتحتفظ
+بالسجل كاملًا للمواءمة عند بدء التشغيل.</p>
 <p>قرارات التصميم الرئيسية:</p>
 <ul>
 <li><strong>وضع WAL</strong> للقرّاء المتزامنين + كاتب واحد (gateway متعدد المنصات)</li>
@@ -107,6 +124,21 @@ arbitration)، وليس تسليمًا شاملاً لمرة واحدة بالض
 <code>fts_rebuild_progress</code> في <code>state_meta</code> (بحيث يمكن لإعادة بناء FTS في الخلفية المتابعة
 دون فهرسة مزدوجة) وتغطّي الأعمدة الثلاثة المفهرَسة كلها — راجع <code>SCHEMA_SQL</code> في
 <code>hermes_state_common.py</code> للاطلاع على SQL الدقيق.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dashboard-browsing-and-owner-maintenance">تصفح لوحة التحكم وصيانة المالك</h2>
+<p>يفتح تصفح الجلسات <code>state.db</code> للقراءة فقط. ولا يُنشئ سرد GET والبحث والتفاصيل والرسائل
+والإحصاءات والتصدير قاعدة بيانات غائبة أبدًا، ولا تعزل ملفًا صفري البايتات، ولا توفّق مخططًا قديمًا،
+ولا تُطلق الأرشفة التلقائية. وتعيد المخازن غير المهيأة
+أو غير المتوافقة HTTP 503 مع إرشادات بدء المالك/الاسترداد؛
+ويبلغ تجميع الـ profiles عن إخفاقات المخطط في قائمة <code>errors</code> الخاصة بكل profile.</p>
+<p>يهيّئ الـ gateway الخاص بالـ profile مخزنه ويوفّقه عند بدء التشغيل. ويحتفظ
+backend المستقل <code>serve</code> بعامل المواءمة الحالي عند بدء التشغيل.
+ويظل <code>sessions.auto_archive</code> المضبوط فعّالًا عبر بدء تشغيل الـ gateway وأعمال
+الصيانة الدورية، أو مؤقّت الصيانة في الـ backend المستقل، بصرف النظر عن
+التصفح. وتحتفظ نقاط نهاية التعديل الصريحة بسلوك الكتابة الحالي لها.</p>
+<p>ما يزال قرّاء SQLite WAL يشاركون في تنسيق الذاكرة المشتركة: فقد ينشئ <code>mode=ro</code>
+ملفات WAL/SHM جانبية فارغة أو يحدّث علامات القراءة في SHM. ويحظر عقد القراءة فقط
+كتابة المخطط/البيانات المعتمدة والإصلاح و checkpointing؛ لكنه لا يجعل
+ملفات تنسيق SQLite الحية غير قابلة للتغيير.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="schema-version-and-migrations">إصدار Schema والترحيلات (Migrations)</h2>
 <p>إصدار Schema الحالي: <strong>23</strong></p>
 <p>يخزّن جدول <code>schema_version</code> عددًا صحيحًا واحدًا. تُعالَج إضافات الأعمدة البسيطة بشكل
@@ -117,8 +149,9 @@ arbitration)، وليس تسليمًا شاملاً لمرة واحدة بالض
 <p>الإصدارات غير المذكورة أعلاه كانت إضافات أعمدة تصريحية عالجها <code>_reconcile_columns()</code> (زيادة رقم الإصدار فقط، دون ترحيل بيانات).</p>
 <p>تستخدم إضافات الأعمدة التصريحية <code>ALTER TABLE ADD COLUMN</code> مُغلَّفة بـ try/except للتعامل مع حالة وجود العمود مسبقًا (idempotent). يُزاد رقم الإصدار بعد كل كتلة ترحيل ناجحة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="write-contention-handling">التعامل مع تنازع الكتابة</h2>
-<p>تشترك عدة عمليات hermes (gateway + جلسات CLI + وكلاء worktree) في <code>state.db</code>
-واحد. تتعامل فئة <code>SessionDB</code> مع تنازع الكتابة عبر:</p>
+<p>ما تزال عدة عمليات تفتح <code>state.db</code> واحدًا: الـ gateway (كاتب الجلسات المعتمد)،
+والمتصفحات للقراءة فقط (لوحة التحكم، <code>hermes sessions list</code>)، وأوامر الصيانة،
+وكتّاب الجداول غير الخاصة بالجلسات. تتعامل فئة <code>SessionDB</code> مع تنازع الكتابة عبر:</p>
 <ul>
 <li><strong>مهلة SQLite قصيرة</strong> (1 ثانية) بدلًا من الافتراضية البالغة 30 ثانية</li>
 <li><strong>إعادة محاولة على مستوى التطبيق</strong> مع تذبذب عشوائي (20-150ms في أول 2s، ثم 250ms-1s): مدة 20s للكتابات المعتادة، و 60s لكتابات سجل المحادثة (يلغي فشلها الدور)، و 0.5s لكتابات النشاط الخاصة بالرصد فقط</li>
@@ -131,14 +164,3 @@ arbitration)، وليس تسليمًا شاملاً لمرة واحدة بالض
 <p>عندما يستنفد الكاتب ميزانيته، ينتهي الدور بـ <code>session_persistence_failed:locked</code>، وعلى Linux يسجّل <code>hermes_state_lockowners</code> تحذير WARNING يسمّي العملية التي كانت تحتفظ بالقفل في تلك اللحظة (<code>PID 594094 (hermes --worktree --yolo) holds WAL write lock on state.db-shm</code>)، اعتمادًا على <code>/proc/locks</code> — إذ ترمّز أقفال <code>fcntl</code> الخاصة بنطاقات البايتات في SQLite نوع القفل في إزاحتها (<code>state.db-shm</code> البايت 120 = كتابة WAL، و 121 = نقطة حفظ، و 123-127 = خانات قراءة؛ وصفحة البايت المعلّق عند 1 GiB في <code>state.db</code> = حالات PENDING/RESERVED/SHARED في rollback-journal). لا يستطيع فحص واصفات الملفات المفتوحة التمييز بينها، لأن كل عملية Hermes تفتح قاعدة البيانات. ابحث عن ذلك السطر في <code>~/.hermes/logs/errors.log</code> بجوار إخفاق <code>database is locked</code>.</p>
 <p>يُتعرَّف إلى التنافس على الأقفال بواسطة رمز نتيجة SQLite (<code>SQLITE_BUSY</code> /
 <code>SQLITE_LOCKED</code>, <code>hermes_state_errors.is_sqlite_lock_error</code>)، لا من نص الرسالة. ففي وضع rollback-journal (<code>delete</code>)، يأتي فقد القفل داخل مُنشئ جدول FTS5 برمز <code>SQLITE_BUSY</code> والنص <code>vtable constructor failed: messages_fts</code>؛ ويُعامل مثل <code>database is locked</code>. ينتظر فتح <code>SessionDB</code> قابلة للكتابة حتى <code>_WRITE_PATIENCE_S</code>؛ بينما ينتظر الفتح للقراءة فقط ميزانية القراءة <code>_READ_BUSY_TIMEOUT_S</code> (5 ثوانٍ) مرة واحدة. وإذا استمر القفل بعدها، تجيب لوحة التحكم بـ 503 (مشغول)، لا 500.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-operations">العمليات الشائعة</h2>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="initialize">التهيئة (Initialize)</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-and-manage-sessions">إنشاء الجلسات وإدارتها</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-messages">تخزين الرسائل</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="retrieve-messages">استرجاع الرسائل</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-titles">عناوين الجلسات</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
