@@ -127,6 +127,17 @@ Hermes لـ Telegram و WhatsApp و Slack و CLI ومنصات أخرى — عل�
 <li>إذا أردت إجراءات تشغيل قابلة لإعادة الاستخدام، أضف مهارات أو عدّلها</li>
 <li>إذا أردت تغيير كيفية تجميع Hermes للـ prompts للجميع، غيّر كود Python واعتبر ذلك مساهمة كودية</li>
 </ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reviewing-changes-to-the-prompt-surface">مراجعة التغييرات على سطح الـ prompt</h2>
+<p><strong>سطح الـ prompt</strong> هو ما يرسله التثبيت القياسي قبل أول رسالة من المستخدم: أي system prompt ومصفوفة <code>tools[]</code>. ويمكن لتغيير من سطر واحد في الشيفرة أن يعيد كتابة أيٍّ منهما دون أن يظهر ذلك في diff. فقد ينتقل ثابت إرشادي بين المستويات، أو تكتسب toolset أداة جديدة، أو يعدّل مُعيد كتابة المخطط وصفًا. ولهذا يُثبَّت السطح المُصيَّر ويُراجَع كما تُراجَع الشيفرة:</p>
+<ul>
+<li>يبني <code>scripts/ci/prompt_surface.py render</code> السطح عبر شيفرة التجميع الإنتاجية (<code>build_system_prompt_parts</code> ومصفوفة <code>tools[]</code> الخاصة بالوكيل نفسه) ويكتبه في <code>tests/fixtures/prompt_surface/</code>. ويُصيِّر تسعة أسطح: <code>cli</code> مع أربع عائلات نماذج (إذ يتحكم اسم النموذج في الإرشادات ولهجة الـ patch)، و <code>cli</code> داخل مساحة عمل برمجية، و <code>desktop</code> و <code>telegram</code> و <code>discord</code> و <code>cron</code>. ويستخدم التصيير home جديدًا. وتُثبَّت الساعة ونظام التشغيل المضيف والشبكة وتوفّر الأدوات ومسارات الجهاز، فينتج الحاسوب المحمول و CI البايتات نفسها. وتُعدّ كل أداة مسجَّلة متاحة، بحيث تُراجَع المخططات المشروطة ببيانات الاعتماد أيضًا.</li>
+<li>يفشل <code>tests/ci/test_prompt_surface.py</code> عندما تكون اللقطة (snapshot) المثبّتة قديمة. وعلى الـ PR الذي يغيّر السطح أن يحمل اللقطة المُعاد توليدها، ويقرأ المراجعون نص الـ prompt الفعلي والمخططات في تبويب Files.</li>
+<li>تنشر مهمة CI المسماة <strong>Prompt surface diff</strong> ملخصًا لكل سطح في تعليق مراجعة الـ PR: فروق الـ tokens ومقاطع الـ prompt المتغيرة والأدوات والمعاملات المضافة أو المزالة.</li>
+<li>تتطلب التغييرات تحت <code>tests/fixtures/prompt_surface/</code> <strong>موافقة من hermes-agent-core</strong> قبل أن تُدمج.</li>
+</ul>
+<p>أعد التوليد بعد أي تغيير يحرّك السطح:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>لا يمس التخصيص من جهة المستخدم (<code>SOUL.md</code> وملفات السياق والمهارات التي تثبّتها و <code>platform_hints</code> ومفاتيح الإرشاد <code>agent.*</code>) اللقطة أبدًا. فالتصيير يستخدم القيم الافتراضية القياسية والمهارات المضمّنة فقط.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="why-prompt-assembly-is-split-this-way">لماذا يُقسَّم تجميع الـ prompt على هذا النحو</h2>
 <p>البنية المعمارية مُحسَّنة عمدًا من أجل:</p>
 <ul>

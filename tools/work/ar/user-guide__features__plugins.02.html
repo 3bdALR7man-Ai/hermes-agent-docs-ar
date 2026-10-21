@@ -3,7 +3,22 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="update-checks-and-provenance">فحوص التحديث وبيانات المصدر</h3>
 <p>يسجّل Hermes مصدر تثبيت Git والمراجعة في <code>.install-metadata.json</code>. تقارن التثبيتات المتتبَّعة غير المثبّتة عند مراجعة محددة قيمة HEAD البعيدة للمصدر المحفوظ، أو خلاصة <code>update_url</code> محفوظة ومطابقة. تظل التثبيتات المثبّتة عند مراجعة محددة كما هي. تحتاج الأدلة التي استنسختها بنفسك إلى <code>hermes plugins adopt NAME</code> قبل أن تصبح تثبيتات متتبَّعة. تتلقى الأدلة المنسوخة يدويًا أو التي انحرفت بيانات مصدرها إرشادات تشخيصية. يمكن لإضافات نقاط دخول pip الإبلاغ عن الإصدار المتاح للتوزيعة المالكة لها؛ ولا يحوّلها هذا الفحص إلى تثبيتات مُدارة عبر Git.</p>
 <p><code>hermes plugins check-updates</code> يترك ملفات الإضافات دون تغيير. يعمل فحص gateway المجدول عند حلول موعد <code>plugins.auto_update_check_hours</code>: القيمة الافتراضية 24 ساعة، و <code>0</code> يعطّله. يتوفر إيصال الفحص عبر <code>hermes pm status</code> وعرض حالة المزامنة في Desktop. ليس هذا حدًا صارمًا لمرة واحدة يوميًا إذا ضبطت فاصلًا مختلفًا.</p>
-<p>تتطلب التحديثات افتراضيًا <code>hermes plugins update NAME</code>. ضبط <code>plugins.auto_apply: true</code> يتيح تحديث إضافات Git المتتبَّعة دون إشراف. يستخدم المساران فحص أمان التحديث. لا يدير التطبيق التلقائي الصفوف المثبّتة عند مراجعة محددة، أو اليدوية، أو المنحرفة، أو التابعة لتوزيعات pip.</p>
+<p>ينفّذ <code>hermes plugins update</code> دون اسم الفحص نفسه ويسرد
+الإضافات التي يمكنه نقلها: عمليات التثبيت من الكتالوج (تُعاد تثبيتها على
+commit الكتالوج الذي روجع) وعمليات تثبيت Git المتتبَّعة (يُجرى لها pull). ويسمّي كل إضافة يتخطاها
+وسبب ذلك: مثبّتة عند مراجعة محددة، أو تحتاج إلى إصلاح، أو حالتها مجهولة، أو توزيعة pip لا
+يرقّيها Hermes. وفي الطرفية يسأل مرة واحدة، ثم يحدّث كل إضافة عبر
+المسار نفسه لـ <code>hermes plugins update NAME</code>، فتظل الإمكانيات الجديدة وتوسيع
+تثبيت الكتالوج ونتائج الفحص تطلب موافقتك لكل إضافة على حدة. ولا يوقف إخفاق واحد
+بقية التحديثات؛ ويسرد الملخص ما حُدِّث وما كان محدَّثًا بالفعل
+وما فشل مع سببه (رمز الخروج 1 إذا فشل أي منها). وبلا طرفية
+يطبع القائمة ولا يحدّث شيئًا ما لم تمرّر <code>--yes</code>؛ ومع <code>--yes</code>
+تفشل مطالبات الموافقة بإغلاق آمن كما في أي تحديث غير تفاعلي
+(تبقى الإمكانيات الجديدة غير ممنوحة، ولا يُطبَّق توسيع تثبيت الكتالوج).</p>
+<p>افتراضيًا، لا تُحدَّث الإضافات إلا عند تشغيل <code>hermes plugins update</code>. ويتيح ضبط
+<code>plugins.auto_apply: true</code> تحديث إضافات Git المتتبَّعة دون إشراف.
+يستخدم المساران فحص أمان التحديث. ولا يدير التطبيق التلقائي (auto-apply) الصفوف المثبّتة
+عند مراجعة محددة، أو اليدوية، أو المنحرفة، أو التابعة لتوزيعات pip.</p>
 <p>إذا غيّر manifest عنوان <code>update_url</code> أو أضافه، يرفض Hermes العنوان الجديد حتى توافق عليه باستخدام <code>hermes plugins trust-update-url NAME</code>. هذا فحص لمصدر الخلاصة، وليس sandbox يحمي من كود إضافة موثوق بها بالفعل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dependency-preparation-and-preservation">تجهيز الاعتماديات والحفاظ عليها</h3>
 <p>لتثبيت اعتماديات Python خطوة منفصلة للموافقة/القبول. الخيار <code>plugins install --enable</code> لا يتجاوزها. قد يترك رفض تثبيت الاعتماديات أو إجراؤه دون تفاعل الإضافة مثبّتة لكن معطّلة. لاعتماديات Node sidecar مطالبة منفصلة، وتظل محلية للإضافة.</p>
@@ -44,7 +59,9 @@ Plugins → Install from Git</strong>. روابط <code>hermes://plugin-agent/�
 الإضافة المصمَّمة جيدًا تستكشف الحال بـ <code>ctx.has_capability()</code> وتتراجع
 بسلاسة.</p>
 <p><strong>إعادة الموافقة عند التحديث:</strong> إذا أعلن تحديث لإضافة عن إمكانيات لم
-تمنحها، يعرض <code>hermes plugins update</code> الإمكانيات المضافة ويسأل مجددًا. تظل الإمكانيات الجديدة معطّلة حتى توافق — لا يمكن لتحديث إضافة توسيع وصولها بصمت أبدًا. تذهب إعادة التثبيت عند مراجعة جديدة في الكتالوج أبعد من ذلك: عندما تضيف المراجعة الجديدة أدوات، أو hooks، أو اعتماديات Python، أو إمكانيات المضيف، أو تسجيل دخول إلى مزوّد (<code>requires_auth</code>)، أو جانب واجهة Desktop لم يكن في الإصدار المثبّت، يعرض CLI الفرق ويسأل <code>y/N</code> قبل أي تغيير، ويفتح زر <strong>Update</strong> في Desktop / لوحة التحكم التأكيد نفسه. يترك الرفض (أو الجلسة غير التفاعلية) الإضافة عند المراجعة القديمة.</p>
+تمنحها، يعرض <code>hermes plugins update</code> الإمكانيات المضافة ويسأل مجددًا. تظل الإمكانيات الجديدة معطّلة حتى توافق — لا يمكن لتحديث إضافة توسيع وصولها بصمت أبدًا. تذهب إعادة التثبيت من الكتالوج أبعد من ذلك: عندما يضيف التثبيت الجديد أدوات، أو hooks، أو اعتماديات Python، أو إمكانيات المضيف، أو تسجيل دخول إلى مزوّد (<code>requires_auth</code>)، أو عميل OAuth جديدًا أو متغيّرًا (<code>oauth:</code>)، أو جانب واجهة Desktop لم يكن في الإصدار المثبّت، يعرض CLI الفرق ويسأل <code>y/N</code> قبل
+أي تغيير، ويفتح زر <strong>Update</strong> في Desktop / لوحة التحكم التأكيد نفسه. يترك الرفض (أو الجلسة غير التفاعلية) الإضافة عند
+التثبيت القديم.</p>
 <p><strong>الجلسات غير التفاعلية تفشل بأمان:</strong> تثبيت أو تحديث دون
 TTY يكمل التثبيت، لكن الإمكانيات المُعلَنة <em>لا</em> تُمنَح. شغّل
 <code>hermes plugins enable &lt;id&gt;</code> تفاعليًا لمنحها لاحقًا.</p>
@@ -55,7 +72,7 @@ TTY يكمل التثبيت، لكن الإمكانيات المُعلَنة <em
 <table><thead><tr><th>الإمكانية</th><th>المفتاح القديم (<code>plugins.entries.&lt;id&gt;.…</code>)</th></tr></thead><tbody><tr><td><code>tools.override</code></td><td><code>allow_tool_override</code></td></tr><tr><td><code>llm.provider_override</code></td><td><code>llm.allow_provider_override</code></td></tr><tr><td><code>llm.model_override</code></td><td><code>llm.allow_model_override</code></td></tr><tr><td><code>llm.agent_id_override</code></td><td><code>llm.allow_agent_id_override</code></td></tr><tr><td><code>llm.profile_override</code></td><td><code>llm.allow_profile_override</code></td></tr><tr><td><code>llm.task_override</code></td><td><code>llm.allow_task_override</code></td></tr><tr><td><code>gateway.platform_actions</code></td><td><code>allow_platform_actions</code></td></tr></tbody></table>
 <p>تكون البوابة مفتوحة عندما <em>إما</em> تُمنَح الإمكانية <em>أو</em> يُضبَط المفتاح القديم —
 تستمر الإعدادات الحالية بالعمل دون تغيير.</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>ليست sandbox</div><div class="admonitionContent_BuS1"><p>الإمكانيات هي <strong>طبقة موافقة وتدقيق</strong>، وليست عزلًا. الإضافات تعمل ككود
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>ليست sandbox</div><div class="admonitionContent_BuS1"><p>الإمكانيات هي <strong>طبقة موافقة وتدقيق</strong>، وليست عزلًا. الإضافات تعمل ككود
 Python عادي داخل العملية نفسها: إضافة خبيثة يمكن أن تتجاهل كل بوابة هنا.
 منح إمكانية هو إعلان ثقة بمؤلف الإضافة — وليس
 تدقيقًا للكود، ولم يراجع Hermes كود الإضافة. ثبّت فقط
@@ -81,7 +98,7 @@ Python عادي داخل العملية نفسها: إضافة خبيثة يمك
 <em>يضبط</em> تفاعل البوت (Bot API يستبدل تفاعل بوت سابق بدلًا من
 تكديسه). كل إجراء — مسموح أو مرفوض — يُكتَب في السجل مع
 معرّف الإضافة، والفعل، والمنصة، والنتيجة.</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>ملاحظة أمنية</div><div class="admonitionContent_BuS1"><p>إجراءات المنصة هي <strong>صلاحية إرسال رسائل باسم البوت</strong>: إضافة ممنوحة
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>ملاحظة أمنية</div><div class="admonitionContent_BuS1"><p>إجراءات المنصة هي <strong>صلاحية إرسال رسائل باسم البوت</strong>: إضافة ممنوحة
 يمكنها التفاعل وإعادة تسمية سلاسل المحادثات في أي محادثة يستطيع بوت gateway الوصول إليها، وليس فقط
 المحادثة التي شغّلت الـ hook. امنح <code>gateway.platform_actions</code> فقط للإضافات
 التي تثق بها، وفضّل الإضافات التي توثّق بدقة الإجراءات التي تتخذها.
@@ -104,7 +121,7 @@ Python عادي داخل العملية نفسها: إضافة خبيثة يمك
 يثبّت تثبيتًا مخصصًا.</p>
 <p>راجع <a href="/docs/user-guide/features/plugin-catalog">كتالوج الإضافات</a> لنموذج الثقة الكامل، وCI
 القبول، وسير عمل التقديم.</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>مُدرَج في الكتالوج ≠ مُدقَّق</div><div class="admonitionContent_BuS1"><p>وجود مدخلة في الكتالوج يعني أن بيانات المدخلة الوصفية والإمكانيات
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>مُدرَج في الكتالوج ≠ مُدقَّق</div><div class="admonitionContent_BuS1"><p>وجود مدخلة في الكتالوج يعني أن بيانات المدخلة الوصفية والإمكانيات
 المُعلَنة رُوجِعَت عند القبول — <strong>وهذا ليس تدقيقًا للكود</strong>. التثبيت
 لا يزال يمر عبر تدفق الموافقة العادي (تثبيت الإضافات مُعطَّل افتراضيًا،
 والتفعيل خطوة صريحة، وحقوق تجاوز الأداة تتطلب منحًا
@@ -155,6 +172,18 @@ skill-hub في تثبيت الحزم هو مسار تتمة موثَّق.</p>
 <code>requires_env</code> الموثَّق) لا تُوسَم.</p>
 <p>ثلاثة أحكام، مطابقة لـ pass/warn/fail الخاصة بـ Cowork:</p>
 <table><thead><tr><th>الحكم</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>آمن (safe)</strong></td><td>يثبَّت عاديًا، دون مخرجات إضافية</td></tr><tr><td><strong>احتراس (caution)</strong></td><td>تُعرَض النتائج؛ تؤكّد <code>Install anyway? [y/N]</code> (أو تمرّر <code>--force</code>)</td></tr><tr><td><strong>خطر (dangerous)</strong></td><td>محظور. <code>--force</code> <strong>لا</strong> يتجاوزه</td></tr></tbody></table>
+<p>يفحص <code>hermes plugins update</code> الشيفرة الجديدة بالقواعد نفسها قبل أن
+يستبدل النسخة المثبّتة، فتُوسَم الإضافة التي تكتسب شيفرة خطرة في تحديث
+قبل أن تعمل. ويسأل حكم التنبيه (caution) على تحديث Git
+<code>Update anyway? [y/N]</code>، ويقبله الأمر <code>hermes plugins update NAME --force</code>
+دون السؤال. ويعرض Hermes Desktop النتائج نفسها في نافذة مع زر
+<strong>Update anyway</strong>. أما تحديثات الكتالوج فتنتقل إلى تثبيت روجع، لذا
+لا يسأل حكم التنبيه هناك. وفي كل الحالات لا يتغير شيء إلى أن يُقبل
+التحديث.</p>
+<p>يعرض Hermes Desktop زر <strong>Update</strong> على الإضافة المثبّتة عبر Git عندما
+وجد آخر فحص للتحديثات commit أحدث. يجري gateway ذلك الفحص كل
+<code>plugins.auto_update_check_hours</code> (الافتراضي 24)، ويشغّله
+<code>hermes plugins check-updates</code> عند الطلب.</p>
 <p>في <code>hermes plugins update</code>، يؤدي الحكم بالخطر على الشجرة المحدَّثة إلى تعطيل الإضافة حتى تراجع النتائج وتعيد تفعيلها. يسمّي الحظر الخطر النتائج الحرجة المسببة له (مثل <code>1 critical of 42 findings (destructive_root_rm)</code>)، فلا يختبئ سطر واحد يسبّب الحظر خلف الإجمالي.</p>
 <p>يُقيَّم النص الذي لا يمكن تشغيله على المضيف وقت التثبيت بوصفه <strong>سياقًا</strong>، لا سلوكًا للإضافة، لذا قد يخفض درجة نتيجة لكنه لا يحذفها أبدًا — تظل كل نتيجة في التقرير مع الملف والسطر:</p>
 <ul>
@@ -166,27 +195,3 @@ skill-hub في تثبيت الحزم هو مسار تتمة موثَّق.</p>
 <p>وبالمثل، يكون أقصى حكم لـ token عام من أمثلة التوثيق (<code>hardcoded_secret</code>) داخل كتلة الاختبار الذاتي <code>.py</code> في ملف <code>if __name__ == &quot;__main__&quot;:</code> مستخدَم وقت التشغيل هو <strong>تنبيه</strong> — إذ يستورد المحمِّل الإضافات ولا يشغّل تلك الكتلة أبدًا — بينما تحتفظ جميع النتائج الأخرى داخلها (أوامر مدمّرة، ومفاتيح على هيئة مفاتيح المزوّدين مثل <code>sk-…</code>) وكذلك الـ token نفسه في أي موضع فوق شرط الحماية بخطورتها كاملة.</p>
 <p>الفحص مفعَّل افتراضيًا؛ عطّله في <code>config.yaml</code>:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-plugins-out-of-process-pluginsisolation">تشغيل الإضافات خارج العملية (<code>plugins.isolation</code>)</h3>
-<p>افتراضيًا، تُستورد إضافات Python من الجهات الخارجية إلى عملية Hermes، كما كان الحال دائمًا. يؤدي ضبط <code>plugins.isolation: host</code> إلى نقلها إلى <strong>مضيف إضافات</strong>: عملية Python منفصلة واحدة لكل profile، تبدأ عند الطلب، وتستورد الإضافات التي ثبّتها المستخدم في ذلك الـ profile وتتواصل مع Hermes عبر pipe خاص.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
-<p>لا تتغيّر الإضافات. تتلقى <code>ctx</code> نفسه وتسجّل الأدوات، و hooks، و slash commands، والمهارات، وكائنات المزوّدين (توليد الصور/الفيديو، والبحث في الويب، والمتصفح، و TTS/STT، والذاكرة، ومحركات السياق، و profiles مزوّدي النماذج) كما كانت تفعل؛ ويسجّل Hermes مدخلات مطابقة على جانبه تستدعي المضيف. يخدم المضيف أيضًا APIs الإضافات في لوحة التحكم. تستمر الإضافات المضمّنة في العمل داخل العملية.</p>
-<p>ما الذي يتغيّر في وضع <code>host</code>:</p>
-<ul>
-<li><strong>لا يوجد مفسّر مشترك.</strong> لا تدخل وحدة الإضافة عملية Hermes أبدًا، فلا يمكنها قراءة بيانات profile آخر من الذاكرة أو تعديل الآليات الداخلية لـ Hermes. في gateway متعدد الإرسال، يحصل كل profile على مضيفه الخاص، يبدأ ببيئة ذلك الـ profile وأسراره فقط.</li>
-<li><strong>تظل الأعطال محصورة.</strong> الإضافة التي تتعطل أو تخرج تُنهي مضيفها لا Hermes؛ ويعيد الاستدعاء الجاري خطأ أداة، ثم يعيد Hermes تشغيل المضيف وتحميل إضافاته (مع إعادات محاولة محدودة).</li>
-<li><strong>تحتاج بعض الواجهات إلى كود داخل العملية</strong>، وتُفشِل تلك الإضافة بسبب واضح بدلًا من تحميلها: محوّلات منصات gateway (<code>register_platform</code>)، ووسائل نقل الموافقات، ومعالجات Telegram/المنصات، و profiles مزوّدي النماذج التي تبني عميل SDK خاصًا بها (<code>create_client</code>)، و endpoints البث في لوحة التحكم، والإضافات التي تعدّل وحدات Hermes عبر monkeypatch. شغّلها باستخدام <code>isolation: in_process</code>.</li>
-</ul>
-<p><strong>تثبيت الإعداد لنشر مشترك.</strong> <code>plugins.isolation</code> إعداد عادي للـ profile، لذا يستطيع من يملك تعديل <code>config.yaml</code> الخاص بالـ profile تعطيله. عندما تتبع profiles لأشخاص تعزلهم عن بعضهم، ثبّته بدلًا من ذلك في <a href="/docs/user-guide/managed-scope">النطاق المُدار (Managed Scope)</a>؛ فتتغلب القيمة المُدارة على الإعدادات الخاصة بكل profile، ويرفض <code>hermes config set</code> تغييرها:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
-<p>شغّل طرفية الوكلاء أيضًا على backend معزول (Docker، أو SSH، ...) حتى لا يستطيع الوكيل نفسه الوصول إلى ملفات المشغّل.</p>
-<p><code>hermes plugins validate &lt;dir&gt;</code> و <code>hermes plugins show &lt;name&gt;</code> يبيّنان ما إذا كانت الإضافة تعمل في المضيف، وسبب عدم عملها فيه إن لم تفعل. وقت كتابة هذا النص، تعمل 299 من أصل 348 مدخلة في كتالوج الإضافات داخل المضيف دون تغيير.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-ui">واجهة تفاعلية</h3>
-<p>تشغيل <code>hermes plugins</code> دون وسائط يفتح شاشة تفاعلية مركّبة:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
-<ul>
-<li><strong>قسم الإضافات العامة</strong> — مربعات اختيار، بدّلها باستخدام SPACE. يظهر الصف محددًا عند فتحه إذا كانت الإضافة نشطة الآن: مدرجة في <code>plugins.enabled</code>، أو منصة مضمّنة أو backend أو مزوّد نماذج (مفعّل دون مدخلة قائمة)، أو المزوّد المحدد لفئة. لا تُكتب عند الخروج إلا الصفوف التي تبدّلها: إلغاء التحديد يضيف الإضافة إلى <code>plugins.disabled</code> (تعطيل صريح)، والتحديد يضيفها إلى <code>plugins.enabled</code> ويمحو تعطيلًا قديمًا. فتح المنتقي والخروج منه لا يغيّر شيئًا.</li>
-<li><strong>قسم إضافات المزوّد</strong> — يعرض الاختيار الحالي. اضغط ENTER للدخول إلى منتقٍ راديو حيث تختار مزوّدًا فعّالًا واحدًا.</li>
-<li>الإضافات المدمجة تظهر في نفس القائمة بوسم <code>[bundled]</code>.</li>
-</ul>
-<p>اختيارات إضافة المزوّد تُحفَظ في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>

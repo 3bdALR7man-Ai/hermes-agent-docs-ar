@@ -339,6 +339,14 @@ profile نفسه أيضًا.</p>
 (<code>hermes profile create</code>، أو لوحة التحكم، أو Desktop، أو TUI) فورًا:
 يُرسل المنشئ إشارة إلى المضاعِف عبر مقبس التحكم <bdi class="term">(control socket)</bdi> الخاص به، كما
 يعيد المضاعِف فحص <code>profiles/</code> كل 30 ثانية كإجراء أمان إضافي. تُبنى مهايئات الـ profile الجديد بمجرد أن يتضمن <code>config.yaml</code>/<code>.env</code> token لبوت (عادةً ينشئ المستخدم الـ profile أولًا ثم يضيف الـ token)، وتُحدَّث <code>served_profiles</code> في ملف <code>gateway_state.json</code> الخاص بالـ profile الافتراضي، ويبلّغ <code>hermes -p &lt;name&gt; gateway status</code> أنه مقدَّم — دون إعادة تشغيل، ودون المساس بمهايئات الـ profiles الأخرى أو أدوارها الجارية. ويؤدي حذف profile إلى إيقاف مهايئاته وإزالة توجيهها بالطريقة نفسها، ويزيل <code>hermes profile rename</code> توجيه الاسم القديم قبل نقل المجلد ويقدّم الاسم الجديد أثناء التشغيل (ولا تعيد المهايئات أو مؤقّت cron اللذان كانا مرتبطين بالاسم القديم إحياءه). وتظل قاعدة بيانات اعتماد واحدة لكل مستقصٍ سارية: يُعلَّق الـ profile المضاف أثناء التشغيل الذي يعيد استخدام token لـ profile آخر مع <code>duplicate_credential</code> كخطأ، ولا يُشغَّل أبدًا كمستقصٍ ثانٍ.</p>
+<p>يوسّع الخدمة الساخنة <bdi class="term">(hot-serving)</bdi> أيضًا <strong>حجز profile</strong> الخاص بالمُضاعِف <bdi class="term">(multiplexer)</bdi>: إذ يُؤخذ
+<code>gateway.lock</code> الخاص بالـ profile الجديد وتُبنى سلطة الجلسات الخاصة به، فيجد
+<code>hermes -p &lt;name&gt;</code> المُضاعِف بوصفه مالكه (دون daemon منفصل شارد لكل profile)، ويحجز
+<code>hermes gateway restart</code> التالي المجموعة كلها بسلاسة.
+أما الـ profile الذي يتعذّر فتح <code>state.db</code> الخاص به فيُوضع في <strong>الركن</strong> <bdi class="term">(parked)</bdi> — يُسجَّل باسم
+<code>Profile &#x27;&lt;name&gt;&#x27; not served</code> ويُستبعد من <code>served_profiles</code> — وتستمر بقية
+الـ profiles في الإقلاع؛ أصلح المخزن ثم أعد تشغيل <code>hermes profile create</code> أو انتظر
+الفحص الدوري.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="routing-shared-bot-chats-to-profiles-profile_routes">توجيه محادثات البوت المشتركة إلى الـ profiles (<code>profile_routes</code><bdi>)</bdi><a href="#routing-shared-bot-chats-to-profiles-profile_routes" class="hash-link" aria-label="رابط مباشر إلى توجيه محادثات البوت المشتركة إلى الـ profiles (profile_routes)" title="رابط مباشر إلى توجيه محادثات البوت المشتركة إلى الـ profiles (profile_routes)" translate="no">​</a></h3>
 <p>يختار الـ multiplexing profile لكل <strong>بيانات اعتماد</strong> (رمز البوت الخاص بكل profile)
 أو لكل <strong>بادئة رابط <bdi class="term">(URL prefix)</bdi></strong><bdi> (</bdi><code>/p/&lt;profile&gt;/</code> لمنصات HTTP). عندما تشترك عدة مجتمعات في <strong>token واحد</strong> للبوت — مثل بوت Discord واحد يخدم guilds متعددة — يمكنك أيضًا توجيه مستخدمين/guilds/قنوات/threads محدَّدة إلى profiles مختلفة باستخدام <code>gateway.profile_routes</code>:</p>
@@ -506,6 +514,14 @@ profile ثانوي واحد على الأقل gateway خاصة به (عملية 
 على ملف الـ profile نفسه. لا يتحكم إلا في المسار <strong>التلقائي</strong>: يُعدّ <code>hermes gateway migrate --multiplex</code> طلبًا صريحًا ويظل ينفّذ الترحيل
 (وهو الوسيلة المدعومة لتفعيله مجددًا). الإغفال أو قيمة <code>true</code> يُبقيان السلوك
 الافتراضي الموضّح أعلاه.</p>
+<p>ينطبق الإعداد نفسه على gateway أُقلع بالـ profile الافتراضي فقط.
+في الوضع الطبيعي، بمجرد إنشاء profile ثانٍ (عبر New Agent في Desktop أو
+<code>hermes profile create</code>)، يبدأ ذلك الـ gateway بخدمة كل الـ profiles في مكانه،
+دون إعادة تشغيل. أما مع <code>auto_multiplex_migration: false</code> فيستمر في خدمة
+الـ profile الخاص به فقط، ويُرفض الـ profile الجديد بهذا السبب إلى أن تنفّذ
+<code>hermes gateway migrate --multiplex</code> أو تعيد ضبط المفتاح إلى <code>true</code>. يُعاد
+قراءة المفتاح عند كل فحص للـ profiles، فيسري ضبطه من جديد خلال نحو
+30 ثانية دون إعادة تشغيل.</p>
 <p>الأمر الصريح مختلف: يطبّق <code>hermes gateway migrate --multiplex</code> مع
 profileين أو أكثر ودون <strong>أي</strong> gateway ثانوية مستقلة الخطوة
 الأخيرة المتبقية — فهو يضبط <code>gateway.multiplex_profiles: true</code> ويشغّل gateway الافتراضية أو يعيد تشغيلها.

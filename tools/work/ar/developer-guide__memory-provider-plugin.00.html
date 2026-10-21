@@ -170,24 +170,15 @@ Hermes لتطبيق التغييرات على الجلسات الحالية. ل�
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="profile-isolation">عزل Profile</h2>
 <p>كل مسارات التخزين <strong>يجب</strong> أن تستخدم معامل <code>hermes_home</code> من <code>initialize()</code>، لا المسار الثابت <code>~/.hermes</code> مُثبَّتًا بشكل ثابت:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiplexed-gateways">Gateways متعددة الإرسال (Multiplexed)</h3>
+<p>يمكن لعملية gateway واحدة أن تخدم عدة profiles في وقت واحد، وتعمل أدوارها بالتزامن على threads مختلفة. يحصل كل وكيل على <code>MemoryManager</code> خاص به ونسخة provider خاصة به، تُهيَّأ لـ profile واحد. يجب على الـ provider الخاص بك:</p>
+<ul>
+<li><strong>أن يعيد نسخة جديدة عند كل تحميل.</strong> ينبغي لـ <code>register(ctx)</code> أن تنشئ الـ provider (<code>ctx.register_memory_provider(MyProvider())</code>)، لا أن تعيد singleton على مستوى الوحدة. يرفض المدير تهيئة نسخة سبق أن ربطها مدير profile آخر، ويسجّل <code>memory_provider_instance_shared</code>.</li>
+<li><strong>أن يربط من داخل <code>initialize()</code>.</strong> اشتقّ كل مخزن ومسار وعميل وbank وtenant من الوسيط <code>hermes_home</code> (ومن الأسرار المقروءة عبر <code>get_secret()</code> أثناء <code>initialize</code>)، واحتفظ بهذا الربط على <code>self</code>.</li>
+<li><strong>ألا يُبقي أي شيء خاص بـ profile على مستوى الوحدة أو الصنف.</strong> لا «مخزن حالي» عام، ولا إعادة ربط لربط مشترك عند كل استدعاء. تتداخل استدعاءات profile‏ين، لذا فإن إعادة الربط عند كل استدعاء تسبب سباقًا (race).</li>
+</ul>
+<p>يفرض المدير النصف الآخر. فهو يشغّل استدعاءات الأدوات وكل lifecycle hook (<code>prefetch</code> و <code>queue_prefetch</code> و <code>sync_turn</code> و <code>on_memory_write</code> و <code>on_session_end</code> و …) فقط من الـ profile الذي هُيّئت له النسخة. وعلى gateway متعدد الإرسال يُرفض المستدعي الذي لا يحدد أي profile، ويُسجَّل الرفض باسم <code>memory_caller_profile_unresolved</code> في ملف <code>errors.log</code> الخاص بالـ profile (<code>hermes logs errors</code>) وفي <code>gateway.log</code>. تعمل hooks الخلفية ضمن <code>HERMES_HOME</code> الخاص بالـ profile المالك. كما يستقبل <code>handle_tool_call(..., **kwargs)</code> القيم <code>hermes_home</code> و <code>agent_identity</code> و <code>caller_gsk</code>. وهي تسمّي الـ profile الذي ترتبط به نسختك بالفعل، فيمكنك التحقق منها (assert)، لكن لا تعِد الربط انطلاقًا منها.</p>
+<p>لا يستطيع Hermes التحقق من الأجزاء الداخلية للـ provider. فالـ provider الذي يحتفظ بربط على مستوى العملية كلها سيخلط ذاكرات الـ profiles حتى مع وجود هذه الفحوصات.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
 <p>راجع <code>tests/agent/test_memory_provider.py</code> واختبارات الذاكرة المجاورة (<code>tests/agent/test_memory_session_switch.py</code>، و<code>tests/agent/test_memory_user_id.py</code>، و<code>tests/agent/test_memory_provider_init.py</code>) لأنماط شاملة من طرف إلى طرف.</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="adding-cli-commands">إضافة أوامر CLI</h2>
-<p>يمكن لإضافات مزوّد الذاكرة تسجيل شجرة أوامر CLI فرعية خاصة بها (مثل <code>hermes my-provider status</code>، و<code>hermes my-provider config</code>). يستخدم هذا نظام اكتشاف قائمًا على الاصطلاح (convention-based) — بلا تغييرات على الملفات الأساسية.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
-<ol>
-<li>أضف ملف <code>cli.py</code> إلى دليل إضافتك</li>
-<li>عرّف دالة <code>register_cli(subparser)</code> تبني شجرة argparse</li>
-<li>يكتشفها نظام إضافة الذاكرة عند بدء التشغيل عبر <code>discover_plugin_cli_commands()</code></li>
-<li>تظهر أوامرك تحت <code>hermes &lt;provider-name&gt; &lt;subcommand&gt;</code></li>
-</ol>
-<p><strong>التقييد حسب المزوّد النشط:</strong> تظهر أوامر CLI الخاصة بك فقط عندما يكون مزوّدك هو <code>memory.provider</code> النشط في الإعدادات. إذا لم يُعِد المستخدم ضبط مزوّدك، لن تظهر أوامرك في <code>hermes --help</code>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example">مثال</h3>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementation">التنفيذ المرجعي</h3>
-<p>راجع <a href="https://github.com/plastic-labs/honcho/blob/main/hermes-plugin-honcho/cli.py" data-ext><code>cli.py</code></a> لمثال كامل بـ 13 أمرًا فرعيًا، وإدارة عبر عدة profiles (<code>--target-profile</code>)، وقراءة/كتابة الإعدادات.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="directory-structure-with-cli">هيكل الدليل مع CLI</h3>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="single-provider-rule">قاعدة المزوّد الواحد</h2>
-<p>يمكن أن يكون <strong>مزوّد ذاكرة خارجي واحد فقط</strong> نشطًا في وقت واحد. إذا حاول مستخدم تسجيل مزوّد ثانٍ، يرفضه MemoryManager بتحذير. هذا يمنع تضخّم مخطط الأدوات وتعارض الـ backends.</p>

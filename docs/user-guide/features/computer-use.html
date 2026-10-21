@@ -34,14 +34,15 @@
 <p>النتيجة واحدة على كل المنصات: يستطيع الوكيل قراءة شجرة إمكانية الوصول لأي نافذة ظاهرة، وكذلك إرسال أحداث مُصطنعة إليها دون إحضارها إلى المقدمة، أو تبديل أسطح المكتب الافتراضية، أو تحريك مؤشر نظام التشغيل الحقيقي.</p>
 <p>للاطلاع على العقد الأساسي — <em>لماذا</em> يهم وضع الخلفية، وثابت عدم الإحضار إلى المقدمة <bdi class="term">(no-foreground invariant)</bdi>، والتفاصيل الداخلية لإرسال النقرات — راجع <strong><a href="https://cua.ai/docs/explanation/the-no-foreground-contract" target="_blank" rel="noopener noreferrer">cua.ai/docs/explanation/the-no-foreground-contract</a></strong>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="which-machine-it-drives">الجهاز الذي يتحكم فيه<a href="#which-machine-it-drives" class="hash-link" aria-label="رابط مباشر إلى الجهاز الذي يتحكم فيه" title="رابط مباشر إلى الجهاز الذي يتحكم فيه" translate="no">​</a></h2>
-<p><code>computer_use</code> يعمل على الجهاز نفسه الذي توجد عليه شاشة البوت، لا على
-الجهاز الذي يشغّل Hermes Desktop أبدًا. في gateway مع <code>terminal.backend: local</code> ، يكون ذلك مضيف gateway. مع طرفية داخل sandbox (<code>docker</code>, <code>ssh</code>,
-<code>singularity</code>)، يعمل driver <strong>داخل sandbox</strong> على الشاشة الخاصة بـ sandbox،
-فلا يمكنه المساس إلا بما تستطيع الطرفية مسّه؛ ويجب أن تحتوي صورة sandbox على
- <code>cua-driver</code><bdi> (</bdi><code>nousresearch/hermes-sandbox:desktop</code> يفعل ذلك). لا تستطيع sandboxes من Modal
-و Daytona و Vercel استضافة شاشة بعد، لذا يرفض <code>computer_use</code> مع تلك
-backends إلا إذا فعّل <code>bot_desktop.placement: gateway</code>
-التحكم في المضيف. التفاصيل: <a href="../../user-guide/features/bot-screen.html#where-the-screen-runs">Bot Screen → مكان تشغيل
+<p>يعمل <code>computer_use</code> على الجهاز نفسه الذي توجد عليه شاشة البوت، لا على
+الجهاز الذي يشغّل Hermes Desktop أبدًا. في gateway مع <code>terminal.backend: local</code> يكون ذلك مضيف gateway. ومع طرفية داخل sandbox (<code>docker</code> أو <code>ssh</code> أو
+<code>singularity</code>، أو backend من إضافة يعلن <code>supports_streams</code>) يعمل
+الـ driver <strong>داخل sandbox</strong> على الشاشة الخاصة بـ sandbox نفسه،
+فلا يمكنه أن يمسّ إلا ما تستطيع الطرفية مسّه؛ ويجب أن تحتوي صورة sandbox
+على <code>cua-driver</code> (الصورة <code>nousresearch/hermes-sandbox:desktop</code> تحتوي عليه). لا تستطيع sandboxes من Modal
+و Daytona و Vercel استضافة شاشة بعد، لذا يرفض <code>computer_use</code> مع تلك الـ
+backends إلا إذا اختار <code>bot_desktop.placement: gateway</code> التحكم
+في المضيف. التفاصيل: <a href="../../user-guide/features/bot-screen.html#where-the-screen-runs">Bot Screen → مكان تشغيل
 الشاشة</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabling">التفعيل<a href="#enabling" class="hash-link" aria-label="رابط مباشر إلى التفعيل" title="رابط مباشر إلى التفعيل" translate="no">​</a></h2>
 <p><strong>عمليات التثبيت الجديدة تتضمن المشغّل مسبقًا.</strong> <code>cua-driver</code> مثبّت بإصدار محدد في <code>pm/lock.json</code>
@@ -184,13 +185,21 @@ driver لا تشغّل daemon؛ يفعل ذلك <code>systemctl --user status &l
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-efficiency">كفاءة استهلاك الـ tokens<a href="#token-efficiency" class="hash-link" aria-label="رابط مباشر إلى كفاءة استهلاك الـ tokens" title="رابط مباشر إلى كفاءة استهلاك الـ tokens" translate="no">​</a></h2>
 <p>لقطات الشاشة مكلفة. لذا يطبّق Hermes أربع طبقات من التحسين:</p>
 <ul>
-<li><strong>إزالة لقطات الشاشة القديمة</strong> — مع كل مزوّد، ترافق لقطات الشاشة كل
-طلب حتى يتجاوز الحد الموثّق للصور لكل طلب لدى Anthropic
-(20 كتلة صور أو 24 MB من بيانات الصور)؛ ثم تُحوَّل أقدم دفعة إلى عناصر
- <code>[screenshot removed to save context]</code> مؤقتة. دون الحد
-لا يُعاد كتابة شيء، فتحافظ بادئة ذاكرة الـ prompt المؤقتة على بقائها؛ وعند الحد يصبح
-هناك دور أبطأ واحد لكل دفعة بدلًا من واحد لكل لقطة شاشة. الصور التي ترفقها
-بنفسك تُحتسب ضمن الحد لكنها لا تُزال مطلقًا.</li>
+<li><strong>إزالة لقطات الشاشة القديمة <bdi class="term">(Screenshot eviction)</bdi></strong> — مع كل مزوّد، ترافق لقطات الشاشة كل
+طلب حتى يوشك على تجاوز حد الصور لكل طلب؛ عندها تتحول أقدم
+دفعة إلى عناصر <code>[screenshot removed to save context]</code> مؤقتة. حد
+الكتل هو 100 صورة عندما لا يتجاوز عرض أي صورة في الطلب أو ارتفاعها
+2000 px لكل ضلع (يضمّن Hermes لقطاته الخاصة بدقة 1568 px أو أقل)،
+و 20 عندما تكون أي صورة أكبر، لأن Anthropic تقيّد كل صورة بحد الضلع الأشد صرامة
+عندما يتجاوز العدد 20 صورة. وتنطبق ميزانية بيانات صور قدرها 24 MB
+في الحالتين. دون الحد لا يُعاد كتابة شيء، فتبقى
+بادئة التخزين المؤقت للـ prompt <bdi class="term">(prompt-cache)</bdi> سليمة؛ وعند الحد يحدث دور أبطأ واحد لكل دفعة بدلًا من
+دور لكل لقطة شاشة. الصور التي ترفقها
+بنفسك تُحتسب ضمن الحد لكنها لا تُزال أبدًا؛ وعندما تتجاوزه وحدها، تظل لقطات الشاشة
+تُسحَب بدفعات كاملة، لا واحدة مع كل صورة جديدة. وتبقى لقطة الشاشة المسحوبة
+مسحوبة لبقية الجلسة، حتى لو صار في طلب لاحق
+متسع لها من جديد (لقطة شاشة جديدة أصغر، أو صورة مرفقة
+سقطت من الطلب).</li>
 <li><strong>التقليم ضمن الضغط من جانب العميل</strong> — يكتشف ضاغط السياق نتائج الأدوات متعددة الوسائط ويزيل أجزاء الصور من القديمة منها.</li>
 <li><strong>تقدير الـ tokens مع مراعاة الصور</strong> — تُحتسب كل صورة بنحو 1500 token (السعر الثابت لدى Anthropic) بدلًا من طول أحرفها بترميز base64.</li>
 <li><strong>تحرير السياق من جانب الخادم (Anthropic فقط)</strong> — عند تفعيله، يفعّل المحوّل <code>clear_tool_uses_20250919</code> عبر <code>context_management</code> كي تمسح API الخاصة بـ Anthropic نتائج الأدوات القديمة من جانب الخادم.</li>

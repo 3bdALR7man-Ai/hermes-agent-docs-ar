@@ -1,16 +1,67 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-write-the-registration">الخطوة 5: اكتب التسجيل</h2>
+<p>أنشئ <code>__init__.py</code> — هذا الملف يربط المخططات بالمعالِجات:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<p><strong>ما تفعله <code>register()</code> يفعل:</strong></p>
+<ul>
+<li>تُستدعى مرة واحدة بالضبط عند بدء التشغيل</li>
+<li><code>ctx.register_tool()</code> يضع أداتك في السجل (registry) — يراها النموذج فورًا</li>
+<li><code>ctx.register_hook()</code> يشترك في أحداث دورة الحياة</li>
+<li><code>ctx.register_cli_command()</code> يسجّل أمرًا فرعيًا في CLI (مثل <code>hermes my-plugin &lt;subcommand&gt;</code>)</li>
+<li><code>ctx.register_command()</code> يسجّل slash command داخل الجلسة (مثل <code>/myplugin &lt;args&gt;</code> داخل محادثة CLI / gateway) — انظر <a href="#register-slash-commands">تسجيل Slash Commands</a> أدناه</li>
+<li><code>ctx.dispatch_tool(name, arguments)</code> — يستدعي أي أداة أخرى (مدمجة أو من إضافة أخرى) مع ربط سياق الوكيل الأصلي (الموافقات، بيانات الاعتماد، task_id) تلقائيًا. مفيد من معالِجات slash command التي تحتاج إلى استدعاء <code>terminal</code>, <code>read_file</code> أو أي أداة أخرى كما لو كان النموذج قد استدعاها مباشرةً.</li>
+<li><code>ctx.get_config()</code> / <code>ctx.set_config()</code> إلى مساحة اسم إعدادات هذه الإضافة فقط؛ ويخزّن <code>ctx.state</code> بيانات تشغيل مملوكة للإضافة تحت الـ profile النشط.</li>
+<li>إذا تعطّلت هذه الدالة، تُعطَّل الإضافة لكن Hermes يستمر بشكل طبيعي</li>
+</ul>
+<p><strong><code>dispatch_tool</code> — slash command يشغّل أداة:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>تمرّ الأداة المُستدعاة عبر خطوط أنابيب الموافقة والتنقيح (redaction) والميزانية العادية — إنها استدعاء أداة حقيقي، لا اختصار يتجاوزها.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-settings-and-runtime-state">تخزين الإعدادات وحالة التشغيل</h3>
+<p>استخدم مفاتيح إعدادات نسبية للإضافة لأجل السلوك المرئي للمستخدم. يحسم Hermes مواقعها
+تحت <code>plugins.entries.&lt;plugin-id&gt;.settings</code> ويرفض المسارات العالمية، والعابرة للإضافات،
+والمسارات التي تحاول الاجتياز (traversal):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>استخدم <code>ctx.state</code> للمؤشرات (cursors) والذاكرة المؤقتة (cache) وبيانات إزالة التكرار المملوكة للإضافة بدلًا
+من وضع محاسبة وقت التشغيل في <code>config.yaml</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>الحالة محددة بنطاق الـ profile ، وتُستبدل ذريًا، وآمنة مع الكاتبين المتزامنين، ومحدودة بـ 10 MiB لكل إضافة. وتشترك الحزم المحمولة في الدليل نفسه مع <code>PLUGIN_DATA</code> الخاص بها؛ وتحصل الإضافات الأصلية على مساحة اسم مقاومة للتصادم
+وآمنة على Windows. يُبلَّغ عن الحالة الموجودة غير سليمة البنية وتُحفَظ كما هي.</p>
+<p>للإعدادات والحالة مالكان مختلفان: الإعدادات سلوك مرئي للمستخدم في
+<code>config.yaml</code>، بينما الحالة بيانات تشغيل مملوكة للإضافة تحت
+<code>&lt;HERMES_HOME&gt;/plugin-data/</code>. لا تكشف أي من الواجهتين مساحة اسم إضافة أخرى.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="settings-form-in-the-desktop">نموذج الإعدادات في Desktop</h3>
+<p>يُعرض كل مفتاح تعلنه في <code>config_schema</code> الخاص بـ manifest كصف في صفحة الإضافة نفسها ضمن <strong>Settings → Plugins</strong> في تطبيق Desktop (يفتحها رمز الترس في صف Capabilities → Plugins للإضافة). لا حاجة إلى كود Desktop: يعيد <code>plugins.manage list</code> في backend المخطط بالإضافة إلى القيمة الحالية لكل مفتاح، وتتم الكتابة عند الحفظ عبر الكاتب نفسه المستخدم في <code>ctx.set_config()</code>، لذا فإن <code>plugins.entries.&lt;id&gt;.settings.&lt;key&gt;</code> هو ما تقرؤه إضافتك لاحقًا. ويعتمد النموذج على جدول <code>type</code>:</p>
+<table><thead><tr><th>Manifest <code>type</code></th><th>الحقل</th><th>مفاتيح إضافية</th></tr></thead><tbody><tr><td><code>str</code> (الافتراضي)</td><td>إدخال نصي</td><td><code>choices: [a, b]</code> (أو <code>enum:</code>) يحوله إلى قائمة منسدلة</td></tr><tr><td><code>int</code>, <code>float</code></td><td>إدخال رقمي</td><td></td></tr><tr><td><code>bool</code></td><td>مفتاح تبديل</td><td></td></tr><tr><td><code>list</code>, <code>dict</code></td><td>محرر JSON</td><td></td></tr><tr><td><code>secret</code></td><td>إدخال مخفي</td><td><code>env: MY_PLUGIN_TOKEN</code> — متغير <code>.env</code> الذي يُخزَّن تحته (الافتراضي <code>&lt;PLUGIN_ID&gt;_&lt;KEY&gt;</code> بصيغة upper-snaked)</td></tr></tbody></table>
+<p>يقبل كل إدخال أيضًا <code>label</code> (أو <code>title</code>؛ وعند غيابهما يُعرض المفتاح بصيغة sentence case ، <code>maps_api_key</code> → &quot;Maps API key&quot;)، و <code>description</code> (نص مساعدة تحت التسمية)، و <code>default</code> و <code>required</code> (يضع علامة <strong>Required</strong>).</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<p><strong>الأسرار لا تصل إلى <code>config.yaml</code>.</strong> يحمل حقل <code>secret</code> لا يحمل إلا اسم <code>.env</code> فقط وما إذا كانت قيمة مضبوطة؛ ويخزّن Desktop القيمة عبر مسار بيانات الاعتماد نفسه المستخدم لمفاتيح API المزوّدين (<code>PUT /api/env</code>)، وتقرأها إضافتك باستخدام <code>get_secret(&quot;MY_PLUGIN_API_KEY&quot;)</code> من <code>agent.secret_scope</code> — تمامًا مثل إدخال <code>requires_env</code>.
+لا تقرأ <code>.env</code>, <code>auth.json</code> أو ملفات بيانات اعتماد أداة أخرى بنفسك مطلقًا (قاعدة الكتالوج 11).
+يرفض إجراء <code>plugins.manage settings</code> مفاتيح الأسرار وأي قيمة لا يتطابق نوعها أو <code>choices</code> مع المخطط.</p>
+<p><strong>الحزم المحمولة (<code>plugin.json</code>)</strong> تصرّح بالمخطط نفسه تحت مساحة أسماء المورّد (vendor namespace) الخاصة بـ Hermes، لأن Agent Plugins v1 ترفض الحقول العليا غير المعروفة:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p>السرّ الذي يسمّي <code>env</code> الخاص به متغيرًا يمرره <code>mcp.json</code>
+(<code>&quot;env&quot;: { &quot;MY_PLUGIN_API_KEY&quot;: &quot;${MY_PLUGIN_API_KEY}&quot; }</code>) يصل إلى خادم MCP
+فورًا: فبعد الحفظ، يعيد Hermes الاتصال بخوادم الإضافة التي تغيّرت
+مدخلات تشغيلها المحلولة (المفتاح الجديد يغيّرها، والتبديل (toggle) لا يغيّرها)، لذا يكون النموذج أيضًا
+المكان الذي يضبط فيه المستخدمون مفتاح الخادم.</p>
+<p><strong>تفاعل مع الحفظ دون polling.</strong> يبثّ كل حفظ
+<code>plugin.&lt;id&gt;.settings.changed</code> (الحمولة <code>{ written: [...keys] }</code>؛ والحفظ الذي يخص الأسرار فقط
+يرسل قائمة فارغة)، فيعيد نصف Desktop قراءة تفضيلاته فورًا:
+<code>ctx.onEvent(&#x27;plugin.my-plugin.settings.changed&#x27;, reload)</code>. اقرأ القيم من
+<code>plugin_api.py</code> الخاص بك باستخدام <code>load_config_readonly()</code> من <code>hermes_cli.config</code>
+(<code>plugins.entries.&lt;id&gt;.settings</code>)، مع الرجوع إلى القيم الافتراضية في المخطط.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-test-it">الخطوة 6: اختبرها</h2>
 <p>ابدأ Hermes:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
 <p>ينبغي أن ترى <code>calculator: calculate, unit_convert</code> في قائمة الأدوات ضمن الشعار (banner).</p>
 <p>جرّب هذه الأوامر (prompts):</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
 <p>تحقّق من حالة الإضافة:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
 <p>المُخرَج:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="debugging-plugin-discovery">استكشاف أخطاء اكتشاف الإضافات</h3>
 <p>إذا لم تظهر إضافتك — أو ظهرت لكنها لا تُحمَّل — اضبط <code>HERMES_PLUGINS_DEBUG=1</code> للحصول على سجلات اكتشاف مطوَّلة على stderr:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
 <p>ستَرى، لكل مصدر إضافات (مضمّن، مستخدم، مشروع، نقاط دخول):</p>
 <ul>
 <li>الأدلة التي جرى فحصها وعدد البيانات الوصفية (manifests) التي أنتجها كل منها</li>
@@ -21,7 +72,7 @@
 <li>عند فشل <code>register()</code>: تتبّع كامل يشير إلى السطر في ملف <code>__init__.py</code> الخاص بك الذي رفع الخطأ</li>
 </ul>
 <p>تُكتب نفس السجلات دائمًا إلى <code>~/.hermes/logs/agent.log</code> عند مستوى WARNING (الإخفاقات فقط) ومستوى DEBUG (كل شيء) عند ضبط متغير البيئة. لذا إذا لم تستطع التشغيل مع متغير البيئة (مثلًا من داخل gateway)، تابع ملف السجل بدلًا من ذلك:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
 <p>الأسباب الشائعة لعدم ظهور إضافة:</p>
 <ul>
 <li><strong>غير مفعّلة في الإعدادات</strong> — الإضافات اختيارية (opt-in). نفّذ <code>hermes plugins enable &lt;name&gt;</code> (يأتي الاسم من مُخرَج <code>plugins list</code>، والذي قد يكون <code>&lt;category&gt;/&lt;plugin&gt;</code> للتخطيطات المتداخلة).</li>
@@ -30,7 +81,7 @@
 <li><strong>خطأ في <code>kind</code></strong> — تحتاج مهايئات gateway إلى <code>kind: platform</code> في بياناتها الوصفية. تُكتشَف مزوّدات الذاكرة تلقائيًا كـ <code>kind: exclusive</code> وتُوجَّه عبر إعداد <code>memory.provider</code> بدلًا من <code>plugins.enabled</code>.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="your-plugins-final-structure">البنية النهائية لإضافتك</h2>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
 <p>أربعة ملفات، بفصل واضح:</p>
 <ul>
 <li><strong>البيان (Manifest)</strong> يعلن ماهية الإضافة</li>

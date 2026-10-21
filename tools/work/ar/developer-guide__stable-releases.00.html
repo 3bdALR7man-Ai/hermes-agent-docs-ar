@@ -8,24 +8,31 @@
 على <code>main</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="order">الترتيب</h2>
 <ol>
-<li>حدّث <code>origin/main</code> ومراجع المحاولات والعلامات البعيدة (<code>rc.*</code> و <code>abandoned-rc.*</code>). اشتق SemVer التالي من عائلة الإصدارات المنشورة
-المبدوءة عند <code>0.21.5</code> (آخر إصدار CalVer قديم، v2026.9.24) وحدها: الأحدث بين رأس R2 المستقر المحمي
-وأحدث إصدار GitHub منشور غير تمهيدي يحمل وسم <code>vX.Y.Z</code>.
-الإصدار الذي يتجاوز الحزم يحرّك الثاني وحده. لا تغيّر المحاولات
-سلسلة الإصدارات. يُرفَض إنشاء إصدار تكون نسخته التالية ذات وسم <code>vX.Y.Z</code> نهائي بالفعل
+<li>حدّث <code>origin/main</code> ومراجع المحاولات والعلامات البعيدة (<code>rc.*</code> و
+<code>abandoned-rc.*</code>). اشتق SemVer التالي من عائلة الإصدارات المنشورة
+المبدوءة عند <code>0.21.5</code> (آخر إصدار CalVer قديم، v2026.9.24) وحدها: الأحدث بين رأس R2 المستقر المحمي وأحدث
+إصدار GitHub منشور غير تمهيدي يحمل وسم <code>vX.Y.Z</code>. أما
+الإصدار الذي لا يبني أي حزم desktop فيحرّك الثاني وحده. ولا تحرّك المحاولات
+سلسلة الإصدارات. ويُرفَض أي قطع إصدار تكون نسخته التالية ذات وسم <code>vX.Y.Z</code> نهائي بالفعل
 حتى يكتمل ذلك النشر.</li>
-<li>ادفع مرجع محاولة مشروحًا باسم <code>rc.&lt;N&gt;-vX.Y.Z</code> بصورة ذرّية، وأنشئ مسودة GitHub واحدة
-غير تمهيدية عليه، وأرسل <code>Stable Release</code> على ذلك المرجع
-نفسه. يأتي رقم المحاولة من مراجع المحاولات الموجودة لتلك النسخة.
-تربط رسالة الحجز commit ورقم المحاولة وسياسة النشر التلقائي وخياري <code>skipBundles</code> و <code>skipTests</code> وحقبة زمنية
-واحدة تُخصَّص بتزايد مطّرد. تلك الحقبة هي تاريخ الإصدار والساعة المستخدمة في
-التغليف الأصلي لكل مسار في المصفوفة وكل إعادة محاولة. تمنع محاولة معلّقة واحدة
-لأي نسخة إنشاء <code>release</code> جديد.</li>
-<li>اقبل SHA لكائن الوسم المشروح البعيد نفسه و commit الذي يشير إليه بعد فك الوسم و <code>GITHUB_REF</code>
-و <code>GITHUB_SHA</code> و <code>HEAD</code> في النسخة المسحوبة والنسب على
-<code>origin/main</code>.</li>
-<li>نفّذ مخطط القبول كاملًا للمصدر و Docker و Nix وحزم PM والتثبيت/التحديث و Termux و Windows
-والحزم الموقّعة والترقية الأصلية.</li>
+<li>ادفع مرجع محاولة مشروحًا باسم <code>rc.&lt;N&gt;-vX.Y.Z</code> بصورة ذرّية، وأنشئ عليه مسودة GitHub واحدة
+غير تمهيدية، وأرسل <code>Stable Release</code> من
+الفرع الافتراضي مع ذلك المرجع بوصفه مدخل <code>tag</code>. يأتي رقم المحاولة من مراجع المحاولات الموجودة لتلك النسخة.
+تربط رسالة الحجز commit الخاص بها ورقم المحاولة وسياسة النشر التلقائي
+ومجموعة المسارات (انظر <a href="#lanes">المسارات</a>) وحقبة زمنية
+واحدة تُخصَّص بتزايد مطّرد. تلك الحقبة هي تاريخ الإصدار والساعة المستخدمة في
+التغليف الأصلي لكل مسار في المصفوفة وكل إعادة محاولة. وتمنع محاولة معلّقة واحدة،
+لأي نسخة، إنشاء <code>release</code> جديد.</li>
+<li>اقبل SHA كائن الوسم المشروح البعيد نفسه، و commit الذي يشير إليه بعد فك الوسم، ونسب ذلك
+commit على <code>origin/main</code>. ويجب أن يكون التشغيل نفسه إرسال <code>Stable Release</code>
+من الفرع الافتراضي. وتأتي سير العمل وسكربتات الإصدار الخاصة به من
+<code>main</code>، لذا تتشارك caches الخاصة بـ Actions نطاقًا واحدًا عبر المحاولات. ويكون <code>GITHUB_SHA</code> هو
+رأس <code>main</code>، لا commit قيد الاختبار. ويُمرَّر commit المقبول إلى كل مسار يختبر
+الحمولة أو يبنيها، ويفرض ذلك فحص lint الخاص بتمرير commit في
+<code>tests/ci/test_stable_release_commit_threading.py</code>.</li>
+<li>شغّل المسارات التي يسجّلها الحجز: افتراضيًا كامل مخطط القبول الخاص بالمصدر وDocker وNix
+وحزمة PM والتثبيت/التحديث وWindows والحزم الموقّعة والترقية الأصلية،
+دون macOS Intel و Termux.</li>
 <li>ادفع artifacts الخاصة بـ Docker و R2 محددة الإصدار غير القابلة للتغيير من البايتات المختبرة.
 تُدفَع صورة Docker بمجرد نجاح اختباراتها الخاصة، وتُوسَم بمرجع المحاولة.
 لا تحرّك الأسماء البديلة <code>stable</code> أو <code>latest</code> بعد، ولا تُعِد البناء
@@ -57,13 +64,16 @@ manifest لـ Docker وسياسة النشر التلقائي.</li>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-publish-or-abandon-a-stable-release">تشغيل إصدار مستقر أو نشره أو التخلي عنه</h2>
 <p>ابدأ من commit دقيق موجود بالفعل على <code>main</code> البعيد:</p>
 <div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
-<p><code>--bump</code> افتراضيًا <code>patch</code>؛ لا تمرّر <code>minor</code> أو <code>major</code> إلا عندما يكون ذلك التغيير
-مقصودًا. يجب أن يكون commit المختار من نسل أحدث <code>vX.Y.Z</code> منشور.
-إذا لم يوجد وسم منشور، يُقبَل أي commit موجود بالفعل على <code>main</code> البعيد.
-لا تفرض المحاولة المتروكة قيدًا على الإنشاء التالي؛ فكثيرًا ما تُترك
-لأن commit الخاص بها سيئ. يرفض <code>release</code> أيضًا ما دامت أي محاولة
-لأي نسخة معلّقة. يطبع الرفض URL تشغيل سير العمل للمحاولة
-وأمر <code>abandon</code> وأمر إعادة التشغيل قبل رفع الاستثناء.</p>
+<p>قيمة <code>--bump</code> الافتراضية <code>patch</code>؛ ولا تمرّر <code>minor</code> أو <code>major</code> إلا عندما يكون ذلك التغيير
+مقصودًا. ويجب أن يكون commit المختار من نسل أحدث
+<code>vX.Y.Z</code> منشور. وإذا لم يوجد وسم منشور، يُقبَل أي commit موجود بالفعل على <code>main</code> البعيد.
+ولا تفرض المحاولة المتروكة قيدًا على القطع التالي؛ فكثيرًا ما تُترك
+لأن commit الخاص بها سيئ. ويرفض <code>release</code> أيضًا ما دامت أي محاولة،
+لأي نسخة، معلّقة. ويطبع الرفض URL تشغيل سير العمل للمحاولة
+وأمر <code>abandon</code> وأمر إعادة التشغيل قبل أن يرفع الاستثناء. وفي
+طرفية تفاعلية يسأل بعد ذلك <code>Abandon &lt;ref&gt; and cut a new attempt? [y/N]</code>؛
+فيتخلّى <code>y</code> عن المحاولة وينشئ التالية، والافتراضي هو لا. وفي أي حالة
+لا يكون فيها stdin أو stdout طرفية يرفع الاستثناء دون سؤال.</p>
 <p>مرجع المحاولة قفل عام، لا إصدار SemVer تمهيدي. يُكتَب
 <code>rc.1-v0.21.5</code>، لا <code>v0.21.5-rc.1</code>. يبقى إصدار الحزمة بسيطًا
 <code>0.21.5</code>. <code>parse_attempt_ref</code> في <code>scripts/releases/versioning.py</code> هي القاعدة النحوية الوحيدة
@@ -79,37 +89,66 @@ manifest لـ Docker وسياسة النشر التلقائي.</li>
 <p>أضف <code>--autopublish</code> للنشر فورًا عندما يصبح الحجز أقدم إصدار
 ناجح. بدونه، يبقى الإصدار مسودة حتى نشر صريح
 أو حجز ناجح لاحق يفرض المعالجة بالترتيب.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="skip-bundles-or-tests">تجاوز الحزم أو الاختبارات</h3>
-<p>يزيل خياران في <code>release</code> أجزاء من pipeline. يمكن استخدامهما معًا
-ودمجهما مع <code>--autopublish</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lanes">المسارات (Lanes)</h3>
+<p>الإصدار المستقر مجموعة من المسارات. فمسار البناء ينتج شيئًا يحصل عليه المستخدمون؛
+ومسار الاختبار مجموعة اختبارات تتحكم في بوابة الإصدار. ويبدأ <code>release</code> من
+المجموعة الافتراضية ويعدّلها:</p>
 <div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
-<table><thead><tr><th></th><th><code>--skip-bundles</code></th><th><code>--skip-tests</code></th></tr></thead><tbody><tr><td>CI المصدر (<code>ci.yaml</code>) و Nix و Termux و Windows الحي و E2E للتثبيت/التحديث وهوية bootstrap</td><td>تُنفَّذ</td><td>تُتجاوَز</td></tr><tr><td>صورة Docker</td><td>تُبنى وتُختبر وتُنشر</td><td>تُبنى وتُنشر، وتُتجاوَز <code>tests/docker</code></td></tr><tr><td>فحص حزمة PM الأصلية</td><td>يُتجاوَز</td><td>يُتجاوَز</td></tr><tr><td>مرشحو Desktop و Termux</td><td>يُتجاوَزون</td><td>تُبنى وتُوقّع وتُجهّز، دون اختبارات smoke أصلية أو مجموعات اختبار أثناء البناء</td></tr><tr><td>قبول ترقية الحزم الموقّعة (<code>transitions-*</code>، <code>*-packaged</code>)</td><td>يُتجاوَز</td><td>يُتجاوَز</td></tr><tr><td>النشر</td><td>الوسم النهائي وإصدار GitHub والأسماء البديلة لـ Docker <code>stable</code> / <code>latest</code></td><td>كل شيء، كإصدار عادي</td></tr></tbody></table>
-<p>تُكتَب الخيارات في رسالة الحجز، ولا تُمرَّر أبدًا كمدخلات
-لسير العمل. تقرؤها <code>admit</code> من الحجز وتنتج <code>skip-bundles</code> و <code>skip-tests</code>. يقرأ كل شرط مهمة وكل بوابة تلك المخرجات.
-لا يمكن لإعادة تشغيل للتعافي تغييرها. لتغيير خيار، نفّذ <code>abandon</code> للمحاولة
-وأنشئ إصدارًا مجددًا.</p>
-<p>تبقى البوابات صارمة. تقرأ <code>scripts.releases.stable gate</code> الخيارات
-وتتطلب من كل مهمة تزيلها الخيارات الإبلاغ عن <code>skipped</code>، ومن كل مهمة أخرى
-خاضعة للبوابة الإبلاغ عن <code>success</code>. المهمة التي نُفّذت رغم أن الخيار يزيلها
-تمنع الإصدار أيضًا. يشكّل <code>SKIPPED_BY</code> في <code>scripts/releases/stable.py</code> الجدول
-الوحيد الذي يحدد أي خيار يزيل أي مهمة.</p>
-<p><strong><code>--skip-bundles</code>. </strong>المسودة وصورة Docker والوسم النهائي وإصدار GitHub
-هي الإصدار بأكمله. لا يوجد manifest للمرشح، لذا يسجّل الوسم النهائي
-<code>candidateManifestSha256: null</code>. يحرّك النشر أسماء Docker البديلة وحدها. يظل
-رأس R2 المستقر المحمي وموجزا App Installer و macOS وقناة APT
-وصفحة التنزيلات و <code>releases/stable/release-candidates.json</code> وخط أساس الحزم
-الموقّعة والإرسال إلى Store جميعًا على إصدار الحزم السابق. تتبع نسخ
-المصدر المسحوبة من المستودع الرسمي <code>releases/stable/release-candidates.json</code>، لذا تبقى أيضًا على إصدار
-الحزم السابق. يكتمل هذا الإصدار عندما يحمل الاسم البديل <code>stable</code> في Docker
-البصمة التي يربطها وسمه النهائي. يستخدم المنسّق ذلك الاسم البديل مع
-رأس R2 لتحديد الإصدارات التي ما زالت تحتاج جولة النشر.</p>
-<p><strong><code>--skip-tests</code>. </strong>تُبنى كل artifacts وتُوقّع وتُجهّز وتُنشر بالطريقة
-نفسها في الإصدار العادي. يسجّل manifest المرشح كل اختبار smoke أصلي
-بالحالة <code>skipped</code>، لا ناجحًا مطلقًا. يستخدم الإصدار التالي ذلك manifest كخط أساس
-للترقية كغيره. ترفض كل جهة قراءة تعرف الحجز (<code>complete</code>
-وتقديم R2 المحمي) manifest الذي لا تتطابق نتائج smoke فيه
-مع خيار <code>skipTests</code> للحجز. استخدمه فقط لإصلاح طارئ، وأنشئ
-إصدارًا عاديًا بعده.</p>
+<p>يستبدل <code>--only</code> المجموعة الافتراضية، ويضيف <code>--with</code> مسارات، ويزيلها <code>--without</code>.
+يقبل كل منها أسماء مفصولة بفواصل ويمكن تكراره. ويعرض <code>release --help</code>
+كل مسار.</p>
+<table><thead><tr><th>المسار</th><th>الافتراضي</th><th>ما يتحكم فيه</th></tr></thead><tbody><tr><td><code>docker</code></td><td>on</td><td>بناء صورة Docker ونشرها</td></tr><tr><td><code>windows</code></td><td>on</td><td>حزم MSIX الموقّعة لـ Windows x64 و arm64 والحزمة الشاملة، وهي التي تغذّي قناة التحديث</td></tr><tr><td><code>windows-store</code></td><td>on</td><td>حزمة Microsoft Store غير الموقّعة، وتُرسل إلى Partner Center (ولا تحتاج إلى توقيع Azure)</td></tr><tr><td><code>macos-arm64</code></td><td>on</td><td>DMG و ZIP لـ macOS Apple Silicon</td></tr><tr><td><code>macos-intel</code></td><td>off</td><td>DMG و ZIP لـ macOS Intel: غير مدعوم على <code>main</code>، ويضيف مشغّله أكثر من ساعة</td></tr><tr><td><code>termux</code></td><td>off</td><td>حزمة APT لـ Termux (Android aarch64)</td></tr><tr><td><code>ci</code>, <code>nix</code>, <code>docker-tests</code>, <code>pm-bundle</code>, <code>windows-live</code>, <code>install-e2e</code>, <code>bootstrap-version</code></td><td>on</td><td>مجموعات الاختبارات المستقلة</td></tr><tr><td><code>termux-checks</code></td><td>on</td><td>التحقق من Termux؛ ولا يعمل إلا مع <code>termux</code></td></tr><tr><td><code>smoke</code></td><td>on</td><td>smoke للتثبيت الأصلي والمحادثة لكل حزمة desktop مبنية</td></tr><tr><td><code>upgrade</code></td><td>on</td><td>قبول ترقية الحزمة الموقّعة (من OLD إلى NEW) لكل حزمة desktop مبنية</td></tr></tbody></table>
+<p>المسارات مفاتيح مستقلة. ولا تعمل المهمة إلا عندما تكون كل المسارات التي تحتاجها مفعّلة
+(<code>JOB_LANES</code> في <code>scripts/releases/lanes.py</code>)، لذا فإن مسار اختبار لشيء
+لا يُبنى لا يفعل شيئًا: فالمسار <code>upgrade</code> مع إيقاف <code>macos-arm64</code> لا يخطّط لأي فرع ترقية
+لـ macOS.</p>
+<p>تُكتَب مجموعة المسارات في رسالة الحجز (<code>&quot;lanes&quot;: [...]</code>)، ولا تُمرَّر أبدًا
+كمدخل لسير العمل. تقرؤها <code>admit</code> من الحجز وتُخرج ناتجين:
+<code>lanes</code> (علم لكل مسار) و <code>jobs</code> (علم تشغيل لكل مهمة يتحكم فيها مسار).
+ويقرأ <code>if</code> الخاص بكل مهمة كهذه مدخلها في <code>jobs</code>، فيكون جدول المسارات هو المكان
+الوحيد الذي يحدد ما يعمل. ولا يمكن لإعادة تشغيل للتعافي تغييره. ولتغيير مسار،
+نفّذ <code>abandon</code> للمحاولة وأنشئ إصدارًا مجددًا.</p>
+<p>تبقى البوابات صارمة. تقرأ <code>scripts.releases.stable gate</code> المسارات
+وتتطلب من كل مهمة تزيلها هذه المسارات الإبلاغ عن <code>skipped</code>، ومن كل مهمة أخرى
+خاضعة للبوابة الإبلاغ عن <code>success</code>. والمهمة التي نُفّذت رغم أن مسارًا يزيلها
+تمنع الإصدار أيضًا. أما الحجز الذي أُنشئ قبل وجود المسارات (<code>skipBundles</code> و <code>skipTests</code> و
+<code>includeMacosIntel</code> و <code>includeTermux</code>) فيُقرأ بوصفه مجموعة المسارات التي كانت تتحكم في المهام
+نفسها. والحجز الذي لا يحتوي على <code>lanesRevision</code> أُنشئ حين كان <code>windows</code> يعني أيضًا حزمة
+Store، لذا يُقرأ <code>windows</code> فيه بوصفه <code>windows</code> زائد <code>windows-store</code>.</p>
+<p>ما ينشره الإصدار يتبع ما بناه:</p>
+<ul>
+<li><strong>Docker.</strong> مع إيقاف <code>docker</code> لا تُبنى أي صورة ولا تُرقّى،
+ويسجّل الوسم النهائي <code>dockerManifestDigest: null</code>.</li>
+<li><strong>الحزم (Bundles).</strong> بدون مسار desktop أو Termux لا يوجد manifest للمرشح،
+ويسجّل الوسم النهائي <code>candidateManifestSha256: null</code>.</li>
+<li><strong>لا تتحرك قناة desktop إلا لمجموعة desktop الكاملة</strong> (<code>windows</code> و
+<code>macos-arm64</code>). أما المجموعة الجزئية فتجهّز حزمها مع ذلك، وتسجّل manifest للمرشح
+بالأهداف التي بنتها بالضبط، وترسل حزمة Store عندما
+يكون <code>windows-store</code> مفعّلًا. والإصدار الخاص بـ Store فقط لا يحتوي على صفوف حزم، بل على ملف حزمة
+Store فقط، ولا يحرّك أي قناة. ويبقى رأس R2 المستقر المحمي وموجزا App Installer و macOS
+وقناة APT وصفحة التنزيلات و
+<code>releases/stable/release-candidates.json</code> وخط أساس الحزم الموقّعة على
+الإصدار الكامل السابق. وتتبع نسخ المصدر المسحوبة من المستودع الرسمي
+<code>releases/stable/release-candidates.json</code>، لذا تبقى هي أيضًا.</li>
+<li><strong>مكتمل.</strong> يكتمل الإصدار الذي يقدّم قناة desktop عندما
+يسمّيه رأس R2 المحمي. والذي لا يحرّك إلا Docker يكتمل عندما
+يحمل الاسم البديل <code>stable</code> البصمة التي يربطها وسمه النهائي. والذي لا يحرّك أي
+قناة يكتمل بمجرد أن يصبح عامًا. ويستخدم المنسّق هذه العلامات
+لتحديد الإصدارات التي ما زالت تحتاج جولة النشر.</li>
+<li><strong>بلا اختبارات.</strong> يسجّل manifest المرشح كل smoke أصلي بالحالة <code>skipped</code>،
+لا ناجحًا أبدًا، وترفض كل جهة قراءة تعرف الحجز (<code>complete</code> وتقديم
+R2 المحمي) manifest لا تتطابق نتائج smoke فيه مع
+مسار <code>smoke</code> للحجز. ويستخدم الإصدار الكامل التالي ذلك manifest خط أساس
+للترقية كغيره. أنشئ إصدارًا عاديًا بعد الإصدار غير المختبَر.</li>
+</ul>
+<p>عند استبعاد macOS Intel، تغيب صفوفه عن manifest المرشح
+وجدول التنزيلات في متن الإصدار وصفحة التنزيلات. وهناك موجز macOS مستقر
+واحد (<code>releases/darwin/stable/stable-mac.yml</code>)، ويستبدله <code>promote</code>
+بفرع arm64 وحده، لذا لا تحصل أجهزة Mac من نوع Intel على هذا الموجز على أي تحديث إلى أن
+يُقطع إصدار بالخيار <code>--with macos-intel</code>. وعند استبعاد Termux لا تُعاد كتابة فهارس APT،
+فتبقى قناة APT على إصدارها السابق.
+والإصدار الذي يعيد إضافة هدف بعد إصدار استبعده لا يملك خط أساس منشورًا له، لذا يُتخطّى فرع الترقية لذلك الهدف
+كما في الإصدار الأول.</p>
 <p>دفع الحجز هو قفل النسخة الذرّي. قد يشتق مستدعيان النسخة التالية
 نفسها، لكن لا ينجح إلا دفع واحد؛ ويبلّغ الخاسر عن منشئ الوسم الفائز ووقته
 و commit. يبقى الحجز المرفوض أو المتروك مستهلكًا. للنشر أو التخلي:</p>
@@ -121,9 +160,9 @@ manifest لـ Docker وسياسة النشر التلقائي.</li>
 ويكتب مرجع علامة <code>abandoned-rc.&lt;N&gt;-vX.Y.Z</code> ويحتفظ بمرجع المحاولة.
 العلامة هي سجل التخلي؛ ولا يُحذف مرجع المحاولة أبدًا. لا
 تُستهلَك النسخة، لذا يكون الإنشاء التالي <code>rc.&lt;N+1&gt;-vX.Y.Z</code>.</p>
-<p>لا تُرسِل <code>Stable Release</code> يدويًا من وسم نهائي. يحتفظ التعافي
+<p>لا تُرسِل <code>Stable Release</code> يدويًا بوسم نهائي. يحتفظ التعافي
 بمرجع الحجز الأصلي و SHA للكائن و commit ومعرّف المسودة في قاعدة البيانات وسياسة النشر التلقائي
-وخيارات التجاوز.</p>
+وأعلام التخطي.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="failure-and-recovery">الفشل والتعافي</h2>
 <p>عندما يفشل تشغيل مستقر، يبدأ حدث اكتماله <code>Stable Release Publication</code>،
 الذي يعيد فورًا تشغيل المهام الفاشلة وحدها ضمن تشغيل GitHub Actions
@@ -178,28 +217,42 @@ Windows المستقرة من تلك الحقبة ويرفض إصدار MSIX أ�
 المثبّتة منها ليست آمنة للترقية: كل محاولات نسخة واحدة تحمل
 إصدار الحزمة نفسه، لذا لا تستبدلها البنية المنشورة أبدًا. تُدفَع صورة
 Docker مبكرًا تحت مرجع المحاولة؛ ويتحرك الاسمان البديلان <code>stable</code> و <code>latest</code>
-مع الموجز في جولة النشر. يُحجَز الإرسال إلى Store: يرسله
-التشغيل الناجح مع تعطيل النشر التلقائي. لا تستطيع API الإرسال نشر
-إرسال محجوز، لذا تكتفي جولة النشر بفحصه وتطبع تحذير GitHub؛ بعد
-نجاح الاعتماد، انقر Publish now لذلك الإرسال في
-Partner Center. يجعل فشل الإرسال تشغيل النشر غير ناجح. تحمل سجلات القناة المستقرة
+مع الموجز في جولة النشر. وتتبع بنية Store القاعدة نفسها: يُبقي
+التشغيل الأخضر commit الذي حجزه (مع تعطيل النشر التلقائي)، فيجري الاعتماد
+قبل البوابة، وتحوّل جولة النشر ذلك الإرسال إلى النشر التلقائي. وإذا رفضت API الإرسال
+هذا التحويل، تُصدر الجولة تحذيرًا: اختر
+Publish now في Partner Center بعد اعتماد البنية. ويُترك الإرسال
+الذي لا يحمل حزمة Store الخاصة بالإصدار دون مساس بينما تفحص الجولة
+الإصدارات المنشورة الأقدم بحثًا عن مالكه. وتعمل مصالحة Store حتى عندما
+تكون الموجزات والأسماء البديلة محدّثة بالفعل، فيمكن إعادة محاولة النشر المقاطَع
+دون إرجاعها. ويسجّل الإرسال المحجوز حجزه في ملاحظات
+الاعتماد: ولا يستطيع خلَفٌ استبداله إلا بعد أن يكون لذلك الحجز
+علامة تخلٍّ (abandon) بعيدة مطابقة. أما الإرساليات القديمة التي لا تحمل سجل مالك
+فتحتاج إلى تنظيف يدوي في Partner Center. ويتحول فشل الإرسال إلى تحذير؛
+ويظل الإصدار منشورًا. وتحمل سجلات القناة المستقرة
 قيمة اختيارية باسم <code>archiveRef</code> تسمّي مرجع المحاولة؛
-وتظل <code>releaseTag</code> <code>vX.Y.Z</code>، وترجع البادئة المحمية إليها عند
+وتظل <code>releaseTag</code> بالقيمة <code>vX.Y.Z</code>، وترجع البادئة المحمية إليها عند
 غياب <code>archiveRef</code>.</p>
 <p>يسمّي المدخل الاختياري <code>termux_upgrade_from_tag</code> في سير عمل Desktop إصدارًا
 منشورًا دقيقًا لديه تسليم Termux في R2. لا تحتفظ بنى Desktop الصريحة التي لا تنشر
 بأي artifacts للمهام يمكن تنزيلها.</p>
-<p>يأخذ سير عمل Desktop مدخل <code>jobs</code> بمجموعات
-<code>darwin-arm64</code>، <code>darwin-x64</code>، <code>win32-arm64</code>، <code>win32-x64</code>، <code>win32-bundle</code>، <code>linux-x64</code>، <code>linux-arm64</code>، و <code>termux</code>. يستدعيه stable مرة لكل مجموعة، باستثناء مجموعات linux
-التي تنتظر بناء Linux فعليًا. تجهّز كل معمارية Mac وحزمة Windows
-إيصالًا، ويبدأ كل مسار تثبيت من إيصاله الخاص بمجرد
-تجهيز بايتاته. <code>acceptance</code> هو نقطة الالتقاء الوحيدة التي تمنع النشر.</p>
-<p>تبدأ كل بوابة وكل مرشح مباشرةً بعد <code>admit</code>. CI بوابة
+<p>يأخذ سير عمل desktop مدخل <code>jobs</code> بالمجموعات <code>darwin-arm64</code>
+و <code>darwin-x64</code> و <code>win32-arm64</code> و <code>win32-x64</code> و <code>win32-bundle</code> و <code>linux-x64</code>
+و <code>linux-arm64</code> و <code>termux</code>. يستدعيه stable مرة لكل مجموعة، باستثناء مجموعتي linux
+اللتين تنتظران بناء Linux فعليًا، ومجموعتي <code>darwin-x64</code> و <code>termux</code> وأي
+مجموعة أخرى يستبعد الحجز مسارها، فلا يستدعيها. وتجهّز كل معمارية Mac وحزمة Windows
+إيصالًا، ويبدأ كل فرع تثبيت من إيصاله الخاص بمجرد
+تجهيز بايتاته. و<code>acceptance</code> هو نقطة الالتقاء الوحيدة التي تمنع النشر.</p>
+<p>تبدأ كل بوابة وكل مرشح مباشرةً بعد <code>admit</code>. فـ CI بوابة
 تتطلبها <code>acceptance</code>، لا قفل تنتظر خلفه البنى الموقّعة، لذا لا يمكن لبوابة بطيئة
-تأخير حزمة؛ والثمن أن <code>main</code> المعطوب يظل يتحمّل تكلفة مرشحين
+أن تؤخّر حزمة؛ والثمن أن <code>main</code> المعطوب يظل يتحمّل تكلفة مرشحين
 موقّعين ترفضهم <code>acceptance</code> لاحقًا.
-زالت مهمة <code>smoke-win32-universal</code>؛ وتغطي اختبارات smoke لـ MSIX لكل معمارية
-كل معمارية، وتثبّت مسارات تثبيت Windows ملف <code>.msixbundle</code> على المعماريتين.</p>
+زالت مهمة <code>smoke-win32-universal</code>؛ وتغطي اختبارات smoke لـ MSIX الخاصة بكل معمارية
+كل معمارية، وتثبّت فروع تثبيت Windows ملف <code>.msixbundle</code> على المعماريتين.
+ويشغّل stable اختباري smoke لـ MSIX هذين في استدعاء <code>win32-bundle</code> الخاص به، بجانب التجميع،
+لا في الاستدعاءات الخاصة بكل معمارية: فيبدأ التجميع بمجرد بناء المعماريتين
+بدلًا من انتظار smoke المعمارية الأبطأ، ويظل استدعاء الحزمة (ومن ثم
+<code>candidate-manifest</code>) يفشل عندما يفشل أي من الاختبارين.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tag-namespaces-and-receipts">نطاقات أسماء الوسوم والإيصالات</h2>
 <p>قبل الاعتماد على مراجع المحاولات كأقفال، طبّق ruleset للمستودع على
 <code>refs/tags/v*</code> و <code>refs/tags/rc.*</code> و <code>refs/tags/abandoned-rc.*</code> يقصر
@@ -257,60 +310,3 @@ App Installer، وترفض واجهة GUI و CLI المضمّنة كلتاهما
 ولا يجتاز بوابة نجاح الإصدار.</p>
 <p>يحتفظ الإرسال إلى Store بهويته الرسمية المستقرة الثابتة. يجب ألا تُرسَل
 الحزم غير المستقرة تحت تلك الهوية.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dynamic-channels-in-r2">قنوات ديناميكية في R2</h2>
-<p>أسماء القنوات كائنات R2، لا سجل في المستودع. تملك قناة معاينة
-هوية تطبيق أصلية واحدة عبر البنى من commits دقيقة. يسجّل طلب البناء
-غير القابل للتغيير commit المصدر والقيم الافتراضية للحزمة وتسلسل القناة وإصدارات
-الحزم بصورة منفصلة. يجب أن تنجح كل مهام البناء الأصلي و smoke الحالية
-قبل تقديم رأس القناة.</p>
-<p>عاين بنية مخصّصة ثم أرسلها صراحةً. لا تختار هوية المستودع
-السلوك: يعمل الإرسال المباشر نفسه من أي مستودع GitHub بعيد، لكن
-<code>--channel</code> لا يصل إلى R2 محليًا — يحدد commit المدفوع نفسه
-ويرسل سير عمل branch الافتراضي، الذي تنشئ خطوة التخصيص ذات الصلاحيات فيه
-القناة وتنتج طلب البناء غير القابل للتغيير في CI. لا يحتاج الأمر المحلي
-إلا token من نوع <code>gh</code> بصلاحية write أو maintain أو admin على
-المستودع المختار؛ ولا تُطلَب بيانات اعتماد R2.</p>
-<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
-<p>افتراضيًا، تُثبَّت قناة المعاينة كتطبيق مستقل إلى جانب الآخر (<code>Hermes NAME</code> ومعرّف حزمة خاص بها). لاختبار commit دقيق كتطبيق عادي بدلًا من ذلك،
-أنشئ القناة باستخدام <code>--branding stable</code>: ينسخ اسم القناة المستقرة المنشورة
-وأيقونتها ومعرّف حزمتها، فتُثبَّت البنية فوق التطبيق الرسمي
-وتشارك إعدادات Desktop معه وتتبع التحديثات اللاحقة القناة. تُثبَّت العلامة عند
-إنشاء القناة؛ كرر الخيار في كل إرسال لتلك القناة واستخدم اسم قناة جديدًا
-لتغييرها. يتطلب <code>--branding</code> <code>--channel</code>، لأن بنية commit
-لمرة واحدة العادية تحمل دائمًا هويتها <code>Hermes Agent &lt;sha&gt;</code>.</p>
-<div class="language-sh codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
-<p>تحديد نطاق R2 مؤقت اختياري، للتشغيلات الاختبارية فقط. أرسل سير عمل
-Desktop باستخدام <code>disposable_channel</code> و <code>build_commit</code> لتخصيص نطاق أسماء
-ضمن <code>ci-disposable/&lt;repository-id&gt;/&lt;run-id&gt;/</code>، ثم استخدم أمر البناء المحدد النطاق نفسه
-الوارد في ملخصه. للإدارة المحلية لذلك التخصيص، مرّر
-<code>R2_DISPOSABLE_RUN</code> و <code>GITHUB_REPOSITORY_ID</code> الخاصين به في بيئة الأمر،
-مع إبقاء URL العام المضبوط عند الجذر غير المحدد النطاق. هذه مدخلات
-تشغيل اختبار، لا إعدادات تطبيق دائمة؛ يُفحَص معرّف المستودع
-مقارنةً بالبعيد المختار قبل قراءة بيانات الاعتماد، لذا يظل نطاق الأسماء المحدد
-خاصًا بمستودع واحد بالضبط.</p>
-<p>ينشئ أول استدعاء للنشر القناة (أثناء تخصيص CI)، وتحتفظ
-الاستدعاءات اللاحقة بهويتها. توجد الطلبات و artifacts ضمن
-<code>releases/channel-builds/BUILD_ID/</code>؛ والمؤشر القابل للتغيير هو <code>releases/channels/NAME.json</code>. يبقي البناء الفاشل رأسها السابق سليمًا.
-ترفض الكتابات الشرطية النشر القديم والقنوات المتقاعدة نهائيًا.
-تعيد المحاولة إرسال <code>--channel NAME --build-commit SHA --publish</code>، الذي
-يخصّص خانة تسلسل جديدة في CI؛ ولا يوجد أمر استئناف منفصل.</p>
-<p>يثبّت التقاعد البنية الرسمية المستقرة الحالية بوصفها المتلقي الأول:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
-<p>لا تضف <code>--publish</code> إلا بعد مراجعة التشغيل التجريبي وأدلة القبول الأصلي
-الدقيقة. لا يعيد هذا بناء stable تحت هوية المعاينة ولا يلغي
-تثبيت العملاء بصمت. يعرض العملاء المدركون للبروتوكول تسليمًا بين التطبيقات بموافقة
-المستخدم؛ ويجب أن تؤكد الوجهة جاهزيتها قبل إزالة المعاينة. أبقِ
-كائن التقاعد و artifacts المثبّتة متاحة للعملاء غير المتصلين.
-لا تملك البنى لمرة واحدة الحالية قارئًا للتقاعد وتتطلب استبدالًا.</p>
-<p>يجب أن يعلن manifest الوجهة دعم المتلقي المقروء من الوسم
-المضمّن في حزمتها. يملك سير عمل الإصدار المحمي الحالي القبول؛ ولا توجد
-وثيقة اعتماد عامة منفصلة ولا اعتماد على artifacts الخاصة بـ Actions التي تنتهي صلاحيتها.
-تبقى فحوصات التوقيع الأصلي والهوية وموافقة المتلقي والفحص المسبق للحالة المحفوظة
-وجاهزية الوجهة إلزامية. تصل المعاينة غير المتصلة إلى المتلقي
-الأول المثبّت حتى بعد تقدم stable؛ ثم يتحدّث ذلك التطبيق عبر stable.</p>
-<p>قبل إصدار قارئات المصدر المعتمدة على R2 وحده، هيّئ سجل <code>main</code>
-لـ branch المصدر وسجلات stable/canary المنشورة الموجودة عبر عملية
-bootstrap المحمية الصريحة. راجع manifests المقبولة الفعلية؛ ولا تختلق manifest
-أصليًا لـ <code>main</code>. تهيئة الإنتاج والتحقق من CDN cache/CAS وتأهيل الحزم
-الأصلية الموقّعة عمليات إصدار، ولا يعنيها نجاح
-مجموعة اختبارات مساعدة محلية. لا تخزّن مخرجات bootstrap كقائمة قنوات في المستودع مطلقًا.</p>

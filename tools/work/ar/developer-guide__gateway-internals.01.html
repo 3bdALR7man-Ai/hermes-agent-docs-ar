@@ -1,32 +1,194 @@
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="multiplexed-profiles">Profiles متعددة في عملية واحدة</h2>
-<p>مع <code>gateway.multiplex_profiles: true</code> ، تخدم عملية واحدة profile الافتراضي وكل مجلد حي تحت <code>profiles/</code> (<code>hermes_cli/profiles.py::profiles_to_serve(multiplex=True)</code>). <code>os.environ</code> وتحتفظ متغيرات الوحدات العامة بقيم profile الخاص بـ <strong>الإطلاق</strong>، لذا يربط كل نشاط لـ profile ثانوي نطاقه صراحة — profile يجمع home + نطاق الأسرار + نطاق الطرفية:</p>
-<table><thead><tr><th>النشاط</th><th>الربط</th></tr></thead><tbody><tr><td>دور موجّه</td><td><code>gateway/run.py::_profile_runtime_scope(home)</code> عبر <code>run_turn.py::_profile_scope_for_source</code></td></tr><tr><td>تحرير الوكيل / إخلاؤه (TTL و LRU وضغط الذاكرة)</td><td><code>gateway/run_agent_cache.py::_run_release_in_profile_scope</code></td></tr><tr><td>الإيقاف</td><td><code>gateway/run_shutdown.py::_finalize_session</code></td></tr><tr><td>تسليم الوسائط بعد الدور</td><td><code>gateway/platforms/base.py::_media_delivery_scope</code></td></tr><tr><td>نبضة cron</td><td><code>cron/scheduler_provider.py::_profile_cron_scope(home)</code> (مؤقّت واحد، و profiles بالتتابع)</td></tr><tr><td>العمليات الفرعية (عمّال <code>hermes -p X</code> وأدوار relay و drivers المتصفحات)</td><td><code>tools/environments/local.py::served_profile_child_env</code></td></tr><tr><td>خيوط الخلفية</td><td><code>agent/memory_provider.py::spawn_context_thread</code></td></tr></tbody></table>
-<p>تفشل قراءة الأسرار بطريقة مغلقة (يثير <code>agent.secret_scope.get_secret</code> الاستثناء <code>UnscopedSecretError</code>) فقط بعد <code>set_multiplex_active(True)</code> ، الذي يضبطه gateway و cron و <code>gateway migrate</code> و backend الخاص بـ Desktop/لوحة التحكم <code>serve</code>. لا يصل YAML الخاص بالمحوّل إلى <code>os.environ</code> في multiplex: يملأ <code>gateway/platforms/_shared.py::apply_yaml_bridge</code> قيمة <code>PlatformConfig.extra</code> ويتخطى الكتابة إلى environ تحت نطاق profile ثانوي؛ وتقرأ البوابات عبر <code>platform_gate_env</code>. تعمل منصات الاستقبال المشترك (WhatsApp bridge و Relay) على profile الافتراضي وحده؛ وإذا فعّل profile ثانوي إحداها، يُسجّل ذلك مرة ويُثبت في حالة وقت التشغيل (<code>run_adapters.py::_note_unserved_secondary_platform</code>). العزل لكل profile كما يراه المستخدم: <a href="/docs/user-guide/multi-profile-gateways#what-is-isolated-per-profile">Gateways متعددة Profiles § ما يُعزل لكل profile</a>.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mid-run-plugin-loading">تحميل الإضافات أثناء التشغيل</h2>
-<p>الإضافات التي تُحمّل بعد اتصال المحوّلات (التثبيت/التفعيل من CLI أو Desktop أو لوحة التحكم أو
- <code>plugins.manage</code> ؛ إعادة اكتشاف قسرية تُطلقها أداة) تعيد توصيل معالجات المنصات دون إعادة التشغيل
-(#87770). المكونات، وكلها في <code>gateway/run_plugin_rewire.py</code>:</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-gateway-ensure"><code>hermes gateway ensure</code></h2>
+<p>يكتشف العملاء (Desktop و <code>hermes chat</code> و TUI) وقت تشغيل جلسات الـ profile أو يبدؤونه عبر
+<code>hermes gateway ensure --json --timeout 60</code>؛ والملخص في
+<a href="/docs/reference/cli-commands#local-runtime-discovery-and-startup">مرجع CLI</a>.</p>
+<p>المهلة موعد نهائي إجمالي محدود وموجب بالثواني (القيمة الافتراضية <code>60</code>، تكفي لإقلاع
+daemon بارد على مضيف مثقل). ويُنتظر أي حجز
+أو مالك قيد البدء قائم ولا يُستبدل. وعند التيقن من الغياب، تكون الأولوية لخدمة قائمة؛ ولا تُطلب
+عملية غير مُدارة إلا عند عدم العثور على أي خدمة. ولا يثبّت هذا الأمر أبدًا تعريفات الخدمة
+ولا يعيد كتابتها، ولا يفعّل linger، ولا يرفع الصلاحيات، ولا يمسح حواجز التحديث.
+وتفشل الملكية الملتبسة أو غير المتاحة فشلًا مغلقًا.</p>
+<p>قبل طلب بدء خدمة، يفحص <code>ensure</code> مجلد الـ profile المعتمد
+وحساب التنفيذ، لا اسم الوحدة/المهمة فقط. ويستخدم Linux الأمر والبيئة المحمّلين لدى المدير
+(بما في ذلك drop-ins الفعالة)، ويفحص macOS مهمة launchd
+المحمّلة بدلًا من افتراض أن ملف plist على القرص حديث، ويستعلم Windows
+عن XML المهمة الفعلي والمبدأ (principal) والمُطلِق المثبّت.</p>
 <ul>
-<li><strong>مستمع الاكتشاف</strong> — <code>_start_recover_previous_run</code> يشترك بـ <code>PluginManager.on_plugin_loaded</code> لـ
-profile الإطلاق، ويفعل <code>_load_secondary_profile_config</code> ذلك لكل profile مخدوم. ينطلق الحدث من داخل
- <code>discover_and_load</code> (لا من RPC مطلقًا) للإضافات المحمّلة حديثًا؛ وينتقل callback إلى حلقة gateway
-باستخدام <code>call_soon_threadsafe</code>.</li>
-<li><strong>إعادة توصيل ثابتة الأثر عند التكرار</strong> — <code>BasePlatformAdapter.rewire_plugin_handlers()</code> يعيد قراءة
- <code>get_platform_handler_factories(platform)</code> ويشغّل فقط المصانع التي لم تُوصل بعد على العميل الأصلي
-الحي (بالمفتاح <code>(plugin, qualname)</code> لأن إعادة التحميل القسرية تعيد كائنات دوال جديدة). يرفع Telegram
-المعالجات المضافة قبل معالجات الجوهر الشاملة؛ ويعيد Slack أيضًا تسجيل callbacks الخاصة بـ
- <code>register_slack_action_handler</code> المفقودة مرة لكل <code>AsyncApp</code>.</li>
-<li><strong><code>reload-plugins</code> فعل التحكم</strong> — تطلب عمليات أخرى (<code>hermes plugins install</code>, <code>hermes serve</code>) من
-gateway الجاري إعادة فحص home المطلوب (والمخدوم) قسرًا؛ وتتضمن الإجابة <code>plugins</code> و
- <code>activations</code> و <code>adapters_rewired</code> لكل إضافة، ليتمكن المستدعي من قول &quot;نشطة الآن&quot; بصدق.</li>
-<li><strong>حدود النطاق</strong> — المعالجات فقط. تنتظر أدوات الإضافة المتأخرة وأقسام system prompt الخاصة بها الجلسة
-التالية (ثابت ذاكرة الـ prompt المؤقتة)؛ وتنتظر خوادم MCP المحمولة <code>mcp.reload</code>. لا يُفصل شيء عند التعطيل.</li>
+<li><code>profile_mismatch</code>: تختار الخدمة المثبّتة home أو profile مختلفًا.
+افحص <code>HERMES_HOME</code> الخاص بالخدمة المختارة ومحدِّد الـ profile في سطر الأوامر؛
+واستخدم الـ profile المطابق أو أصلح إعدادات الخدمة صراحةً.</li>
+<li><code>service_account_mismatch</code>: الخدمة تنتمي إلى حساب آخر. شغّل
+العميل بذلك الحساب، أو اضبط خدمة للمستخدم المقصود صراحةً.</li>
+<li><code>service_identity_unverified</code>: لم يكشف المدير بيانات هوية كافية،
+أو يستخدم التعريف إعدادات ديناميكية غير مدعومة. افحصه عبر
+<code>systemctl [--user] show &lt;unit&gt; --all</code> أو <code>launchctl print &lt;domain&gt;/&lt;label&gt;</code> أو
+<code>schtasks /Query /TN &lt;task&gt; /XML</code>. وتتطلب ملفات البيئة في Linux والمستخدمون الديناميكيون/PAM
+وhooks وقت البدء وأنظمة الملفات الجذرية البديلة مراجعة المشغّل؛
+ولا يفسّر <code>ensure</code> مُطلِقات shell العشوائية ولا سكربتات مُطلِق Windows المعدّلة.
+أعد تعريفًا صريحًا مدعومًا عبر عملية إدارة خدمة
+مقصودة قبل إعادة المحاولة.</li>
 </ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">وثائق ذات صلة</h2>
+<p>لا تبدأ حالات الرفض هذه خدمة ولا تعيد كتابة الإعدادات ولا تُطلق
+بديلًا غير مُدار. وتبقى عمليات التثبيت الافتراضية والمخصصة الجذر المرتبطة صراحةً بالشكل القياسي
+مؤهلة؛ ومع ذلك يجب أن يجتاز طلب البدء الناجح فحوص الجاهزية الحية.</p>
+<p>على POSIX، يفحص الإقلاع المحلي مجلد الـ profile قبل أن يثق
+بمقبس التحكم داخله. وتُنشأ الـ homes المحجوزة حديثًا بالوضع <code>0700</code>؛
+ولا يغيّر <code>ensure</code> الأذونات القائمة أبدًا. ويحتفظ الـ home بوضع المشغّل
+(يعمل كل من <code>~/.hermes</code> الرمزي، و <code>HERMES_HOME_MODE</code> بالقيمة <code>0701</code>/<code>0750</code>، أو home بالوضع <code>0755</code>):
+فبتات القراءة والبحث لا تمنح شيئًا تجاه المقبس المقتصر على المالك (<code>0600</code>).
+ولا يُرفض إلا صلاحية الكتابة التي يمكن لمستخدم آخر استخدامها لاستبدال المقبس،
+بالرسالة <code>inaccessible / unsafe_control_permissions</code>: كتابة الجميع دائمًا،
+وكتابة المجموعة ما لم تكن المجموعة هي المجموعة الخاصة بالمالك (الافتراضي مع umask <code>002</code>
+لمجموعة المستخدم الخاصة) دون أعضاء آخرين ولا ACL للوصول. ويبقى المقبس
+وملف المؤشر ومجلد المقبس الاحتياطي مقتصرة على المالك بإحكام.
+أزل بت الكتابة الزائد (<code>chmod o-w,g-w</code>) قبل إعادة محاولة الارتباط المحلي.</p>
+<table><thead><tr><th>رمز الخروج</th><th>المعنى</th></tr></thead><tbody><tr><td><code>0</code></td><td>وقت تشغيل الجلسات المتوافق جاهز.</td></tr><tr><td><code>2</code></td><td>استدعاء غير صالح، بما في ذلك مهلة غير صالحة أو وسائط غير معروفة.</td></tr><tr><td><code>3</code></td><td>بروتوكول أو قدرات وقت تشغيل غير متوافقة.</td></tr><tr><td><code>4</code></td><td>عدم تطابق التفويض أو الـ profile.</td></tr><tr><td><code>5</code></td><td>بلغت المهلة؛ وقد يكون البدء ما يزال معلقًا.</td></tr><tr><td><code>6</code></td><td>وقت التشغيل قيد التصريف (draining) أو التحديث جارٍ.</td></tr><tr><td><code>7</code></td><td>وقت تشغيل لا يمكن الوصول إليه، أو مشرف (supervisor) متعارض، أو فشل في البدء.</td></tr></tbody></table>
+<p>أمر بدء الخدمة أو إنشاء العملية ليس إشعارًا بالجاهزية.
+وقد يبقى الـ gateway الذي لم يكشف قدرة session-authority في الحالة
+<code>starting</code> حتى انتهاء المهلة حتى لو كانت مهايئات المراسلة لديه تعمل. لا تعتبر
+رمز الخروج <code>5</code> إذنًا باستبدال ذلك المالك. وعلى Windows، يتطلب التثبيت المقتصر على مجلد Startup
+تسجيل الدخول بدلًا من بديل غير مُدار؛ ويُبلَّغ عن فشل الانفصال
+عن مهمة (job) أب بدلًا من إعادة المحاولة بعزل عمليات أضعف.</p>
+<p>استمرارية الخدمة اشتراك منفصل أثناء الإعداد. ولا يثبّت الاستيراد والإعداد غير التفاعلي
+خدمة مفقودة بناءً على تفضيل مستورد. راجع
+<a href="#optional-service-installation">تثبيت الخدمة (اختياري)</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="architecture-overview">نظرة عامة على البنية المعمارية</h2>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="message-flow">تدفّق الرسائل</h2>
+<p>عند وصول رسالة من أي منصّة:</p>
+<ol>
+<li><strong>مهايئ المنصّة</strong> يستقبل الحدث الخام، ويوحّد صيغته إلى <code>MessageEvent</code></li>
+<li><strong>المهايئ الأساسي</strong> يتحقّق من حارس الجلسة النشطة:
 <ul>
-<li><a href="/docs/developer-guide/session-storage">تخزين الجلسات</a></li>
-<li><a href="/docs/developer-guide/cron-internals">آلية عمل Cron من الداخل</a></li>
-<li><a href="/docs/developer-guide/acp-internals">آلية عمل ACP من الداخل</a></li>
-<li><a href="/docs/developer-guide/agent-loop">آلية عمل Agent Loop من الداخل</a></li>
-<li><a href="/docs/user-guide/messaging/">Messaging Gateway (دليل المستخدم)</a></li>
+<li>إذا كان الوكيل يعمل بالفعل لهذه الجلسة → تُصفّ الرسالة في قائمة الانتظار، ويُضبط حدث مقاطعة</li>
+<li>إذا كانت <code>/approve</code>, <code>/deny</code>, <code>/stop</code> → تتجاوز الحارس (تُوزَّع مباشرة (inline))</li>
 </ul>
+</li>
+<li><strong>GatewayRunner._handle_message()</strong> يستقبل الحدث:
+<ul>
+<li>يحدّد مفتاح الجلسة عبر <code>_session_key_for_source()</code> (الصيغة: <code>agent:{namespace}:{platform}:{chat_type}:{chat_id}</code>؛ ويكون نطاق الأسماء <code>main</code> للـ profile الافتراضي، و <code>&lt;profile&gt;</code> عند تعدد الإرسال — راجع <a href="#multiplexed-profiles">Profiles متعددة الإرسال</a>)</li>
+<li>يتحقّق من التفويض (انظر التفويض أدناه)</li>
+<li>يتحقّق مما إذا كانت slash command → يوزّعها إلى معالِج الأوامر</li>
+<li>يتحقّق مما إذا كان الوكيل يعمل بالفعل → يعترض أوامر مثل <code>/stop</code>, <code>/status</code></li>
+<li>وإلا → ينشئ نسخة <code>AIAgent</code> ويشغّل المحادثة</li>
+</ul>
+</li>
+<li><strong>الاستجابة</strong> تُرسل عائدةً عبر مهايئ المنصّة</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-key-format">صيغة مفتاح الجلسة</h3>
+<p>تُرمّز مفاتيح الجلسات سياق التوجيه الكامل:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>على سبيل المثال: <code>agent:main:telegram:private:123456789</code> للـ profile الافتراضي، أو <code>agent:work:telegram:private:123456789</code> عندما يوجّه multiplexer تلك المحادثة إلى profile <code>work</code>
+(<code>gateway/session.py::_session_key_namespace</code>؛ ويُعلَّم profile اسمه حرفيًا <code>main</code> بـ <code>main~</code>).</p>
+<p>قد تُضمِّن المنصات المدركة للخيوط (Telegram forum topics ، Discord threads ، Slack threads) معرّفات الخيط ضمن جزء chat_id. <strong>لا تبنِ مفاتيح الجلسات يدويًا أبدًا</strong> — استخدم دائمًا <code>build_session_key()</code> من <code>gateway/session.py</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="two-level-message-guard">حارس رسائل ثنائي المستوى</h3>
+<p>عندما يكون الوكيل قيد التشغيل فعليًا، تمرّ الرسائل الواردة عبر حارسَين متتاليين:</p>
+<ol>
+<li>
+<p><strong>المستوى 1 — المهايئ الأساسي</strong> (<code>gateway/platforms/base.py</code>): يتحقّق من <code>_active_sessions</code>. إذا كانت الجلسة نشطة، يضع الرسالة في قائمة انتظار <code>_pending_messages</code> ويضبط حدث مقاطعة. يلتقط هذا الرسائل <em>قبل</em> وصولها إلى مشغّل gateway.</p>
+</li>
+<li>
+<p><strong>المستوى 2 — مشغّل gateway</strong> (<code>gateway/run_inbound.py</code>): يتحقّق من <code>_running_agents</code>. يعترض أوامر محدَّدة (<code>/stop</code>, <code>/new</code>, <code>/queue</code>, <code>/status</code>, <code>/approve</code>, <code>/deny</code>) ويوجّهها بحسب الحاجة. أي شيء آخر يُطلق <code>running_agent.interrupt()</code>.</p>
+</li>
+</ol>
+<p>الأوامر التي يجب أن تصل إلى المشغّل أثناء انسداد الوكيل (مثل <code>/approve</code>) تُوزَّع <strong>مباشرة (inline)</strong> عبر <code>await self._message_handler(event)</code> — فهي تتجاوز نظام المهام الخلفية لتجنّب حالات التسابق (race conditions).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="authorization">التفويض</h2>
+<p>يستخدم gateway تحقّق تفويض متعدّد الطبقات، يُقيَّم بالترتيب التالي:</p>
+<ol>
+<li><strong>علامة السماح للجميع الخاصة بكل منصّة</strong> (مثل <code>TELEGRAM_ALLOW_ALL_USERS</code>) — إذا ضُبطت، يُفوَّض جميع المستخدمين على تلك المنصّة</li>
+<li><strong>قائمة السماح الخاصة بالمنصّة</strong> (مثل <code>TELEGRAM_ALLOWED_USERS</code>) — معرّفات مستخدمين مفصولة بفواصل</li>
+<li><strong>اقتران DM</strong> — يمكن للمستخدمين المصادَق عليهم اقتران مستخدمين جدد عبر رمز اقتران</li>
+<li><strong>السماح للجميع عالميًا</strong> (<code>GATEWAY_ALLOW_ALL_USERS</code>) — إذا ضُبطت، يُفوَّض جميع المستخدمين عبر كل المنصات<code>gateway.allow_all_users</code> في <code>config.yaml</code>، ويُربط بمتغير البيئة بواسطة <code>gateway/config_loader.py::bridge_core_env_settings</code>) — إذا ضُبط، يُصرّح لكل المستخدمين عبر كل المنصات</li>
+<li><strong>الافتراضي: الرفض</strong> — يُرفض المستخدمون غير المفوَّضين</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dm-pairing-flow">تدفّق اقتران DM</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>تُحفظ حالة الاقتران في <code>gateway/pairing.py</code> وتنجو من إعادة التشغيل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="slash-command-dispatch">توزيع Slash Commands</h2>
+<p>تمرّ كل الـ slash commands في gateway عبر خط أنابيب الحسم نفسه:</p>
+<ol>
+<li><code>resolve_command()</code> من <code>hermes_cli/commands.py</code> المُدخل بالاسم الأساسي (تعالج الأسماء البديلة، ومطابقة البادئات)</li>
+<li>يُتحقّق من الاسم الأساسي مقابل <code>GATEWAY_KNOWN_COMMANDS</code></li>
+<li><code>_handle_message()</code> (<code>gateway/run_inbound.py</code>) عن المعالِج بالاسم — <code>_handle_&lt;name&gt;_command</code> في mixins الخاصة بـ <code>gateway/slash_commands_*.py</code> — عبر <code>_command_handler_table</code> فوق <code>_IDLE_COMMANDS</code> / <code>_PLAIN_COMMANDS</code> في <code>gateway/run_busy.py</code>؛ ولا توجد سلسلة <code>if canonical == ...</code> السلسلة</li>
+<li>بعض الأوامر مقيَّدة بحسب الإعدادات (<code>gateway_config_gate</code> على <code>CommandDef</code>)</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-agent-guard">حارس الوكيل قيد التشغيل</h3>
+<p>تُرفض الأوامر التي يجب ألا تُنفَّذ أثناء معالجة الوكيل مبكرًا:</p>
+<p>أثناء وجود <code>_quick_key in self._running_agents</code>, <code>_dispatch_busy_slash_command()</code> في <code>gateway/run_busy.py</code> كل أمر معروف حسب <code>CommandDef.busy_policy</code> / <code>busy_handler</code> الخاصة به: نسخة أثناء التشغيل (<code>_busy_&lt;key&gt;_command</code>) إن وُجدت، وإلا المعالِج العادي عندما تسمح <code>busy_policy</code> بذلك، وإلا رسالة رفض (&quot;⏳ Agent is running — <code>/model</code> can&#x27;t run mid-turn…&quot;).</p>
+<p>أوامر التجاوز (<code>/stop</code>, <code>/new</code>, <code>/approve</code>, <code>/deny</code>, <code>/queue</code>, <code>/status</code>) لها معالِجات أثناء التشغيل وتُوزَّع مباشرة (inline).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="config-sources">مصادر الإعدادات</h2>
+<p>يقرأ gateway الإعدادات من مصادر متعدّدة:</p>
+<table><thead><tr><th>المصدر</th><th>ما يوفّره</th></tr></thead><tbody><tr><td><code>~/.hermes/.env</code></td><td>مفاتيح API ، وتوكنات البوت، وبيانات اعتماد المنصات</td></tr><tr><td><code>~/.hermes/config.yaml</code></td><td>إعدادات النموذج، وإعداد الأدوات، وخيارات العرض</td></tr><tr><td>متغيرات البيئة</td><td>تتجاوز أيًا مما سبق</td></tr></tbody></table>
+<p>خلافًا لـ CLI (الذي يستخدم <code>load_cli_config()</code> بقيم افتراضية مثبَّتة في الكود)، يقرأ gateway ملف <code>config.yaml</code> مباشرةً عبر محمِّل YAML. هذا يعني أن مفاتيح الإعدادات الموجودة في قاموس افتراضيات CLI ولكن غير الموجودة في ملف إعدادات المستخدم قد تتصرّف بشكل مختلف بين CLI و gateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-adapters">مهايئات المنصات</h2>
+<p>تُشحن كل منصة مراسلة كمهايئ إضافة تحت <code>plugins/platforms/&lt;name&gt;/</code>؛ ويحتفظ <code>gateway/platforms/</code> بالفئة الأساسية ومهايئات دخول HTTP (<code>api_server</code> و <code>webhook</code> و <code>msgraph_webhook</code>). وتمتد جميعها من <code>BasePlatformAdapter</code> في <code>gateway/platforms/base.py</code>:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p><strong>التحميل المؤجَّل:</strong> تسجّل إضافات <code>kind: platform</code> المضمّنة محمِّلات <code>register_deferred</code> منخفضة التكلفة في <code>gateway/platform_registry.py</code> (عبر <code>hermes_cli/plugins.py</code>) بحيث لا تُستورد SDKs المنصات إلا عندما يبدأ gateway أو يُسلّم أو يشغّل الإعداد/الحالة — وليس عند تنفيذ <code>hermes chat</code> العادي. يحمّل الحسم مهايئًا واحدًا عند البحث؛ ويشغّل التعداد الكامل المحمِّلات المعلّقة فقط في المسارات التي تحتاج كل منصّة.</p>
+<p>تستخدم منصات موصولات الاختبار التجريبية (connector-backed) المهايئ العام للترحيل (relay) في <code>gateway/relay/</code> بدلًا من وحدة منصّة مباشرة. عند ضبط <code>GATEWAY_RELAY_URL</code> أو <code>gateway.relay_url</code>، يسجّل gateway منصّة <code>relay</code>، ويطلب الموصول عبر WebSocket صادر، ويستقبل إطارات <code>descriptor</code>, <code>inbound</code> و<code>interrupt_inbound</code> على نفس المقبس (socket). يعلن الموصول عن <code>CapabilityDescriptor</code>؛ ويمكن لـ Hermes إرسال ردود صادرة عادية، وعمليات <code>follow_up</code> بدون توكن، وإطارات مقاطعة عائدة عبر relay. يعيش عقد السلك (wire contract) المستند إلى المصدر في <a href="/docs/developer-guide/relay-connector-contract">عقد Relay ↔ Connector</a>.</p>
+<p>تنفّذ المهايئات واجهة مشتركة:</p>
+<ul>
+<li><code>connect()</code> / <code>disconnect()</code> — إدارة دورة الحياة</li>
+<li><code>send()</code> — تسليم الرسائل الصادرة</li>
+<li>تُوحَّد الأحداث الواردة إلى <code>MessageEvent</code> وتُمرَّر عبر <code>handle_message()</code></li>
+</ul>
+<p>يستخدم التنشيط (wake) الداخلي عبر الدفع <code>gateway.wake.admit_internal_event</code>: لا تزال
+<code>handle_message()</code> العامة تعيد <code>None</code>، لكن إيصال <code>_gateway_accepted</code> المحلي للعملية الخاص بالحدث
+لا يُضبط إلا بعد الجدولة أو الإدراج في قائمة الانتظار.
+المعالِج المفقود، أو مفتاح الجلسة الصريح غير المطابق، أو إسقاط بسبب سقف قائمة الانتظار ليست
+قبولًا. يجب على المهايئات المخصّصة التي تتجاوز الاستقبال (ingress) تفويض الأحداث الداخلية إلى
+<code>BasePlatformAdapter.handle_message()</code> (أو تسجيل القبول الفعلي صراحةً)،
+لا معادلة رد نداء استُهلِك/أُسقِط بالقبول. هذا الإيصال منفصل
+عن محاسبة تنفيذ نبضات الجلسة (heartbeat)، ولا يتجاوز التفويض أو الإيقاف الطارئ
+أو حواجز تحضير الدور اللاحقة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-locks">أقفال التوكن</h3>
+<p>تستدعي المهايئات التي تتصل ببيانات اعتماد فريدة <code>acquire_scoped_lock()</code> في <code>connect()</code> و<code>release_scoped_lock()</code> في <code>disconnect()</code>. يمنع هذا وجود profile اثنين يستخدمان نفس توكن البوت في آن واحد.</p>
+<p>يُصدَر تعارض القفل باسم <code>{scope}_lock</code> مع <code>retryable=True</code> بحيث يمكن لإعادة اتصال <strong>أثناء التشغيل</strong> أن تسترجع عملها بمجرد خروج الحائز الآخر. أما عند <strong>بدء التشغيل</strong>، فإن وجود حائز أجنبي حيّ يُعدّ تعارض إعداد: تتعرّف <code>gateway/restart.py::is_global_startup_conflict()</code> على عائلات رموز <code>*_lock</code> / <code>lock_conflict</code>، ويوقف موجّه بدء التشغيل المنصّة بشكل <code>fatal</code> بدلًا من وضعها في قائمة إعادة المحاولة. وإن لم يكن هناك شيء آخر متصل، يخرج gateway بالرمز <code>78</code> (<code>EX_CONFIG</code>, <code>gateway_state=startup_failed</code>) كي يتوقف supervisor عن إعادة تشغيله: systemd عبر <code>RestartPreventExitStatus=78</code>، و s6 عبر finish→125، و launchd عبر <code>KeepAlive.SuccessfulExit=false</code> بعد أن يحوّل wrapper stderr الرمز 78→0. وبجانب فشل نظير مؤقت فعلًا، يبقى الـ gateway حيًا ويعيد النظير وحده المحاولة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="delivery-path">مسار التسليم</h2>
+<p>تتعامل التسليمات الصادرة (<code>gateway/delivery.py</code>) مع:</p>
+<ul>
+<li><strong>الرد المباشر</strong> — إرسال الاستجابة عائدةً إلى المحادثة الأصلية</li>
+<li><strong>التسليم إلى قناة رئيسية (home channel)</strong> — توجيه مخرجات مهام cron والنتائج الخلفية إلى قناة رئيسية مضبوطة</li>
+<li><strong>التسليم إلى هدف صريح</strong> — يحدّد محرّك الإرسال هدفًا مثل <code>telegram:-1001234567890</code>، مكشوفًا عبر <a href="/docs/guides/pipe-script-output"><code>hermes send</code> CLI</a> لسكربتات الـ shell وعبر أهداف <code>deliver:</code> في cron</li>
+<li><strong>التسليم عبر منصات مختلفة</strong> — التسليم إلى منصّة مختلفة عن منصّة الرسالة الأصلية</li>
+</ul>
+<p>تسليمات مهام cron لا تُرآى (mirror) في سجل جلسة gateway — بل تعيش في جلسة cron الخاصة بها فقط. هذا قرار تصميم متعمَّد لتجنّب انتهاكات تناوب الرسائل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hooks">Hooks</h2>
+<p>hooks الخاصة بـ gateway وحدات Python تستجيب لأحداث دورة الحياة:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="gateway-hook-events">أحداث hooks الخاصة بـ Gateway</h3>
+<table><thead><tr><th>الحدث</th><th>وقت الإطلاق</th></tr></thead><tbody><tr><td><code>gateway:startup</code></td><td>بدء عملية gateway</td></tr><tr><td><code>session:start</code></td><td>بدء جلسة محادثة جديدة</td></tr><tr><td><code>session:end</code></td><td>اكتمال الجلسة أو انتهاء مهلتها</td></tr><tr><td><code>session:reset</code></td><td>يعيد المستخدم ضبط الجلسة بـ <code>/new</code></td></tr><tr><td><code>agent:start</code></td><td>يبدأ الوكيل معالجة رسالة</td></tr><tr><td><code>agent:step</code></td><td>يُكمل الوكيل تكرارًا واحدًا لاستدعاء أداة</td></tr><tr><td><code>agent:end</code></td><td>ينهي الوكيل عمله ويعيد الاستجابة</td></tr><tr><td><code>command:*</code></td><td>تنفيذ أي slash command</td></tr></tbody></table>
+<p>تُكتشَف hooks من <code>gateway/builtin_hooks/</code> (نقطة توسعة — فارغة حاليًا في التوزيعة المُشحَنة؛ <code>_register_builtin_hooks()</code> جذع (stub) بلا عملية) ومن <code>&lt;profile home&gt;/hooks/</code> (مثبّتة من المستخدم؛ <code>~/.hermes/hooks/</code> للـ profile الافتراضي، ودليل لكل profile مخدوم عند تعدد الإرسال — تُحدّد المسارات وقت الاستدعاء، لا عند الاستيراد مطلقًا). وكل hook دليل به <code>HOOK.yaml</code> و<code>handler.py</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-provider-integration">تكامل مزوّد الذاكرة</h2>
+<p>عندما تكون إضافة مزوّد ذاكرة (مثل Honcho) مفعّلة:</p>
+<ol>
+<li>ينشئ gateway نسخة <code>AIAgent</code> لكل رسالة بمعرّف الجلسة</li>
+<li>تُهيّئ <code>MemoryManager</code> المزوّد بسياق الجلسة</li>
+<li>تُوجَّه أدوات المزوّد (مثل <code>honcho_profile</code>, <code>viking_search</code>) عبر:</li>
+</ol>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<ol start="4">
+<li>عند انتهاء الجلسة أو إعادة ضبطها، تُطلق <code>on_session_end()</code> للتنظيف وتفريغ البيانات النهائي</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-flush-lifecycle">دورة حياة تفريغ الذاكرة</h3>
+<p>حدود المحادثة الصريحة (مثل <code>/new</code>, <code>/reset</code> أو <code>/resume</code>) تفرّغ الجلسة الصادرة وتُنهيها. أما وقت الخمول والحدود اليومية فلا تُنهيها أبدًا.</p>
+<p>إخلاء TTL الخاص بالموارد فقط، و LRU ، وإخلاء ضغط الذاكرة، يودِعون النسخة المخزَّنة مؤقتًا من المحادثة لدى مزوّدي الذاكرة المضبوطين قبل تحرير عملاء الوكيل. وهذا لا يُغلق المحادثة الدائمة: يعيد الدور التالي تحميل نفس المحادثة والهوية.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-maintenance">الصيانة الخلفية</h2>
+<p>يشغّل gateway صيانة دورية جنبًا إلى جنب مع معالجة الرسائل:</p>
+<ul>
+<li><strong>نبض cron</strong> — يتحقّق من جداول المهام ويطلق المهام المستحقة</li>
+<li><strong>تدبير الجلسات</strong> — يستعيد الموارد المخزَّنة مؤقتًا دون إنهاء المحادثات</li>
+<li><strong>تفريغ الذاكرة</strong> — يودِع الذاكرة قبل الإخلاء المؤقت اللين</li>
+<li><strong>تحديث الذاكرة المؤقتة (cache)</strong> — يحدّث قوائم النماذج وحالة المزوّدين</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="process-management">إدارة العمليات</h2>
+<p>يعمل gateway كعملية طويلة الأمد، تُدار عبر:</p>
+<ul>
+<li><code>hermes gateway start</code> / <code>hermes gateway stop</code> — تحكّم يدوي</li>
+<li><code>systemctl</code> (على لينكس) أو <code>launchctl</code> (على macOS) — إدارة الخدمات</li>
+<li>ملف PID في <code>~/.hermes/gateway.pid</code> — تتبّع عمليات محدَّد بـ profile</li>
+</ul>
+<p><strong>محدَّد بـ profile مقابل عالمي</strong>: <code>start_gateway()</code> يستخدم ملفات PID ضمن نطاق الـ profile. في التشغيل المستقل (gateway لكل profile)، <code>hermes -p x gateway stop</code> يوقف gateway الخاص بذلك الـ profile فقط. عند تعدد الإرسال يوجد gateway واحد لكل مضيف، يملكه الـ profile الذي أطلقه (<code>gateway/host_rendezvous.py</code> ينشر PID والموطن ومجموعة الـ profiles المخدومة؛ و <code>gateway/host_attach.py</code> هو قرار الاتصال/إعادة المسح/الرفض الذي يمر عبره كل أمر لدورة الحياة): يُسقط <code>hermes gateway stop</code> على المالك كل الـ profiles المخدومة، ويرفض <code>hermes -p x gateway stop</code> للـ profile الثانوي المخدوم برمز خروج 78 (لأنه لا يملك gateway خاصًا به). ويتصل <code>gateway run</code> ثانٍ لـ profile مخدوم ثم يخرج بـ 0 — أما تحت supervisor للخدمات فيخرج بـ 75 (EX_TEMPFAIL)، كي تُعاد محاولة الوحدة الزائدة بدل تعليقها: &quot;someone else serves me right now&quot; ملاحظة وقت تشغيل تنتهي بانتهاء تلك العملية، وسيترك 78 (الذي تعامله systemd و s6 و launchd كحالة دائمة) الـ profile عالقًا. يتطلب ATTACH إجابة <code>identify</code> حية من المالك؛ فسجل الالتقاء الذي لا توجد وراءه استجابة يثبت وجود مالك، لا أنه يخدمك، لذا ينتج رفضًا مؤقتًا (خروج 75)، لا اتصالًا مطلقًا. والمالك الذي يجيب بـ <code>multiplex: False</code> لإعادة المسح هو gateway <em>مستقل</em> للـ profile الآخر، وليس multiplexer استبعدك: يبدأ الأمر gateway الخاص بهذا الـ profile بجواره (بنية عملية واحدة لكل profile)، ولا يرفض — فالرفض هناك كان يخرج بـ 78 ويعلّق كل وحدات launchd عدا أول وحدة استحوذت على قفل المضيف. <code>hermes gateway stop --all</code> فحص <code>ps aux</code> للبحث عن كل عمليات gateway وقتلها (يُستخدم أثناء التحديثات). ويُحدَّد كون العملية حية بواسطة <code>gateway.status.live_gateway_pid_for_home</code> (PID + بصمة وقت البدء)، لا مجرد وجود PID مطلقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="background-process-notifications">إشعارات عمليات الخلفية</h2>
+<p><code>terminal(background=true, notify_on_complete=true)</code> يبدأ مراقب gateway يرصد الإكمال ويفعّل دورًا جديدًا للوكيل. مستوى التفصيل: <code>display.background_process_notifications</code> (أو <code>HERMES_BACKGROUND_NOTIFICATIONS</code>): <code>concise</code> (الافتراضي؛ سطر واحد، وتضيف الإخفاقات نهاية المخرجات)، <code>all</code> (تحديثات أثناء التشغيل + المخرجات الخام النهائية)، <code>result</code> (المخرجات الخام النهائية فقط)، <code>error</code> (المخرجات الخام النهائية فقط عند الخروج غير الصفري)، <code>off</code>.</p>
+<p>يُفعَّل المراقب على حلقة الـ gateway وقت التسجيل (<code>terminal_tool_background.py:: _register_completion_watcher</code> → <code>run_notifications.py::arm_process_watcher</code>); <code>pending_watchers</code> ليس إلا البديل للعمليات المسجلة قبل أن يبدأ الـ gateway الخدمة (استعادة checkpoint) أو أثناء توقفه، وتُصرف عند البدء وبعد الدور. لا ترسل مراقبات agent-notify إقرارًا للمستخدم (فالدور التالي للوكيل هو التقرير)، إلا إذا كان الدور الذي أطلق العملية ما زال يعمل عند خروجها — حينها لا يُدرج الحقن إلا متابعة لاحقة، فيُرسل الإقرار الموجز فورًا.</p>
+<p>يصرف مراقب الإكمال الخامل أيضًا <code>watch_match</code> / <code>watch_disabled</code>؛ ولا تلزم متابعة من المستخدم. ويصرف وضع تعطيل الإشعار هذه العناصر دون إيقاظ. تُعاد محاولة إخفاقات النقل؛ ولا تستهلك الجهات المالكة/وسائل النقل الدائمة غير المتاحة محاولات تسليم. تحتفظ أحداث العمليات ضمن نطاق أسماء الـ profile بالـ adapter المالك لها، بما في ذلك إشعارات التقدم/النتيجة الخام. وقبول adapter يعني قبول الإدخال مرة واحدة على الأقل، لا دليلًا على اكتمال دور نموذج أو رد صادر نهائي. وتبقى الإكمالات غير المتزامنة لخادم API صفوف تسليم دائمة، لا أدوار نموذج جديدة مستقلة مطلقًا. اشترط إقرار <code>admit_internal_event</code> لحقن الإكمال/المراقبة: عودة المعالج بـ None ليست قبولًا. يعيد رفض الإدخال كل عناصر الدفعة الشقيقة المطالب بها دون استهلاك محاولة؛ وتحتفظ أخطاء التسليم الفعلية بسياسة إعادة المحاولة المحدودة. تُحدَّد مسارات API الخام المعروفة بعد مصادر المراسلة المحفوظة، وتؤجّل بصمت عند عدم الإتاحة؛ أما المسارات المشوهة فما زالت تحذّر.</p>
+<p>لتنفيذ cron جلسة خاصة. قد تعكس التسليمات المؤهلة للاستمرار المحادثة المواجهة للرد أو تهيئها: المصدر، أو بديل الموطن دون مصدر، أو موطن المنصة المجرد الذي كتبه المستخدم، أو أهداف صريحة مختارة. ولا تمنح توسعات <code>all</code> أهلية العكس إلى الموطن. وتكون الملخصات المعكوسة أدوار مستخدم معلَّمة تُلحق عند حد الدور، مع الحفاظ على تناوب الأدوار (<code>cron/AGENTS.md</code>).</p>

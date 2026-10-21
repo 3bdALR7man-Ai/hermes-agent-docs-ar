@@ -3,6 +3,12 @@
 للقراءة فقط — اقرأها بـ<code>.get()</code> في المعالِجات (handlers)، واشترك بها بـ<code>useValue(atom)</code> في
 المكوّنات.</p>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<p><code>gatewayActivationEpoch</code> تصدير مُسمّى في SDK: <code>import { gatewayActivationEpoch } from &#x27;@hermes/plugin-sdk&#x27;</code>.
+يقرأ عدّاد التفعيل المرجعي الذي يتغير مع كل اختيار لمسار نشط،
+بما في ذلك تبديل المصدر ضمن الـ profile نفسه. التقط <code>const epoch = gatewayActivationEpoch()</code>
+مع المسار قبل أي عمل غير متزامن، ثم تحقق من المسار الملتقَط
+ومن <code>gatewayActivationEpoch() === epoch</code> قبل التعديل أو نشر واجهة المستخدم. هذا
+العدّاد للقراءة فقط وليس بيانات اعتماد ولا منح صلاحية ولا هوية دائمة لـ gateway أو لجلسة.</p>
 <p><code>host.state.gateway</code> هو اتصال WebSocket، وليس ما إذا كان دور محادثة يعمل حاليًا.
 يمكن للجلسة أن تكون في منتصف دور بينما يكون الـ socket <code>open</code>؛ ويمكن لجلسة
 أخرى أن تكون خاملة في الوقت نفسه. عطّل إجراءات المحرّر أو الإضافة بناءً على انشغال دور
@@ -12,7 +18,13 @@
 <p><code>host.request</code> هو نفس JSON-RPC الذي يستخدمه التطبيق نفسه (الجلسات، الإعدادات، المهارات،
 cron، kanban، …). تقبل <code>host.requestProfile</code> وصفًا (descriptor) من
 <code>host.profileRoutes()</code> وتوجّه RPC عبر مصدره الدقيق في السجل والـ profile الخاص به دون تغيير المحادثة النشطة أو الـ gateway. لا يُحتفظ بالصيغة المحمّلة الخاصة بـ profile وحده إلا لبنية محلية وحيدة/قديمة؛ يجب أن تمرّر الإضافات المدركة للسجل الوصف كي لا يتعارض مصدران يتيحان اسم profile نفسه.</p>
-<p>يطلب الاستدعاء الذي قد يبدأ backend مجمّعًا لـ profile من البداية الاتصال بأولوية خلفية افتراضيًا، ولا تحصل اتصالات الخلفية أبدًا على الخانة التي يبقيها المجمّع خالية لإجراءات المستخدم. عندما يكون الاستدعاء إجراء مستخدم فعليًا (حفظًا أو ضغط زر أو فتح حوار)، مرّر <code>host.requestProfile(route, method, params, undefined, { spawnPriority: &#x27;foreground&#x27; })</code>؛ وإلا، حين يمتلئ المجمّع بـ backends دافئة، ينتظر مهلة الخانة البالغة 30 ثانية ويفشل. أبقِ القيمة الخلفية الافتراضية للاستطلاع وتدفئة قائمة الوكلاء.</p>
+<p>يتصل الاستدعاء الذي عليه فتح اتصال بـ profile آخر بأولوية خلفية
+افتراضيًا. وبعد فشل الاتصال بذلك الـ profile، تفشل الاستدعاءات الخلفية سريعًا بينما
+يعمل تراجع إعادة الاتصال (<code>Backend for &quot;&lt;profile&gt;&quot; is reconnecting; retry after it settles.</code>)
+بدل إعادة الاتصال عند كل نبضة. وعندما يكون الاستدعاء إجراء مستخدم فعليًا (حفظًا،
+أو ضغط زر، أو فتح حوار)، مرّر
+<code>host.requestProfile(route, method, params, undefined, { spawnPriority: &#x27;foreground&#x27; })</code>
+ليتصل فورًا. أبقِ القيمة الخلفية الافتراضية للاستطلاع (polling) وتدفئة القائمة (roster).</p>
 <p><code>host.openWorkspace(id, { render, title?, minWidth?, onClose? })</code> يُرسي عرضًا
 يعرضه الإضافة في <strong>منطقة مساحة العمل الرئيسية</strong> — نفس المنطقة الوسطى التي تستخدمها
 بلاطات الجلسات والمعاينات — كتبويب، ويُظهره. إعادة استدعائه بنفس
@@ -69,6 +81,17 @@ cron، kanban، …). تقبل <code>host.requestProfile</code> وصفًا (desc
 مستمعك لا يمكن أن يؤثر على إرسال (dispatch) التطبيق. كل باب في <code>host</code> آمن غير متزامن (async-safe): أي رمي استثناء متزامن
 من مساعد داخلي (مثلًا عدم وجود جسر سطح مكتب في متصفح عادي) يتحوّل إلى
 رفض (rejection) يلتقطه <code>.catch()</code> الخاص بك، وليس إلى انهيار في حدود الخطأ.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-progress-event">تقدّم الأداة المباشر — <code>tool.progress</code></h4>
+<p>أثناء تشغيل استدعاء أداة، يصل خادم MCP الذي يرسل <code>notifications/progress</code> (قناة التقدم في
+مواصفة MCP؛ ويشترك Hermes فيها بإرسال <code>_meta.progressToken</code> مع
+كل <code>tools/call</code>) إلى الـ renderer بوصفه حدث <code>tool.progress</code>. ويعرضه صف الأداة
+الأصلي بالشكل <code>42% · &lt;message&gt;</code> بجوار مؤقّته؛ ويمكن للإضافة أن تعرض
+واجهتها الخاصة:</p>
+<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<table><thead><tr><th>الحقل</th><th>النوع</th><th>المعنى</th></tr></thead><tbody><tr><td><code>tool_id</code></td><td><code>string</code></td><td>معرّف الاستدعاء؛ وهو نفسه <code>tool_id</code> في <code>tool.start</code> / <code>tool.complete</code> الخاصين بالاستدعاء</td></tr><tr><td><code>name</code></td><td><code>string</code></td><td>اسم الأداة المسجَّل (<code>mcp__&lt;server&gt;__&lt;tool&gt;</code>)</td></tr><tr><td><code>progress</code></td><td><code>number</code></td><td>قيمة التقدم الخام من الخادم</td></tr><tr><td><code>total</code></td><td><code>number | null</code></td><td>الإجمالي لدى الخادم، إن أرسله</td></tr><tr><td><code>percent</code></td><td><code>number | null</code></td><td>من <code>0</code> إلى <code>100</code> (مقرَّبة ومحصورة ضمن النطاق) عند ضبط <code>total</code>، وإلا <code>null</code></td></tr><tr><td><code>message</code></td><td><code>string | null</code></td><td>رسالة التقدم من الخادم</td></tr></tbody></table>
+<p>تُخنَق الأحداث (throttle) بحيث يصل حدث واحد على الأكثر كل 500 ms لكل استدعاء؛ ويصل دائمًا أول تحديث
+والتحديث الذي يبلغ <code>total</code>. ولا تُخزَّن في
+السجل (transcript) أبدًا، فلا تعرض الجلسة المُعاد فتحها سوى الصف المنتهي.</p>
 <p><code>ctx.os</code> هو المدخل المنظّم لنظام التشغيل — كل طريقة تصل بها الإضافة إلى خارج نافذة التطبيق، في مساحة أسماء واحدة منسوبة إلى إضافتك. <code>ctx.os.notify</code> يُصدر <strong>إشعار نظام تشغيل أصلي (native)</strong> — نفس أنبوب Electron الذي تستخدمه
 تنبيهات الموافقة/الدور الخاصة بالتطبيق نفسه. لا يطلق إلا عندما يكون المستخدم بعيدًا عن Hermes
 (في الخلفية / غير مركَّز عليه)؛ استخدم <code>host.notify</code> للحصول على toast داخل التطبيق عندما
@@ -76,7 +99,7 @@ cron، kanban، …). تقبل <code>host.requestProfile</code> وصفًا (desc
 Notifications ▸ &quot;Plugin notifications&quot;، وتُقيَّد التكرارات من نفس الإضافة،
 لذا تعامل معه كإشارة لأحداث ملحوظة حقًا — لا كسجل (log).</p>
 <p>عرض غني + تفعيل (يوسّع باب <code>ctx.os</code> الأصلي):</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
 <p><code>activate</code> متوافق مع الروابط العميقة (deeplink): يحلّ كلٌّ من <code>hermes://index-network/intent/1</code> ومسار
 التجزئة (hash) <code>/index-network/intent/1</code> إلى نفس المسار داخل التطبيق (ويعمل
 نفس رابط <code>hermes://…</code> كرابط عميق لنظام التشغيل). لا تُعرَض أزرار الإجراء إلا في
@@ -87,8 +110,8 @@ Notifications ▸ &quot;Plugin notifications&quot;، وتُقيَّد التكر
 أقدم، متصفح عادي) — افرِّع بناءً على النتيجة بدلًا من استشعار الجسر.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pet-bubble">فقاعة الحيوان الأليف — <code>ctx.pet</code></h3>
 <p>للحيوان الأليف الأساسي (شخصية petdex، داخل النافذة أو منفصلة في نافذة خاصة لنظام التشغيل) فقاعة كلام. يتيح <code>ctx.pet</code> للإضافة وضع سطر قصير فيها، فلا تحتاج إلى العثور على الحيوان في DOM التطبيق أو عرض طبقة عائمة خاصة فوقه:</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
 <p>ما يضمنه المضيف كي لا تحتاج إلى ضمانه:</p>
 <ul>
 <li><strong>نص عادي.</strong> تُزال محارف التحكم وتجاوزات اتجاه الكتابة، وتُختزل المسافات إلى سطر واحد، ويُحدّ النص بـ 120 حرفًا. يُعرض كعقدة نصية؛ ويظهر الترميز حرفيًا.</li>
@@ -103,66 +126,35 @@ Notifications ▸ &quot;Plugin notifications&quot;، وتُقيَّد التكر
 <p>إدخال المؤشر على الحيوان (السحب أو shift-click لفصله أو النقر على طبقته) خاص بالمضيف ولا يملك hook للإضافات. استخدم أمرًا في لوحة الأوامر أو عنصر شريط حالة أو جزءك الخاص للإجراءات.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="run-app-actions">تشغيل إجراءات التطبيق — <code>ctx.runAction</code></h3>
 <p>يمكن تشغيل أوامر التطبيق نفسه — المرتبطة باختصارات لوحة المفاتيح ولوحة الأوامر — بحسب المعرّف. تحصل الإضافة على المعالج نفسه الذي يشغّله الاختصار تمامًا، فلا يغيّر لك شيء إعادة تعيين المستخدم لذلك الاختصار (أو إلغاء تعيينه) في Settings ▸ Keyboard Shortcuts:</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
 <p>لا يُسمح إلا بإجراءات العرض والتنقل. <code>PluginAppActionId</code> هو الاتحاد المحدد الأنواع؛ و <code>PLUGIN_APP_ACTIONS</code> القائمة نفسها وقت التشغيل:</p>
 <table><thead><tr><th>المعرّف</th><th>ما يفعله</th></tr></thead><tbody><tr><td><code>view.showBrowser</code></td><td>تبديل لوحة المتصفح</td></tr><tr><td><code>view.showFiles</code></td><td>إظهار متصفح الملفات</td></tr><tr><td><code>view.toggleSidebar</code></td><td>تبديل الشريط الجانبي الأيسر</td></tr><tr><td><code>view.toggleRightSidebar</code></td><td>تبديل الجانب الأيمن</td></tr><tr><td><code>view.toggleReview</code></td><td>تبديل جزء المراجعة (git)</td></tr><tr><td><code>view.toggleStatusbar</code></td><td>تبديل شريط الحالة</td></tr><tr><td><code>view.findInPage</code></td><td>فتح البحث في الصفحة</td></tr><tr><td><code>composer.focus</code></td><td>التركيز على مربع الكتابة</td></tr><tr><td><code>session.new</code></td><td>بدء محادثة جديدة</td></tr><tr><td><code>session.focusSearch</code></td><td>التركيز على البحث في الجلسات</td></tr><tr><td><code>conversation.scrollPageUp</code> / <code>conversation.scrollPageDown</code></td><td>تمرير نص المحادثة صفحةً</td></tr><tr><td><code>nav.commandPalette</code></td><td>تبديل لوحة الأوامر</td></tr><tr><td><code>nav.settings</code>، <code>nav.profiles</code>، <code>nav.capabilities</code>، <code>nav.messaging</code>، <code>nav.artifacts</code>، <code>nav.cron</code>، <code>nav.agents</code></td><td>فتح تلك الصفحة</td></tr><tr><td><code>keybinds.openPanel</code></td><td>فتح Settings ▸ Keyboard Shortcuts</td></tr></tbody></table>
 <p>يُرفض أي شيء آخر: <code>{ ok: false, reason: &#x27;denied&#x27; }</code> لإجراء تطبيق فعلي غير مدرج (الأرشفة أو التثبيت أو تبديل profile / النموذج / الاستدلال أو الطرفيات أو نافذة جديدة أو فتح مجلد أو HUD أو إغلاق تبويب وغيرها)، و <code>reason: &#x27;unknown&#x27;</code> لمعرّف غير موجود. في الحالتين لا يُنفّذ شيء ويُسجَّل تحذير <code>[plugin:&lt;id&gt;] runAction: …</code>. يعني <code>reason: &#x27;unavailable&#x27;</code> أن shell التطبيق المسؤول عن المعالجات لم يُركّب بعد (مرحلة بدء مبكرة جدًا)؛ أعد المحاولة من إجراء مستخدم. لا تُعدّ العمليات الإتلافية وذات الامتيازات (حذف الجلسات أو تسجيل الخروج أو الموافقات أو تغيير النموذج/المزوّد أو التحديثات أو الإنهاء) إجراءات تطبيق تستطيع إضافة تنفيذها.</p>
 <p>تحقّق من توفر الميزة على المضيفين الأقدم: <code>ctx.runAction?.(&#x27;view.showBrowser&#x27;)</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="desktop-appearance-settings--hostsettings">إعدادات مظهر Desktop — <code>host.settings</code></h3>
 <p><code>host.settings</code> هو المدخل المدعوم للمجموعة الصغيرة من تفضيلات المظهر المحلية لـ Desktop التي يمكن للإضافات مشاركتها مع صفحة Settings الأصلية. يرتبط كل مفتاح بذرّة المخزن ودالة ضبطها اللتين تستخدمهما صفحة Settings نفسها، فتكون كتابة الإضافة كنقرة المستخدم على ذلك العنصر تمامًا: تسري فورًا، وتُحفظ عبر مخطط تخزين التفضيل الحالي، وتكون الغلبة لآخر كتابة (لا &quot;تملك&quot; إضافة القيمة بعد ذلك، ولا شيء لتفكيكه من أجل <code>set</code>).</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
-<p><code>chatTextScale</code> هو حجم نص المحادثة لدى المستخدم (الافتراضي <code>110</code>). يغيّر حجم نص المحادثة ومربع الكتابة (وارتفاع أسطره) عبر متغير CSS الخاص بالمضيف <code>--chat-text-scale</code>، فتضبط الإضافة أو السمة التي تريد نص قراءة أكبر/أصغر الإعداد المسبق نفسه الذي يختاره المستخدم؛ وتبقى هندسة الأجزاء ومسافات الصفوف وإطار الواجهة ملكًا للنواة. لا تُقبل إلا الإعدادات الستة المسبقة: يطلق رقم خارجها (<code>112</code> أو <code>&#x27;125&#x27;</code>) استثناءً بدلًا من تقريبه، فلا يستطيع خطأ كتابي إعادة ضبط حجم المستخدم بصمت. وككل مفتاح هنا، فهو تفضيل للمستخدم لا تجاوز لإضافة: اكتبه من إجراء مستخدم صريح في واجهتك (لا عند <code>register</code> مطلقًا)، واقرأه/اشترك فيه لتكييف عرضك الخاص.</p>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p><code>chatTextScale</code> هو حجم نص المحادثة لدى المستخدم (الافتراضي <code>110</code>). يغيّر حجم نص المحادثة ومربع الكتابة (وارتفاع أسطره) عبر متغير CSS الخاص بالمضيف <code>--chat-text-scale</code>، فتضبط الإضافة أو السمة التي تريد نص قراءة أكبر/أصغر الإعداد المسبق نفسه الذي يختاره المستخدم؛ وتبقى هندسة الأجزاء ومسافات الصفوف وإطار الواجهة ملكًا للنواة. لا تُقبل إلا الإعدادات الستة المسبقة: يطلق رقم خارجها (<code>112</code> أو <code>&#x27;125&#x27;</code>) استثناءً بدلًا من تقريبه، فلا يستطيع خطأ كتابي إعادة ضبط حجم المستخدم بصمت. وككل مفتاح هنا، فهو تفضيل للمستخدم لا تجاوز لإضافة: اكتبه من إجراء مستخدم صريح في واجهتك (لا عند <code>register</code> مطلقًا)، واقرأه/اشترك فيه لتكييف عرضك الخاص.</p>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
 <p>الفصل: قائمة السماح أعلاه مغلقة. يطلق مفتاح غير معروف أو قيمة خارج نوع المفتاح استثناءً <strong>بصورة متزامنة</strong> (<code>Unsupported desktop setting: …</code> / <code>Invalid value for desktop setting: …</code>) ولا يُكتب شيء — لا يلمس <code>host.settings</code> أبدًا <code>localStorage</code> مباشرةً، فلا يستطيع تجاوز مخطط مخزن أو انتقاله. تحقّق من توفر <code>host.settings</code> عند دعم بُنى Desktop أقدم.</p>
 <p>هذه <strong>ليست</strong> مفاتيح عمدًا، والأسباب:</p>
 <table><thead><tr><th>المطلوب</th><th>ما تستخدمه بدلًا منه</th><th>لماذا لا يُستخدم مفتاح خام</th></tr></thead><tbody><tr><td>خريطة اختصارات (<code>hermes.desktop.keybinds</code>)</td><td><code>KEYBINDS_AREA</code>: مساهمة</td><td>تعيد كتابة خريطة خام تعيين اختصارات كل الإضافات الأخرى؛ تدمج المنطقة لكل إضافة وتُفكّك معها</td></tr><tr><td>سجل السمة / الوضع النشط</td><td><code>THEMES_AREA</code> (سجّل سمة؛ يختارها المستخدم)</td><td>اختيار السمة خاص بكل نافذة/profile ويتولى التطبيق الفصل فيه، وليس تفضيلًا مسطّحًا</td></tr><tr><td><code>pluginDecisions</code> (تفعيل/تعطيل إضافة Desktop)</td><td>تبويب Plugins في التطبيق (العرض للقراءة فقط hook منفصل في SDK)</td><td>تغيير إضافة لحالة تفعيل أخرى هو تداخل الإضافات في عمل بعضها</td></tr><tr><td>عرض المحادثة / مربع الكتابة، والمسافة بين الأدوار، وهندسة صف الجلسة</td><td>لا شيء بعد — لا تصبح مفاتيح إلا عندما توجد كتفضيلات Appearance أساسية (عرض المحادثة: #55287)</td><td>التخطيط ملك للمضيف؛ وعقد هندسة تملكه إضافة سيجعل كل سمة عقد تخطيط</td></tr><tr><td><code>toolView.technical</code>، <code>embed-mode</code>، <code>titlebarAppActions</code>، <code>translucency.v2</code>، <code>user-bubble-transparency.v1</code>، <code>hermesDesktop.zoom.*</code></td><td>مفاتيح لاحقة بعد تدقيق كل مخزن</td><td>يقود بعضها العملية الرئيسية أو إطار النافذة؛ يحتاج كلٌّ منها حارسه ومراجعة ملكيته قبل أن تصبح الكتابة إليه متاحة للإضافات</td></tr></tbody></table>
 <p>الانتقال — <code>hermes-appearance-hub</code>، الذي ينفّذ اليوم <code>localStorage.setItem(&#x27;hermes.desktop.sessionListDensity&#x27;, id)</code> ثم <code>window.dispatchEvent(new StorageEvent(&#x27;storage&#x27;, …))</code> لتنبيه مخزن التطبيق (<code>readSimpleKey</code>/<code>writeSimpleKey</code> و <code>readBoolKey</code>/<code>writeBoolKey</code>):</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
 <p>تصبح القراءات <code>host.settings.get(key)</code>؛ ويصبح <code>MutationObserver</code> الخاص به على مفتاح intro-splash في صفحة Settings <code>host.settings.subscribe(&#x27;intro-splash.v1&#x27;, fn)</code> (disposer → <code>ctx.onDispose</code>). يقرأ <code>prompt-snippets</code> القيمة <code>localStorage.getItem(&#x27;hermes.desktop.keybinds&#x27;)</code> لنسخ اختصاره احتياطيًا — وهذا هو صف خريطة الاختصارات أعلاه: أضف القيمة الافتراضية عبر <code>KEYBINDS_AREA</code> واحتفظ بتجاوز المستخدم في <code>ctx.storage</code>، لا في خريطة التطبيق.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="typed-capabilities-bridge--hostskills-hosttoolsets-hostprofiles-hostplugindecisions">جسر القدرات محدد الأنواع — <code>host.skills</code>، <code>host.toolsets</code>، <code>host.profiles</code>، <code>host.pluginDecisions</code></h3>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
 <p>تغلّف هذه <strong>دوال وحدات <code>api/*</code> نفسها التي تستدعيها صفحة Capabilities</strong> (<code>GET /api/skills</code> و <code>PUT /api/skills/toggle</code> و <code>GET /api/tools/toolsets</code> و <code>PUT /api/tools/toolsets/&lt;name&gt;</code> و <code>GET /api/profiles</code>) مع تقييد profile الخاص بالصفحة. احذف <code>profile</code> للعمل على الـ profile النشط على مستوى التطبيق؛ مرّر اسمًا أو مسار <code>{ connectionId, profile }</code> لإعداد profile آخر دون تبديل الموجود في الواجهة الأمامية. لا يُفصل في شيء جديد: يمكن الوصول لكل استدعاء بالفعل عبر <code>host.request</code> — والقيمة هنا هي تحديد الأنواع مع نطاق profile، فتوقف عن استدعاء <code>window.hermesDesktop.api</code> خامًا.</p>
 <p><code>host.pluginDecisions</code> يعكس خريطة تفعيل/تعطيل الإضافات في التطبيق (معرّف الإضافة → <code>true</code>/<code>false</code>؛ غياب المعرّف يعني أن المستخدم لم يختر قط وتُطبّق قيمة <code>defaultEnabled</code> الخاصة بالإضافة). وهو <strong>للقراءة فقط بحكم تصميمه</strong>: ستتيح <code>set()</code> لإضافة تغيير حالة تفعيل أخرى — أي بالضبط &quot;تلاعب الإضافات بوظائف بعضها&quot; — و <code>host</code> كائن وحيد للوحدة لا يعرف الإضافة المستدعية ليقيّد الكاتب بمعرّفها وحده. لا يحتوي الكائن على <code>set</code> وقت التشغيل، لا في الأنواع فقط، وكل قيمة يتيحها (<code>get()</code> و <code>.value</code> ووسيط callbacks الخاص بـ <code>subscribe</code>/<code>listen</code>) هي <strong>نسخة مجمّدة</strong> — تؤدي الكتابة إليها إلى استثناء بدلًا من التسرب إلى الخريطة التي يقرأها التطبيق ويحفظها. يبقى تفعيل/تعطيل الإضافات في تبويب Plugins بالتطبيق؛ اربط إليه باستخدام <code>host.navigate(&#x27;/capabilities?tab=plugins&#x27;)</code>.</p>
 <p>التفكيك: الأفعال إجراءات مستخدم منفصلة تكتب حالة backend نفسها التي تكتبها الصفحة، فلا يبقى شيء مملوك ولا شيء لتفكيكه. يُرجع <code>subscribe()</code> على <code>host.pluginDecisions</code> disposer الخاص به — سجّله باستخدام <code>ctx.onDispose</code> كي تتوقف الإضافة المعطّلة أو المعاد تحميلها عن الاستماع.</p>
 <p>الانتقال (better-capabilities):</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="language-packs--hosti18nregisterapplocale--ctxi18nregisterapplocale">حزم اللغات — <code>host.i18n.registerAppLocale</code> / <code>ctx.i18n.registerAppLocale</code></h3>
 <p><code>ctx.i18n.register</code> يوطّن نصوص إضافتك أنت. تفعل <strong>حزمة اللغة</strong> العكس: تضيف لغة (أو توسعها) للتطبيق بأكمله — كل تسمية وحوار ونصيحة أساسية — ليرى المستخدم البولندي Desktop بالبولندية. التسجيل كتالوج جزئي يُدمج فوق الكتالوج المضمّن لذلك المعرّف (أو الإنجليزية للغة جديدة)؛ يرجع كل ما تحذفه الحزمة إلى بديل لكل مفتاح، لا إلى مفتاح خام مطلقًا. يسرد المبدّل اللغة باسمها الذاتي فورًا (دون أعلام — اللغات ليست دولًا)، وتتبع <code>&lt;html dir&gt;</code> القيمة <code>rtl</code>، وتظل <code>display.language</code> كما اختارها المستخدم: التسجيل ليس اختيارًا.</p>
-<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
 <p>عندما تتضمن الإنجليزية مدخل <strong>دالة</strong> (<code>results: n =&gt; `${n} results` </code>)، تقدّم الحزمة سلسلة عادية بعناصر نائبة موضعية — <code>{0}</code> و <code>{1}</code> بترتيب الوسائط — ويغلّفها الدمج بصيغة الاستدعاء نفسها. تُنشر مجموعة المفاتيح الكاملة في <code>locales/_keys.desktop.json</code> (أعد توليدها باستخدام <code>npm run i18n:keys</code> في <code>apps/desktop</code> واحفظها في commit؛ تثبّت CI الملف على <code>en.ts</code>)، وهي ما تفحص <code>hermes plugins validate</code> ملف <code>&lt;lang&gt;.desktop.yaml</code> في الحزمة مقابله.</p>
 <p><code>host.i18n.registerAppLocale</code> هو الاستدعاء نفسه لكود لا تتوفر له <code>ctx</code>؛ ويُرجع disposer — مرّره إلى <code>ctx.onDispose</code>. فضّل صيغة <code>ctx</code>.</p>
 <p>لا تحتاج حزمة تتضمن أيضًا نصوص النواة (Python) و TUI إلى <strong>أي كود Desktop</strong> على الإطلاق: صرّح عن <code>provides_locales: [pl]</code> في <code>plugin.yaml</code> مع <code>locales/pl.yaml</code> و <code>pl.tui.yaml</code> و <code>pl.desktop.yaml</code>، ويقدّم الـ gateway ملف Desktop عبر <code>i18n.catalog {lang, surface: &#x27;desktop&#x27;}</code>؛ يجلبه التطبيق إلى السجل نفسه (المصدر <code>backend</code>) عندما تذكره <code>display.language</code>، ويعيد جلبه عند تبديل profile.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="data-layer--react-query--nanostores">طبقة البيانات — React Query + nanostores</h2>
-<p>تشارك الإضافات <code>QueryClient</code> الوحيد الخاص بالتطبيق، لذا تخزَّن استعلامات الإضافة مؤقتًا وتُنقّى من التكرار وتُستطلع وتُبطَل تمامًا مثل الشاشات الأساسية — لا تبنِ أبدًا حلقة جلب (fetch) يدوية.</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
-<p>بالنسبة للحالة المشتركة بين مُشغِّل (trigger) ولوحته (panel) — أو حلقة استطلاع — استخدم <code>atom</code> /
-<code>computed</code> — نفس البدائية (primitive) التي يستخدمها <code>host.state</code>. اشترك في الورقة (leaf) التي
-تعرض القيمة باستخدام <code>useValue</code>. لإبطال استعلام من <strong>خارج</strong> React
-(مثلًا وصول إطار عبر <code>ctx.socket</code>)، استورد <code>queryClient</code> المشترك:</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-ui-kit-and-theming">طقم واجهة المستخدم (UI Kit) والسمات (Theming)</h2>
-<p>استورد مكوّنات التطبيق الحقيقية مباشرة حتى تكون واجهتك أصيلة (native) افتراضيًا:</p>
-<blockquote>
-<p><code>Button</code>، و<code>Input</code>، و<code>Textarea</code>، و<code>Select*</code>، و<code>Switch</code>، و<code>Checkbox</code>،
-و<code>SegmentedControl</code>، و<code>Tabs*</code>، و<code>Dialog*</code>، و<code>ConfirmDialog</code>، و<code>DropdownMenu*</code>،
-و<code>ContextMenu*</code>، و<code>Popover*</code>، و<code>Tip</code>/<code>Tooltip*</code>، و<code>Badge</code>، و<code>Kbd</code>/<code>KbdGroup</code>،
-و<code>SearchField</code>، و<code>ScrollArea</code>، و<code>Separator</code>، و<code>Skeleton</code>، و<code>GlyphSpinner</code>، و<code>Loader</code>،
-و<code>EmptyState</code>، و<code>ErrorState</code>، و<code>CopyButton</code>، و<code>StatusDot</code>، و<code>LogView</code>، و<code>Codicon</code>،
-و<code>DecodeText</code>.</p>
-</blockquote>
-<p><code>DecodeText</code>: <code>loop</code> يتطلب تفعيلًا صريحًا منذ هذا التغيير — يفك الترميز مرة واحدة ويبقى ثابتًا افتراضيًا، لذا مرّر <code>loop</code> صراحةً على واجهات التقدم التي يجب أن تواصل خلط الأحرف.</p>
-<p>إضافةً إلى الأدوات المساعدة: <code>cn</code> (دمج classes)، و<code>icons.*</code> (مجموعة lucide الخاصة بالتطبيق)، و<code>haptic</code>،
-و<code>profileColor</code> / <code>profileColorSoft</code> (ألوان هوية حتمية)، ومنسّقات الوقت
-<code>relativeTime</code> / <code>fmtDateTime</code> / <code>fmtDayTime</code> / <code>coarseElapsed</code>،
-و<code>useI18n</code> (نصوص محلَّية — تبقى إضافتك قابلة للترجمة)، و
-<code>evaluateRuntimeReadiness</code>.</p>
-<p><strong>صمّم باستخدام متغيرات السمة (theme variables)، ولا تستخدم ألوانًا ثابتة أبدًا.</strong> تجلس اللوحات (panes) بالفعل على
-خلفية محرر التطبيق — اترك الخلفية كما هي واستخدم المتغيرات لكل شيء
-آخر: <code>var(--ui-text-secondary)</code>، و<code>var(--ui-text-tertiary)</code>،
-و<code>var(--ui-text-quaternary)</code>، و<code>var(--ui-stroke-secondary)</code>، و<code>var(--ui-accent)</code>.
-بالنسبة للرسم على canvas، حلّها مرة واحدة باستخدام
-<code>getComputedStyle(canvas).getPropertyValue(&#x27;--ui-accent&#x27;)</code>. هذا ما يجعل
-الإضافة تُعيد تلوين نفسها تلقائيًا مع كل سمة.</p>

@@ -7,7 +7,7 @@
 المشكلة. عند تفعيلها، تُستبدل أدوات MCP وأدوات الإضافات في
 مصفوفة الأدوات المرئية للنموذج بثلاث أدوات جسر (bridge tools)، ويحمّل النموذج مخطط كل
 أداة محددة عند الحاجة.</p>
-<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="5"></x-keep></span>أدوات Hermes المدمجة لا تُؤجَّل أبدًا</div><div class="admonitionContent_BuS1"><p>الأدوات التي تشكّل مجموعة القدرات الأساسية في Hermes (<code>terminal</code>, <code>read_file</code>, <code>write_file</code>,
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="6"></x-keep></span>أدوات Hermes المدمجة لا تُؤجَّل أبدًا</div><div class="admonitionContent_BuS1"><p>الأدوات التي تشكّل مجموعة القدرات الأساسية في Hermes (<code>terminal</code>, <code>read_file</code>, <code>write_file</code>,
 <code>patch</code>, <code>search_files</code>, <code>todo</code>, <code>memory</code>, <code>browser_*</code>, <code>web_search</code>,
 <code>web_extract</code>, <code>clarify</code>, <code>execute_code</code>, <code>delegate_task</code>، وبقية
 <code>_HERMES_CORE_TOOLS</code>) محمّلة مباشرة افتراضيًا. وقد تُؤجل الأدوات المدمجة غير المحمّلة التي تفعّلها الأحداث عند تسميتها في <code>tools.tool_search.defer</code>؛ وتغطي القائمة المنتقاة المضمّنة أدوات مثل <code>computer_use</code>, <code>session_search</code>، وبعض أدوات Desktop المساعدة. وتبقى أدوات MCP والإضافات غير الأساسية مؤهلة تلقائيًا. وتستبدل قائمة <code>defer</code> الصريحة القائمة المنتقاة، و <code>defer: []</code>. ولا يكون قابلًا للتأجيل سوى أدوات MCP
@@ -61,28 +61,48 @@ hooks ما بعد استدعاء الأداة جميعها على اسم الأ�
 <p>يمكنك أيضًا استخدام الصيغة المنطقية (boolean) القديمة:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="connectors-remote-tools">الموصِّلات (Connectors) — الأدوات البعيدة</h2>
-<p>عندما تكون مسجّلًا الدخول إلى Nous Portal ، يصل الجسر أيضًا إلى
-<strong>الموصلات</strong> — وهي أدوات بعيدة يقدّمها tool gateway المُدار. ولا
-تُسجَّل محليًا أبدًا: إذ يرسل <code>tool_search</code> كل استعلام إلى الـ gateway ، ويضيف
+<p>يصل الجسر أيضًا إلى <strong>الموصلات (connectors)</strong>: وهي أدوات بعيدة يقدّمها tool gateway المُدار. ولا
+تُسجَّل محليًا أبدًا: إذ يرسل <code>tool_search</code> كل استعلام إلى الـ gateway ويضيف
 نتائج الـ gateway إلى الكتالوج المحلي كمستندات (موسومة بـ
 <code>source: &quot;connectors&quot;</code>، وتحمل أسماء بصيغة <code>connectors__&lt;connector&gt;__&lt;tool&gt;</code>)، ويرتّب
 الاثنين معًا بتمريرة BM25 نفسها وقاعدة الـ token الأندر نفسها، بحيث يحدّ <code>limit</code>
 المجموعة ككل، ولا تُزاح أبدًا أداة connector تجيب عن الاستعلام بسبب أدوات محلية تشاركها كلمة واحدة. ويُحدَّد
 استدعاء الـ gateway بمدة 30 ثانية؛ فإذا كان الـ gateway بطيئًا أو متوقفًا، يُكتفى بالنتائج
-المحلية فقط. يجلب <code>tool_describe</code> مخططات الـ connectors من الـ gateway ،
-ويرسل <code>tool_call</code> كل إدخال connector في الدفعة كطلب مستقل إلى الـ gateway ،
+المحلية فقط. يجلب <code>tool_describe</code> مخططات الـ connectors من الـ gateway،
+ويرسل <code>tool_call</code> كل إدخال connector في الدفعة كطلب مستقل إلى الـ gateway،
 بترتيب الإدخال (واسم الأداة الذي لا يعرفه الـ gateway تحت الـ slug
 المعتاد تُعاد محاولته مرة واحدة تحت الـ slug الحرفي، لذا قد يكلّف الإدخال الواحد
 طلبين). وإذا حدث أن قدّم connector الأداتين <code>GMAIL_X</code> و
 <code>X</code> الحرفية معًا، فستتحول كلتاهما إلى <code>connectors__gmail__X</code>، الذي يشغّل <code>GMAIL_X</code>؛
-فيحتفظ البحث بتلك النسخة، ويُسقط الأخرى، ويسجّل تحذيرًا. وتُعاد النتائج إلى ترتيب الدفعة الأصلي
+فيحتفظ البحث بتلك النسخة، ويُسقط الأخرى، ويسجّل تحذيرًا. وتُدمج النتائج في ترتيب الدفعة الأصلي
 مع إعادة حساب الأعداد.</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
-<p>عند تسجيل الخروج (أو عندما لا يقدّم الـ gateway أي connectors لحسابك)،
-يصبح كل ما سبق غير مرئي: ويتصرف البحث المحلي تمامًا كما هو
-موضح في بقية هذه الصفحة، دون إظهار أي أخطاء للنموذج.</p>
-<p>استدعاء الـ connector الذي يحتاج إلى حساب لم تربطه يُرجع خطأ
-<code>CONNECTION_REQUIRED</code> كخطأ. وأداة <code>manage_connections</code> تسرد الموصلات وحالة اتصالها وتبدأ التفويض: في تطبيق Desktop *** يعرض الاستدعاء بطاقة، وينتظر حتى يُوصل كل تطبيق أو يُتجاوز، ويبلغ عن النتائج؛ وفي غيره يعيد رابط اتصال لكل تطبيق ليفتحه المستخدم. ويفصل المستخدم الحساب من Portal. وتثبّت الأداة نفسها أيضًا خوادم MCP المحلية من الكتالوج وتفعّلها وتفوّضها (أهداف ذات <code>mcp: true</code>)، لذا فهي موجودة سواء سجلت الدخول أم لا؛ ولا تحتاج تسجيل الدخول إلا إجراءات الموصلات المُدارة.</p>
+<p>تحتاج الموصلات إلى هوية Nous. ولا يلزمك تسجيل الدخول للحصول عليها: إذا لم يكن
+لديك حساب Nous، فإن أول إجراء <code>manage_connections</code> (أو فتح صفحة Connectors في
+تطبيق سطح المكتب) ينشئ لك هوية Nous مجانية، على كل
+واجهة. ولا يغيّر ذلك مزوّد النموذج لديك: ففي البنى التي لا تشحن
+الطبقة المجانية من Nous، تُستخدم الهوية للموصلات والأدوات المُدارة فقط. وإلى أن توجد، لا يرسل <code>tool_search</code> شيئًا إلى
+الـ gateway وتذكر نتيجته أن الموصلات المستضافة لم تُعدّ بعد وأن
+<code>manage_connections</code> يعدّها. للانسحاب، اضبط:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>مع هذا الإعداد، أو عندما لا يقدّم الـ gateway موصلات لحساب
+مسجَّل الدخول، يصبح كل ما سبق غير مرئي: يعمل البحث المحلي تمامًا
+كما هو موصوف في بقية هذه الصفحة، دون عرض أي أخطاء للنموذج.</p>
+<p>يُرجع استدعاء connector يحتاج إلى حساب لم تربطه الخطأ
+<code>CONNECTION_REQUIRED</code>. وتسرد أداة <code>manage_connections</code> الموصلات و
+حالة اتصالها وتبدأ التفويض: ففي تطبيق *** لسطح المكتب يعرض الاستدعاء بطاقة، وينتظر حتى يُوصَل كل تطبيق أو يُتجاوز، ويبلغ عن
+النتائج؛ وفي غيره يعيد رابط اتصال لكل تطبيق ليفتحه المستخدم.
+ويفصل المستخدم الحساب بنفسه من Portal. وتثبّت الأداة نفسها أيضًا خوادم MCP
+المحلية من الكتالوج وتفعّلها وتفوّضها (الأهداف ذات <code>mcp: true</code>)؛ ولا تنشئ تلك الإجراءات
+أبدًا هوية Nous.</p>
+<p>يمكنك ربط أكثر من حساب واحد للتطبيق نفسه، ولكل حساب اسمه الخاص
+(راجع <a href="/docs/user-guide/features/tool-gateway#multiple-connector-accounts">حسابات الموصلات المتعددة</a>).
+وبمجرد أن يصبح لدى connector حسابان نشطان أو أكثر، تقبل كل أداة من أدواته
+معاملًا <code>connector_alias</code> تكون قيمه المسموح بها أسماء حساباتك،
+ويسردها وصف الأداة (<code>Accounts: home, work.</code>)، فيعرضها <code>tool_search</code> و
+<code>tool_describe</code>. ويحمل إدخال نتيجة connector الحقل <code>account</code>، وهو
+الاسم الذي جرى الاستدعاء بموجبه، عندما يكون للحساب اسم؛ ويغيب الحقل
+عن الحساب بلا اسم.</p>
 <p>تستخدم APIs سرد الحسابات وفصلها في backend Desktop خدمة إدارة الحسابات في Portal ، بما في ذلك فحوص عضوية المؤسسة وتدقيق الفصل. ولا يلجأ Portal غير المتاح إلى إدارة الحسابات مباشرة لدى الـ gateway. ويستمر اكتشاف الأدوات وتنفيذها ومراقبة حالة الاتصال عبر الـ gateway ؛ ولا تستطيع أداة النموذج فصل حساب.</p>
 <p><code>tool_call</code> دفعة: فالحقل <code>calls</code> مصفوفة من إدخالات <code>{name, arguments}</code>
 (والاستدعاء الواحد مصفوفة من عنصر واحد). وكل إدخال connector في الدفعة

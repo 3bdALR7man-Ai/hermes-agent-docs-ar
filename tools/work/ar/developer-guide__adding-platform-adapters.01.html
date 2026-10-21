@@ -1,13 +1,56 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-specific-slow-llm-ux">تجربة الاستخدام الخاصة بالمنصة مع بطء LLM</h2>
+<p>لبعض المنصات قيود تغيّر طريقة عرض استجابة LLM البطيئة:</p>
+<ul>
+<li><strong>LINE</strong> رمز <em>reply token</em> صالحًا للاستخدام مرة واحدة تنتهي صلاحيته بعد نحو 60 ثانية من الحدث الوارد. الرد بهذا الرمز مجاني، أما اللجوء إلى Push API المحسوبة بالاستهلاك فليس كذلك. إذا لم ينتهِ LLM قبل الموعد النهائي، يكون الخيار بين &quot;استهلاك حصة Push المدفوعة&quot; أو &quot;فعل شيء أذكى بالـ reply token قبل انتهاء صلاحيته&quot;.</li>
+<li><strong>WhatsApp</strong> الجلسة غير نشطة بعد 24 ساعة، ولا يقبل بعدها إلا رسائل القوالب (template messages).</li>
+<li><strong>SMS</strong> مفهوم مؤشرات الكتابة أو التحديثات التدريجية — فتبدو الاستجابات الطويلة وكأن البوت غير متصل.</li>
+</ul>
+<p>هذه قيود حقيقية لا تستطيع الفئة الأساسية <code>BasePlatformAdapter</code> توقّعها. وتترك واجهة الإضافات عمدًا المجال للـ adapter كي يضيف طبقة تجربة استخدام خاصة بالمنصة فوق حلقة الكتابة الأساسية دون توسيع قائمة الوسائط (kwargs).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-subclass-_keep_typing-to-layer-mid-flight-ux">نمط: أنشئ فئة فرعية تتجاوز <code>_keep_typing</code> لإضافة تجربة استخدام أثناء المعالجة</h3>
+<p><code>BasePlatformAdapter._keep_typing</code> هي نبضة مؤشر الكتابة — تعمل كمهمة في الخلفية بينما يولّد LLM الاستجابة، وتُلغى عند تسليم الاستجابة. لإضافة سلوك خاص بالمنصة عند عتبة زمنية معيّنة (مثل إرسال فقاعة &quot;still thinking&quot; عند 45 ثانية)، تجاوز <code>_keep_typing</code> في الـ adapter الخاص بك، وجدوِل مهمتك الخاصة إلى جانب <code>super()._keep_typing()</code>، وأنهِها داخل <code>finally</code>:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>نقاط أساسية:</p>
+<ul>
+<li><strong>نفّذ دائمًا <code>await super()._keep_typing(...)</code>.</strong> نبضة الكتابة مفيدة بحد ذاتها — لا تستبدلها، بل أضف طبقتك فوقها.</li>
+<li><strong>أنهِ المهمة الجانبية داخل <code>finally</code>.</strong> عندما ينتهي LLM (أو يُلغي <code>/stop</code> التشغيل)، يُلغي الـ gateway مهمة الكتابة. ويجب أن تلاحظ مهمتك الجانبية هذا الإلغاء أيضًا، وإلا فستبقى عالقة وقد تنطلق بعد تسليم الاستجابة بالفعل.</li>
+<li><strong>اقرنها بـ <code>interrupt_session_activity</code></strong> لمعالجة أي حالة يتيمة في تجربة الاستخدام عندما يُصدر المستخدم <code>/stop</code>. بالنسبة إلى LINE، يعني ذلك نقل عنصر cache الخاص بالـ postback من <code>PENDING</code> إلى <code>ERROR</code> حتى يُرسل الزر الدائم &quot;Get answer&quot; رسالة &quot;Run was interrupted&quot; بدلًا من الدوران في حلقة.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="pattern-subclass-send-to-route-through-a-cache-instead-of-sending-immediately">نمط: أنشئ فئة فرعية تتجاوز <code>send</code> للتوجيه عبر cache بدلًا من الإرسال الفوري</h3>
+<p>إذا كانت تجربة الاستخدام الخاصة بالاستجابة البطيئة تخزّن الاستجابة مؤقتًا لاسترجاعها لاحقًا (مسار postback في LINE)، فيجب أن يميّز تجاوز <code>send</code> الخاص بك بين ثلاثة أوضاع:</p>
+<ol>
+<li><strong>يوجد postback معلّق نشط لهذه المحادثة</strong> → خزّن الاستجابة في الـ cache تحت request_id، ولا ترسل أي شيء مرئي.</li>
+<li><strong>إشعار انشغال من النظام</strong> (<code>⚡ Interrupting</code>، <code>⏳ Queued</code>، <code>⏩ Steered</code>) → تجاوز الـ cache وأرسل بشكل مرئي حتى يرى المستخدم ردّ الـ gateway على مدخلاته.</li>
+<li><strong>استجابة عادية</strong> → أرسل عبر reply-token أو push كالمعتاد.</li>
+</ol>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<p><code>_SYSTEM_BYPASS_PREFIXES</code> هي البادئات الخاصة بإشعارات الانشغال التي يرسلها الـ gateway نفسه (<code>⚡</code>، <code>⏳</code>، <code>⏩</code>، <code>💾</code>). اسمح دائمًا بمرورها بشكل مرئي، بغض النظر عن حالة تجربة الاستخدام المخزّنة مؤقتًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-this-pattern-is-appropriate">متى يكون هذا النمط مناسبًا</h3>
+<p>استخدم أسلوب تجاوز حلقة الكتابة عندما:</p>
+<ul>
+<li>تفرض واجهة API الصادرة للمنصة قيدًا صارمًا على النافذة الزمنية (reply token للاستخدام مرة واحدة، جلسة ثابتة تنتهي صلاحيتها، إلخ) و</li>
+<li>تكون <em>الفقاعة المرئية أثناء المعالجة</em> تجربة استخدام مقبولة على تلك المنصة.</li>
+</ul>
+<p>استخدم المسار الأبسط <code>slow_response_threshold = 0</code> (Push دائمًا) عندما:</p>
+<ul>
+<li>لا يكون لدى المنصة تمييز حقيقي بين المجاني والمدفوع، أو</li>
+<li>يفضّل مجتمع المستخدمين نمط &quot;loading… loading… DONE&quot; (صمت ثم استجابة) على فقاعة وسيطة تفاعلية.</li>
+</ul>
+<p>يدعم LINE الأسلوبين: القيمة الافتراضية للعتبة 45 ثانية لجلب الـ postback مجانًا، ويُعيد <code>LINE_SLOW_RESPONSE_THRESHOLD=0</code> السلوك إلى &quot;اللجوء إلى Push دائمًا&quot;.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementation">التطبيق المرجعي</h3>
+<p>راجع <code>plugins/platforms/line/adapter.py</code> للاطلاع على تطبيق postback الكامل في LINE — آلة حالات <code>RequestCache</code> (<code>PENDING → READY → DELIVERED</code>، إضافةً إلى <code>ERROR</code> للأمر <code>/stop</code>)، وتجاوز <code>_keep_typing</code> الذي يُطلق فقاعة Template Buttons عند بلوغ العتبة، وتجاوز <code>send</code> الذي يوجّه عبر الـ cache، وتجاوز <code>interrupt_session_activity</code> الذي يعالج عناصر PENDING اليتيمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations-plugin-path">التطبيقات المرجعية (مسار الإضافة)</h3>
+<p>راجع <code>plugins/platforms/irc/</code> في المستودع للاطلاع على مثال عملي كامل — adapter IRC غير متزامن (async) كامل دون أي اعتماديات خارجية. يغطي <code>plugins/platforms/teams/</code> كلًّا من Bot Framework / Adaptive Cards، ويغطي <code>plugins/platforms/google_chat/</code> واجهات REST API القائمة على OAuth، ويغطي <code>plugins/platforms/line/</code> واجهات Messaging API المعتمدة على webhook مع تجربة استخدام خاصة بالمنصة عند بطء LLM.</p>
+<hr>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-by-step-checklist-built-in-path">قائمة التحقق خطوة بخطوة (المسار المدمج)</h2>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="25"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>تخص هذه القائمة إضافة منصة مباشرة إلى قاعدة الكود الأساسية لـ Hermes — وهو ما ينفذه عادةً مساهمو النواة للمنصات المدعومة رسميًا. ينبغي للمنصات المجتمعية/الخارجية استخدام <a href="#plugin-path-recommended">مسار الإضافات</a> أعلاه.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>تخص هذه القائمة إضافة منصة مباشرة إلى قاعدة الكود الأساسية لـ Hermes — وهو ما ينفذه عادةً مساهمو النواة للمنصات المدعومة رسميًا. ينبغي للمنصات المجتمعية/الخارجية استخدام <a href="#plugin-path-recommended">مسار الإضافات</a> أعلاه.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-platform-enum">1. تعداد Platform</h3>
 <p>أضف منصتك إلى التعداد (enum) <code>Platform</code> في <code>gateway/config.py</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="2-adapter-file">2. ملف الـ Adapter</h3>
 <p>أنشئ <code>plugins/platforms/newplat/adapter.py</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
 <p>للرسائل الواردة، أنشئ <code>MessageEvent</code> واستدعِ <code>self.handle_message(event)</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="3-gateway-config-gatewayconfigpy">3. إعدادات الـ Gateway (<code>gateway/config.py</code>)</h3>
 <p>ثلاث نقاط تعديل:</p>
 <ol>
@@ -50,8 +93,8 @@
 <li><strong><code>toolsets.py</code></strong> — أضف <code>&quot;hermes-newplat&quot;</code> إلى قائمة includes الخاصة بـ <code>&quot;hermes-gateway&quot;</code></li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-optional-platform-hints">9. اختياري: تلميحات المنصة</h3>
-<p><strong><code>agent/prompt_builder.py</code></strong> — إذا كانت لمنصتك قيود عرض محددة (عدم دعم markdown، حدود لطول الرسائل، إلخ)، فأضف عنصرًا إلى القاموس <code>PLATFORM_HINTS</code>. يحقن ذلك إرشادات خاصة بالمنصة في system prompt:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<p><strong><code>platform_hint=</code></strong> في <code>ctx.register_platform</code> — إذا كانت لمنصتك قيود عرض محددة (عدم دعم markdown، وحدود لطول الرسائل، إلخ)، فصرّح بتلميح (hint) في إدخالها بالسجل (وأبقِ النص في ملف شقيق خفيف مثل <code>adapter_hint.py</code>). يُحقن في system prompt؛ ولا يحتفظ <code>agent/prompt_builder.py::PLATFORM_HINTS</code> إلا بالواجهات الأساسية (core):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
 <p>لا تحتاج كل المنصات إلى تلميحات — أضف تلميحًا فقط إذا كان يجب أن يختلف سلوك الوكيل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="10-tests">10. الاختبارات</h3>
 <p>أنشئ <code>tests/gateway/test_newplat.py</code> بحيث يغطي:</p>
@@ -65,22 +108,22 @@
 <table><thead><tr><th>الملف</th><th>ما يجب إضافته</th></tr></thead><tbody><tr><td><code>website/docs/user-guide/messaging/newplat.md</code></td><td>صفحة إعداد كاملة للمنصة</td></tr><tr><td><code>website/docs/user-guide/messaging/index.md</code></td><td>جدول مقارنة المنصات، ومخطط البنية المعمارية، وجدول toolsets، وقسم الأمان، ورابط الخطوات التالية</td></tr><tr><td><code>website/docs/reference/environment-variables.md</code></td><td>جميع متغيرات البيئة NEWPLAT_*</td></tr><tr><td><code>website/docs/reference/toolsets-reference.md</code></td><td>الـ toolset المسمى hermes-newplat</td></tr><tr><td><code>website/docs/integrations/index.md</code></td><td>رابط المنصة</td></tr><tr><td><code>website/sidebars.ts</code></td><td>عنصر في الشريط الجانبي لصفحة الوثائق</td></tr><tr><td><code>website/docs/developer-guide/architecture.md</code></td><td>عدد الـ adapters + قائمتها</td></tr><tr><td><code>website/docs/developer-guide/gateway-internals.md</code></td><td>قائمة ملفات الـ adapters</td></tr></tbody></table>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parity-audit">تدقيق التكافؤ</h2>
 <p>قبل اعتبار PR الخاص بالمنصة الجديدة مكتملًا، أجرِ تدقيق تكافؤ (parity audit) مقارنةً بمنصة راسخة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
 <p>كرّر ذلك لملفات <code>.md</code> و <code>.ts</code>. وافحص كل فجوة — هل هي تعداد للمنصات (يحتاج إلى تحديث) أم إشارة خاصة بمنصة معيّنة (تجاهلها)؟</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-patterns">أنماط شائعة</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="long-poll-adapters">Adapters تعتمد Long-Poll</h3>
 <p>إذا كان الـ adapter الخاص بك يستخدم long-polling (مثل Telegram أو Weixin)، فاستخدم مهمة حلقة استطلاع (polling loop):</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="callbackwebhook-adapters">Adapters تعتمد Callback/Webhook</h3>
 <p>إذا كانت المنصة تدفع الرسائل إلى الـ endpoint الخاص بك (مثل WeCom Callback)، فشغّل خادم HTTP:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 <p>بالنسبة إلى المنصات ذات المهل الزمنية الضيقة للاستجابة (مثل حدّ الـ 5 ثوانٍ في WeCom)، أرسل إشعار الاستلام فورًا دائمًا، ثم سلّم ردّ الوكيل لاحقًا بشكل استباقي عبر الـ API. تستغرق جلسات الوكيل من 3 إلى 30 دقيقة — لذا لا يمكن عمليًا الرد مباشرةً ضمن نافذة استجابة الـ callback.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="inbound-deduplication">إزالة تكرار الرسائل الواردة</h3>
 <p>تعيد المنصات التسليم: تعيد استئنافات websocket بث الأحداث الحديثة، وتعيد webhooks المحاولة، وتعود دفعات الاستطلاع التي لم يُقرّ باستلامها. أسقط التكرارات باستخدام الدالة المساعدة المشتركة، بمفتاح هو معرّف الرسالة في المنصة:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
 <p>عندما يستبدل مراقب إعادة الاتصال في الـ gateway محوّلًا فاشلًا بنسخة جديدة، فإنه ينسخ المعرّفات الحية لكل خاصية من نوع <code>MessageDeduplicator</code> من النسخة القديمة إلى الجديدة، لذلك يظل البث المعاد فور إعادة الاتصال يُسقَط. أما التخزين المؤقت المحفوظ في بنية أخرى (dict أو set عادية) فيبدأ فارغًا في النسخة الجديدة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-locks">أقفال الـ Token</h3>
 <p>إذا كان الـ adapter يحتفظ باتصال دائم ببيانات اعتماد فريدة، فأضف قفلًا محدود النطاق (scoped lock) لمنع استخدام اثنين من الـ profiles لبيانات الاعتماد نفسها:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-implementations">التطبيقات المرجعية</h2>
-<table><thead><tr><th>الـ Adapter</th><th>النمط</th><th>التعقيد</th><th>مرجع جيد لـ</th></tr></thead><tbody><tr><td><code>bluebubbles.py</code></td><td>REST + webhook</td><td>متوسط</td><td>تكامل بسيط مع REST API</td></tr><tr><td><code>weixin.py</code></td><td>Long-poll + CDN</td><td>مرتفع</td><td>معالجة الوسائط، التشفير</td></tr><tr><td><code>plugins/platforms/wecom/callback_adapter.py</code></td><td>Callback/webhook</td><td>متوسط</td><td>خادم HTTP، تشفير AES، تطبيقات متعددة</td></tr><tr><td><code>plugins/platforms/irc/adapter.py</code></td><td>Long-poll + بروتوكول IRC</td><td>مرتفع</td><td>adapter إضافة متكامل الميزات مع قفل token محدود النطاق</td></tr></tbody></table>
+<table><thead><tr><th>الـ Adapter</th><th>النمط</th><th>التعقيد</th><th>مرجع جيد لـ</th></tr></thead><tbody><tr><td><code>plugins/platforms/bluebubbles/adapter.py</code></td><td>REST + webhook</td><td>متوسط</td><td>تكامل بسيط مع REST API</td></tr><tr><td><code>plugins/platforms/weixin/adapter.py</code></td><td>Long-poll + CDN</td><td>مرتفع</td><td>معالجة الوسائط، التشفير</td></tr><tr><td><code>plugins/platforms/wecom/callback_adapter.py</code></td><td>Callback/webhook</td><td>متوسط</td><td>خادم HTTP، تشفير AES، تطبيقات متعددة</td></tr><tr><td><code>plugins/platforms/irc/adapter.py</code></td><td>Long-poll + بروتوكول IRC</td><td>مرتفع</td><td>adapter إضافة متكامل الميزات مع قفل token محدود النطاق</td></tr></tbody></table>

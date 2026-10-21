@@ -31,6 +31,29 @@
 </ul>
 <p>تُحقن المهام الواردة في <strong>جلسة gateway حية</strong> — أي الوكيل والذاكرة والأدوات نفسها التي تخدم قنواتك الأخرى — ويُعاد الرد النهائي إلى المستدعي كنتيجة للمهمة. تُفهرس المحادثات حسب <code>contextId</code> الخاص بـ A2A، بحيث يستطيع النظير إجراء تبادل متعدد الأدوار.</p>
 <p>جرى التحقق من قابلية التشغيل البيني مقابل <code>a2a-sdk</code> الرسمي لـ Python (تحليل البطاقة، و <code>SendMessage</code>، والبث).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="forwarded-profile-sessions-after-the-ownership-cutover">الجلسات المُحوَّلة بين الـ profiles بعد نقل الملكية</h2>
+<p>يُرسَل التحويل إلى profile محلي آخر الآن إلى مالك الـ gateway الخاص بذلك الـ profile؛
+ولا توجد عملية <code>hermes chat</code> احتياطية تكتب في قاعدة بيانات جلساته. وتحتفظ
+المحادثات المُحوَّلة الجديدة في ارتباط المالك (owner binding) بالوكيل والـ tenant
+والنظير المصادَق عليه ومعرّف السياق (context ID) بدقة.</p>
+<p>لا يمكن تحديد الجلسات المُحوَّلة التاريخية بأمان انطلاقًا من عناوينها.
+كان المحوّل القديم يستخدم <code>a2a-{agent}-{sanitized-context}</code> ويغفل هوية النظير والـ tenant.
+وقد تشترك سياقات مختلفة مثل <code>ctx/exact</code> و <code>ctx-exact</code>، حتى من
+نظراء مختلفين، في سجل محادثة واحد أصلًا. كما كان سجل JSONL للمحادثة
+يستخدم اسم ملف يفقد بعض المعلومات ولا يحتفظ بتلك الهوية كاملة. وأسماء النظراء
+داخل نص رسالة المستخدم ليست بيانات وصفية للملكية.</p>
+<p>لذلك يعيد العنوان التاريخي المطابق <code>runtime_coordination_required</code>
+بدلًا من إلحاق نظير بسجل قد لا يمت إليه بصلة، أو بدء بديل
+بصمت. وتبقى معرّفات الجلسات التاريخية وعناوينها ورسائلها
+دون تغيير. ولا يتجاوز استئناف CLI العام هذا الرفض.</p>
+<p><strong>الترحيل التلقائي لهذه الجلسات المُحوَّلة التاريخية غير مدعوم بعد.</strong> يحتاج الاسترداد إلى قرار صريح من المالك المحلي بشأن
+الربط الدقيق بين الجلسة والوكيل والـ tenant والنظير والسياق، خاصةً في
+السجلات المختلطة أصلًا. ويحتاج أيضًا إلى قرار صريح بشأن سياسة التشغيل: فقد تحتفظ الصفوف
+التاريخية بالنموذج وبعض معاملاته من دون cwd الأصلي الكامل أو system prompt أو
+سياسة الأدوات/الإعدادات المجمّدة. ولا يمكن لمطابقة العنوان أو لإعدادات الـ profile
+الحالية استرداد معلومات لم يخزّنها الكاتب القديم أبدًا. لا يوجد
+حاليًا أمر ترحيل مدعوم؛ فلا تغيّر العناوين ولا تعدّل صفوف قاعدة البيانات
+لتجاوز فحص الملكية.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">نموذج الأمان</h2>
 <p>آمن افتراضيًا؛ وكل خطوة توسّع نطاق الوصول تكون صريحة:</p>
 <ul>
@@ -42,7 +65,7 @@
 <li><strong>منع الحلقات</strong> — تمنع حدود الأدوار لكل سياق وكيلين من تبادل الرسائل ذهابًا وإيابًا إلى ما لا نهاية.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration-reference">مرجع الإعدادات</h2>
-<table><thead><tr><th>متغير البيئة</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>A2A_PEER_TOKENS</code></td><td><em>(غير مضبوط)</em></td><td>بيانات اعتماد لكل نظير <code>name:token,…</code> (الخيار المفضّل)</td></tr><tr><td><code>A2A_BEARER_TOKEN</code></td><td><em>(غير مضبوط)</em></td><td>token مشترك؛ وتُحدَّد الهوية احتياطيًا بعنوان IP للمستدعي</td></tr><tr><td><code>A2A_HOST</code></td><td><code>127.0.0.1</code></td><td>مضيف الربط (bind) — لا يتوسّع إلا عند ضبط token</td></tr><tr><td><code>A2A_PORT</code></td><td><code>9900</code></td><td>المنفذ الوارد</td></tr><tr><td><code>A2A_AGENT_NAME</code></td><td>مشتق من اسم المضيف</td><td>الاسم المعروض على Agent Card</td></tr><tr><td><code>A2A_PUBLIC_URL</code></td><td><em>(غير مضبوط)</em></td><td>URL قابل للتوجيه يُعلَن عنه في البطاقة (مع reverse proxies / k8s)</td></tr><tr><td><code>A2A_TRUSTED_PEERS</code></td><td><em>(غير مضبوط)</em></td><td>قائمة سماح (allowlist) بالهويات المُصادَق عليها</td></tr><tr><td><code>A2A_ALLOW_ALL_USERS</code></td><td><code>false</code></td><td>السماح لأي نظير مُصادَق عليه (للتطوير فقط)</td></tr><tr><td><code>A2A_RATE_LIMIT</code></td><td><code>60</code></td><td>عدد الطلبات في الدقيقة لكل هوية</td></tr><tr><td><code>A2A_MAX_PINGPONG_TURNS</code></td><td><code>5</code></td><td>الحد الأقصى للأدوار لكل سياق لمنع الحلقات (بحد أقصى 20)</td></tr><tr><td><code>A2A_REPLY_TIMEOUT</code></td><td><code>300</code></td><td>عدد ثواني انتظار رد الوكيل. لا تفشل عملية تنظيف المهام اليتيمة أي مهمة قبل انقضاء هذه المدة (بحد أدنى 300 ثانية)، ولا تفشلها أبدًا ما دام طلب ما لا يزال ينتظرها</td></tr><tr><td><code>A2A_PUSH_SECRET</code></td><td>قيمة bearer token</td><td>سر HMAC لتوقيع الإشعارات الفورية</td></tr><tr><td><code>A2A_ADVERTISED_TOOLSETS</code></td><td>جميع المسجّلة</td><td>تقييد المهارات التي تظهر على Agent Card</td></tr></tbody></table>
+<table><thead><tr><th>متغير البيئة</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>A2A_PEER_TOKENS</code></td><td><em>(غير مضبوط)</em></td><td>بيانات اعتماد لكل نظير <code>name:token,…</code> (الخيار المفضّل)</td></tr><tr><td><code>A2A_BEARER_TOKEN</code></td><td><em>(غير مضبوط)</em></td><td>token مشترك؛ وتُحدَّد الهوية احتياطيًا بعنوان IP للمستدعي</td></tr><tr><td><code>A2A_HOST</code></td><td><code>127.0.0.1</code></td><td>عنوان الربط (bind host) — لا يتسع إلا عند ضبط token. وتعمل أيضًا عناوين IPv6 الحرفية مثل <code>::1</code> أو <code>::</code>، مجردةً أو بين أقواس (<code>[::1]</code>)</td></tr><tr><td><code>A2A_PORT</code></td><td><code>9900</code></td><td>المنفذ الوارد</td></tr><tr><td><code>A2A_AGENT_NAME</code></td><td>مشتق من اسم المضيف</td><td>الاسم المعروض على Agent Card</td></tr><tr><td><code>A2A_PUBLIC_URL</code></td><td><em>(غير مضبوط)</em></td><td>URL قابل للتوجيه يُعلَن عنه في البطاقة (مع reverse proxies / k8s)</td></tr><tr><td><code>A2A_TRUSTED_PEERS</code></td><td><em>(غير مضبوط)</em></td><td>قائمة سماح (allowlist) بالهويات المُصادَق عليها</td></tr><tr><td><code>A2A_ALLOW_ALL_USERS</code></td><td><code>false</code></td><td>السماح لأي نظير مُصادَق عليه (للتطوير فقط)</td></tr><tr><td><code>A2A_RATE_LIMIT</code></td><td><code>60</code></td><td>عدد الطلبات في الدقيقة لكل هوية</td></tr><tr><td><code>A2A_MAX_PINGPONG_TURNS</code></td><td><code>5</code></td><td>الحد الأقصى للأدوار لكل سياق لمنع الحلقات (بحد أقصى 20)</td></tr><tr><td><code>A2A_REPLY_TIMEOUT</code></td><td><code>300</code></td><td>عدد ثواني انتظار رد الوكيل. لا تفشل عملية تنظيف المهام اليتيمة أي مهمة قبل انقضاء هذه المدة (بحد أدنى 300 ثانية)، ولا تفشلها أبدًا ما دام طلب ما لا يزال ينتظرها</td></tr><tr><td><code>A2A_PUSH_SECRET</code></td><td>قيمة bearer token</td><td>سر HMAC لتوقيع الإشعارات الفورية</td></tr><tr><td><code>A2A_ADVERTISED_TOOLSETS</code></td><td>جميع المسجّلة</td><td>تقييد المهارات التي تظهر على Agent Card</td></tr></tbody></table>
 <p>خلف reverse proxy أو Kubernetes Service، اضبط <code>A2A_PUBLIC_URL</code> (أو اعتمد على <code>X-Forwarded-Host</code>/<code>X-Forwarded-Proto</code>) حتى تعلن Agent Card عن URL يستطيع النظراء فعلًا معاودة الاتصال به.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-test">اختبار سريع</h2>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>

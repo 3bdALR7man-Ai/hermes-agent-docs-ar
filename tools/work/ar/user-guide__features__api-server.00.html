@@ -1,7 +1,7 @@
 <header><h1>خادم API</h1></header>
 <p>يوفّر خادم API وكيل hermes-agent على شكل HTTP endpoint متوافق مع OpenAI. ويمكن لأي واجهة أمامية (frontend) تتعامل بصيغة OpenAI — مثل Open WebUI و LobeChat و LibreChat و NextChat و ChatBox ومئات غيرها — الاتصال بـ hermes-agent واستخدامه كـ backend.</p>
 <p>يعالج وكيلك الطلبات بمجموعة أدواته الكاملة (الطرفية، وعمليات الملفات، والبحث في الويب، والذاكرة، والمهارات) ثم يُرجع الاستجابة النهائية. وعند البث (streaming)، تظهر مؤشرات تقدّم الأدوات ضمن الاستجابة مباشرةً لتتمكن الواجهات الأمامية من عرض ما يفعله الوكيل.</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>backend واحد يغطي النماذج والأدوات</div><div class="admonitionContent_BuS1"><p>يحتاج Hermes نفسه إلى مزوّد مُعدّ وإلى backends للأدوات حتى يكون خادم API مفيدًا. ويتكفّل اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> بالأمرين معًا — أكثر من 300 نموذج إضافةً إلى الويب/الصور/TTS/المتصفح عبر Tool Gateway. نفّذ <code>hermes setup --portal</code> مرة واحدة قبل تشغيل خادم API، وستحصل الواجهات الأمامية مثل Open WebUI أو LobeChat على backend مجهّز بالأدوات بالكامل.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>backend واحد يغطي النماذج والأدوات</div><div class="admonitionContent_BuS1"><p>يحتاج Hermes نفسه إلى مزوّد مُعدّ وإلى backends للأدوات حتى يكون خادم API مفيدًا. ويتكفّل اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> بالأمرين معًا — أكثر من 300 نموذج إضافةً إلى الويب/الصور/TTS/المتصفح عبر Tool Gateway. نفّذ <code>hermes setup --portal</code> مرة واحدة قبل تشغيل خادم API، وستحصل الواجهات الأمامية مثل Open WebUI أو LobeChat على backend مجهّز بالأدوات بالكامل.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-api-server">1. فعّل خادم API</h3>
 <p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
@@ -14,6 +14,94 @@
 <p>وجّه أي عميل متوافق مع OpenAI إلى <code>http://localhost:8642/v1</code>:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
 <p>أو اربط Open WebUI أو LobeChat أو أي واجهة أمامية أخرى — راجع <a href="/docs/user-guide/messaging/open-webui">دليل التكامل مع Open WebUI</a> للاطلاع على التعليمات خطوة بخطوة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="conversation-and-terminal-result-semantics">دلالات المحادثة والنتيجة النهائية</h2>
+<p>تستخدم طلبات API طابور القبول الدائم (durable admission queue) الخاص بالـ gateway. يبقى محتوى الصور المنظَّم
+منظَّمًا طوال التنفيذ؛ ولا يُفسَّر بوصفه slash command للـ gateway.</p>
+<ul>
+<li>يحتفظ <code>/v1/runs</code> و <code>/v1/responses</code> بالمحادثة التي تعلنها الترويسة
+<code>X-Hermes-Session-Key</code>. وتكون الأسبقية لجلسة صريحة أو سلسلة استجابات صريحة،
+ولا تنقل إلى ترويسة مختلفة هوية محادثتها.</li>
+<li>في <code>/v1/runs</code>، يكون <code>conversation_history</code> غير الفارغ هو المرجع الحاسم، حتى مع وجود
+<code>session_id</code> صريح. وإلا فإن استكمال الجلسة يحمّل السجل عند تنفيذ الدور،
+بعد انتهاء الأعمال المصطفّة قبله.</li>
+<li>يتفق استطلاع Runs و SSE على الحالتين <code>cancelled</code> و <code>failed</code>. ويستخدم Responses الحالة النهائية نفسها
+والحدثين <code>response.cancelled</code> / <code>response.failed</code>، بما في ذلك عند وجود
+نص تشخيصي. ويُبلغ Chat Completions عن <code>finish_reason: &quot;cancelled&quot;</code>
+للأدوار المقاطَعة وعن <code>&quot;error&quot;</code> للإخفاقات، لا عن <code>&quot;stop&quot;</code> الناجح.</li>
+<li>تتضمن ردود محادثة الجلسة الحقل <code>status</code>؛ وتبلّغ تدفقاتها عن أحداث تشغيل نهائية مطابقة. وإطار
+إنهاء رد المساعد ليس بحد ذاته دليلًا على نجاح التنفيذ.</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="idempotency-keys">مفاتيح Idempotency</h2>
+<p>يقبل <code>POST /v1/chat/completions</code> و <code>POST /v1/responses</code> الترويسة <code>Idempotency-Key</code>.
+وما يضمنه المفتاح يعتمد على وضع التنفيذ:</p>
+<ul>
+<li><strong>الوضع المرجعي (Canonical mode)</strong> (يشغّل الـ gateway جهة صلاحية للجلسات session authority): المفتاح هوية قبول دائمة. يُقبل الطلب الأول
+الحامل له ويعمل مرة واحدة، ويظل المفتاح ملكًا لعملية القبول تلك من حينها. تنحصر المفاتيح في نطاق
+API profile وبيانات الاعتماد المصادَق عليهما، ولذلك فإن profile آخر أو <code>API_SERVER_KEY</code> مُدوَّر يعيد استخدام مفتاح العميل نفسه
+يُعدّ طلبًا جديدًا. ويصف بقية هذا القسم هذا الوضع.</li>
+<li><strong>الوضع القديم (Legacy mode)</strong> (بلا session authority): تُزال تكرارات الطلبات غير المتدفقة عبر
+cache في الذاكرة مدته 5 دقائق. أما الطلبات المتدفقة (streaming) فلا تُزال تكراراتها.</li>
+</ul>
+<p>لمفاتيح <code>/v1/runs</code> سجلّها الخاص (ledger) واحتفاظ مدته 24 ساعة (انظر Runs API أدناه).</p>
+<p><strong>إعادات المحاولة المطابقة والتعارضات.</strong> تكون إعادة المحاولة مطابقة عندما تكرر المفتاح نفسه مع
+حقول الهوية نفسها والهدف المعلَن نفسه. أما تغيير أحد حقول الهوية، أو إرسال
+المفتاح إلى جلسة أخرى، فهو تعارض: يُرفض بالرمز <code>admission_conflict</code> ولا
+يُنفَّذ شيء. وتختلف طريقة وصول الرفض بحسب الطلب:</p>
+<ul>
+<li><strong>Responses</strong> (JSON أو متدفق) و<strong>Chat Completions غير المتدفق:</strong> HTTP 409
+مع رمز الخطأ <code>admission_conflict</code>.</li>
+<li><strong>Chat Completions المتدفق:</strong> يكون التدفق قد فُتح بالفعل بـ HTTP 200، لذا
+يأتي الرفض في آخر chunk فيه، مع <code>finish_reason: &quot;error&quot;</code> و <code>error.message</code>
+<code>&quot;admission_conflict&quot;</code>، يليه <code>data: [DONE]</code>. افحص ذلك الـ chunk لا رمز الحالة.</li>
+</ul>
+<p>تختلف حقول الهوية باختلاف الـ endpoint:</p>
+<ul>
+<li><strong>Responses:</strong> <code>input</code> و <code>instructions</code> و <code>previous_response_id</code> و <code>conversation</code>
+و <code>conversation_history</code> و <code>model</code> و <code>provider</code> و <code>model_options</code> و <code>tools</code>، إضافة إلى
+<code>truncation</code> عند إرساله.</li>
+<li><strong>Chat Completions:</strong> آخر رسالة للمستخدم، والرسائل السابقة (ما لم
+تُرسَل <code>X-Hermes-Session-Id</code>، وفي هذه الحالة يأتي السجل من الجلسة)، و
+system prompt، وإعدادات الدور مثل النموذج والمزوّد المطلوبين و
+<code>model_options</code>. أما <code>tools</code> و <code>tool_choice</code> فليسا جزءًا منها: إعادة المحاولة التي تغيّر
+هذين فقط تعيد الرد الأصلي بدلًا من أن تُحدث تعارضًا.</li>
+</ul>
+<p>وضع التسليم ليس جزءًا من الهوية في أي من الـ endpoint-ين: يجوز لإعادة المحاولة أن تبدّل
+بين JSON و <code>stream: true</code> وتحصل على الجواب نفسه بالصيغة المطلوبة.</p>
+<p><strong>الإعادة (replay) ومنع التكرار أمران منفصلان.</strong> تعيد إعادة المحاولة المطابقة الجواب الأصلي
+فقط ما دام الخادم يحتفظ بهوية الطلب الخاصة بالمفتاح مع
+سجل إعادته أو مع قبول نهائي يمكن إعادة بناء الجواب منه. وحين لا تعود الإعادة
+ممكنة، يظل المفتاح لا يعمل مجددًا ما بقي دليل قبوله:
+تُرفض إعادة المحاولة بوصفها تعارضًا ولا يُنفَّذ شيء. وقد تتلقى إعادة محاولة Responses بدلًا من ذلك
+HTTP 409 <code>unknown_execution</code>: يحتفظ المخزن بمطالبة المفتاح (مثلًا مطالبة
+سجّلها إصدار أقدم) لكن دون جواب، فلا يُعرف
+هل نُفّذت المحاولة الأولى. وهذا ليس إذنًا بإعادة إرسال العمل بمفتاح جديد؛ فقد تكون المحاولة الأولى
+نُفّذت بالفعل.</p>
+<p>بعد حذف جلسة (<code>DELETE /api/sessions/{id}</code>) تُحفظ عمليات القبول الخاصة بها بوصفها
+شواهد (tombstones). وبعد سبعة أيام من الحذف تصبح مؤهلة للتقليم (pruning)؛ ولا
+تُزال إلا عند تشغيل تمريرة تقليم، وإلى ذلك الحين يتصرف المفتاح كما يلي.</p>
+<ul>
+<li><strong>Chat Completions:</strong> تعيد إعادة المحاولة المطابقة الجواب الأصلي دون إعادة إنشاء
+الجلسة، ويُرفض المفتاح المرسل إلى أي جلسة أخرى بوصفه تعارضًا.
+وبعد تقليم الشواهد يمكن للمفتاح أن يسمّي عملًا جديدًا على هدف جديد صالح.</li>
+<li><strong>Responses:</strong> تحتاج الإعادة أيضًا إلى أن يحتفظ مخزن الاستجابات بهوية المفتاح، ولذلك
+قد تنتهي قبل مرور الأيام السبعة: تُحفظ الهويات المستقرة بعدد
+محدود، ويزيل <code>DELETE /v1/responses/{id}</code> إحداها فورًا. المفتاح الذي زالت هويته
+يُجاب بـ 409 <code>admission_conflict</code>، حتى على جلسة حية. وحين تزول هويته
+وتُقلَّم شواهده، يمكن للمفتاح أن يسمّي عملًا جديدًا.</li>
+</ul>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يحتفظ مخزن الاستجابات افتراضيًا بآخر 1,000 هوية استقرّت لكل
+profile (10 لكل خانة استجابة مخزّنة). ولا تُحتسب الهويات المعلّقة أو الجارية
+ولا تُسقَط أبدًا، ويؤدي حذف استجابة إلى إزالة هويتها مبكرًا. وهذا
+افتراضي حالي وليس ضمانًا للإعادة.</p></div></div>
+<p>لا يُعاد تعيين <code>X-Hermes-Session-Id</code> الصريح أبدًا. يظل معرّف الجلسة المحذوفة
+محجوبًا حتى بعد التقليم. وإعادة المحاولة المطابقة ذات المفتاح التي لا تزال هويتها محفوظة هناك
+تُعاد، أما المتغيّرة فتُرفض بوصفها تعارضًا. والطلب الذي لا هوية محفوظة له هناك، مثل طلب جديد أو إعادة محاولة قُلّمت هويتها، يُرفض
+بالرمز <code>not_found</code>.</p>
+<p>يشتق طلب Chat Completions بلا <code>X-Hermes-Session-Id</code> جلسته من
+system prompt ورسالة المستخدم الأولى. ولا يُعاد استخدام معرّف جلسة محذوفة أبدًا، لذلك تحصل
+محادثة جديدة تبدأ مثل محادثة محذوفة على جلسة جديدة، وتستقر أدوارها اللاحقة
+على تلك الجلسة نفسها، بما في ذلك بعد إعادة التشغيل. أما إعادة المحاولة المطابقة ذات المفتاح لدور من
+المحادثة المحذوفة فلا تُنقل؛ وتُعاد كما هو موصوف أعلاه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="endpoints">Endpoints</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="post-v1chatcompletions">POST /v1/chat/completions</h3>
 <p>صيغة OpenAI Chat Completions القياسية. عديمة الحالة (stateless) — إذ تُضمَّن المحادثة الكاملة في كل طلب عبر المصفوفة <code>messages</code>.</p>
@@ -149,50 +237,3 @@
 الجهة الأساسية والـ profile والجلسة ووحدة التحكم وprofile المتصفح وعائلة وسيلة النقل
 والقدرة. وبمجرد الاختيار، يكون فشل وحدة التحكم هو المرجع الحاسم ولا تُعاد
 محاولته أبدًا عبر backend متصفح مختلف.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-request-model-selection">اختيار النموذج لكل طلب</h2>
-<p>يمكن للعملاء المصادَق عليهم تجاوز اختيار النموذج الافتراضي في Hermes لكل طلب على حدة
-بإرسال:</p>
-<ul>
-<li><code>model</code> — معرّف النموذج المستهدف لهذا الدور</li>
-<li><code>provider</code> — المعرّف المختصر (slug) لمزوّد Hermes لتحديد بيانات الاعتماد/بيئة التشغيل لهذا الدور</li>
-<li><code>model_options</code> — عناصر تحكم الاستدلال (reasoning) / فئة الخدمة (service tier) الخاصة بهذا الطلب فقط</li>
-</ul>
-<p>تُقبل حقول الطلب نفسها على:</p>
-<ul>
-<li><code>POST /v1/chat/completions</code></li>
-<li><code>POST /v1/responses</code></li>
-<li><code>POST /v1/runs</code></li>
-<li><code>POST /api/sessions/{session_id}/chat</code></li>
-<li><code>POST /api/sessions/{session_id}/chat/stream</code></li>
-</ul>
-<p>ترتيب الأولوية حتمي:</p>
-<ol>
-<li>تجاوز <code>/model</code> على مستوى الجلسة، إن كان للجلسة تجاوز بالفعل</li>
-<li>ربط ثابت في <code>gateway.platforms.api_server.model_routes</code> يُختار عندما
-تكون قيمة <code>model</code> في الطلب اسمًا مستعارًا لمسار مُعدّ</li>
-<li>قيمتا <code>model</code> / <code>provider</code> المباشرتان في الطلب عندما لا يتطابق أي اسم مستعار لمسار</li>
-<li>الإعدادات العامة لـ gateway / القيم الافتراضية من البيئة</li>
-</ol>
-<p><code>model_options</code> يظل خاصًا بالطلب بغض النظر عن النموذج/المزوّد الذي يُعتمد. إذا أرسل طلب <code>provider</code> يتعارض مع اسم مستعار مضبوط في <code>model_routes</code>، يرفض Hermes الطلب مع <code>400</code> بدلًا من خلط بيانات اعتماد المسار بمزوّد آخر بصمت.</p>
-<p><strong>قيم <code>model</code> المجرّدة على endpoints المتوافقة مع OpenAI تتطلب تفعيلًا صريحًا.</strong> فعملاء
-OpenAI العامّون كثيرًا ما يثبّتون أسماء النماذج في الكود (<code>gpt-4o</code>، ...)، وتعتمد
-عمليات النشر القائمة على عودة هذه القيم إلى النموذج الافتراضي في gateway. لذلك، على
-<code>POST /v1/chat/completions</code> و <code>POST /v1/responses</code>، تُتجاهل قيمة <code>model</code> المُرسلة
-دون أي <code>provider</code> ما لم تفعّل:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
-<p>أما الطلبات التي تتضمن <code>provider</code> صريحًا — وكذلك endpoints الأصلية في Hermes مثل
-<code>/v1/runs</code> و endpoints محادثة الجلسات — فتلتزم دائمًا بالنموذج المطلوب
-بغض النظر عن هذا الخيار.</p>
-<p>مثال:</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-health">GET /health</h3>
-<p>فحص السلامة (health check). يُرجع <code>{&quot;status&quot;: &quot;ok&quot;}</code>. ومتاح أيضًا على <strong>GET /v1/health</strong> لعملاء OpenAI المتوافقين الذين يتوقعون البادئة <code>/v1/</code>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-healthdetailed">GET /health/detailed</h3>
-<p>فحص جاهزية مصادَق عليه لأنظمة المراقبة ومستويات التحكم. يعرض
-حالة موجزة لإعدادات الـ profile النشط، وقاعدة بيانات الحالة، والنموذج
-المُعدّ، ومساحة القرص، وحالة gateway/المنصات، وعمليات API الجارية، وعمليات إكمال
-العمليات المعلّقة، والتفويضات النشطة. وتكشف الاستجابة عن الحالة والأعداد فقط،
-لا عن قيم الإعدادات أو بيانات الاعتماد أو المسارات أو الأوامر أو حمولات قوائم الانتظار أو الأخطاء الخام.</p>
-<p>يبقى المسار العام <code>/health</code> فحصًا خفيفًا لبقاء الخدمة حيّة (liveness) ولا يُجري
-فحوص الجاهزية. ونتيجة الجاهزية المتدهورة لا تزال تستخدم HTTP 200؛ لذا افحص
-الحقلين <code>status</code> و <code>readiness.checks</code> في المستوى الأعلى.</p>

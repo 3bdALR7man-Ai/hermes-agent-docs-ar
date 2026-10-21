@@ -29,6 +29,22 @@ Hermes. يُعدّ ACP خيارًا مناسبًا عندما تريد أن يح
 <p>تُحدَّد toolset بالطريقة نفسها في Messaging Gateway للإعدادات نفسها للمنصة. ويشمل ذلك ما يضيفه gateway فوق القائمة، مثل toolsets الإضافات المفعّلة، فتتلقاها جلسات ACP أيضًا. يستبدل <code>platform_toolsets.acp</code> القيمة الافتراضية <code>hermes-acp</code>، ويزيل <code>agent.disabled_toolsets</code> toolsets من كل جلسة ACP. وتتبع خوادم MCP من <code>mcp_servers</code> القواعد نفسها أيضًا. افتراضيًا، يحصل ACP على كل خادم مفعّل. إذا سردت أسماء خوادم في <code>platform_toolsets.acp</code>، تُضمَّن تلك الخوادم فقط، ويستبعد <code>no_mcp</code> جميعها. لا يوجد لـ <code>hermes tools</code> إدخال ACP، لذا عدّل <code>config.yaml</code> مباشرةً:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
 <p>خوادم MCP التي يرسلها المحرر عبر <code>session/new</code> مستقلة. يطلبها العميل لكل جلسة، وتُضاف دائمًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="editor-provided-mcp-servers">خوادم MCP التي يوفرها المحرر</h2>
+<p>على الـ gateways التي تعلن <code>acp-session-mcp-v1</code>، تنتمي <code>mcpServers</code> الخاصة بالمحرر إلى
+الجلسة المعتمدة (canonical session)، لا إلى عملية عارض ACP. ويستخدم الـ gateway مساحات
+أسماء (namespaces) منفصلة للسجل حتى لو وفّر محرران اسم الخادم نفسه. وإغلاق محرر
+لا يلغي تنفيذ MCP في جلسة أخرى.</p>
+<p>الاكتشاف (discovery) استباقي ومحدود قبل أول دور للنموذج. وتبقى مخططات الأدوات
+المحددة مجمّدة طوال المحادثة؛ وتتطلب تغييرات قائمة أدوات الخادم
+جلسة جديدة. وتُحرَّر نواقل MCP بعد كل تنفيذ، دون إيقاف
+الجلسات الشقيقة ولا حلقة MCP المشتركة.</p>
+<p>يحتفظ الـ gateway بمواصفات ناقل المحرر (بما فيها وسائط الأوامر
+وقيم البيئة وترويسات HTTP) في الذاكرة فقط. وتحتفظ سياسة الجلسة الدائمة
+ببصمة (fingerprint) والمخططات المحددة، لا بنسخة من بيانات الاعتماد تلك. وبعد إعادة
+تشغيل الـ gateway، يجب أن يوفر المحرر <code>mcpServers</code> نفسها عند load/resume.
+ويؤدي غياب بيانات الاعتماد إلى رفض التنفيذ؛ ويؤدي تغيّر المواصفات أو السر إلى رفض
+إعادة الربط بدلًا من تغيير الجلسة بصمت. ابدأ جلسة جديدة عند
+تغيير إعدادات الخادم. وتعمل الأوامر والمسارات على مضيف الـ gateway.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="installation">التثبيت</h2>
 <p>ثبّت Hermes بالطريقة المعتادة، ثم أضف الإضافة (extras) الخاصة بـ ACP من النسخة المسحوبة (checkout) للتثبيت:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
@@ -178,20 +194,20 @@ PATH الخاص بـ login shell:</p>
 </ul>
 <p>يعتمد تحديد المزوّد على آلية التحديد المعتادة في Hermes وقت التشغيل، لذا يرث ACP المزوّد وبيانات الاعتماد المضبوطة حاليًا. كما يعلن Hermes عن طريقة مصادقة عبر الطرفية (<code>--setup</code>) لعملاء ACP عند التشغيل الأول؛ وهي تفتح إعداد النموذج/المزوّد التفاعلي في Hermes.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="host-integration">التكامل مع المضيف</h2>
-<p>تُعيَّن هذه المتغيرات بواسطة <strong>عملية مضيف ACP</strong> (محرر أو أداة تشغيل وكيل
-أخرى) على العملية الفرعية لـ Hermes التي تُطلقها. وهي ليست إعدادات للمستخدم —
-لا تعيّنها يدويًا في <code>.env</code> أو <code>config.yaml</code>.</p>
-<table><thead><tr><th>المتغير</th><th>القيمة</th><th>التأثير</th></tr></thead><tbody><tr><td><code>HERMES_ACP_SKIP_CONFIGURED_MCP</code></td><td><code>1</code></td><td>يتخطى تشغيل خوادم MCP <strong>المضبوطة على المستوى العام</strong> من <code>config.yaml</code> قبل بدء حلقة ACP JSON-RPC.</td></tr></tbody></table>
-<p>يشغّل Hermes عادةً كل خادم MCP مضبوط في <code>config.yaml</code> قبل
-دخول حلقة ACP JSON-RPC. أما المضيف الذي يتولى إدارة MCP بنفسه — فيمرّر
-خوادم الجلسة صراحةً عبر <code>session/new</code> — فلا يحتاج إلى ذلك التشغيل
-العام، إذ قد يؤدي خادم MCP بطيء أو تفاعلي لا علاقة له بالأمر إلى تأخير
-<code>initialize</code>. وضبط هذا المؤشر على القيمة <code>1</code> تحديدًا يتيح لمثل هذا المضيف تخطيه.</p>
-<p>لا يُتخطّى إلا الاكتشاف العام من <code>config.yaml</code> يُتجاوز اكتشافه.<strong>أما خوادم MCP التي توفرها
-جلسة ACP عبر <code>session/new</code> فتظل تُسجَّل</strong>، لذا لا يفقد المضيف
-أي قدرة طلبها. وأي قيمة أخرى (غير معيّنة، أو فارغة، أو <code>0</code>، أو <code>false</code>) تُبقي
-السلوك الافتراضي، كي لا تتمكن سلسلة نصية عشوائية تبدو كقيمة صحيحة من
-تعطيل MCP بصمت.</p>
+<p>قد ما تزال مضيفات ACP الأقدم تعيّن هذا المتغير على العملية الفرعية لـ Hermes التي
+تُطلقها. وهو ليس من إعدادات المستخدم — فلا تعيّنه يدويًا في <code>.env</code> أو
+<code>config.yaml</code>.</p>
+<table><thead><tr><th>المتغير</th><th>القيمة</th><th>التأثير</th></tr></thead><tbody><tr><td><code>HERMES_ACP_SKIP_CONFIGURED_MCP</code></td><td><code>1</code></td><td><strong>لا تأثير له.</strong> لم يعد Hermes يقرؤه. يعمل <code>hermes acp</code> / <code>hermes-acp</code> كعارض (viewer) لـ gateway daemon ولا يبدأ بنفسه أبدًا خوادم MCP المعرّفة في <code>config.yaml</code>، فلا يوجد تشغيل من جهة ACP يمكن تخطيه.</td></tr></tbody></table>
+<p>لا تجري عملية ACP أي اكتشاف لخوادم MCP. يشغّل الـ gateway daemon خوادم
+<code>mcp_servers</code> من <code>config.yaml</code> الخاص بالـ profile التابع له مرة واحدة عند إقلاع الـ gateway، وتحصل
+جلسات ACP على تلك الخوادم عبر قواعد <code>platform_toolsets.acp</code>
+<a href="#what-hermes-exposes-in-acp-mode">المذكورة أعلاه</a>. ولا يغيّر ذلك ضبط المتغير على العملية
+الفرعية لـ ACP أو على الـ gateway. استخدم <code>platform_toolsets.acp</code>
+أو <code>no_mcp</code> لإبقاء الخوادم المضبوطة خارج جلسات ACP.</p>
+<p>في طلب <code>session/new</code> من المحرر، تُمرَّر <code>mcpServers</code> إلى الـ gateway وتُرفق
+بتلك الجلسة المعتمدة (راجع
+<a href="#editor-provided-mcp-servers">خوادم MCP التي يوفرها المحرر</a>)، سواء ضُبط
+المتغير أم لا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-behavior">سلوك الجلسات</h2>
 <p>يتتبّع مدير الجلسات داخل الذاكرة في محوّل ACP جلسات ACP طوال مدة تشغيل الخادم.</p>
 <p>تخزّن كل جلسة:</p>

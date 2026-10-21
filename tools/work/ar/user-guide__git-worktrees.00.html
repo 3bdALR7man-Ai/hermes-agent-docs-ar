@@ -28,10 +28,13 @@
 <p>أسرع طريقة (مستوحاة من <code>/worktree new</code> في Copilot CLI): من جلسة CLI تفاعلية، نفّذ</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
 <p>يُنشئ Hermes المجلد <code>.worktrees/my-experiment/</code> داخل المستودع (على الـ branch
- <code>hermes/my-experiment</code> ، استنادًا إلى أحدث commit في المستودع البعيد بعد جلبه للتو، ما لم يكن
- <code>worktree_sync: false</code>)، ويعيد توجيه أدوات الطرفية والملفات الخاصة بالجلسة إليه — دون الحاجة إلى إعادة التشغيل. احذف الاسم لتحصل على شجرة عشوائية باسم <code>hermes-&lt;id&gt;</code>.
-يعرض <code>/worktree</code> وحده الشجرة النشطة؛ ويسرد <code>/worktree list</code> جميع الأشجار. وعند الخروج لا تُحفظ الشجرة إلا إذا كانت تحتوي على commits لم تُدفع (push) بعد، تمامًا كما في
- <code>hermes -w</code>.</p>
+<code>hermes/my-experiment</code>، استنادًا إلى أحدث طرف للمستودع البعيد بعد جلبه للتو، ما لم يكن
+<code>worktree_sync: false</code>)، ويعيد توجيه أدوات الطرفية والملفات الخاصة بالجلسة
+إليه — دون الحاجة إلى إعادة التشغيل. احذف الاسم لتحصل على شجرة عشوائية باسم <code>hermes-&lt;id&gt;</code>.
+يعرض <code>/worktree</code> وحده الشجرة النشطة، ويسرد <code>/worktree list</code> جميع
+الأشجار. وعند الخروج تُحذف الشجرة النظيفة التي دُفعت commits الخاصة بها؛ أما الشجرة ذات التغييرات غير المُثبَّتة
+أو commits غير المدفوعة فتُطرح عليها السؤال نفسه (إبقاء / أرشفة / إزالة) كما في
+<code>hermes -w</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manually-with-git">يدويًا باستخدام git</h3>
 <p>من المستودع الرئيسي (الذي يحتوي على <code>.git/</code>)، أنشئ worktree جديدًا لـ feature branch:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
@@ -121,6 +124,56 @@
 <p>هذه أسهل طريقة للحصول على عزل باستخدام worktree. ويمكنك أيضًا دمجها مع استعلام واحد:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
 <p>للوكلاء المتوازين، افتح عدة طرفيات ونفّذ <code>hermes -w</code> في كل منها — إذ يحصل كل استدعاء على worktree و branch خاصين به تلقائيًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="leaving-a-session-with-unfinished-work">مغادرة جلسة فيها عمل غير مكتمل</h3>
+<p>عندما تنتهي جلسة <code>hermes -w</code> تفاعلية (classic CLI أو <code>--tui</code>) ويكون في
+worktree الخاص بها تغييرات غير مُثبَّتة أو commits غير مدفوعة، يسأل Hermes:</p>
+<ul>
+<li><strong>إبقاء الـ worktree</strong> (الافتراضي، وهو أيضًا ما يختاره Enter/Esc) — لا يتغير شيء.</li>
+<li><strong>أرشفته ثم إزالته</strong> — تُؤرشف حالة العمل كاملة (انظر أدناه)
+وتُزال الشجرة قبل أن تنتهي الجلسة من الخروج، فلا تُقطع شجرة كبيرة
+في منتصف العملية؛ ويطبع Hermes الأمر <code>hermes worktree restore</code>. وإذا
+فشلت الأرشفة تُبقى الشجرة.</li>
+<li><strong>إزالته وتجاهل التغييرات</strong> — فقط عندما تختاره صراحةً.</li>
+</ul>
+<p>لا تسأل أبدًا عمليات التشغيل لمرة واحدة (<code>-q</code> و <code>-z</code>)، ولا مهام cron، ولا جلسات gateway، ولا أي خروج بلا
+طرفية: تُبقى الشجرة ويتولاها لاحقًا مسح الأشجار القديمة (stale-worktree sweep).
+أما الشجرة النظيفة التي دُفعت commits الخاصة بها فتُزال دون سؤال.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="stale-worktree-sweep-and-restore">مسح الأشجار القديمة واستعادتها</h2>
+<p>يُسجَّل كل مستودع ينشئ فيه Hermes worktree (<code>hermes -w</code> و <code>/worktree new</code>،
+وعزل worktree للـ subagent، ولوحة git في تطبيق سطح المكتب) في
+<code>&lt;HERMES_HOME&gt;/worktree_repos.json</code> للـ profile النشط. عند بدء <code>hermes -w</code>
+وكل 6 ساعات من مُؤقِّت cron، يمسح Hermes المجلد <code>.worktrees/</code> في كل مستودع من تلك المستودعات:</p>
+<table><thead><tr><th>الشجرة</th><th>القرار</th></tr></thead><tbody><tr><td>خاملة تجاوزت مستواها (Tier) (<code>hermes-*</code>/<code>subagent-*</code> 24 ساعة، والأشجار المسمّاة 72 ساعة)، ونظيفة ومدموجة أو مدفوعة</td><td>تُزال</td></tr><tr><td>خاملة تجاوزت مستواها مع تغييرات غير مُثبَّتة أو commits غير مدفوعة</td><td><strong>تُؤرشف ثم تُزال</strong></td></tr><tr><td>مالك قفل hermes حي، أو أي عملية حية يقع cwd الخاص بها (وفي Linux: أو ملف مفتوح) داخلها</td><td>لا تُمسّ أبدًا</td></tr><tr><td>نشاط في ملف أو <code>HEAD</code> أو reflog أحدث من مستواها (الملف المحذوف يُحتسب عبر مجلده)</td><td>لا تُمسّ أبدًا</td></tr><tr><td>أشجار مهام Kanban (<code>t_&lt;hex&gt;</code>)</td><td>لا تُمسّ أبدًا (يتولاها Kanban GC)</td></tr><tr><td>أي submodule: gitlink في الفهرس (index)، أو مستودع submodule محفوظ تحت <code>modules/</code> الخاص بالشجرة (حتى بعد <code>git submodule deinit</code>)</td><td>تُبقى (<code>keep-submodule-work</code>: تسجّل الأرشفة مؤشر الـ submodule فقط). ولا تُزال الشجرة النظيفة المدموجة إلا إذا لم تُهيَّأ submodules الخاصة بها قط</td></tr><tr><td>مستودع مضمَّن في أي موضع داخلها، سواء كان مُتجاهَلًا (gitignored) أم لا (مثل <code>build/tool/.git</code>)</td><td>تُبقى (<code>keep-unarchivable</code>)</td></tr><tr><td>commit محفوظ فقط عبر مرجع خاص بكل worktree (<code>refs/worktree/*</code> و <code>refs/bisect/*</code> و <code>refs/rewritten/*</code>)</td><td>تُبقى (<code>keep-worktree-refs</code>: تُحذف تلك المراجع مع الشجرة)</td></tr><tr><td>ملف غير متتبَّع (untracked) أكبر من <code>worktrees.archive_max_file_mb</code></td><td>تُبقى (<code>keep-large-untracked</code>)</td></tr></tbody></table>
+<p><strong>الملفات المتجاهَلة.</strong> الملفات المتجاهَلة (نسخ <code>.env</code> وcaches ومخرجات البناء والاختبار)
+لا تُؤرشف وتُحذف مع الشجرة. ويُستثنى من ذلك أمر واحد: مستودع git متداخل داخل
+مجلد متجاهَل يُبقي الشجرة.</p>
+<p>تُجرى الفحوص نفسها على الأشجار النظيفة المدموجة، ويحتسب كل فحص للتغييرات الملفاتِ
+التي كان <code>status.showUntrackedFiles=no</code> سيخفيها، وملفات skip-worktree /
+assume-unchanged التي تختلف بايتاتها عن الفهرس.</p>
+<p>الأرشيف هو commit محفوظ في <code>refs/hermes/archive/&lt;tree&gt;</code> يضم
+<code>HEAD</code> الخاص بالشجرة، والتغييرات المُجهَّزة (staged)، والتغييرات غير المُجهَّزة، والملفات غير المتتبَّعة (أما الملفات التي
+يستبعدها <code>.gitignore</code>، مثل <code>node_modules/</code> أو <code>.venv/</code>، فلا تُلتقط).
+يُبنى باستخدام فهرس مؤقت، فلا تُعدَّل الشجرة نفسها أبدًا؛ وإذا
+تعذر بناء الأرشيف تُبقى الشجرة. وإذا دُخلت الشجرة أو تحركت
+تغييراتها المُجهَّزة (<code>git add</code> و <code>git apply --cached</code>) أثناء
+بناء الأرشيف، يُحفظ الأرشيف وتُبقى الشجرة أيضًا. تُخزَّن بايتات الملفات وتُستعاد كما هي تمامًا:
+فلا تُطبَّق أي قاعدة لنهايات الأسطر أو مرشح (filter) من <code>.gitattributes</code> أو <code>info/attributes</code> أو <code>core.attributesFile</code>. وتُستبعد الملفات غير المتتبَّعة الأكبر من
+<code>worktrees.archive_max_file_mb</code> وتُدرج في الأرشيف، ثم
+تُبقى الشجرة: ويوضح ذلك خيار <strong>Archive</strong> عند الخروج ونتيجة الـ subagent. أما
+الـ branch الموجود على مستودع بعيد (PR مفتوح) فيُبقى؛ وإلا يحتفظ الأرشيف
+بـ commits الخاصة به ويُحذف الـ branch المحلي.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تعيد الاستعادة (restore) الـ branch إلى مكانه عندما يكون مفقودًا أو لا يزال يشير إلى
+<code>HEAD</code> المؤرشف؛ وإلا تعود الشجرة في حالة detached عند ذلك الـ commit.
+وتُحذف الأرشيفات الأقدم من <code>worktrees.archive_retention_days</code> بواسطة
+المسح.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>لا يوجد حد لعدد الأشجار الممكن وجودها: مئات الـ subagents المتوازية
+يحتفظ كل منها بشجرته ما دام يعمل فيها. ولا يُخلي <code>max_total_gb</code> إلا
+الأشجار الخاملة التي تجاوزت مستواها.</p>
+<p>تتبع worktrees الخاصة بالـ subagents (<code>delegation.worktree_isolation: true</code>) القاعدة نفسها
+عند انتهاء الابن: تُزال الشجرة النظيفة، وتُؤرشف الشجرة التي فيها commits
+أو تعديلات وتُزال مع إبقاء الـ branch الخاص بها ليدمجه الأصل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="putting-it-all-together">جمع كل ما سبق معًا</h2>
 <ul>
 <li>استخدم <strong>git worktrees</strong> لمنح كل جلسة Hermes نسختها المسحوبة النظيفة الخاصة.</li>

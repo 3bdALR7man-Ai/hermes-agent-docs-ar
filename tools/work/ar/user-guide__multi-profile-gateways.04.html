@@ -1,3 +1,18 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="keeping-the-host-awake">إبقاء الجهاز المضيف مستيقظًا</h2>
+<p>يمكن لعملية الـ gateway أن تعمل طوال اليوم، لكن نظام التشغيل سيحاول
+مع ذلك النوم عند عدم النشاط. نمطان:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="macos--caffeinate">macOS — <code>caffeinate</code></h3>
+<p><code>caffeinate</code> مدمجة في macOS وتمنع النوم أثناء عملها. لا حاجة إلى تثبيت.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<table><thead><tr><th>الخيار</th><th>الأثر</th></tr></thead><tbody><tr><td><code>-d</code></td><td>حظر نوم الشاشة</td></tr><tr><td><code>-i</code></td><td>حظر نوم النظام عند الخمول (الافتراضي)</td></tr><tr><td><code>-m</code></td><td>حظر نوم القرص</td></tr><tr><td><code>-s</code></td><td>حظر نوم النظام (لأجهزة Mac الموصولة بالتيار الكهربائي فقط)</td></tr><tr><td><code>-u</code></td><td>محاكاة نشاط المستخدم (يمنع قفل الشاشة)</td></tr><tr><td><code>-t N</code></td><td>الخروج تلقائيًا بعد <code>N</code> ثانية</td></tr><tr><td><code>-w P</code></td><td>الخروج عند خروج PID <code>P</code> في حالة الخروج</td></tr></tbody></table>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>إغلاق الغطاء ما زال يُنيم الـ Mac</div><div class="admonitionContent_BuS1"><p>لا تستطيع <code>caffeinate</code> تجاوز نوم إغلاق الغطاء المدفوع بالعتاد على أجهزة MacBook.
+للتشغيل والغطاء مغلق، غيّر تفضيلات موفِّر الطاقة/البطارية أو
+استخدم أداة من طرف ثالث.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="linux--systemd-inhibit-or-loginctl">Linux — <code>systemd-inhibit</code> أو <code>loginctl</code></h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<p>بعد تفعيل lingering، تستمر وحدات مستخدم systemd لديك (بما في ذلك
+<code>hermes-gateway-&lt;profile&gt;.service</code>) في العمل عبر انقطاعات SSH
+وإعادة التشغيل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="token-conflict-safety">أمان تعارض الـ tokens</h2>
 <p>يجب أن يستخدم كل profile رموز بوت فريدة لكل منصة. إذا شارك
 profileان رمز Telegram أو Discord أو Slack أو WhatsApp أو Signal، ترفض
@@ -68,6 +83,14 @@ profile ثانوي واحد على الأقل gateway خاصة به (عملية 
 على ملف الـ profile نفسه. لا يتحكم إلا في المسار <strong>التلقائي</strong>: يُعدّ <code>hermes gateway migrate --multiplex</code> طلبًا صريحًا ويظل ينفّذ الترحيل
 (وهو الوسيلة المدعومة لتفعيله مجددًا). الإغفال أو قيمة <code>true</code> يُبقيان السلوك
 الافتراضي الموضّح أعلاه.</p>
+<p>ينطبق الإعداد نفسه على gateway أُقلع بالـ profile الافتراضي فقط.
+في الوضع الطبيعي، بمجرد إنشاء profile ثانٍ (عبر New Agent في Desktop أو
+<code>hermes profile create</code>)، يبدأ ذلك الـ gateway بخدمة كل الـ profiles في مكانه،
+دون إعادة تشغيل. أما مع <code>auto_multiplex_migration: false</code> فيستمر في خدمة
+الـ profile الخاص به فقط، ويُرفض الـ profile الجديد بهذا السبب إلى أن تنفّذ
+<code>hermes gateway migrate --multiplex</code> أو تعيد ضبط المفتاح إلى <code>true</code>. يُعاد
+قراءة المفتاح عند كل فحص للـ profiles، فيسري ضبطه من جديد خلال نحو
+30 ثانية دون إعادة تشغيل.</p>
 <p>الأمر الصريح مختلف: يطبّق <code>hermes gateway migrate --multiplex</code> مع
 profileين أو أكثر ودون <strong>أي</strong> gateway ثانوية مستقلة الخطوة
 الأخيرة المتبقية — فهو يضبط <code>gateway.multiplex_profiles: true</code> ويشغّل gateway الافتراضية أو يعيد تشغيلها.

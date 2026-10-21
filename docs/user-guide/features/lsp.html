@@ -48,11 +48,26 @@ typescript-language-server و clangd ونحو 20 خادمًا آخر — كعم�
 بصمت إلى نتيجة فحص الصياغة وحدها.</p>
 <p>وبشكل ملموس، مع كل عملية <code>write_file</code> أو <code>patch</code> ناجحة:</p>
 <ol>
-<li>يلتقط Hermes خط أساس <bdi class="term">(baseline)</bdi> للتشخيصات الحالية للملف.</li>
-<li>ينفّذ عملية الكتابة.</li>
-<li>يستعلم خادم اللغة مجددًا، ويستبعد التشخيصات التي كانت
-موجودة مسبقًا في خط الأساس، ويعرض الجديدة منها فقط.</li>
+<li>ينفّذ Hermes عملية الكتابة، ثم يرسل المحتوى الجديد إلى language
+server. ولا تنتظر عملية الكتابة الحكم إلا ما دام استدعاء الأداة بأكمله
+أقل من نحو 80 ms.</li>
+<li>يطلب Hermes الحكم مباشرةً حيثما يدعم الخادم ذلك:
+يردّ TypeScript (<code>typescript-language-server</code>) على طلب
+diagnostics متزامن، ويردّ pyright على document pull. وعادةً تردّ الخوادم الدافئة
+خلال 10–90 ms. وعندما يتضمن الحكم تشخيصات، يقارنها Hermes
+بالحكم الخاص بالمحتوى قبل التعديل ويُبقي
+الجديدة منها فقط.</li>
+<li>يظهر الحكم الذي يصل داخل تلك النافذة في الحقل
+<code>lsp_diagnostics</code> ضمن نتيجة الأداة. أما الحكم الأبطأ (خادم بارد أو ملف كبير جدًا) فيُرفق
+بنتيجة الأداة <strong>التالية</strong> في الجلسة، وتوسَمه العبارة <code>LSP diagnostics introduced by your earlier edit of &lt;path&gt;</code>. وإذا
+حاول النموذج إنهاء الدور بينما لا يزال فحص قيد التنفيذ، ينتظر Hermes
+حتى 5 s لإتمامه. وتصل أي مشكلات يجدها إلى النموذج في رسالة جديدة
+قبل قبول الإجابة، ولذلك يراها حتى تشغيل <code>hermes chat -q</code>
+لمرة واحدة. ولا تُعاد كتابة الرسائل السابقة أبدًا.</li>
 </ol>
+<p>إذا عُدّل الملف نفسه مرة أخرى قبل انتهاء فحصه، يعمل الفحص الأحدث
+بالنسبة إلى خط الأساس للتعديل الأقدم. وتبقى الأخطاء التي أدخلها التعديل الأول
+مُبلَّغًا عنها ما لم يصلحها التعديل الثاني.</p>
 <p>يرى الوكيل مخرجات مثل:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#F8F8F2"><span class="token plain">{</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  &quot;bytes_written&quot;: 42,</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  &quot;dirs_created&quot;: false,</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  &quot;lint&quot;: {&quot;status&quot;: &quot;ok&quot;, &quot;output&quot;: &quot;&quot;},</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  &quot;lsp_diagnostics&quot;: &quot;LSP diagnostics introduced by this edit:\n&lt;diagnostics file=\&quot;/path/to/foo.py\&quot;&gt;\nERROR [42:5] Cannot find name &#x27;foo&#x27; [reportUndefinedVariable] (Pyright)\nERROR [50:1] Argument of type \&quot;str\&quot; is not assignable to \&quot;int\&quot; [reportArgumentType] (Pyright)\n&lt;/diagnostics&gt;&quot;</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">}</span><br></div></code></pre></div></div>
 <p>يحمل الحقل <code>lint</code> نتيجة فحص الصياغة (تحليل داخل العملية يستغرق ميكروثوانٍ

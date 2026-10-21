@@ -107,10 +107,35 @@
 </ul>
 <p><strong>تحذير بشأن التكلفة:</strong> مع <code>max_spawn_depth: 3</code> و <code>max_concurrent_children: 3</code> ، يمكن أن تصل الشجرة إلى 3×3×3 = 27 وكيلًا طرفيًا متزامنًا. كل مستوى إضافي يضاعف الإنفاق، لذا ارفع <code>max_spawn_depth</code> عن قصد.</p>
 <p><strong>تُقيَّد عمليات التشغيل لمرة واحدة بصورة منفصلة.</strong> <code>hermes chat -q</code> / <code>--oneshot</code> إطلاق ما لا يتجاوز <code>delegation.oneshot_max_children</code> من subagents إجمالًا (الافتراضي <code>2</code> ، و <code>0</code> = بلا حد). ولا يملك التشغيل لمرة واحدة دورًا لاحقًا لتلقّي النتائج، وكانت معظم عمليات إطلاقه في مسارات التقييم المقارن تطلب &quot;راجع عملي بصورة مستقلة&quot; بدلًا من العمل المتوازي — فيعيد كل وكيل فرعي دفع تكلفة system prompt بارد ويعيد قراءة المستودع. ولا تتأثر الجلسات التفاعلية وجلسات gateway.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="finite-chat-runs">تشغيلات المحادثة المنتهية (Finite chat runs)</h2>
+<p>عندما تجيب المحادثة ثم تنتهي (<code>-Q</code> أو <code>chat --oneshot</code> أو استعلام مع
+stdio غير TTY)، ينتظر <code>delegate_task</code> أبناءه ويعيد نتائجهم إلى
+الوكيل الأب في الدور نفسه. وتعمل الأبناء في الدفعات بالتوازي كالمعتاد، ضمن حدود
+<code>delegation.max_concurrent_children</code>. ويمكن للأب استخدام تلك النتائج في
+ردّه النهائي قبل خروج CLI.</p>
+<ul>
+<li><strong>الانضمام التلقائي:</strong> لا حاجة إلى تفعيل صريح ولا إلى تجاوز وضع الخلفية.
+تحتفظ محادثات TTY التفاعلية وجلسات المراسلة بالتفويض في الخلفية.</li>
+<li><strong>سياسة لكل إدخال:</strong> يسجّل CLI الاستهلاك المنتهي (finite) مع الـ prompt المقبول،
+بما في ذلك عند استئناف جلسة تفاعلية. ولا يغيّر ذلك سياسة إنشاء الجلسة
+ولا العارضين الآخرين ولا بيئة الـ daemon.</li>
+<li><strong>الضمانات القائمة:</strong> تظل حدود التفويض والمهلات والإلغاء و
+<code>approvals.single_query_mode</code> (أدوار <code>-q</code>؛ أما أدوار <code>hermes -z</code> فتعمل دون إشراف) سارية.
+ولا يوافق الانضمام تلقائيًا على الأوامر ولا يضمن نجاح نتائج الأبناء.
+افحص النتائج وتحقق من المخرجات. وما تزال العمليات المُدارة/الآمنة ترفض
+تفويض الأبناء إلى أن يتوفر عقد تسجيل الأبناء الخاص بها.</li>
+<li><strong>حدود منفصلة:</strong> يبقى <code>--run-budget</code> غير مدعوم في محادثة gateway؛ وهو غير
+مطلوب للانضمام. و <code>terminal.oneshot_completion_wait_seconds</code> ليس مهلة
+للتفويض. وتبقى إشعارات الطرفية المعتمدة (canonical) ملكًا للـ gateway.</li>
+</ul>
+<p>يؤدي إغلاق CLI إلى فصله لا إنهاء الدور الذي يملكه الـ gateway. ولا يزال تنفيذ الأبناء
+محليًا للعملية (process-local) لدى ذلك المالك: استخدم مجدولًا دائمًا (durable scheduler) للأعمال
+التي يجب أن تبقى بعد إعادة تشغيل المالك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifetime-and-durability">مدة الحياة والديمومة</h2>
 <div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>ديمومة نتائج الإنجاز الخلفية لا تعني تنفيذًا دائمًا</div><div class="admonitionContent_BuS1"><p>تعمل استدعاءات <code>delegate_task</code> الموجّهة إلى النموذج على المستوى الأعلى في الخلفية تلقائيًا حيثما تدعم الجلسة التسليم اللاحق. يعيد Hermes معرّف تتبع فورًا، وتعود النتيجة إلى المحادثة بعد انتهاء الوكيل الفرعي أو الدفعة. أما الـ subagents المنسِّقة فتنتظر عمّالها في الدور الحالي لأن عليها تجميع تلك النتائج قبل العودة. وتعود الـ endpoints عديمة الحالة القائمة على الطلب/الاستجابة إلى التنفيذ المتزامن عندما لا تستطيع تسليم نتيجة منفصلة لاحقًا.</p><ul>
 <li>لا تلغي رسائل المتابعة العادية الوكلاء الفرعيين في الخلفية. ويقوم <code>/stop</code> في أي واجهة (gateway <code>/stop</code> — حتى عندما تكون الجلسة خاملة بعد انتهاء دور التوزيع — أو CLI <code>/stop</code> أو زر Stop في Desktop/TUI أو إلغاء ACP) ينهي عمليات التفويض الخلفية الجارية للجلسة، ويؤدي إغلاق الجلسة المالكة أو إعادة ضبطها إلى الشيء نفسه.</li>
-<li>يقاطع الإغلاق أو إعادة الضبط الصريحان للجلسة وكلاءها الفرعيين الخلفيين. أما إغلاق عارض TUI لجلسة يملكها الـ gateway فلا يُنهي عمل الـ gateway.</li>
+<li>يؤدي إغلاق الجلسة أو إعادة ضبطها صراحةً إلى مقاطعة الأبناء العاملين في الخلفية لتلك الجلسة. في CLI و TUI يملك الـ gateway الجلسة ولا يفعل العميل سوى عرضها: فعندما يخرج آخر عارض أو ينفّذ <code>/new</code> (ويُعدّ التبديل بالاستئناف في TUI كذلك)، يقاطع الـ gateway فورًا الأبناء العاملين في الخلفية لتلك الجلسة ويرفض أي أبناء جدد لها إلى أن يفتح عارض الجلسة مجددًا. أما الفصل العادي فلا يلغي شيئًا: إغلاق Desktop أو انقطاع الاتصال أو الخروج بينما يظل عارض آخر متصلًا يبقي العمل قيد التشغيل. وتستمر العمليات في الخلفية (<code>terminal(background=True)</code>) في كلتا الحالتين.</li>
+<li>إذا وصل إكمال (completion) لجلسة CLI أو TUI — مثل نتيجة ابن يعمل في الخلفية (بما في ذلك المقاطَع) أو خروج عملية <code>notify_on_complete</code> أو إشعار watch-pattern — إلى رأس طابور الجلسة بينما لا يوجد عارض متصل، فلا يبدأ دورًا. بل يُكتب في الجلسة كملاحظة، ويقرؤها الدور التالي (مثلًا بعد <code>hermes chat --resume</code>). وإذا كان عارض متصلًا بحلول ذلك الوقت، بما في ذلك عارض عاد بعد وصول الإكمال، فيعمل الإكمال كدور كما كان سابقًا. أما محادثات المراسلة فليس لها عارضون ولم تتغير: ما تزال إكمالاتها تبدأ دورًا.</li>
 <li>إعادة تشغيل عملية Hermes <strong>لا</strong> تستأنف وكيلًا فرعيًا قيد التشغيل. إذ تصبح محاولته <code>unknown</code> لأن Hermes لا يستطيع إثبات الآثار الجانبية التي حدثت.</li>
 <li>الوكيل الفرعي الذي أكمل عمله قبل إعادة التشغيل لكن نتيجته لم تُسلَّم يُستعاد ويُوجَّه مجددًا عبر الفحوصات المعتادة للجلسة المالكة.</li>
 <li>يعيد الوكلاء الفرعيون الملغون نتيجة مهيكلة (<code>status=&quot;interrupted&quot;</code> ، <code>exit_reason=&quot;interrupted&quot;</code>) تكون قيمة <code>summary</code> فيه آخر نص أنتجه الوكيل الفرعي قبل الإيقاف (وينتقل النص البديل للمقاطعة إلى <code>error</code>). ويتكرر الإيقاف عبر شجرة الإطلاق — يُقاطَع أولًا العمال المتزامنون للوكيل الفرعي المنسِّق، وتُجمَّع نتائجهم الجزئية ضمن نتيجة المقاطعة الخاصة به — وتعود نتيجة كل وحدة خلفية إلى المحادثة فورًا كإشعار الاكتمال المعتاد (<code>Subagent Task Interrupted: …</code>)، فلا يُنتظَر استنفاد الوكيل الفرعي ميزانيته.</li>
@@ -123,37 +148,8 @@
 <li>يحصل كل subagent على <strong>جلسة طرفية خاصة به</strong> (منفصلة عن الوكيل الأب)</li>
 <li>ترث الـ subagents الـ toolsets المفعّلة لدى الوكيل الأب؛ ولا يستطيع النموذج اختيارها أو توسيعها في كل استدعاء</li>
 <li><strong>التفويض المتداخل اختياري</strong>: لا يستطيع التفويض أكثر إلا الوكلاء الفرعيون ذوو <code>role=&quot;orchestrator&quot;</code> ، وفقط عند رفع <code>max_spawn_depth</code> عن قيمته الافتراضية 1 (مسطّح). عطّله على المستوى العام باستخدام <code>orchestrator_enabled: false</code>.</li>
-<li>لا <strong>تستطيع</strong> الـ subagents الطرفية (leaf) استدعاء: <code>delegate_task</code> ، <code>clarify</code> ، <code>memory</code> ، <code>send_message</code> ، <code>cronjob</code> ، <code>start_chat</code>. ويحتفظ subagents المنسِّقون بـ <code>delegate_task</code> مع إبقاء الحظر على البقية. ويحتفظ كلا الدورين بـ <code>execute_code</code> (استدعاء الأدوات برمجيًا) حتى يتمكن الوكلاء الفرعيون من تجميع الأعمال الآلية في دفعات بدلًا من استهلاك تكرارات الاستدلال.</li>
+<li>لا <strong>تستطيع</strong> الـ subagents الطرفية (leaf) استدعاء: <code>delegate_task</code> ، <code>clarify</code> ، <code>memory</code> ، <code>send_message</code> ، <code>cronjob</code>. ويحتفظ subagents المنسِّقون بـ <code>delegate_task</code> مع إبقاء الحظر على البقية. ويحتفظ كلا الدورين بـ <code>execute_code</code> (استدعاء الأدوات برمجيًا) حتى يتمكن الوكلاء الفرعيون من تجميع الأعمال الآلية في دفعات بدلًا من استهلاك تكرارات الاستدلال.</li>
 <li><strong>الإلغاء يتبع الملكية</strong>: يؤدي <code>/stop</code> أو إغلاق الجلسة المالكة أو إعادة ضبطها إلى إلغاء وكلائها الفرعيين الخلفيين؛ ويتبع الأحفاد المتزامنون التابعون للمنسِّقين حالة المقاطعة الخاصة بالوكيل الأب</li>
 <li>لا يدخل سياقَ الوكيل الأب سوى الملخص النهائي، مما يُبقي استهلاك الـ tokens فعّالًا</li>
 <li>ترث الـ subagents <strong>مفتاح API وإعدادات المزوّد ومجمّع بيانات الاعتماد</strong> الخاصة بالوكيل الأب (مما يتيح تدوير المفاتيح عند بلوغ حدود المعدل)</li>
 </ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="worktree-isolation">العزل عبر Worktree</h2>
-<p>افتراضيًا، تتشارك الـ subagents مجلد العمل الخاص بالوكيل الأب، وهذا مناسب للبحث
-والأعمال التي يغلب عليها القراءة، لكن الوكلاء الفرعيين المتوازين الذين يعدّلون المستودع نفسه قد يتصادمون.
-اضبط <code>delegation.worktree_isolation: true</code> لمنح كل وكيل فرعي git
-worktree خاصًا به، متفرعًا من <code>HEAD</code> الحالي للمستودع (مستوحى من الخيار
- <code>--subagent-worktree-isolation</code> في Muse Code):</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
-<p>عند تفعيل العزل:</p>
-<ul>
-<li>يبدأ كل وكيل فرعي طرفيته في <code>&lt;repo&gt;/.worktrees/subagent-&lt;id&gt;</code> على
-الـ branch الخاص به <code>hermes-subagent/subagent-&lt;id&gt;</code> ، وتوجّهه رسالة الهدف إلى
-العمل وإنشاء الـ commits هناك.</li>
-<li>تبقى النسخة المسحوبة (checkout) الخاصة بالوكيل الأب دون مساس؛ ولا يستطيع الوكلاء الفرعيون الكتابة فوق
-تعديلات بعضهم.</li>
-<li>عندما ينتهي وكيل فرعي، يُضاف إلى إدخال نتيجته حقل <code>worktree</code> يُبلغ عن
- <code>path</code> و <code>branch</code> و <code>commits</code> (المتقدمة على الأساس) و <code>dirty</code>. ويراجع الوكيل الأب
-كل branch أو يدمجه (<code>git log &lt;branch&gt;</code> ، <code>git merge &lt;branch&gt;</code>).</li>
-<li>الـ worktree الذي يُترك <strong>دون commits وبشجرة نظيفة يُحذف تلقائيًا</strong>
-(<code>pruned: true</code>)؛ أما أي worktree يحتوي على عمل فيُحتفظ به.</li>
-<li>يتطلب الحذف دليلًا. فإذا فشل فحص git، أو حدث خطأ في مرحلة الإنهاء
-نفسها، يُحتفظ بالـ worktree والـ branch ويحمل الإدخال
- <code>inspection_failed: true</code> إضافة إلى <code>note</code> ، وعندها تكون <code>commits</code>/<code>dirty</code>
-قيمًا افتراضية لا قياسات، لذا افحص الـ worktree بدلًا من افتراض أن
-الوكيل الفرعي لم يُنتج شيئًا.</li>
-</ul>
-<p>النطاق: اختياري، ويقتصر على git، وعلى terminal backend المحلي فقط. في مجلد لا يستخدم
-git، أو على backends من نوع docker/ssh/modal، أو إذا فشل إنشاء الـ worktree، يتراجع
-الإعداد بصمت إلى سلوك مساحة العمل المشتركة المعتاد حاليًا، ولا يُنتج
-خطأً أبدًا.</p>

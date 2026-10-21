@@ -1,36 +1,116 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-plugins-out-of-process-pluginsisolation">تشغيل الإضافات خارج العملية (<code>plugins.isolation</code>)</h3>
+<p>افتراضيًا، تُستورد إضافات Python من الجهات الخارجية إلى عملية Hermes، كما كان الحال دائمًا. يؤدي ضبط <code>plugins.isolation: host</code> إلى نقلها إلى <strong>مضيف إضافات</strong>: عملية Python منفصلة واحدة لكل profile، تبدأ عند الطلب، وتستورد الإضافات التي ثبّتها المستخدم في ذلك الـ profile وتتواصل مع Hermes عبر pipe خاص.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<p>لا تتغيّر الإضافات. تتلقى <code>ctx</code> نفسه وتسجّل الأدوات، و hooks، و slash commands، والمهارات، وكائنات المزوّدين (توليد الصور/الفيديو، والبحث في الويب، والمتصفح، و TTS/STT، والذاكرة، ومحركات السياق،
+و profiles مزوّدي النماذج) كما كانت تفعل؛ ويسجّل Hermes مدخلات مطابقة على جانبه تستدعي
+المضيف. يخدم المضيف أيضًا APIs الإضافات في لوحة التحكم. تستمر الإضافات المضمّنة في العمل داخل العملية.
+تشارك معالجات API لوحة التحكم العاملة داخل العملية حلقة أحداث gateway، لذا يجب ألا تحجبها (راجع
+<a href="/docs/user-guide/features/extending-the-dashboard#dont-block-the-event-loop">لا تحجب حلقة الأحداث</a>).</p>
+<p>في gateway يخدم عدة profiles، يشغّل كل profile غير الذي بدأ به gateway
+إضافات لوحة التحكم الخاصة به (المثبّتة تحت مجلد <code>plugins/</code> الخاص به أو الجذر <code>~/.hermes/plugins/</code>،
+وتتغلب نسخة الـ profile الخاصة عند تعارض الاسم نفسه، والمفعّلة في إعداداته الخاصة) في مضيف الإضافات الخاص به،
+أيًّا كانت قيمة <code>plugins.isolation</code> لديه: فشيفرة إضافة profile آخر لا تعمل أبدًا داخل
+gateway. لا يحمل المضيف websockets بعدُ، لذا تُرفض مسارات websocket لمثل هذه الإضافة
+(HTTP 501) لذلك الـ profile؛ أما مسارات HTTP فتعمل. ولا يحتجز المعالج المستضاف البطيء إلا طلبات إضافات
+الـ profile الخاص به، ويحصل الطلب الذي لم يجب عنه المضيف بعد 60 ثانية على HTTP 504. ويبدأ مثل هذا المضيف
+عند أول طلب إضافة لوحة تحكم لذلك الـ profile ويعمل حتى يخرج gateway: أي عملية Python إضافية واحدة
+لكل profile استخدم إضافة لوحة تحكم.</p>
+<p>ما الذي يتغيّر في وضع <code>host</code>:</p>
+<ul>
+<li><strong>لا يوجد مفسّر مشترك.</strong> لا تدخل وحدة الإضافة عملية Hermes أبدًا، فلا يمكنها قراءة بيانات profile آخر من الذاكرة أو تعديل الآليات الداخلية لـ Hermes. في gateway متعدد الإرسال، يحصل كل profile على مضيفه الخاص، يبدأ ببيئة ذلك الـ profile وأسراره فقط.</li>
+<li><strong>تظل الأعطال محصورة.</strong> الإضافة التي تتعطل أو تخرج تُنهي مضيفها لا Hermes؛ ويعيد الاستدعاء الجاري خطأ أداة، ثم يعيد Hermes تشغيل المضيف وتحميل إضافاته (مع إعادات محاولة محدودة).</li>
+<li><strong>تحتاج بعض الواجهات إلى كود داخل العملية</strong>، وتُفشِل تلك الإضافة بسبب واضح بدلًا من تحميلها:
+محوّلات منصات gateway (<code>register_platform</code>)، ووسائل نقل الموافقات، ومعالجات Telegram/المنصات،
+و profiles مزوّدي النماذج التي تبني عميل SDK خاصًا بها (<code>create_client</code>)، و endpoints البث و websocket
+في لوحة التحكم، والإضافات التي تعدّل وحدات Hermes عبر monkeypatch. شغّلها باستخدام <code>isolation: in_process</code>.</li>
+</ul>
+<p><strong>تثبيت الإعداد لنشر مشترك.</strong> <code>plugins.isolation</code> إعداد عادي للـ profile، لذا يستطيع من يملك تعديل <code>config.yaml</code> الخاص بالـ profile تعطيله. عندما تتبع profiles لأشخاص تعزلهم عن بعضهم، ثبّته بدلًا من ذلك في <a href="/docs/user-guide/managed-scope">النطاق المُدار (Managed Scope)</a>؛ فتتغلب القيمة المُدارة على الإعدادات الخاصة بكل profile، ويرفض <code>hermes config set</code> تغييرها:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<p>شغّل طرفية الوكلاء أيضًا على backend معزول (Docker، أو SSH، ...) حتى لا يستطيع الوكيل نفسه الوصول إلى ملفات المشغّل.</p>
+<p><code>hermes plugins validate &lt;dir&gt;</code> و <code>hermes plugins show &lt;name&gt;</code> يبيّنان ما إذا كانت الإضافة تعمل في المضيف، وسبب عدم عملها فيه إن لم تفعل. وقت كتابة هذا النص، تعمل 299 من أصل 348 مدخلة في كتالوج الإضافات داخل المضيف دون تغيير.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-ui">واجهة تفاعلية</h3>
+<p>تشغيل <code>hermes plugins</code> دون وسائط يفتح شاشة تفاعلية مركّبة:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<ul>
+<li><strong>قسم الإضافات العامة</strong> — مربعات اختيار، بدّلها باستخدام SPACE. يظهر الصف محددًا عند فتحه إذا كانت الإضافة نشطة الآن: مدرجة في <code>plugins.enabled</code>، أو منصة مضمّنة أو backend أو مزوّد نماذج (مفعّل دون مدخلة قائمة)، أو المزوّد المحدد لفئة. لا تُكتب عند الخروج إلا الصفوف التي تبدّلها: إلغاء التحديد يضيف الإضافة إلى <code>plugins.disabled</code> (تعطيل صريح)، والتحديد يضيفها إلى <code>plugins.enabled</code> ويمحو تعطيلًا قديمًا. فتح المنتقي والخروج منه لا يغيّر شيئًا.</li>
+<li><strong>قسم إضافات المزوّد</strong> — يعرض الاختيار الحالي. اضغط ENTER للدخول إلى منتقٍ راديو حيث تختار مزوّدًا فعّالًا واحدًا.</li>
+<li>الإضافات المدمجة تظهر في نفس القائمة بوسم <code>[bundled]</code>.</li>
+</ul>
+<p>اختيارات إضافة المزوّد تُحفَظ في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="enabled-vs-disabled-vs-neither">مفعَّل مقابل معطَّل مقابل لا هذا ولا ذاك</h3>
 <p>تشغل الإضافات إحدى ثلاث حالات:</p>
 <table><thead><tr><th>الحالة</th><th>المعنى</th><th>في <code>plugins.enabled</code>؟</th><th>في <code>plugins.disabled</code>؟</th></tr></thead><tbody><tr><td><code>enabled</code></td><td>يُحمَّل في الجلسة التالية</td><td>نعم</td><td>لا</td></tr><tr><td><code>disabled</code></td><td>معطَّل صراحةً — لن يُحمَّل حتى لو كان أيضًا في <code>enabled</code></td><td>(غير ذي صلة)</td><td>نعم</td></tr><tr><td><code>not enabled</code></td><td>مكتشَف لكن لم يُوافَق عليه أبدًا</td><td>لا</td><td>لا</td></tr></tbody></table>
 <p>الافتراضي لإضافة مثبَّتة حديثًا أو مدمجة هو <code>not enabled</code>. يعرض <code>hermes plugins list</code> الحالات الثلاث المختلفة لتعرف ما عُطِّل صراحةً مقابل ما ينتظر التفعيل فقط.</p>
 <p>في جلسة قيد التشغيل، يعرض <code>/plugins</code> الإضافات المحمَّلة حاليًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="posting-a-live-message">نشر رسالة حية</h2>
+<p>يمكن للإضافة أن تنشر رسالة واحدة في المحادثة التي تعمل لأجلها وأن تحدّث الرسالة نفسها
+لاحقًا، على أي قناة، دون كود خاص بكل منصة. استخدم ذلك للتقدم الحي (قائمة تحقق أثناء عمل أداة
+طويلة، أو بطاقة خطة تتغير مع مراجعة الخطة):</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<p><strong>التواقيع:</strong> <code>ctx.post_message(text: str) -&gt; PluginMessage</code> و
+<code>PluginMessage.edit(text: str) -&gt; dict</code>. من شيفرة <code>async</code> تعمل بالفعل على حلقة أحداث gateway
+(hook غير متزامن أو معالج slash command) استخدم <code>await ctx.apost_message(text)</code> و<code>await handle.aedit(text)</code>
+بدلًا منهما؛ فالصيغ المتزامنة تُرفض هناك بالخطأ <code>error: &quot;on_event_loop&quot;</code> بدلًا من تعطيل الحلقة بتوقف تام (deadlock).</p>
+<p><strong>أي محادثة.</strong> المحادثة الحالية هي الجلسة المرتبطة بالشيفرة المستدعية: معالج أداة
+أو hook يعمل في دور تلك الجلسة، أو slash command الخاص بها، أو hook أُطلق لأجلها. لا تسمّي الإضافة
+محادثة أبدًا، فلا يمكنها النشر في مكان آخر. والـ thread الذي تبدؤه الإضافة بنفسها لا يرث
+ذلك الربط (ابدأه بـ <code>contextvars.copy_context().run(...)</code> إن كان ينبغي ذلك)، وليس للمؤقّت أو تشغيل cron
+أو العملية التي لا gateway حيًّا لها أي محادثة على الإطلاق.</p>
+<p><strong>لا يرفع استثناءً أبدًا.</strong> يُرجع كل استدعاء نتيجة. تصف <code>handle.ok</code> و<code>handle.message_id</code> و<code>handle.error</code>
+آخر عملية؛ ويُرجع <code>edit()</code> القيمة <code>{&quot;ok&quot;, &quot;message_id&quot;, &quot;edited&quot;}</code> إضافةً إلى
+<code>&quot;fallback&quot;: True</code> عندما اضطر إلى نشر رسالة جديدة. رموز الأخطاء: <code>no_conversation</code> (لا شيء مرتبط
+في السياق المستدعي، أو الجلسة ليست حية، أو تنتمي إلى profile آخر)،
+<code>gateway_unavailable</code> و<code>adapter_unavailable</code> و<code>send_failed</code> و<code>edit_failed</code> و<code>on_event_loop</code> و<code>timeout</code>.
+يُرجع النشر المرفوض مقبضًا (handle) يُرفض <code>edit()</code> فيه بالطريقة نفسها، فلا يحتاج المسار السليم إلى
+تفرّع. ويعني <code>timeout</code> أن gateway لم يجب خلال 30 ثانية: تستمر العملية في العمل
+ويصل ناتجها إلى المقبض لاحقًا (تكون <code>handle.pending</code> صحيحة في أثناء ذلك)، وينتظرها <code>edit()</code> التالي
+أولًا، فلا يترك نشر بطيء رسالةً لا يستطيع المقبض تحريرها. والتحرير الذي ترفضه المنصة أو يرفع استثناءً
+يرتد إلى رسالة جديدة بالطريقة نفسها المتّبعة في منصة لا تدعم التحرير. ويُسجَّل كل نشر وتحرير بالصيغة <code>plugin_message plugin=&lt;id&gt; op=post|edit ...</code>.</p>
+<p>ما تفعله كل واجهة:</p>
+<table><thead><tr><th>الواجهة</th><th><code>post_message</code></th><th><code>edit</code></th></tr></thead><tbody><tr><td>منصات المراسلة القادرة على التحرير (Telegram وDiscord وSlack وMatrix، ...)</td><td><code>send</code> العادي للمحوّل (adapter) إلى المحادثة/thread</td><td>يحرّر الرسالة نفسها في مكانها</td></tr><tr><td>المنصات التي لا تدعم التحرير (SMS والبريد الإلكتروني ومحوّلات الإضافات التي لا تنفّذ <code>edit_message</code>)</td><td><code>send</code></td><td>يرسل رسالة جديدة؛ ويتبعها المقبض (<code>edited: False, fallback: True</code>)</td></tr><tr><td>Desktop وInk TUI</td><td>إشعار بمفتاح لمشاهدي الجلسة (toast في Desktop، وسطر الحالة في TUI)</td><td>يستبدل ذلك الإشعار في مكانه</td></tr><tr><td>CLI الكلاسيكي (<code>hermes chat</code>)</td><td>يوضع في الطابور كسطر إشعار، ويُطبع في نهاية الدور التالي (لا يملك CLI الكلاسيكي خانة إشعار حية)</td><td>يضع كل تحرير سطرًا آخر في الطابور</td></tr></tbody></table>
+<p>يُقتطع النص عند حد رسالة المنصة بنقاط حذف (ولا يُقسَّم أبدًا). وهو نص عادي: قد
+يعرض المحوّل تنسيقه الخاص، لكن لا ينبغي للإضافة الاعتماد عليه. ولا حاجة إلى صلاحية،
+لأن الرسالة لا يمكن أن تصل إلا إلى المحادثة التي استدعت الإضافة أصلًا.
+<code>ctx.post_message</code> غير متاح للإضافات التي تعمل في مضيف الإضافات خارج العملية
+(<code>plugins.isolation: host</code>): فالمقبض مرتبط بحلقة أحداث gateway والمحوّل الحي.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="injecting-messages">حقن الرسائل (Injecting Messages)</h2>
 <p>يمكن للإضافات حقن رسائل في محادثة CLI أو جلسة gateway معروفة أو جلسة gateway جديدة في محادثة معيّنة باستخدام <code>ctx.inject_message()</code>:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
 <p><strong>التوقيع:</strong> <code>ctx.inject_message(content: str, role: str = &quot;user&quot;, *, session_key: str | None = None, origin: Mapping[str, Any] | None = None) -&gt; bool</code></p>
-<p>في وضع CLI:</p>
+<p>عندما يشغّل CLI الكلاسيكي الإضافات في عمليته الخاصة (دون جلسة gateway):</p>
 <ul>
 <li>إذا كان الوكيل <strong>خاملًا</strong> (بانتظار إدخال المستخدم)، تُصفّ الرسالة كإدخال تالٍ وتبدأ دورًا جديدًا.</li>
 <li>إذا كان الوكيل <strong>وسط دور</strong> (قيد التشغيل فعليًا)، تقاطع الرسالة العملية الجارية — تمامًا كما لو كتب المستخدم رسالة جديدة وضغط Enter.</li>
 <li>بالنسبة للأدوار غير <code>&quot;user&quot;</code>، يُسبَق المحتوى بـ <code>[role]</code> (مثل <code>[system] ...</code>).</li>
 <li>تُعيد <code>True</code> إذا صُفَّت الرسالة بنجاح.</li>
 </ul>
-<p>في وضع gateway:</p>
+<p>دون مفتاح جلسة (<code>session_key</code> و<code>origin</code> كلاهما محذوف)، وحين تعمل الإضافة في gateway (أو مضيف الإضافات الخاص به) — وهو المكان الذي تعمل فيه الإضافات لجلسات CLI الكلاسيكي وTUI وDesktop — يختار gateway المحادثة:</p>
+<ol>
+<li>إذا كانت الإضافة تعالج استدعاءً من جلسة محلية (slash command الخاص بها، أو hook أُطلق لتلك الجلسة، أو أداة أو hook في دورها)، تذهب الرسالة إلى تلك الجلسة. ولا يخمّن ذلك أبدًا، مهما بلغ عدد الجلسات المفتوحة.</li>
+<li>ومع غياب جلسة في السياق المستدعي (مؤقّت، أو thread خلفي — فالـ thread الذي تبدؤه الإضافة لا يرث سياق الاستدعاء)، تذهب الرسالة إلى الجلسة المحلية الوحيدة في profile الإضافة التي بدأها CLI الكلاسيكي (<code>hermes chat</code>) ولها عارض مرتبط. ولا تُختار بهذه الطريقة جلسات TUI وDesktop ولا محادثات المراسلة ولا جلسات profiles الأخرى.</li>
+<li>وفيما عدا ذلك (لا توجد جلسة كهذه، أو توجد عدة جلسات) تُرفض: <code>False</code>، ولا يُحقن شيء في أي مكان، ويسمّي سجل gateway الإضافة ويطلب تمرير مفتاح جلسة.</li>
+</ol>
+<p>تتلقى الجلسة المختارة النص كمدخل في الطابور، بالطريقة نفسها التي يعمل بها الحقن بمفتاح؛ ويلزمها إذن <code>allow_gateway_injection</code> أدناه. وعندما تكون جلسة CLI كلاسيكي، يظهر الدور وردّه في سجل الجلسة، لكن CLI الكلاسيكي المرتبط لا يعرضهما. أما الاستدعاء الموجَّه إلى محادثة مراسلة دون مفتاح فيُرفض كما كان. يُفضَّل تمرير <code>session_key</code>: فقد يُرفض الاستدعاء بلا مفتاح عندما تكون المحادثة ملتبسة، وقد يُلغى الحقن بلا مفتاح لاحقًا.</p>
+<p>في وضع gateway مع مفتاح:</p>
 <ul>
-<li><code>session_key</code> مطلوب ويجب أن يُعرّف جلسة gateway موجودة. إنه مفتاح التوجيه الثابت، وليس معرّف جلسة CLI.</li>
+<li>يجب أن يعرّف <code>session_key</code> جلسة gateway موجودة. إنه مفتاح التوجيه الثابت، وليس معرّف جلسة CLI.</li>
 <li>يعيد Hermes استخدام المنصة والمحادثة والخيط و profile وسجل المحادثة المخزّنة لتلك الجلسة. لا يمكن للإضافات تغيير هذا المسار عبر <code>session_key</code>.</li>
+<li>يجب أن تنتمي الجلسة إلى profile الإضافة نفسها: فمفتاح محادثة profile آخر أو جلسته المحلية يحصل على <code>False</code> فورًا، مع ذكر السبب في سجل gateway.</li>
 <li>يعيد Hermes فحص المسار المخزَّن مقابل قواعد التفويض الحالية لـ gateway قبل الإرسال.</li>
 <li>المسارات التي اعتمدت فقط على قرار تفويض وقت المحوّل أو من مصدر أعلى تُرفَض ما لم يتمكن Hermes من إعادة التحقق منها من قوائم السماح الأساسية الحالية، أو الاقتران، أو إعداد صريح للسماح بكل شيء.</li>
 <li>النص المحقون هو دائمًا إدخال محادثة عادي. لا يمكنه استدعاء slash commands، أو الموافقة على أدوات، أو حلّ طلبات تأكيد أو توضيح معلَّقة.</li>
 <li>يبقى المسار والمحادثة مثبَّتين أثناء انتظار الإرسال. يُسقِط Hermes الطلب إذا غيّر استرجاع الموضوع المسار أو دارت الجلسة قبل بدء المعالجة.</li>
 <li>يدخل الطلب مسار رسائل محوّل المنصة العادي. الجلسات النشطة تستخدم طابور الجلسة المشغولة الحالي بدلًا من بدء دور منافس.</li>
 <li>تُعيد <code>True</code> عندما يقبل gateway الحي الطلب للإرسال غير المتزامن. هذا لا يؤكّد أن دور الوكيل أو التسليم على المنصة قد اكتمل.</li>
-<li>تُعيد <code>False</code> عندما تُغفَل <code>session_key</code> ولا <code>origin</code> (أو يُعطيان معًا)، أو لم تُمنح الصلاحية، أو لم يتمكن أي مضيف نشط من قبول الطلب. تُكتب مفاتيح الجلسات المجهولة أو غير القابلة للتوجيه، التي تُكتشف بعد القبول غير المتزامن، في سجل gateway.</li>
+<li>تُعيد <code>False</code> عندما يُعطى <code>session_key</code> و<code>origin</code> معًا، أو لا يُعطى أي منهما ولا تُختار محادثة (أعلاه)، أو لم تُمنح الصلاحية، أو لم يتمكن أي مضيف نشط من قبول الطلب. تُكتب مفاتيح الجلسات المجهولة أو غير القابلة للتوجيه، التي تُكتشف بعد القبول غير المتزامن، في سجل gateway.</li>
 </ul>
 <p>بدء جلسة باستخدام <code>origin</code> (في وضع gateway فقط):</p>
 <ul>
 <li><code>origin</code> يستخدم البنية نفسها لأصل الجلسة المخزّن (<code>SessionSource.to_dict()</code>): <code>platform</code> و <code>chat_id</code> مطلوبان؛ أما <code>chat_type</code>, <code>thread_id</code>, <code>user_id</code>, <code>user_name</code>, <code>chat_name</code> وحقول الأصل الأخرى فاختيارية. استخدمه عندما لا تكون هناك جلسة بعد — مثل منشور منتدى أنشأه البوت، إذ لا تعيد منصات مثل Discord إرساله إلى البوت كرسالة واردة.</li>
 <li>تُنشأ الجلسة في <strong>profile الخاص بالإضافة نفسها</strong> (أي profile الذي حمّل مديرُ إضافاته الإضافةَ) عبر مسار الجلسة المعتاد، مع prompt جديد وسجل فارغ، ويُسلّم الرد إلى تلك المحادثة/الخيط. إذا كانت للمحادثة جلسة موجودة بالفعل في ذلك profile، ينضم النص إليها تمامًا كرسالة بشرية (تُطبّق قائمة انتظار الجلسة المشغولة)، بحيث تتابع رسالة بشرية لاحقة في الخيط نفسه الجلسةَ نفسها.</li>
+<li>تحت سلطة الجلسات في gateway (كل جلسة يملكها gateway)، يُثبَّت دور الإضافة في FIFO الدائم لتلك الجلسة ويستعير منشأ الموصل (connector provenance) من رسالة بشرية قُبلت فيها بالفعل. لذلك يُرفض <code>origin</code> الذي لم تُقبل في محادثته <strong>أي رسالة بشرية بعد</strong> (لا جلسة، أو جلسة بلا دور بشري مثبَّت): يُرجع <code>inject_message</code> القيمة <code>False</code> فورًا ويقول سجل gateway &quot;has no human message admitted yet&quot;. لا يختلق Hermes أبدًا منشأ منصة لمحادثة لم تسلّمها المنصة. اجعل أول رسالة في تلك المحادثة تأتي من المنصة (أو من إنسان)، ثم احقن باستخدام <code>origin</code> أو <code>session_key</code>.</li>
 <li>لا يمكن للإضافة استهداف profile آخر مطلقًا. تُعاد القيمة <code>False</code> (مع السبب في سجل gateway) عندما يحدّد الأصل <code>profile</code> مختلفًا، أو يوجّه توجيه profiles الخاص بالـ gateway تلك المحادثة إلى profile آخر، أو لا يخدم هذا الـ gateway الـ profile الخاص بالإضافة، أو لا يملك ذلك profile محوّلًا متصلًا للمنصة <code>platform</code> — لا يُستعار بوت profile آخر مطلقًا. في gateway متعدد profiles، يُنفّذ الدور باستخدام مجلد profile الخاص بالإضافة وأسراره.</li>
 <li>لا يُتجاوز التفويض: يجب أن يجتاز مستخدم الأصل قوائم السماح الحالية للـ gateway أو الاقتران أو إعداد السماح للجميع لذلك profile، وهو التحقّق نفسه المستخدم في مسار <code>session_key</code>. اختر <code>user_id</code> مخوّلًا، وإلا يُسقط الطلب عند الإرسال ويُسجّل.</li>
 <li>تُطبّق قواعد النص نفسها: لا slash commands ولا موافقات ولا حلّ prompts. تُقرأ الصلاحية أدناه من ملف <code>config.yaml</code>.</li>
@@ -38,22 +118,31 @@
 <p>يمثّل Ink TUI (<code>hermes --tui</code>) ومحادثة تطبيق سطح المكتب / لوحة التحكم مضيفًا ثالثًا. لا يضبطان مرجع CLI التقليدي ولا يسجّلان في حاقن messaging gateway — يظل المضيفان منفصلين لكي لا يستبدل gateway نشط حالة TUI (أو العكس). مرّر معرّف الجلسة الدائم <code>session_key</code> (معرّف <code>ses_…</code>)، لا معرّف جلسة واجهة المستخدم المؤقت. يضع Hermes النص في قائمة انتظار الـ prompts لتلك الجلسة: تحتفظ الجلسة المشغولة بالرسالة للدور التالي، وتبدأ الجلسة الخاملة دورًا. يُترك المفتاح الذي لا يشير إلى جلسة TUI نشطة للـ messaging gateway عند وجوده، ولا يُعاد توجيهه إلى محادثة أخرى مطلقًا.</p>
 <p>هذا يتيح لإضافات مثل عارضات التحكم عن بُعد، أو جسور المراسلة، أو مستقبِلات webhook، تغذية المحادثة برسائل من مصادر خارجية.</p>
 <p>يمكن لحقن gateway إرسال رد الوكيل إلى منصة مراسلة خارجية. مُعطَّل افتراضيًا لكل إضافة. امنحه لكل إضافة في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="33"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>امنح حقن gateway فقط للإضافات التي تثق بها. يتحقّق Hermes من صلاحية API المضيف هذه، ويقيّدها بمسارات جلسات موجودة أو جلسات جديدة في profile الخاص بالإضافة، ويطبّق التفويض الحالي؛ لكن إضافات Python تعمل داخل العملية نفسها وهذا الإعداد ليس sandbox.</p></div></div>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="34"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا تعرض واجهة الإضافة هذه نقطة نهاية HTTP عامة ولا أمر CLI لعمليات خارجية. يجب أن تعرف الإضافة مسبقًا <code>session_key</code> الخاص بـ gateway الهدف، مثلًا من إعداداتها الموثوقة الخاصة أو حالة جلسة محتفَظ بها سابقًا.</p></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>امنح حقن gateway فقط للإضافات التي تثق بها. يتحقّق Hermes من صلاحية API المضيف هذه، ويقيّدها بمسارات جلسات موجودة أو جلسات جديدة في profile الخاص بالإضافة، ويطبّق التفويض الحالي؛ لكن إضافات Python تعمل داخل العملية نفسها وهذا الإعداد ليس sandbox.</p></div></div>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="36"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>لا تعرض واجهة الإضافة هذه نقطة نهاية HTTP عامة ولا أمر CLI لعمليات خارجية. يجب أن تعرف الإضافة مسبقًا <code>session_key</code> الخاص بـ gateway الهدف، مثلًا من إعداداتها الموثوقة الخاصة أو حالة جلسة محتفَظ بها سابقًا.</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="plugin-code-inside-the-gateway">شيفرة الإضافة داخل gateway</h2>
+<p>تعمل hooks والأدوات والأدوار المحقونة لكل محادثة وكل جلسة محلية (CLI وTUI وDesktop) في عملية gateway الواحدة، لا في العميل الذي أطلقته. وبعض عادات مستوى العملية من CLI الكلاسيكي لا تنتقل:</p>
+<ul>
+<li><code>os.getcwd()</code> هو مجلد gateway نفسه، وتشاركه كل الجلسات؛ ولا يغيّره Hermes أبدًا. استخدم <code>ctx.session_cwd()</code> لمجلد عمل الجلسة التي يعمل لها الـ hook أو الأداة: مساحة العمل التي بدأت منها جلسة CLI/TUI/Desktop، أو مجلد cwd الطرفية للـ profile في المحادثة (<code>&quot;&quot;</code> عند عدم وجوده). مرّره كـ <code>cwd=</code> إلى العمليات الفرعية. يقرأ الجلسة من الدور الجاري، فيعمل في الشيفرة التي تعمل لأجل جلسة: hooks الأدوار ومعالجات الأدوات وhooks الموافقة. أما hooks الدخول مثل <code>pre_gateway_dispatch</code> فتعمل قبل قبول الرسالة في أي جلسة؛ وهناك يُرجع cwd الطرفية للـ profile، أو <code>&quot;&quot;</code> عند عدم ضبط واحد.</li>
+<li>تسمّي <code>ctx.session_surface()</code> عميل الجلسة المستدعية: <code>&quot;cli&quot;</code> أو <code>&quot;tui&quot;</code> أو <code>&quot;desktop&quot;</code> أو <code>&quot;acp&quot;</code> أو منصة المراسلة (<code>&quot;telegram&quot;</code>, …)؛ و<code>&quot;&quot;</code> خارج الجلسة.</li>
+<li>تذهب مخرجات <code>print()</code> إلى <code>gateway-stdio.log</code> الخاص بـ gateway لا إلى طرفيتك. استخدم <code>logging</code> بدلًا منها.</li>
+<li>يحصل <code>input()</code> على نهاية الملف (EOF): فلا طرفية لدى gateway. اسأل عبر نتيجة أداة أو slash command.</li>
+</ul>
+<p>في عملية CLI الكلاسيكي نفسها (مثل slash command لإضافة)، يكون <code>ctx.session_cwd()</code> هو مجلد الإطلاق، ويكون <code>ctx.session_surface()</code> هو <code>&quot;cli&quot;</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="calling-mcp-servers-from-plugins">استدعاء خواديم MCP من الإضافات</h2>
 <p><code>ctx.call_mcp()</code> يتيح للإضافة استدعاء أداة على أحد خواديم MCP المُعدَّة للمستخدم — بشكل متزامن، من أي hook أو معالج أداة — عبر عميل MCP الأصلي الحالي في Hermes (نفس الاتصالات، وبوابات مستوى الثقة، وقاطع الدارة، ومنطق إعادة الاتصال المستخدَمة في أدوات MCP التي يستدعيها النموذج؛ أبدًا عميل موازٍ).</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
 <p><strong>التوقيع:</strong> <code>ctx.call_mcp(server: str, tool: str, arguments: dict | None = None, timeout: float = 30) -&gt; dict</code></p>
 <p>تُعيد ظرفًا ثابتًا: <code>{&quot;ok&quot;: True, &quot;result&quot;: ...}</code> (بالإضافة إلى <code>structuredContent</code> عندما يوفّره الخادم) أو <code>{&quot;ok&quot;: False, &quot;error&quot;: &quot;...&quot;}</code>. النتائج التي تتجاوز ~64 كيلوبايت تُقتَطع وتُوسَم بـ <code>&quot;truncated&quot;: True</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-default-off-per-server-allowlist">الأمان: مُعطَّل افتراضيًا، قائمة سماح لكل خادم</h3>
 <p>لا تملك الإضافة <strong>أي وصول إلى MCP افتراضيًا</strong>. يجب على المشغّل منح كل خادم صراحةً في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
 <ul>
 <li>استدعاء خادم غير موجود في القائمة يرفع <code>PermissionError</code> يسمّي مفتاح الإعداد الدقيق الواجب ضبطه.</li>
 <li>المنح لكل خادم ولكل إضافة — أبدًا صلاحية شاملة على كل خادم مُعدّ، ووسوم <code>&quot;*&quot;</code> غير مقبولة.</li>
 <li>كل استدعاء له مهلة مفروضة (30 ثانية افتراضيًا) بحيث لا يمكن لخادم MCP معلَّق أن يعطّل خط hooks أو الأدوات الذي استدعاه.</li>
 <li>خواديم MCP تعيد محتوى غير موثوق. عامل <code>result</code> كبيانات، لا كتعليمات — لا تُدخله في قرارات مميَّزة (موافقات، تنفيذ أوامر) دون تحقّق.</li>
 </ul>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="35"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>منح <code>mcp_allowlist</code> يمنح الإضافة نفس وصول النموذج إلى ذلك الخادم — بما في ذلك أي أدوات قادرة على الكتابة يعرضها الخادم (رهنًا ببوابات مستوى <code>trust</code> الخاصة بالخادم). امنح فقط الخواديم التي تحتاجها الإضافة فعلًا.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="37"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>منح <code>mcp_allowlist</code> يمنح الإضافة نفس وصول النموذج إلى ذلك الخادم — بما في ذلك أي أدوات قادرة على الكتابة يعرضها الخادم (رهنًا ببوابات مستوى <code>trust</code> الخاصة بالخادم). امنح فقط الخواديم التي تحتاجها الإضافة فعلًا.</p></div></div>
 <p>راجع <strong><a href="/docs/developer-guide/plugins">الدليل الكامل</a></strong> لعقود المعالِج، وصيغة الـ schema، وسلوك الـ hook، ومعالجة الأخطاء، والأخطاء الشائعة.</p>

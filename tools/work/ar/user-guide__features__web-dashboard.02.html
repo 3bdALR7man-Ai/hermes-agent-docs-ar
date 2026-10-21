@@ -69,7 +69,27 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apisessionssearch">GET /api/sessions/search</h3>
 <p>بحث نصي كامل في محتوى الرسائل. معامل الاستعلام: <code>q</code>. يُعيد معرّفات الجلسات المطابقة مع مقتطفات مُبرَزة.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-apisessionssession_id">DELETE /api/sessions/{session_id}</h3>
-<p>يحذف جلسة وسجل رسائلها. ويُعيد <code>409 Conflict</code> إذا كانت للجلسة مهلة ملكية نشطة لدور أو قفل ضغط.</p>
+<p>يحذف جلسة وسجل رسائلها. يجب أن يحمل الطلب هوية التعديل (mutation identity)
+التي قرأها العميل من <code>GET /api/sessions/{id}/mutation-snapshot</code> (وهي <code>request_id</code>
+و <code>expected_revision</code> و <code>expected_generation</code>)؛ وتُجاب الهوية الجزئية بـ <code>409 mutation_identity_required</code>، ويُجاب الطلب الخالي منها تمامًا (Desktop 0.22.2 وما قبله) بـ <code>409 client_upgrade_required</code> — فلا يطبّق الـ backend أي تعديل دون حاجز المراجعة (revision fence). يتولى gateway الخاص بالـ profile تنفيذ الحذف، ولذلك تُرفض الجلسة
+التي لها دور (turn) قيد التشغيل أو في الانتظار بـ <code>409 session_busy</code>، وتلك التي فُقد
+دورها الأخير عبر إعادة تشغيل gateway بـ <code>409 unknown_execution</code> — ولا يُزال شيء
+في أي من الحالتين. يترك حذف جلسة نُفّذت فيها أدوار شواهد صغيرة (tombstones) لإيصالات
+الإنهاء في جدول <code>state_meta</code> (هويات القبول والعامل
+مع إزالة نص المستخدم والسجل)؛ وهي تتيح لإعادة محاولة مطابقة للحذف نفسه —
+أو لتشغيل API استهدف الجلسة المحذوفة — أن تُرجع الجواب نفسه بدل
+إعادة إنشاء الجلسة، وتمنع إعادة استيراد المعرّف المحذوف. وهي تُحفظ
+إلى أجل غير مسمى (بضع مئات من البايتات لكل دور منفّذ).</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-maintenance-while-a-gateway-owns-the-store">الصيانة الجماعية أثناء امتلاك gateway للمخزن</h3>
+<p>تعيد <code>POST /api/sessions/bulk-delete</code> و <code>DELETE /api/sessions/empty</code> و <code>POST /api/sessions/prune</code>
+(من دون dry-run) و <code>POST /api/sessions/owner-backfill</code> كتابة صفوف كثيرة دفعة واحدة
+وتتجاوز حاجز المراجعة لكل جلسة، فهي <strong>صيانة غير متصلة</strong>: إذ تأخذ
+القفل الحصري <code>gateway.lock</code> الخاص بالـ profile. وما دام gateway ذلك الـ profile يعمل تُرجع
+<code>409</code> مع الرسالة <code>Exclusive maintenance refused: Gateway runtime already owns profile &lt;home&gt;. Drain and stop the gateway, then retry.</code> ولا تغيّر شيئًا. أوقف gateway
+(<code>hermes gateway stop</code>)، ثم نفّذ استدعاء الصيانة، ثم شغّله من جديد. ويستمر عمل prune بخيار <code>dry_run</code>
+وكل endpoint للقراءة مع gateway يعمل. ويتعامل الملء الراجع القديم (legacy owner backfill) لمرة واحدة في Desktop
+مع هذا الرد <code>409</code> بوصفه الحالة المستقرة لـ gateway متصل (مثل backend
+بلا هذا المسار) ولا يعيد المحاولة عند كل تحديث للشريط الجانبي.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apilogs">GET /api/logs</h3>
 <p>يُعيد أسطر السجل. معاملات الاستعلام: <code>file</code> (agent/errors/gateway)، و <code>lines</code> (العدد)، و <code>level</code>، و <code>component</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-apianalyticsusage">GET /api/analytics/usage</h3>
