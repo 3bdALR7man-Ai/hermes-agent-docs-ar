@@ -28,12 +28,75 @@
 أو <code>EXTEND_TIMEOUT_USEC</code> أن تتجاوز هذا التقدير مع ذلك؛ ويبقى انتهاء المهلة الفعلي
 إعادة تشغيل غير مكتملة، وما زالت الأوامر الناجحة تتطلب التحقق القائم من صحة الخدمة
 وإصدار الأسطول (fleet-version). القيم الرقمية الخام <code>*USec</code> قيمهما بالميكروثانية، بينما تستخدم القيم المنسّقة وحدات systemd الثابتة، بما فيها الأيام والأسابيع والشهور والسنوات. تُحدّ المهلة المجمّعة دون حد الاستطلاع الأصلي بالميلي ثانية الصحيح الموقّع من 32 بت (مع هامش للتقريب)، لكيلا تفيض حدود الوحدات الطويلة جدًا عند استطلاع العمليات الفرعية. تستخدم حدود المراحل الصفرية/المجهولة/غير المحدودة المسار الاحتياطي المحدود. لا يغيّر ذلك إعدادات تفريغ الأدوار النشطة.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="nous-free-tier-sign-in">تسجيل الدخول إلى المستوى المجاني في Nous</h2>
-<p>إكمال تسجيل الدخول دالة واحدة، <code>settle_after_upgrade</code>، يستدعيها كل مستدعٍ يحفظ حسابًا فوق هوية المستوى المجاني (CLI <code>upgrade_guest</code> ومستطلِع تطبيق سطح المكتب): تنقل إعدادًا على مسار الترحيب إلى مضيف الحساب والقيمة الافتراضية الموصى بها للمستوى (<code>models.recommended_nous_default_model</code>، مشتركة مع <code>GET /api/model/recommended-default</code>).</p>
-<p>يوجد التدفق المشترك والحالات والنص في <code>anon_sign_in.py</code>؛ ويوجد عرض CLI في <code>anon_sign_in_cli.py</code>. <code>anon_auth.py</code> يحتفظ بالهوية واستطلاع الترقية والتسوية، ويعيد تصدير API تسجيل الدخول الحالية. يحلّ التدفق جهات التعاون الخاصة بالهوية والحفظ عبر <code>anon_auth</code> وقت الاستدعاء للحفاظ على نقاط monkeypatch لسمات الوحدة.</p>
-<p>تسجيل الدخول نفسه تركيب واحد: ينتج <code>anon_auth.run_sign_in()</code> كائنات <code>SignInState</code> (<code>Code</code>,
-<code>Waiting</code>, <code>Completed</code>, <code>Declined</code>, <code>Superseded</code>, <code>TimedOut</code>, <code>Retired</code>, <code>Failed</code>,
-<code>AlreadySignedIn</code>, <code>Unavailable</code>). يقرأ الحالة الحالية بنفسه، ويحافظ على مهلة مطلقة واحدة عبر الانتظارين، ولا يحفظ إلا بعد اكتمال الترقية <strong>و</strong> منح token، وينفّذ <code>settle_after_upgrade</code> مرة واحدة بالضبط لكل إكمال، ولا يسمح مطلقًا بخروج فشل الحفظ أو التسوية كاستثناء — بل يصبح <code>Failed</code>. تحمل كل حالة <code>.copy</code> الخاص بها (صيغة المحادثة، التي لا تحتوي مطلقًا على استثناء خام أو URL أو فعل <code>hermes</code>) و <code>.copy_terminal</code>، لذا لا يحوّل أي مستدعٍ سببًا إلى سلسلة نصية. يوقف <code>cancelled()</code> محاولةً؛ ويقرّر <code>cancel_wins_after_promotion</code> ما يحدث عندما يكون الخادم قد أكمل النقل بالفعل — يحتفظ تطبيق سطح المكتب بـ <code>True</code> (تعني DELETE &quot;ليس على هذا الجهاز&quot;)، ويمرّر gateway <code>False</code> (يجب ألا يؤدي الاستبدال إلى إسقاط نقل وافق عليه المستخدم فعليًا). لا يُدخل <code>scope</code> إلا حول كتل الشرط المسبق والحفظ، ولا يمتد مطلقًا عبر <code>yield</code> أو انتظار شبكة، لأن <code>run_in_executor</code> لا يحمل contextvars. <code>upgrade_guest</code> (<code>hermes auth upgrade</code>)، ومعالج CLI <code>/login</code> ومستطلِع الترقية في تطبيق سطح المكتب جهات عرض فوقه؛ وتمرّر الواجهة التي تحتاج إلى أن يكون فحص الإلغاء والحفظ ذريّين <code>persist_guard</code>. تسجيل دخول تطبيق سطح المكتب العادي عبر رمز الجهاز بعنوان &quot;connect another Nous account&quot; مسار منفصل (<code>_nous_plain_poller</code>) ويجب أن يبقى كذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="nous-sign-in">تسجيل الدخول إلى Nous</h2>
+<p>كل تسجيل دخول إلى Nous هو تسجيل دخول عادي بالرمز الخاص بالجهاز (device-code). وإتمام تسجيل الدخول دالة واحدة،
+<code>settle_after_upgrade</code>، تُستدعى مرة واحدة لكل عملية إتمام: تنقل إعدادًا على مسار الترحيب (welcome route) إلى
+مضيف الحساب والقيمة الافتراضية الموصى بها للمستوى (<code>models.recommended_nous_default_model</code>، مشتركة
+مع <code>GET /api/model/recommended-default</code>).</p>
+<p>يوجد التدفق المشترك والحالات والنصوص في <code>anon_sign_in.py</code>؛ ويوجد عرض CLI في
+<code>anon_sign_in_cli.py</code>. أما <code>anon_auth.py</code> فيحتفظ بالهوية والتسوية، ويعيد تصدير API
+تسجيل الدخول. يحلّ التدفق جهات التعاون الخاصة بالهوية والحفظ عبر <code>anon_auth</code> وقت الاستدعاء
+للحفاظ على نقاط monkeypatch لسمات الوحدة (module-attribute).</p>
+<p>تسجيل الدخول نفسه تركيب واحد: ينتج <code>anon_auth.run_sign_in()</code> كائنات <code>SignInState</code> (<code>Code</code>،
+<code>Waiting</code>، <code>Completed</code>، <code>Cancelled</code>، <code>TimedOut</code>، <code>Failed</code>، <code>AlreadySignedIn</code>). يطلب رمز
+جهاز، ويستطلع endpoint الـ token ضمن مهلة نهائية واحدة (الرمز المنتهي هو <code>TimedOut</code>)، ويحفظ الحساب،
+وينفّذ <code>settle_after_upgrade</code> مرة واحدة بالضبط، ولا يسمح مطلقًا بخروج فشل الحفظ أو التسوية كاستثناء:
+بل يصبح <code>Failed</code>. ويعمل مع وجود هوية المستوى المجاني على القرص أو دونها. تأتي <code>Completed.email</code>
+من مطالبة <code>email</code> في access token؛ وتحمل <code>Completed.handoff</code> أسطر نتيجة
+نقل الضيف (guest handoff) (ما الذي نُقل وما الذي ينبغي إعادة ربطه)، وتحمل <code>Completed.handoff_status</code> أحدث سجل كحقول
+(<code>guest_handoff.wire_status</code>: العرض العام مضافًا إليه تلك <code>lines</code>)، لواجهة تعرض
+النتيجة بنفسها. تحمل كل حالة <code>.copy</code> الخاص بها (صيغة المحادثة، التي
+لا تحتوي مطلقًا على استثناء خام أو URL أو فعل <code>hermes</code>) و<code>.copy_terminal</code>، لذا لا يحوّل أي مستدعٍ
+سببًا إلى سلسلة نصية. يُفحَص <code>cancelled()</code> مرة واحدة على الأقل كل ثانية داخل استطلاع الـ token ومرة أخرى
+قبل الحفظ؛ والإلغاء يغلب دائمًا ولا يُحفظ شيء. ويأتي التحقق من TLS من
+<code>_resolve_verify</code>، فتنطبق <code>HERMES_CA_BUNDLE</code> وأخواتها. ولا يُدخَل <code>scope</code> إلا حول
+كتل الشرط المسبق والحفظ، ولا يمتد مطلقًا عبر <code>yield</code> أو انتظار شبكة، لأن
+<code>run_in_executor</code> لا يحمل contextvars. يتيح <code>replace_account=True</code> لتثبيت مسجَّل الدخول بالفعل أن يسجّل الدخول
+مجددًا (خيار &quot;connect another account&quot; في تطبيق سطح المكتب)؛ وإلا فإن التثبيت المسجَّل دخوله يحصل على
+<code>AlreadySignedIn</code> قبل أي اتصال بالشبكة. و<code>upgrade_guest</code> (<code>hermes auth upgrade</code>)، والأمر <code>/login</code> في CLI وTUI،
+والأمر <code>/login</code> في gateway، ومسار البدء في تطبيق سطح المكتب جميعها جهات عرض (renderers) فوقه؛ والواجهة التي
+تحتاج إلى أن يكون فحص الإلغاء والحفظ ذريّين تمرّر <code>persist_guard</code>. أما <code>hermes model</code> و
+<code>hermes auth add nous</code> فيبقيان على <code>_login_nous</code> (فهو يحمل <code>--portal-url</code> و<code>--ca-bundle</code> و<code>--insecure</code>
+واستيراد المخزن المشترك)؛ وهو تسجيل دخول عادي بالجهاز نفسه، ويطبع نتيجة النقل
+بالطريقة نفسها. وكل تسجيل دخول يحفظ حسابًا (<code>run_sign_in</code> و<code>_login_nous</code> و<code>hermes auth add nous</code> وخطوة رفع الصلاحية للفوترة وتسجيل الدخول في إعداد الأدوات) يستدعي <code>settle_after_upgrade</code> بنفسه بعد تحرير أقفاله؛
+أما منفّذ النقل (handoff runner) فلا يُجري التسوية أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guest-handoff-after-a-sign-in">نقل الضيف (Guest handoff) بعد تسجيل الدخول</h3>
+<p>عندما يحفظ أي كاتب حساب Nous فوق هوية من المستوى المجاني، يسلّم <code>hermes_cli/guest_handoff.py</code>
+التطبيقات المتصلة بتلك الهوية إلى الحساب: <code>POST /api/anonymous/claim {&quot;token&quot;: &quot;&lt;anon_...&gt;&quot;}</code>
+مع Bearer token الخاص بالحساب نفسه. لا يسأل شيء المستخدم أولًا؛ وتُعرض النتيجة لاحقًا
+(<code>hermes auth status nous</code>؛ ويقرؤها تطبيق سطح المكتب من <code>handoff_status</code> في استطلاع تسجيل الدخول، وما دام
+النقل لا يزال يعيد المحاولة، من long-poll الخاص بـ <code>GET /api/providers/oauth/nous/handoff?since=&amp;wait=</code>، الذي
+يجيب عندما يتغير <code>updated_at</code> في السجل). وله نصفان:</p>
+<ul>
+<li>يعمل <code>note_replacement</code> عند أدنى نقطتي كتابة (<code>auth._store_provider_state</code> و
+<code>auth_nous._write_shared_nous_state</code>) تحت أقفال مخزن المصادقة لدى المستدعي، ولا يكتب إلا سجلًا
+معلّقًا. توجد السجلات في <code>guest_handoff.json</code> بجانب مخزن Nous المشترك، ومفتاحها hash لبيانات اعتماد
+<code>anon_</code>، فتتشارك الـ profiles التي تتشارك هوية مستوى مجاني واحدة سجلًا واحدًا ومطالبة واحدة.</li>
+<li>تسجيل الدخول وحده يغيّر الهوية التي يحتفظ بها المخزن المشترك. كل مستدعٍ لـ <code>_write_shared_nous_state</code>
+يصرّح بـ <code>renewal</code>: فتحديث الـ token (<code>renewal=True</code>) لا يستبدل هوية أخرى هناك
+(الهوية = بيانات اعتماد <code>anon_</code> للضيف، أو <code>sub</code> في JWT الخاص بالحساب)، فتحديث حساب
+أحد الـ profiles لا يستبدل ضيفًا أنشأه profile آخر. ويُحفَظ ذلك التحديث بجانب
+الهوية المحتفَظ بها تحت <code>renewal</code>، حيث تقرأ الـ profiles الشقيقة على الحساب نفسه refresh token
+التالي أحادي الاستخدام.</li>
+<li>ينفّذ <code>drain</code> محاولة واحدة لكل سجل مستحق في هذا الـ profile ويعيد ما فعلته كل محاولة. وهو يرسل
+طلبًا، فلا يعمل إلا خارج أقفال مخزن المصادقة: تستدعيه كل واجهة لتسجيل الدخول مباشرة بعد
+حفظها (<code>run_sign_in</code> بعد تحرير <code>persist_guard</code>)، وكذلك مصالحة المستوى المجاني (reconcile)،
+و<code>hermes auth status</code> و<code>hermes auth upgrade</code>. وهو ينقل التطبيقات فقط؛ أما إتمام الإعدادات
+(<code>settle_after_upgrade</code>) فيبقى مع تسجيل الدخول الذي حفظ الحساب.</li>
+<li>النقل الذي تركه خطأ عابر في حالة إعادة المحاولة يُنهيه عامل إعادة المحاولة (retry worker) الذي تشغّله كل عملية Nous
+طويلة العمر (يشغّله <code>start_nous_auth_keepalive</code>، سواء كانت ضيفًا أم لا)؛ وكل نبضة تفرّغ
+سجلات الـ profile الخاص بالعملية نفسها.</li>
+<li>تُحتسب كل محاولة ويُؤجَّر السجل (لا يصبح مستحقًا لنحو 30 ثانية) في كتابة واحدة مقفلة قبل
+أن يغادر الطلب، فتُحتسب المحاولة حتى لو ضاعت الإجابة، ولا تُرسل عمليتان السجل نفسه.</li>
+</ul>
+<p>الإجابات: <code>claimed</code> يسجّل ما نُقل (ويحدّث token الحساب فقط عند
+<code>cohort_carried</code>؛ والإجابة التي بلا <code>connectors</code> تُقرأ على أنها غير معروفة، لا على أنه &quot;لم يُنقل شيء&quot;)؛
+<code>unknown_token</code> هو Gone، ويُقرأ على أنه &quot;نُقل غالبًا&quot; بعد محاولة سابقة (نجاح ضاعت إجابته)؛
+و<code>already_retired</code> هو Gone أيضًا. والرموز الوحيدة النهائية هي التي لا تستطيع أي محاولة لاحقة تغييرها
+(<code>client_not_allowed</code> و<code>account_locked</code> و<code>invalid_request</code>). وكل إجابة أخرى، بما فيها 401 والرموز
+غير المعروفة، وكل فشل في النقل، يعيد المحاولة بعد دقيقة، ثم 10 دقائق، ثم ساعة، ثم 6 ساعات
+(مع احترام Retry-After)، ثم يصبح السجل Failed. والسجل Claimed لا يُعاد فتحه أبدًا، ونص المستخدم
+لا يعرض أبدًا رمز الخادم؛ وتظهر أسماء التطبيقات المختصرة (slugs) بأسمائها المعروضة (<code>tools.tool_labels.app_title</code>).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="process-identity-never-infer-it-from-argv-substrings">هوية العملية: لا تستنتجها أبدًا من أجزاء نصية في argv</h2>
 <p>فئة الخلل وراء نحو 10 مشاكل في تحديث الأسطول (#90778، #87594، #78089، #76129، #91964، ...):
 تصنيف عملية بناءً على <code>&quot;serve&quot; in cmdline</code> أو ما شابه. يحتوي <code>kanban --preserve-cache</code> على

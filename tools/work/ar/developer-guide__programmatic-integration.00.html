@@ -14,7 +14,7 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-catalog-selected">كتالوج الدوال (مُنتقى)</h3>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
 <p><code>session.active_list</code> و<code>session.activate</code> و<code>session.close</code> هي عناصر تحكّم الجلسات الحيّة المحلية للعملية التي يستخدمها مبدّل الجلسات في TUI. استخدم <code>session.list</code> / <code>/resume</code> لاكتشاف المحادثات المحفوظة؛ واستخدم دوال الجلسة النشطة فقط للجلسات المفتوحة حاليًا في عملية TUI gateway.</p>
-<p>ضمن gateway مصادَق واحد، فإن استئناف جلسة حيّة أو تفعيلها يُلحق مشتركًا آخر في الأحداث بدلًا من استبدال الاتصال السابق. تصل أحداث البث والطرفية إلى كل العملاء المتّصلين؛ وقطع اتصال عميل واحد لا ينهي جلسة يشاهدها عميل آخر. تبقى حصرية التقديم الحالية وسياسة الإدخال أثناء الانشغال المضبوطة سارية. يمكن للعملاء المتّصلين توجيه subagents الجلسة؛ ولا تزال نتائج متحكّم المتصفح تتطلّب الاتصال الذي سجّل ذلك المتحكّم. هذا لا يتيح لعمليات gateway مستقلّة الكتابة إلى نفس الجلسة، ولا يعني قبول prompt دائمًا عبر إعادة تشغيل المالك.</p>
+<p>داخل gateway واحد مُصادَق عليه، فإن استئناف جلسة حية أو تفعيلها يربط مشتركًا آخر بالأحداث بدلًا من استبدال الاتصال السابق. تُرسَل أحداث البث والطرفية إلى جميع العملاء المرتبطين؛ وقطع اتصال أحد العملاء لا ينهي جلسة يشاهدها عميل آخر. تظل قاعدة الحصرية في الإرسال (submit) وسياسة الإدخال أثناء الانشغال المضبوطة سارية كما هي. يمكن للعملاء المرتبطين توجيه subagents الخاصة بالجلسة. لا يتيح ذلك لعمليات gateway مستقلة الكتابة إلى الجلسة نفسها، ولا يعني قبول prompt دائمًا عبر إعادة تشغيل المالك.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-overrides-on-sessioncreate">تجاوزات النموذج في <code>session.create</code></h3>
 <p><code>session.create</code> يقبل تجاوزات <code>model</code> / <code>provider</code> لكل جلسة. يُرفض مسبقًا الزوج الذي لا يستطيع المزوّد تقديمه (<code>model: gpt-5.5</code> مع <code>provider: anthropic</code>، أو دون <code>provider</code> عندما يكون مزوّد الـ profile المضبوط Anthropic) برمز JSON-RPC <code>-32602</code> بدلًا من إنشاء جلسة يفشل دورها الأول عند المزوّد؛ يحمل <code>error.data</code> الحقول <code>model</code> و <code>provider</code> وما يصل إلى 5 <code>suggestions</code> من كتالوج ذلك المزوّد، ويكررها <code>error.message</code>. يتم الفحص دون اتصال ولا يرفض إلا الأسماء التي يعرف Hermes أنها تخص جهة أخرى: تظل endpoints المخصّصة (<code>custom</code> و <code>custom:&lt;name&gt;</code>) والمجمّعات (OpenRouter و Nous وغيرها)، ونماذج عائلة المزوّد نفسه التي لم تلحق بها القائمة المنتقاة، والأسماء غير المدرجة في أي كتالوج، مقبولة كما كانت.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="rewinding-history-on-promptsubmit">إرجاع السجل عند <code>prompt.submit</code></h3>
@@ -42,10 +42,8 @@
 <p>الـ endpoints:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
 <p>الإعداد، والترويسات (<code>X-Hermes-Session-Id</code>، <code>X-Hermes-Session-Key</code>)، وربط الواجهة الأمامية: <a href="/docs/user-guide/features/api-server">خادم API</a>.</p>
-<p>يمكن لإضافات المتصفح الاشتراك في بروتوكول المتحكّم المعطَّل افتراضيًا لأجل
-تشغيل جلسة المتصفح ذاتها التي فتحت محادثة Hermes. تشترك ناقلات API
-ولوحة التحكم في وسيط (broker) واحد مرتبط بمُخوَّل (principal) وقائمة سماح
-قدرات صريحة واحدة؛ انظر <a href="/docs/user-guide/features/api-server#browser-extension-control">التحكّم عبر إضافة المتصفح</a>.</p>
+<p>أُزيل بروتوكول المتحكّم عبر إضافة المتصفح؛ ولكي يتحكم Hermes في متصفح تشغّله بالفعل،
+استخدم <code>browser.cdp_url</code> أو <code>/browser connect</code> — انظر <a href="/docs/user-guide/features/api-server#browser-extension-control-removed">التحكّم عبر إضافة المتصفح (أُزيل)</a>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-catalog-surfaces">أسطح كتالوج النماذج</h3>
 <p>يُبقي API المتوافق مع OpenAI عمدًا <code>GET /v1/models</code> بسيطًا: إنه
 endpoint التوافق الذي تتوقّعه الواجهات الأمامية، لا كتالوج مزوّد/نموذج

@@ -2,8 +2,8 @@
 <p>افتراضيًا، تُستورد إضافات Python من الجهات الخارجية إلى عملية Hermes، كما كان الحال دائمًا. يؤدي ضبط <code>plugins.isolation: host</code> إلى نقلها إلى <strong>مضيف إضافات</strong>: عملية Python منفصلة واحدة لكل profile، تبدأ عند الطلب، وتستورد الإضافات التي ثبّتها المستخدم في ذلك الـ profile وتتواصل مع Hermes عبر pipe خاص.</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
 <p>لا تتغيّر الإضافات. تتلقى <code>ctx</code> نفسه وتسجّل الأدوات، و hooks، و slash commands، والمهارات، وكائنات المزوّدين (توليد الصور/الفيديو، والبحث في الويب، والمتصفح، و TTS/STT، والذاكرة، ومحركات السياق،
-و profiles مزوّدي النماذج) كما كانت تفعل؛ ويسجّل Hermes مدخلات مطابقة على جانبه تستدعي
-المضيف. يخدم المضيف أيضًا APIs الإضافات في لوحة التحكم. تستمر الإضافات المضمّنة في العمل داخل العملية.
+ومصادر الأسرار، ومراجع السياق <code>@</code>، و profiles مزوّدي النماذج) تمامًا كما كانت تفعل؛ ويسجّل Hermes مدخلات مطابقة على جانبه تستدعي
+المضيف، وتعبر القيم بالأنواع التي تعلنها الفئة الأساسية للمزوّد (يتلقى <code>fetch()</code> الخاص بمصدر الأسرار <code>Path</code> ويعيد <code>FetchResult</code>). يخدم المضيف أيضًا APIs الإضافات في لوحة التحكم. تستمر الإضافات المضمّنة في العمل داخل العملية.
 تشارك معالجات API لوحة التحكم العاملة داخل العملية حلقة أحداث gateway، لذا يجب ألا تحجبها (راجع
 <a href="/docs/user-guide/features/extending-the-dashboard#dont-block-the-event-loop">لا تحجب حلقة الأحداث</a>).</p>
 <p>في gateway يخدم عدة profiles، يشغّل كل profile غير الذي بدأ به gateway
@@ -21,7 +21,8 @@ gateway. لا يحمل المضيف websockets بعدُ، لذا تُرفض مس
 <li><strong>تظل الأعطال محصورة.</strong> الإضافة التي تتعطل أو تخرج تُنهي مضيفها لا Hermes؛ ويعيد الاستدعاء الجاري خطأ أداة، ثم يعيد Hermes تشغيل المضيف وتحميل إضافاته (مع إعادات محاولة محدودة).</li>
 <li><strong>تحتاج بعض الواجهات إلى كود داخل العملية</strong>، وتُفشِل تلك الإضافة بسبب واضح بدلًا من تحميلها:
 محوّلات منصات gateway (<code>register_platform</code>)، ووسائل نقل الموافقات، ومعالجات Telegram/المنصات،
-و profiles مزوّدي النماذج التي تبني عميل SDK خاصًا بها (<code>create_client</code>)، و endpoints البث و websocket
+و profiles مزوّدي النماذج التي تبني عميل SDK خاصًا بها (<code>create_client</code>)، و terminal backends (تفشل
+أوامر الـ backend بهذا السبب؛ وإضافة <code>singularity</code> إحداها)، و endpoints البث و websocket
 في لوحة التحكم، والإضافات التي تعدّل وحدات Hermes عبر monkeypatch. شغّلها باستخدام <code>isolation: in_process</code>.</li>
 </ul>
 <p><strong>تثبيت الإعداد لنشر مشترك.</strong> <code>plugins.isolation</code> إعداد عادي للـ profile، لذا يستطيع من يملك تعديل <code>config.yaml</code> الخاص بالـ profile تعطيله. عندما تتبع profiles لأشخاص تعزلهم عن بعضهم، ثبّته بدلًا من ذلك في <a href="/docs/user-guide/managed-scope">النطاق المُدار (Managed Scope)</a>؛ فتتغلب القيمة المُدارة على الإعدادات الخاصة بكل profile، ويرفض <code>hermes config set</code> تغييرها:</p>

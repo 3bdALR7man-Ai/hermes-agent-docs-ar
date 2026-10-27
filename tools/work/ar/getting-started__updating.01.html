@@ -1,3 +1,28 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fetch-fails-with-not-a-git-repository">يفشل الجلب (fetch) مع <code>not a git repository</code></h3>
+<p>يتوقف <code>hermes update</code> مع الرسالة &quot;This Hermes checkout&#x27;s git data is damaged&quot; حين يكون مجلد <code>.git</code> الخاص بالتثبيت موجودًا لكن git لم يعد يقبله: <code>HEAD</code> مفقود أو فارغ، أو ملف <code>.git</code> يشير إلى مجلد لم يعد موجودًا. قد يتسبب في ذلك تحديث أُنهي قسرًا، أو انهيار أثناء الكتابة، أو أداة مزامنة أو مضاد فيروسات تعبث بـ <code>.git</code>. لا يمكن لأي تحديث أن يجلب على نسخة مسحوبة كهذه. وتُشغَّل gateways التي أوقفها التحديث مؤقتًا من جديد على الشيفرة دون تغيير، إذ لم يُكتب شيء.</p>
+<p>شغّل المُثبّت (installer) مرة أخرى لإصلاحها. فهو ينقل النسخة المسحوبة التالفة جانبًا باسم <code>hermes-agent.broken-&lt;timestamp&gt;</code> (دون حذف أي شيء) ويستنسخ نسخة جديدة؛ أما إعداداتك وجلساتك وبياناتك الأخرى فتقع خارج النسخة المسحوبة وتبقى كما هي. تطبع رسالة الخطأ الأمر المحدد الخاص بنسختك. وللموقع الافتراضي يكون:</p>
+<ul>
+<li>Linux / macOS / WSL2: <code>curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash</code></li>
+<li>Windows (PowerShell): <code>iex (irm https://hermes-agent.nousresearch.com/install.ps1)</code></li>
+</ul>
+<p>النسخة المسحوبة المثبّتة في مكان آخر تحتاج إلى تمرير مجلدها مرة أخرى (<code>bash -s -- --dir &lt;path&gt;</code> على Linux/macOS، و<code>-InstallDir &lt;path&gt;</code> على Windows)، كما في الأمر المطبوع؛ وبدون ذلك يصلح المُثبّت الموقع الافتراضي بدلًا من ذلك.</p>
+<p>متى عاد Hermes إلى العمل يمكنك حذف المجلد <code>.broken-*</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fetch-fails-with-should_include_obj-should-only-be-called-on-existing-objects">فشل الجلب مع <code>should_include_obj should only be called on existing objects</code></h3>
+<p>قد يتعطل Git 2.53 وما بعده أثناء الجلب إلى partial clone عندما تفتقد بعض ملفات pack
+علامة <code>.promisor</code>. يحدث ذلك عندما يحوّل جلب بمرشّح استنساخًا كاملًا أو سطحيًا إلى جزئي
+أو عند فقد العلامات. يوسم <code>hermes update</code> تلك الحزم ويعيد الجلب مرة واحدة،
+كما توسّم إعادة تشغيل المُثبّت الحزم قبل الجلب. لا يستطيع تثبيت مُحدِّثه أقدم من الإصلاح
+جلبه: أعد تشغيل المُثبّت، أو ضع العلامات على الحزم يدويًا (مع إغلاق Hermes) ثم حدّث مجددًا.</p>
+<p>النسخة المسحوبة هي <code>hermes-agent</code> ضمن مجلد Hermes الرئيسي (<code>~/.hermes</code> أو <code>HERMES_HOME</code> عند ضبطه؛
+وفي Windows <code>%LOCALAPPDATA%\hermes</code> ما لم يُضبَط <code>HERMES_HOME</code>).</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>تظل النسخة partial clone. لا تزل <code>remote.origin.promisor</code> / <code>partialclonefilter</code> لتجاوز
+الانهيار: لم تُنزَّل قط الكائنات التي لا يمكن الوصول إليها إلا من وسوم الإصدار أو النسخ الاحتياطية للتحديث،
+لذا تفشل النسخة غير الجزئية عندئذ في <code>git gc</code> مع <code>bad tree object</code>. إذا فعلت ذلك بالفعل، فاجلب
+الكائنات الناقصة وتحقق من عدم بقاء أي منها قبل إعادة تفعيل التنظيف التلقائي:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<div class="language-powershell codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="git-keeps-growing-in-a-partial-clone"><code>.git</code> يواصل النمو في partial clone</h3>
 <p>النسخة التي ينشئها المُثبّت partial clone بلا blobs: كل commit وقائمة أدلة موجودان محليًا،
 وينزّل git محتوى الملفات عند الطلب، ويُكتَب كل تنزيل عند الطلب كملف pack صغير مستقل.
@@ -105,25 +130,3 @@
 <p>يحتفظ المحلّل بالخيارين <code>--force</code> و <code>--force-venv</code> للتوافق مع Windows.
 ليسا تعليمات تحديث معتادة ولا ضمانًا لتجاوز قفل ملف من
 نظام التشغيل. افحص <code>hermes update --plan</code> وسجل التحديث و <code>hermes pm status</code> قبل إعادة محاولة تحديث فاشل.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="recommended-post-update-validation">التحقق الموصى به بعد التحديث</h3>
-<p>بعد تحديث المصدر، نفّذ التشخيصات التالية. لتطبيق مُحزّم، استخدم
-صفحة About الخاصة به وحالة backend بدل أوامر Git داخل الحزمة.</p>
-<ol>
-<li><code>git status --short</code> — إذا كانت الشجرة غير نظيفة على نحو غير متوقع، فافحصها قبل المتابعة</li>
-<li><code>hermes doctor</code> — يفحص الإعدادات والاعتماديات وسلامة الخدمات</li>
-<li><code>hermes --version</code> — تأكد من أن الإصدار ارتفع كما هو متوقع</li>
-<li>إذا كنت تستخدم الـ gateway: <code>hermes gateway status</code></li>
-<li><code>hermes pm status</code> — افحص تجهيز الاعتماديات وأي خطوات فاشلة.</li>
-</ol>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>شجرة عمل غير نظيفة بعد التحديث</div><div class="admonitionContent_BuS1"><p>إذا أظهر <code>git status --short</code> تغييرات غير متوقعة بعد <code>hermes update</code>، فتوقف وافحصها قبل المتابعة. يعني هذا عادةً أن تعديلات محلية أُعيد تطبيقها فوق الكود المحدَّث، أو أن خطوة الاعتماديات حدّثت ملفات القفل (lockfiles).</p></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-your-terminal-disconnects-mid-update">إذا انقطع اتصال الطرفية في منتصف التحديث</h3>
-<p><code>hermes update</code> نفسه من فقدان الطرفية عن غير قصد:</p>
-<ul>
-<li>يتجاهل التحديث الإشارة <code>SIGHUP</code>، لذا فإن إغلاق جلسة SSH أو نافذة الطرفية لم يعد يُنهيه في منتصف التثبيت. وترث العمليات الفرعية لـ <code>pip</code> و <code>git</code> هذه الحماية، فلا يمكن أن تبقى بيئة Python مثبّتة جزئيًا بسبب انقطاع الاتصال.</li>
-<li>تُنسخ جميع المخرجات إلى <code>~/.hermes/logs/update.log</code> أثناء تشغيل التحديث. إذا اختفت الطرفية، فأعد الاتصال وافحص السجل لمعرفة ما إذا كان التحديث قد اكتمل وما إذا نجحت إعادة تشغيل الـ gateway:</li>
-</ul>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
-<ul>
-<li><code>Ctrl-C</code> (SIGINT) وإيقاف النظام (SIGTERM) يظلان مُحترَمَين — فهما إلغاءان مقصودان لا حادثان. تُخرج <code>Ctrl-C</code> بعد وجود الكود الجديد بالرمز 130 وتوضح ذلك: تبقى الخطوات المتبقية (الاعتماديات والبناء وإعادة تشغيل gateway) مستحقة، ويكملها التشغيل التالي أو <code>hermes update</code>.</li>
-</ul>
-<p>لم تعد بحاجة إلى تغليف <code>hermes update</code> داخل <code>screen</code> أو <code>tmux</code> لتجاوز انقطاع الطرفية.</p>

@@ -1,50 +1,80 @@
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-configuration">إعدادات الذاكرة</h2>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-settings">إعدادات المهارات</h2>
+<p>يمكن للمهارات إعلان إعداداتها الخاصة عبر frontmatter الخاص بـ SKILL.md. هذه قيم غير سرّية (مسارات، وتفضيلات، وإعدادات نطاق) تُخزَّن تحت مساحة الأسماء <code>skills.config</code> في <code>config.yaml</code>.</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p><strong>كيف تعمل إعدادات المهارات:</strong></p>
+<ul>
+<li><code>hermes config migrate</code> يفحص كل المهارات المفعَّلة، ويجد الإعدادات غير المضبوطة، ويعرض مطالبتك بها</li>
+<li><code>hermes config show</code> يعرض جميع إعدادات المهارات تحت &quot;Skill Settings&quot; مع المهارة التي تنتمي إليها</li>
+<li>عند تحميل مهارة، تُحقَن قيم إعداداتها المحسومة تلقائيًا في سياق المهارة</li>
+</ul>
+<p><strong>ضبط القيم يدويًا:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<p>لتفاصيل عن إعلان إعدادات ضبط في مهاراتك الخاصة، راجع <a href="/docs/developer-guide/creating-skills#config-settings-configyaml">إنشاء المهارات — إعدادات الضبط</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-loading-skills-every-session">تحميل المهارات تلقائيًا في كل جلسة</h3>
+<p>ثبّت مهارات لتُحمَّل كاملةً عند بدء كل جلسة جديدة، على كل واجهة:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<p>تُحسَم مرة واحدة لكل جلسة عند بناء system prompt لأول مرة (فيظل الـ prompt مستقرًا للتخزين المؤقت؛ وتُطبَّق التعديلات على الجلسة التالية). تُصدر المهارات المفقودة أو المعطّلة تحذيرًا وتُتخطَّى؛ و <code>--ignore-rules</code> / <code>HERMES_IGNORE_RULES=1</code> يمنع القائمة. محدد النطاق بالـ profile. راجع <a href="/docs/user-guide/cli#persistent-auto-load-via-config">CLI — التحميل التلقائي الدائم</a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="guard-on-agent-created-skill-writes">حارس على كتابات المهارات التي ينشئها الوكيل</h3>
+<p>عندما يستخدم الوكيل <code>skill_manage</code> لإنشاء مهارة أو تعديلها أو تصحيحها (patch) أو حذفها، يمكن لـ Hermes اختياريًا فحص المحتوى الجديد/المُحدَّث بحثًا عن أنماط كلمات مفتاحية خطيرة (جمع بيانات الاعتماد، وحقن prompt واضح، وتعليمات تسريب). الماسح <strong>مُعطَّل افتراضيًا</strong> — كانت سير عمل الوكلاء الحقيقية التي تلمس بشكل مشروع <code>~/.ssh/</code> أو تذكر <code>$OPENAI_API_KEY</code> تُفعِّل هذا الإجراء التقريبي (heuristic) كثيرًا. فعِّله مجددًا إذا أردت أن يطالبك الماسح قبل أن تصل كتابات مهارة الوكيل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
+<p>عند التفعيل، تظهر أي كتابة <code>skill_manage</code> مُعلَّمة كمطالبة موافقة مع مبرر الماسح. تصل الكتابات المقبولة؛ وتُعيد الكتابات المرفوضة خطأً توضيحيًا إلى الوكيل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="write-approval-for-skill-writes">موافقة الكتابة لكتابات المهارات</h3>
+<p>بمعزل عن ماسح المحتوى أعلاه، يحجب <code>skills.write_approval</code> <strong>كل</strong> كتابة مهارة من الوكيل (إنشاء / تعديل / تصحيح / حذف / ملفات داعمة) خلف موافقتك الصريحة — بنفس آلية القبول/الرفض المستخدمة للأوامر الخطيرة:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>عند التفعيل، تُخزَّن كتابات المهارات مرحليًا تحت <code>~/.hermes/pending/skills/</code> وتُراجَع عبر <code>/skills pending</code> وَ<code>/skills diff &lt;id&gt;</code> وَ<code>/skills approve &lt;id&gt;</code> وَ<code>/skills reject &lt;id&gt;</code> — من CLI أو أي منصة مراسلة. بدّل وقت التشغيل عبر <code>/skills approval on|off</code>. للذاكرة نفس البوابة (<code>memory.write_approval</code>، أدناه). شرح كامل: <a href="/docs/user-guide/features/skills#gating-agent-skill-writes-skillswrite_approval">حجب كتابات مهارات الوكيل</a>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="memory-configuration">إعدادات الذاكرة</h2>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
 <p>مع <code>memory.write_approval: true</code>، تحتاج كتابات الذاكرة إلى موافقتك قبل أن تصل: تطالبك أدوار CLI التفاعلية مضمَّنة؛ أما جلسات المراسلة ومراجعة التحسين الذاتي في الخلفية فتُخزِّن الكتابة مرحليًا لمراجعة <code>/memory pending</code> → <code>/memory approve &lt;id&gt;</code> / <code>/memory reject &lt;id&gt;</code>. بدّل وقت التشغيل عبر <code>/memory approval on|off</code>. راجع <a href="/docs/user-guide/features/memory#controlling-memory-writes-write_approval">التحكم في كتابات الذاكرة</a>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-file-truncation">اقتطاع ملفات السياق</h2>
 <p>يتحكّم في مقدار المحتوى الذي يحمّله Hermes من كل ملف سياق تلقائي قبل تطبيق الاقتطاع من البداية/النهاية. ينطبق هذا على الملفات المحقونة في system prompt مثل <code>SOUL.md</code> وَ<code>.hermes.md</code> وَ<code>AGENTS.md</code> وَ<code>CLAUDE.md</code> وَ<code>.cursorrules</code>. لا <strong>يؤثر</strong> على أداة <code>read_file</code>.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
-<p>اضبط عددًا صحيحًا موجبًا لتثبيت حد ثابت بدلًا من السلوك الديناميكي:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
-<p>يُقيَّد كل قراءة لملف سياق أيضًا بـ<code>context_file_read_timeout</code> (بالثواني، الافتراضي <code>5.0</code>). يُتجاوَز الملف الذي تستغرق قراءته وقتًا أطول — عادةً على نظام ملفات مدعوم بالشبكة مثل iCloud Drive أو OneDrive أو NFS — مع تحذير بحيث تستمر بقية system prompt في التحميل:</p>
+<p>اضبط عددًا صحيحًا موجبًا لتثبيت حد ثابت بدلًا من السلوك الديناميكي:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<p>يُقيَّد كل قراءة لملف سياق أيضًا بـ<code>context_file_read_timeout</code> (بالثواني، الافتراضي <code>5.0</code>). يُتجاوَز الملف الذي تستغرق قراءته وقتًا أطول — عادةً على نظام ملفات مدعوم بالشبكة مثل iCloud Drive أو OneDrive أو NFS — مع تحذير بحيث تستمر بقية system prompt في التحميل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-read-safety">أمان قراءة الملفات</h2>
 <p>يتحكّم في مقدار المحتوى الذي يمكن أن يعيده استدعاء <code>read_file</code> واحد. تُرفَض القراءات التي تتجاوز الحد بخطأ يُطلِع الوكيل على استخدام <code>offset</code> وَ<code>limit</code> لنطاق أصغر. يمنع هذا قراءة واحدة لحزمة JS مُصغَّرة (minified) أو ملف بيانات كبير من إغراق نافذة السياق.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
-<p>ارفعه إذا كنت تستخدم نموذجًا بنافذة سياق كبيرة وتقرأ ملفات كبيرة كثيرًا. خفّضه للنماذج ذات السياق الصغير للحفاظ على كفاءة القراءات:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<p>ارفعه إذا كنت تستخدم نموذجًا بنافذة سياق كبيرة وتقرأ ملفات كبيرة كثيرًا. خفّضه للنماذج ذات السياق الصغير للحفاظ على كفاءة القراءات:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
 <p>يزيل الوكيل أيضًا تكرار قراءات الملفات تلقائيًا — إذا قُرئت المنطقة نفسها من الملف مرتين ولم يتغيّر، تُعاد قطعة بديلة خفيفة (stub) بدلًا من إعادة إرسال المحتوى. يُعاد ضبط ذلك عند ضغط السياق كي يستطيع الوكيل إعادة قراءة الملفات بعد تلخيص محتواها وإزالته من السياق.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-output-truncation-limits">حدود اقتطاع مخرجات الأدوات</h2>
 <p>ثلاثة حدود مترابطة تتحكّم في مقدار المخرجات الخام التي يمكن لأداة إعادتها قبل أن يقتطعها Hermes:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
 <ul>
 <li><strong><code>max_bytes</code></strong> — عندما ينتج أمر <code>terminal</code> أكثر من هذا العدد من الأحرف في stdout/stderr مجتمعين، يحتفظ Hermes بأول 40% وآخر 60% ويُدرج إشعار <code>[OUTPUT TRUNCATED]</code> بينهما. الافتراضي <code>50000</code> (نحو 12-15K token عبر أدوات تقسيم tokens المعتادة).</li>
 <li><strong><code>max_lines</code></strong> — الحد الأقصى لوسيط <code>limit</code> في استدعاء <code>read_file</code> واحد. تُقيَّد الطلبات الأعلى من هذا بحيث لا يمكن لقراءة واحدة إغراق نافذة السياق. الافتراضي <code>2000</code>.</li>
 <li><strong><code>max_line_length</code></strong> — حد لكل سطر يُطبَّق عندما يُخرِج <code>read_file</code> العرض المُرقَّم بالأسطر. تُقتطَع الأسطر الأطول من هذا إلى هذا العدد من الأحرف متبوعًا بـ <code>... [truncated]</code>. الافتراضي <code>2000</code>.</li>
 </ul>
 <p>ارفع الحدود على النماذج ذات نوافذ السياق الكبيرة التي يمكنها تحمّل مخرجات خام أكثر لكل استدعاء. خفّضها للنماذج ذات السياق الصغير للحفاظ على إيجاز نتائج الأدوات:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tool-result-spillover-budget">ميزانية انسكاب نتائج الأدوات (Spillover)</h3>
 <p>وبمعزل عن الاقتطاع، تُسكب <em>نتائج</em> الأدوات كبيرة الحجم إلى القرص بدلًا من قصّها: تُحفظ المخرجات الكاملة تحت <code>$HERMES_HOME/cache/spillover/</code> ويُستبدَل المحتوى داخل السياق بمعاينة إضافةً إلى مسار الملف المحفوظ (يمكن قراءته بـ <code>read_file</code> باستخدام <code>offset</code>/<code>limit</code>، أو معالجته بـ <code>execute_code</code>). عتبة الانسكاب العامة لكل نتيجة هي 100,000 حرف، وتُخفَّض تلقائيًا للنماذج ذات السياق الصغير. ويبقى ملف الانسكاب ما دام نص أي جلسة ما زال يشير إليه، ويزول مع جلسته عند حذفها أو تنظيفها؛ أما أعمال الصيانة الساعية للـ gateway وأول انسكاب في كل عملية فتكنس فقط الملفات غير المشار إليها الأقدم من نافذة الاحتفاظ بالجلسات (<code>sessions.retention_days</code>، والافتراضي 90 يومًا، ولا تقل عن 24 ساعة أبدًا)، فتجد الجلسة المستأنفة لاحقًا ما يشير إليه نصها.</p>
 <p>تنسكب نتائج أدوات MCP (الأدوات المسمّاة <code>mcp_*</code>) بعتبة افتراضية أضيق قدرها <strong>50,000 حرف</strong>: تعيد خوادم MCP بشكل روتيني حمولات كبيرة غير مُقسَّمة إلى صفحات (كتالوجات اكتشاف الأدوات، والتنفيذات الدفعية) كانت ستبقى تحت العتبة العامة وتُضخِّم السياق في كل دور لاحق. لا شيء يُفقَد — تُحفَظ النتيجة الكاملة على القرص. تجاوَز العتبة عبر:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
 <p>عتبة MCP دائمًا مُقيَّدة بالعتبة العامة لكل نتيجة (المُقاسة تنازليًا بحسب السياق أحيانًا)، بحيث لا يمكن لرفعها أن يتجاوز ما تسمح به نافذة النموذج النشط.</p>
 <p>يشير Hermes أيضًا إلى <strong>الحذف من جانب المزوّد (provider-side elision)</strong>: عندما تضمِّن نتيجة أداة MCP أو ويب علامات اقتطاع خاصة بها (<code>...N more items</code>, <code>&quot;has_more&quot;: true</code> ، وملاحظات &quot;saved to sandbox&quot;)، يُلحَق إشعار من سطر واحد بالنتيجة يحذّر من أن البيانات المرئية غير مكتملة وينبغي تصفّحها/جلبها قبل معاملة أي تعداد على أنه مكتمل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="global-toolset-disable">تعطيل Toolset عام</h2>
 <p>لقمع toolsets محددة عبر CLI وكل منصة gateway في مكان
 واحد، أدرِج أسماءها تحت <code>agent.disabled_toolsets</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
 <p>ينطبق هذا <strong>بعد</strong> إعدادات الأدوات لكل منصة (<code>platform_toolsets</code> التي يكتبها
  <code>hermes tools</code>)، لذا يُزال toolset مُدرَج هنا دائمًا — حتى لو كانت إعدادات
 منصة محفوظة لا تزال تُدرِجه. استخدم هذا عندما تريد مفتاحًا واحدًا لـ &quot;أطفئ X
 في كل مكان&quot; بدلًا من تعديل أكثر من 15 صفًا لكل منصة في
 واجهة <code>hermes tools</code> واجهة المستخدم.</p>
+<p>تتم الإزالة لكل أداة على حدة، لذا فإن toolset مدرجة هنا تُخرج أدواتها أيضًا من أي
+toolset مفعّلة تشترك معها فيها: <code>search</code> (أي <code>web_search</code> فقط) تنزع
+<code>web_search</code> من <code>web</code> المفعّلة. يبلّغ كل من <code>hermes tools list</code> و<code>hermes doctor</code>
+عن أي toolset مفعّلة تفقد أدوات بهذه الطريقة، كما أن تفعيل toolset في
+<code>hermes tools</code> (قائمة الاختيار، أو <code>hermes tools enable</code>، أو Desktop أو لوحة التحكم) يمسح
+كل إدخال هنا تغطيه toolsets المفعّلة بالكامل.</p>
 <p>ترك القائمة فارغة، أو حذف المفتاح، لا يفعل شيئًا.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="git-worktree-isolation">عزل Git Worktree</h2>
 <p>فعّل عزل git worktrees لتشغيل عدة وكلاء بالتوازي على نفس المستودع:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
 <p>عند التفعيل، تنشئ كل جلسة CLI worktree جديدًا تحت <code>.worktrees/</code> بفرعه الخاص. يمكن للوكلاء تعديل الملفات، وتنفيذ commit، و push، وإنشاء PRs دون أن يتداخلوا مع بعضهم. تُزال الـ worktrees النظيفة عند الخروج؛ وتُبقى القذرة (dirty) للاسترداد اليدوي.</p>
 <p>افتراضيًا يتفرّع الـ worktree الجديد من <strong>أحدث نقطة remote تم جلبها للتو (fetched)</strong> (upstream الفرع الحالي، وإلا الفرع الافتراضي للـ remote) بحيث يبدأ متزامنًا مع المشروع بدلًا من <code>HEAD</code> المحلي الذي قد يكون قديمًا في النسخة المستنسخة المحلية (clone). يبقي هذا نطاق فرق PR مقتصرًا على التغيير الفعلي بدلًا من وراثة ما كانت النسخة المستنسخة المحلية متأخرة عنه. اضبط <code>worktree_sync: false</code> للتفرُّع من <code>HEAD</code> المحلي بدلًا من ذلك — مفيد بلا اتصال، أو عندما تريد عن قصد الحالة الحالية بالضبط للنسخة المستنسخة كأساس. إذا تعذّر الوصول إلى الـ remote، يعود تلقائيًا إلى <code>HEAD</code> المحلي.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="44"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
 <p>يمكنك أيضًا إدراج ملفات مُتجاهَلة عبر gitignore لنسخها إلى الـ worktrees عبر <code>.worktreeinclude</code> في جذر مستودعك:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="45"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="46"></x-keep></div></div>

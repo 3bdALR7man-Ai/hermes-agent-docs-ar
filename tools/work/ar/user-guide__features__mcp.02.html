@@ -96,6 +96,11 @@
 <p><code>hermes mcp test &lt;name&gt;</code> يعرض الاستجابة الفعلية للخادم. عندما لا يستطيع MCP SDK إلا ذكر <code>Server returned an error response</code> (استجابة 4xx/5xx لا يكون جسمها خطأ JSON-RPC)، يضيف Hermes حالة HTTP ، وعنوان URL المطلوب، وبداية جسم الاستجابة:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="42"></x-keep></div></div>
 <p>اقرأ الحالة والجسم أولًا: تعني <code>400</code>/<code>405</code> على POST <code>initialize</code> عادة أن endpoint لا يدعم إلا SSE (اضبط <code>transport: sse</code>) أو أن proxy أمامه يرفض الطلب؛ وتعني <code>401</code>/<code>403</code> أن token أو منح OAuth غير صحيح؛ ويعني جسم HTML أن URL يشير إلى صفحة ويب، لا endpoint MCP. <code>hermes logs --level debug</code> يعرض أيضًا endpoint الدقيق الذي استخدمته كل محاولة اتصال.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="a-servers-response-is-too-large">استجابة الخادم كبيرة جدًا</h3>
+<p>يقبل Hermes ما يصل إلى 10 MiB في استجابة HTTP واحدة، أو في حدث SSE واحد ضمن استجابة متدفقة، بحيث
+يتسع كتالوج <code>tools/list</code> كبير أو نتيجة أداة كبيرة (لقطة شاشة من محرر مثلًا). وفي نقل SSE
+القديم (<code>transport: sse</code>) تحدّد حزمة MCP SDK كل حدث بـ 1 MiB ولا تتيح رفع هذا الحد؛ وإذا كان
+الخادم يدعم Streamable HTTP أيضًا، فأزل <code>transport: sse</code> من مدخله.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tools-not-appearing">الأدوات لا تظهر</h3>
 <p>الأسباب المحتملة:</p>
 <ul>
@@ -117,7 +122,7 @@
 <p>تعمل أدوات MCP افتراضيًا بالتتابع — أداة واحدة في كل مرة. إذا كان خادم MCP لديك يوفّر أدوات آمنة للتشغيل المتزامن (مثل الاستعلامات للقراءة فقط، أو استدعاءات API المستقلة)، فيمكنك تفعيل التنفيذ المتوازي:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="43"></x-keep></div></div>
 <p>عندما تكون قيمة <code>supports_parallel_tool_calls</code> هي <code>true</code>، قد ينفّذ Hermes عدة أدوات من ذلك الخادم في الوقت نفسه ضمن دفعة واحدة من استدعاءات الأدوات، تمامًا كما يفعل مع الأدوات المدمجة المخصّصة للقراءة فقط (web_search و read_file وغيرهما).</p>
-<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="55"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>لا تفعّل الاستدعاءات المتوازية إلا لخوادم MCP التي تكون أدواتها آمنة للتشغيل في الوقت نفسه. إذا كانت الأدوات تقرأ وتكتب حالة مشتركة أو ملفات أو قواعد بيانات أو موارد خارجية، فراجع حالات التسابق (race conditions) في القراءة/الكتابة قبل تفعيل هذا الإعداد.</p></div></div>
+<div class="theme-admonition theme-admonition-caution admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="53"></x-keep></span>تنبيه</div><div class="admonitionContent_BuS1"><p>لا تفعّل الاستدعاءات المتوازية إلا لخوادم MCP التي تكون أدواتها آمنة للتشغيل في الوقت نفسه. إذا كانت الأدوات تقرأ وتكتب حالة مشتركة أو ملفات أو قواعد بيانات أو موارد خارجية، فراجع حالات التسابق (race conditions) في القراءة/الكتابة قبل تفعيل هذا الإعداد.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-sampling-support">دعم MCP Sampling</h2>
 <p>يمكن لخوادم MCP طلب inference من LLM عبر Hermes باستخدام بروتوكول <code>sampling/createMessage</code>. يتيح ذلك لخادم MCP أن يطلب من Hermes توليد نص نيابةً عنه — وهو مفيد للخوادم التي تحتاج إلى قدرات LLM لكنها لا تملك وصولًا خاصًا بها إلى نموذج.</p>
 <p>الـ Sampling <strong>مفعّل افتراضيًا</strong> لجميع خوادم MCP (عندما تدعمه MCP SDK). اضبطه لكل خادم تحت المفتاح <code>sampling</code> المفتاح:</p>
@@ -132,56 +137,58 @@
 <li>تذكر رسالة طلب الموافقة التكلفة: <code>Costs about 20 credits.</code> أو <code>Costs 5-20 credits (per animation).</code>، إضافةً إلى <code>This chat has used about 40 credits on &#x27;renders&#x27; (limit 100).</code> بعد أن تنفق المحادثة شيئًا.</li>
 <li>يحتفظ Hermes بإجمالي تراكمي لكل محادثة ولكل خادم، يحتسب فيه الرقم المصرَّح به (الحد الأعلى للنطاق) لكل استدعاء ذي تكلفة وافق عليه وبدأ تنفيذه. ولا تضيف الاستدعاءات المرفوضة أو المحظورة شيئًا؛ أما الاستدعاء الذي يتوقف خادمه قبل أن يتلقاه فيُحتسب مع ذلك، وهذا يميل إلى السؤال مبكرًا. يُحفظ الإجمالي في الذاكرة: فهو ميزانية لمحادثة واحدة، وليس فاتورة المورّد.</li>
 <li>يتبع الإجمالي المحادثة عندما يواصلها ضغط السياق أو <code>/branch</code> تحت معرّف جلسة جديد. أما بدء محادثة جديدة (<code>/new</code> في CLI، أو محادثة Desktop جديدة) فيبدأ إجماليًا جديدًا؛ وعلى منصات المراسلة يعود الإجمالي إلى المحادثة، فيبقى قائمًا بعد <code>/new</code> هناك. ولكل تشغيل cron إجماليه الخاص. وإعادة تشغيل Hermes تصفّر كل الإجماليات.</li>
-<li>مع <code>spend_limit</code>، يسأل أي استدعاء ذي تكلفة كان سيتجاوز بالمحادثة الحد المسموح قبل تنفيذه، حتى على خادم <code>trust: full</code> الذي لا يسأل عادةً، ويسأل كل استدعاء إضافي ذي تكلفة في تلك المحادثة مرة أخرى (فخيار &quot;Allow for this session&quot; لا يوقف السؤال). وحيث لا يوجد من يجيب (مهام cron، و<code>hermes chat -q</code>، وgateway بلا جهة موافقة)، يُرفض الاستدعاء دون تنفيذ ويُخبَر النموذج بألا يعيد المحاولة.</li>
+<li>مع <code>spend_limit</code>، يسأل أي استدعاء ذي تكلفة كان سيتجاوز بالمحادثة الحد المسموح قبل تنفيذه، حتى على خادم <code>trust: full</code> الذي لا يسأل عادةً، ويسأل كل استدعاء إضافي ذي تكلفة في تلك المحادثة مرة أخرى: لا تعرض هذه الرسالة إلا Allow Once وDeny، ولا تسكتها إجابة سابقة بـ Session أو Always للأداة. وحيث لا يوجد من يجيب (مهام cron، و<code>hermes chat -q</code>، وgateway بلا جهة موافقة)، يُرفض الاستدعاء دون تنفيذ ويُخبَر النموذج بألا يعيد المحاولة.</li>
 <li>دون الحد، يواصل خادم <code>trust: full</code> تشغيل الأدوات ذات التكلفة دون سؤال؛ وفي خادم <code>trust: untrusted</code> يسأل كل استدعاء قادر على الكتابة أصلًا، ويحمل السؤال الآن التكلفة. وتبقى الأدوات المعلّمة بـ <code>readOnlyHint: true</code> دون سؤال ما لم تتطلب الميزانية ذلك.</li>
+<li>يتجاوز <a href="/docs/user-guide/security#yolo-mode">YOLO</a> (<code>/yolo</code>, <code>--yolo</code>) و<code>approvals.mode: off</code> رسالة <code>trust: untrusted</code> (<code>/yolo</code> لتلك المحادثة، و<code>--yolo</code> لتلك العملية، و<code>approvals.mode: off</code> لذلك الـ profile)، لكنهما لا يتجاوزان حد الإنفاق: دون الحد يعمل الاستدعاء ذو التكلفة دون سؤال، أما الاستدعاء الذي سيعبر الحد فيسأل أيضًا (أو يُرفض حيث لا يوجد من يجيب، مثل مهمة cron مع <code>approvals.mode: off</code>).</li>
 <li>إذا كان <code>tool_costs</code> أو <code>spend_limit</code> أو <code>cost_unit</code> مشوّهًا، يُتخطى الخادم مع خطأ يسمّي المفتاح، فلا تُسقَط ميزانية صرّحت بها بصمت. أما مفتاح في <code>tool_costs</code> لا يقدّمه الخادم (خطأ إملائي، أو نسخ بادئة العرض <code>mcp_&lt;server&gt;_</code> الخاصة بـ Hermes) فيُذكر في تحذير عند الاتصال: استخدم أسماء الأدوات الأصلية للخادم.</li>
 </ul>
 <p>يمكن لـ <a href="/docs/developer-guide/plugins#portable-agent-plugins-v1-packages">حزمة إضافة محمولة</a> أن تصرّح بالجدول نفسه لخادمها. وإذا أضفت إدخال <code>mcp_servers</code> بالاسم نفسه (مثلًا لضبط <code>trust: full</code>)، فتظل <code>tool_costs</code> و<code>spend_limit</code> و<code>cost_unit</code> الخاصة بالحزمة سارية ما لم يضبط إدخالك هذه المفاتيح بنفسه؛ وتؤدي <code>spend_limit: 0</code> إلى إيقاف حد الحزمة، وتؤدي <code>tool_costs: {}</code> إلى إسقاط تكاليفها.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-elicitation-support">دعم MCP Elicitation</h2>
-<p>يمكن لخوادم MCP أن تطلب من المستخدم مدخلات منظّمة في منتصف استدعاء أداة عبر بروتوكول <code>elicitation/create</code> ‏(mcp Python SDK ≥ 1.11.0). يوجّه Hermes طلبات الـ elicitation من نوع <strong>وضع النموذج</strong> عبر واجهة الموافقة الموجودة لديه — مطالبة تفاعلية في CLI/TUI ، أو أزرار موافقة على منصات الـ gateway مثل Telegram و Slack — بحيث يصل الطلب إليك أينما كانت الجلسة. أما طلبات الـ elicitation من نوع <strong>وضع URL</strong> (حيث يوجّهك الخادم إلى عنوان URL خارجي) فتُرفض لأنها غير مدعومة.</p>
+<p>يمكن لخوادم MCP أن تطلب من المستخدم مدخلات منظّمة في منتصف استدعاء أداة عبر بروتوكول <code>elicitation/create</code> (mcp Python SDK ≥ 1.11.0). يوجّه Hermes طلبات الـ elicitation من نوع <strong>وضع النموذج (form-mode)</strong> عبر واجهة الموافقة الموجودة لديه — مطالبة تفاعلية في CLI/TUI، أو أزرار موافقة على منصات الـ gateway مثل Telegram و Slack — بحيث يصل الطلب إليك أينما كانت الجلسة. وتغطي كل إجابة ذلك الطلب وحده، لذا لا تعرض الرسالة إلا Allow Once وDeny. ولا يجيب YOLO و<code>approvals.mode: off</code> عنك على هذه الطلبات: فالخادم يطرح عليك سؤالًا، ولا يطلب إذنًا. أما طلبات الـ elicitation من نوع <strong>وضع URL (URL-mode)</strong> (حيث يوجّهك الخادم إلى عنوان URL خارجي) فتُرفض لأنها غير مدعومة.</p>
 <p>الـ Elicitation <strong>مفعّل افتراضيًا</strong> لكل خادم. اضبطه تحت المفتاح <code>elicitation</code> المفتاح:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="47"></x-keep></div></div>
 <p>تطابق المهلة الافتراضية البالغة 5 دقائق القيمة الافتراضية لموافقات الـ gateway ، حتى يتسع الوقت للمستخدمين على الواجهات غير المتزامنة للرد قبل أن يستسلم الخادم. وتُتتبَّع المقاييس لكل خادم (الطلبات، والمقبولة، والمرفوضة، والأخطاء) في المعالج.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-events-experimental">MCP Events (تجريبي)</h2>
+<p>يمكن لبعض خوادم MCP إخطار الوكيل عند حدوث شيء في المصدر (بريد جديد، أو حادثة، أو
+عنصر جديد في خلاصة) عبر دوال <code>events/*</code> في
+<a href="https://github.com/modelcontextprotocol/experimental-ext-triggers-events/blob/main/docs/design-sketch-proposal.md" data-ext>مخطط تصميم أحداث MCP</a>.
+لا يزال المقترح مسودة لدى مجموعة عمل. ينفّذ Hermes وضع التسليم عبر <strong>webhook</strong>: يرسل
+الخادم كل حدث بـ POST إلى <a href="/docs/user-guide/messaging/webhooks">مستمع webhook</a> الخاص بالـ gateway، ويبدأ كل
+حدث تشغيلًا للوكيل كأي مسار webhook آخر.</p>
+<p>فعّله لكل خادم على حدة، وأخبر Hermes بعنوان HTTPS العام لمستمع webhook (ترفض الخوادم عناوين
+callback بـ HTTP العادي، لذا ضع reverse proxy ينهي TLS أو نفقًا (tunnel) أمام المنفذ 8644):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
+<p>يحصل الخادم حينئذٍ على ثلاث أدوات مساعدة إضافية:</p>
+<ul>
+<li><code>list_event_types</code>: أنواع الأحداث التي يقدّمها الخادم، واشتراكاتك الحالية فيها</li>
+<li><code>subscribe_event</code>: اشترك بوسائط الحدث، وما يجب فعله عند وصوله
+(<code>instructions</code>، حتى 2000 حرف) ووجهة نتيجة كل تشغيل (<code>deliver</code>،
+<code>deliver_chat_id</code>). يُطلب منك الموافقة على كل اشتراك، لأنه يبدأ تشغيلات للوكيل دون إشراف؛
+وتعرض الموافقة التعليمات والوجهة كاملتين.</li>
+<li><code>unsubscribe_event</code>: إلغاء اشتراك</li>
+</ul>
+<p>يُخزَّن كل اشتراك بوصفه مسار webhook ديناميكيًا (يعرضه <code>hermes webhook list</code>) له سرّ توقيع
+<code>whsec_</code> خاص به؛ ويُحفظ المنح (grant) ومؤشر إعادة التشغيل (replay cursor) بجانبه في
+<code>mcp_event_subscriptions.json</code>، فلا يتغير المسار نفسه إلا عند إعادة الاشتراك بتعليمات
+مختلفة أو بوجهة مختلفة. يجيب Hermes عن تحدّي التحقق الموقَّع الذي يرسله الخادم، ويزيل تكرار
+الأحداث بحسب <code>eventId</code>، ويجدّد الاشتراك قبل انتهاء المدة التي منحها الخادم
+ما دام اتصال MCP قائمًا (ومرة أخرى كلما أعاد الاتصال). ومع <code>lazy: true</code> أو
+<code>idle_timeout_seconds</code> لا يكون الاتصال قائمًا دائمًا، لذا قد ينقطع اشتراك إلى أن يعيد الاتصال
+التالي تسجيله. أما التجديد الذي يرفضه الخادم نهائيًا
+(سُحب الوصول، أو أُزيل نوع الحدث، أو لم تعد الوسائط صالحة) فيزيل المسار؛ وتُعاد محاولة
+الإخفاقات الأخرى مع تأخير تصاعدي (back-off). يؤدي إيقاف المسار في لوحة webhook إلى انقطاع
+الاشتراك، وإعادة تشغيله تعيد الاشتراك. وإذا أنهى الخادم اشتراكًا،
+يزيل Hermes المسار ويخبر وجهة <code>deliver</code>. لا تصل الأحداث إلا أثناء تشغيل
+<code>hermes gateway run</code>. تصل حمولة الحدث إلى التشغيل كاملة، حتى 32,000 حرف
+من JSON، مع ملاحظة عند اقتطاعها. حمولات الأحداث بيانات خارجية: تستخدم تشغيلات الأحداث مجموعة أدوات
+webhook المقيَّدة نفسها التي تستخدمها مسارات webhook الأخرى.
+ينطبق حدّ المعدل لكل مسار في المستمع (<code>platforms.webhook.extra.rate_limit</code>، وقيمته الافتراضية 30 في الدقيقة)
+على تسليمات الأحداث أيضًا؛ ارفعه لنوع حدث كثير النشاط، فقد لا يعيد الخادم محاولة
+تسليم مرفوض.</p>
+<p>غير مدعوم بعد: وضعا التسليم <code>poll</code> و<code>push</code>، والاشتراكات المنفَّذة من profile
+ثانوي ضمن <code>gateway.multiplex_profiles</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-hermes-as-an-mcp-server">تشغيل Hermes كخادم MCP</h2>
-<p>إلى جانب الاتصال <strong>بخوادم</strong> MCP ، يمكن لـ Hermes أيضًا <strong>أن يكون</strong> خادم MCP. يتيح ذلك للوكلاء الآخرين الداعمين لـ MCP ‏(Claude Code و Cursor و Codex أو أي عميل MCP) استخدام قدرات المراسلة في Hermes — سرد المحادثات، وقراءة سجل الرسائل، وإرسال الرسائل عبر جميع منصاتك المتصلة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this">متى تستخدم هذا</h3>
-<ul>
-<li>تريد أن يرسل Claude Code أو Cursor أو أي وكيل برمجة آخر رسائل Telegram/Discord/Slack ويقرأها عبر Hermes</li>
-<li>تريد خادم MCP واحدًا يربطك بجميع منصات المراسلة المتصلة بـ Hermes دفعة واحدة</li>
-<li>لديك بالفعل gateway لـ Hermes قيد التشغيل مع منصات متصلة</li>
-</ul>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start-1">البدء السريع</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="48"></x-keep></div></div>
-<p>يُشغّل هذا خادم MCP من نوع stdio. ويتولى عميل MCP (وليس أنت) إدارة دورة حياة العملية.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mcp-client-configuration">إعداد عميل MCP</h3>
-<p>أضف Hermes إلى إعدادات عميل MCP لديك. على سبيل المثال، في ملف Claude Code <code>~/.claude/claude_desktop_config.json</code>:</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
-<p>أو إذا كنت قد ثبّتّ Hermes في موقع محدد:</p>
+<p>يمكن لـ Hermes أيضًا أن <strong>يكون</strong> خادم MCP، فيتمكن Claude Code وClaude Desktop وCursor وCodex أو أي عميل MCP من سرد محادثات المراسلة لديك وقراءتها، وانتظار الرسائل الجديدة وإرسال الرسائل عبر كل منصة متصل بها Hermes، واستدعاء أدوات Hermes الخاصة بالويب والمتصفح والرؤية وتوليد الصور والمهارات وTTS اختياريًا. ويأتي هذا في صورة إضافة <strong>mcp-serve</strong> الرسمية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="49"></x-keep></div></div>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="50"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="available-tools">الأدوات المتاحة</h3>
-<p>يعرض خادم MCP عدد 10 أدوات، تطابق واجهة جسر القنوات في OpenClaw بالإضافة إلى متصفح قنوات خاص بـ Hermes:</p>
-<table><thead><tr><th>الأداة</th><th>الوصف</th></tr></thead><tbody><tr><td><code>conversations_list</code></td><td>يسرد محادثات المراسلة النشطة. يمكن التصفية حسب المنصة أو البحث بالاسم.</td></tr><tr><td><code>conversation_get</code></td><td>يجلب معلومات تفصيلية عن محادثة واحدة باستخدام مفتاح الجلسة.</td></tr><tr><td><code>messages_read</code></td><td>يقرأ سجل الرسائل الأخيرة لمحادثة ما.</td></tr><tr><td><code>attachments_fetch</code></td><td>يستخرج المرفقات غير النصية (الصور، والوسائط) من رسالة محددة.</td></tr><tr><td><code>events_poll</code></td><td>يستطلع أحداث المحادثات الجديدة منذ موضع مؤشر (cursor) معيّن.</td></tr><tr><td><code>events_wait</code></td><td>استطلاع طويل (long-poll) / انتظار حتى وصول الحدث التالي (شبه فوري).</td></tr><tr><td><code>messages_send</code></td><td>يرسل رسالة عبر منصة ما (مثل <code>telegram:123456</code>, <code>discord:#general</code>).</td></tr><tr><td><code>channels_list</code></td><td>يسرد وجهات المراسلة المتاحة عبر جميع المنصات.</td></tr><tr><td><code>permissions_list_open</code></td><td>يسرد طلبات الموافقة المعلّقة التي رُصدت خلال جلسة الجسر هذه.</td></tr><tr><td><code>permissions_respond</code></td><td>يسمح بطلب موافقة معلّق أو يرفضه.</td></tr></tbody></table>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="event-system">نظام الأحداث</h3>
-<p>يتضمن خادم MCP جسر أحداث حيًّا يستطلع قاعدة بيانات الجلسات في Hermes بحثًا عن رسائل جديدة. يمنح هذا عملاء MCP اطلاعًا شبه فوري على المحادثات الواردة:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="51"></x-keep></div></div>
-<p>أنواع الأحداث: <code>message</code>, <code>approval_requested</code>, <code>approval_resolved</code></p>
-<p>طابور الأحداث موجود في الذاكرة ويبدأ عند اتصال الجسر. أما الرسائل الأقدم فمتاحة عبر <code>messages_read</code>.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="options">الخيارات</h3>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="52"></x-keep></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">كيف يعمل</h3>
-<p>يقرأ خادم MCP بيانات المحادثات مباشرةً من مخزن الجلسات في Hermes — إذ يُعد <code>~/.hermes/state.db</code> المصدر الأساسي، بينما يُحتفظ بـ <code>sessions.json</code> فقط كمصدر احتياطي قديم. يستطلع خيط (thread) في الخلفية قاعدة البيانات بحثًا عن رسائل جديدة ويحتفظ بطابور أحداث في الذاكرة. ولإرسال الرسائل، يستخدم محرك الإرسال الداخلي نفسه (<code>tools/send_message_tool.py</code>) الذي يشغّل تسليم مهام cron و CLI ‏<code>hermes send</code> CLI.</p>
-<p>لا يلزم أن يكون الـ gateway قيد التشغيل لعمليات القراءة (سرد المحادثات، وقراءة السجل، واستطلاع الأحداث). لكنه يلزم أن يكون قيد التشغيل لعمليات الإرسال، لأن محوّلات المنصات (platform adapters) تحتاج إلى اتصالات نشطة.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="current-limits">القيود الحالية</h3>
-<ul>
-<li>يوفّر <code>hermes mcp serve</code> المدمج حاليًا خادم MCP <strong>يعمل عبر stdio فقط</strong>. إذا كنت تحتاج إلى خادم HTTP MCP ، فشغّل محوّلًا منفصلًا — أو، وهو الأكثر شيوعًا بكثير، استخدم جانب <strong>العميل</strong> في MCP ضمن Hermes ، والذي يدعم بالفعل stdio و HTTP كليهما (<code>url</code> + <code>headers</code> في <code>mcp_servers.yaml</code> / <code>config.yaml</code>؛ راجع <a href="#http-servers">خوادم HTTP</a> أعلاه).</li>
-<li>استطلاع الأحداث بفواصل تقارب 200ms عبر استطلاع لقاعدة البيانات مُحسَّن بالاعتماد على mtime (يتخطى العمل عندما لا تتغير الملفات)</li>
-<li>لا يوجد دعم لبروتوكول الإشعارات الفورية <code>claude/channel</code> بروتوكول إشعارات دفع بعد</li>
-<li>الإرسال نصي فقط (لا يمكن إرسال وسائط/مرفقات عبر <code>messages_send</code>)</li>
-</ul>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-docs">مستندات ذات صلة</h2>
-<ul>
-<li><a href="/docs/guides/use-mcp-with-hermes">استخدام MCP مع Hermes</a></li>
-<li><a href="/docs/reference/cli-commands">أوامر CLI</a></li>
-<li><a href="/docs/reference/slash-commands">Slash Commands</a></li>
-<li><a href="/docs/reference/faq">الأسئلة الشائعة</a></li>
-</ul>
+<p>كان مدمجًا سابقًا بالصيغة <code>hermes mcp serve</code>. على عميل MCP المضبوط بـ <code>&quot;args&quot;: [&quot;mcp&quot;, &quot;serve&quot;]</code> أن يغيّرها إلى <code>[&quot;mcp-serve&quot;]</code>؛ أما أسماء الأدوات ومعاملاتها فلم تتغير، ويطبع <code>hermes mcp serve</code> الآن الصيغة الجديدة وسطر التثبيت. وتوثَّق الأدوات والوضع <code>--tools</code> وحدود الأمان الخاصة به في <a href="https://github.com/NousResearch/hermes-official-plugins/tree/main/mcp-serve" data-ext>README الخاص بالإضافة</a>.</p>

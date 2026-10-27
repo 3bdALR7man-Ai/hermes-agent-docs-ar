@@ -1,8 +1,10 @@
 <header><h1>إضافات مزوّدي بيئة Terminal</h1></header>
 <p>يشغّل Hermes أوامر الـ shell عبر مجموعة قابلة للإضافة من <strong>terminal backends</strong>.
-تعيش الـ backends المدمجة (المحلي، وDocker، وSingularity، وModal، وDaytona، وVercel
-Sandbox، وSSH) في المستودع الأساسي تحت <code>tools/environments/</code>. مزوّدو الصناديق الرملية (sandbox)
-من طرف ثالث يتكاملون <strong>كإضافات</strong> بدلًا من ذلك — مستودع إضافة مستقل
+تعيش الـ backends المدمجة (المحلي، وDocker، وModal، وDaytona، وVercel Sandbox، وSSH)
+في المستودع الأساسي تحت <code>tools/environments/</code>. وتُعدّ
+<a href="https://github.com/NousResearch/hermes-official-plugins/tree/main/singularity" data-ext>إضافة Singularity/Apptainer</a> الرسمية
+مثالًا تطبيقيًا كاملًا لهذه الصفحة. أما مزوّدو الصناديق الرملية (sandbox)
+من طرف ثالث فيتكاملون <strong>كإضافات</strong> بدلًا من ذلك — مستودع إضافة مستقل
 يُثبَّت تحت <code>~/.hermes/plugins/</code>، ويسجّل backend يختاره المستخدم
 تمامًا كما يختار واحدًا مدمجًا عبر <code>terminal.backend</code> في <code>config.yaml</code>.</p>
 <p>تحاكي هذه الصفحة دليل <a href="/docs/developer-guide/browser-provider-plugin">إضافات مزوّدي المتصفح</a>
@@ -21,7 +23,7 @@ Sandbox، وSSH) في المستودع الأساسي تحت <code>tools/environ
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="rules">القواعد</h2>
 <ul>
 <li><strong>أسماء محجوزة.</strong> تُرفَض التسجيلات التي تتصادم مع اسم backend مدمج
-(<code>local</code>، و<code>docker</code>، و<code>singularity</code>، و<code>modal</code>، و<code>managed_modal</code>، و<code>daytona</code>،
+(<code>local</code>، و<code>docker</code>، و<code>modal</code>، و<code>managed_modal</code>، و<code>daytona</code>،
 و<code>vercel_sandbox</code>، و<code>ssh</code>). توسّع الإضافات مجموعة الـ backends؛ ولا
 تحجب أبدًا backends ضمن الشجرة.</li>
 <li><strong>يجب أن تقبل <code>create_environment</code> معامل <code>**kwargs</code></strong> وتتجاهل المفاتيح غير المعروفة —
@@ -47,16 +49,40 @@ Sandbox، وSSH) في المستودع الأساسي تحت <code>tools/environ
 </ul>
 <p>يُنصَح بالاشتقاق من <code>BaseEnvironment</code> (فهذا يمنحك الآليات المشتركة لمزامنة الملفات
 والعمليات الخلفية) لكنه ليس مطلوبًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="file-tools-and-the-host-filesystem">أدوات الملفات ونظام ملفات المضيف</h2>
+<p>تمر <code>read_file</code> و <code>write_file</code> و <code>patch</code> و <code>search_files</code> عبر
+<code>execute()</code> في بيئتك، فترى بالضبط الملفات التي تراها أوامرك.
+والاستثناء الوحيد بيئة تعلن
+<code>uses_host_filesystem = True</code> (وهذا حال <code>LocalEnvironment</code> المدمجة وحدها): هناك
+تقرأ أدوات الملفات وتكتب وتبحث في المضيف مباشرةً، وتشغّل
+ripgrep المضمّن، وتفحص (stat) المسارات على المضيف، وتكتب مخرجات الأدوات الضخمة مباشرةً إلى
+<code>~/.hermes/cache/spillover</code>، وتفعّل تشخيصات LSP.</p>
+<p>الـ backend الذي يرث من <code>LocalEnvironment</code> ليقيّد أوامره (bubblewrap
+أو sandbox آخر على المضيف يخفي المسارات أو يركّبها للقراءة فقط أو
+يمنح الأوامر <code>$TMPDIR</code> خاصًا بها) يرث القيمة <code>True</code> ويجب أن يعطّلها، وإلا
+تتجاوز أدوات الملفات الـ sandbox:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>اتركها دون ضبط في الـ backends التي لا ترث من <code>LocalEnvironment</code>؛ فالقيمة الافتراضية
+هي <code>False</code>. أما Hermes v0.22.5 وما قبله فتتجاهل هذه الخاصية وتستخدم مسار المضيف
+السريع لكل صنف فرعي من <code>LocalEnvironment</code>، لذا ثبّت <code>requires_hermes</code> على إصدار أحدث
+من ذلك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="images">الصور (Images)</h2>
+<p>يقرأ الـ backend الخاص بك إعداد الصورة الخاص به (مفتاحًا في <code>config_schema</code>، أو مفتاح
+<code>terminal.&lt;name&gt;_image</code> توثّقه أنت). لا يمرّر Hermes <code>image=</code> إلا عند
+تجاوز لكل مهمة: فالتشغيل الدفعي (<code>batch_runner.py</code>) الذي يمنح كل prompt حاويته
+الخاصة يسجّله باسم <code>&lt;name&gt;_image</code> للـ backend النشط، وتصل هذه القيمة
+إلى <code>create_environment(image=...)</code>. وفيما عدا ذلك تكون <code>image</code> هي <code>&quot;&quot;</code>؛ فارجع
+إلى إعدادك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="starting-directory">دليل البدء</h2>
 <p>بدون <code>default_cwd</code>، يبدأ backend الإضافة في <code>/root</code>، ويُستبدل <code>terminal.cwd</code> الذي يبدو مسارًا على المضيف
 بـ <code>/root</code> عند ضبط <code>is_container</code>. أعد مسارًا
 مطلقًا داخل sandbox لتبدأ في مكان آخر:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <p>وعندما لا يُعرف دليل home إلا بعد تشغيل sandbox، أعد <code>&quot;~&quot;</code>
 بدلًا من ذلك. عندها يمرر Hermes القيمة <code>cwd=&quot;~&quot;</code> إلى <code>create_environment()</code> (ولا
 يوسّعها أبدًا على المضيف)، وتضبط بيئتك <code>self.cwd</code> على دليل home
 المطلق الذي حلّته:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
 <p>يُبقي Hermes القيمة <code>~</code> افتراضيةً للـ backend، فيحلّ كل sandbox جديد
 دليل home الخاص به، ويسجّل المسار الذي حلّته كل بيئة على تلك البيئة.
 ويمكن أيضًا أن تصل الأوامر مع <code>cwd=&quot;~&quot;</code>؛ وينفّذ <code>BaseEnvironment</code> الأمر <code>cd</code>
@@ -68,7 +94,7 @@ Sandbox، وSSH) في المستودع الأساسي تحت <code>tools/environ
 وتُتجاهل المسارات النسبية، لأن Hermes سيربطها بالمضيف.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="bot-desktop-and-computer_use">Bot Desktop و <code>computer_use</code></h2>
 <p>تتبع الشاشة و <code>computer_use</code> والمتصفح الطرفيةَ إلى sandboxes من Docker و SSH
-و Singularity عبر إنشاء عمليات طويلة العمر هناك مع إبقاء stdin و
+(وإضافة Singularity) عبر إنشاء عمليات طويلة العمر هناك مع إبقاء stdin و
 stdout مفتوحين. ويمكن لـ backend من إضافة أن يشارك بالطريقة نفسها:</p>
 <ol>
 <li>اضبط <code>supports_streams = True</code> على المزوّد. عندها يضع <code>bot_desktop.placement: auto</code>
@@ -81,17 +107,17 @@ stdout مفتوحين. ويمكن لـ backend من إضافة أن يشارك �
 ويحتاج sandbox إلى <code>bash</code>. يحدد <code>user</code> الحساب الذي يجري التشغيل بموجبه؛ تجاهله إذا كان
 الـ backend الخاص بك لا يستطيع تبديل المستخدمين. أعد قائمة، لا سلسلة أمر واحدة.</li>
 </ol>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <p>ما زالت صورة sandbox تحتاج إلى حزمة سطح المكتب (Xvnc و Xfce و Chromium و
 <code>cua-driver</code>)؛ والصورة <code>nousresearch/hermes-sandbox:desktop</code> تحتوي عليها. يحتفظ Bot Desktop و
 المتصفح بملفاتهما المؤقتة تحت
 <code>get_temp_dir()</code> الخاصة بالبيئة. وتحصل البيئة التي لا ترث من <code>BaseEnvironment</code> وليس
 لديها مثل هذه الدالة على الافتراضي نفسه الذي يستخدمه <code>BaseEnvironment</code>.</p>
-<p>يقرأ كلٌّ من <code>exec_prefix()</code> وحلّ دليل home الخاص بـ <code>~</code> كائنَ البيئة
-نفسه، لذلك لا يعملان إلا مع الإضافات المحمّلة داخل العملية نفسها (in-process). وتحت
-<code>plugins.isolation: host</code> تصل البيئة إلى Hermes كعنصر نائب
-معتم (opaque placeholder): يرفض Bot Desktop أي backend يعلن <code>supports_streams</code> برسالة
-تذكر هذا الإعداد، وتبقى <code>default_cwd = &quot;~&quot;</code> الرمز <code>~</code> حرفيًا.</p>
+<p>يعمل الـ terminal backend داخل العملية نفسها (in-process) فقط: فكائن بيئته هو ما
+تتحكم به أداة الطرفية وأدوات الملفات و <code>exec_prefix()</code> وحلّ دليل home الخاص بـ <code>~</code>. وتحت <code>plugins.isolation: host</code> لا يمكن للكائن عبور
+حدّ المضيف، فيرفض إنشاء البيئة برسالة تذكر
+<code>plugins.isolation: in_process</code> (قبل أن يبدأ المضيف أي sandbox)، ويرفض Bot
+Desktop أي backend يعلن <code>supports_streams</code> بالطريقة نفسها.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-isolation-semantics">دلالات عزل الجلسة</h2>
 <p>إذا كان صندوقك الرملي <strong>يُستأنَف بالاسم</strong> (آلة افتراضية دائمة يعيد الـ backend
 الاتصال بها)، اضبط <code>session_isolated_when_nonpersistent = True</code>. مع

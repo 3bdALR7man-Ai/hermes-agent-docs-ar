@@ -10,8 +10,9 @@
 <li>أصول TUI/لوحة التحكم مبنية مسبقًا، واعتماديات Photon sidecar مضمّنة.</li>
 <li>s6-overlay للإشراف وتنظيف العمليات الشبحية.</li>
 </ul>
-<p>يُهيّأ Chromium عبر PM، وليس <code>npx playwright install</code>. يسجّل البناء ملفه التنفيذي المحدّد في <code>/etc/hermes/agent-browser-executable-path</code>.
-<code>PLAYWRIGHT_BROWSERS_PATH</code> يسمّي <code>/opt/hermes/tools</code> خارج mount البيانات.</p>
+<p>يُهيَّأ Chromium عبر PM، وليس عبر <code>npx playwright install</code>. يسجّل البناء ملفه التنفيذي
+المحدَّد في <code>/etc/hermes/chromium-executable-path</code>، ويقرؤه Hermes عند تشغيل المتصفح.
+يشير <code>PLAYWRIGHT_BROWSERS_PATH</code> إلى <code>/opt/hermes/tools</code>، أي خارج mount البيانات.</p>
 <p>تحمل كل صورة، بما فيها الوسوم دون لاحقة (غير <code>-desktop</code>)، نسخة Chromium الكاملة بدلًا من headless shell الأخف في Playwright: متصفح واحد مثبَّت بإصدار محدد ومتحقَّق من checksum يخدم التصفح دون واجهة وجلسات Bot Screen ذات الواجهة معًا. المقابل هو حجم الصورة — فالنسخة الكاملة أكبر من headless shell الذي كانت الصور السابقة تتضمنه.</p>
 <p>تُثبَّت SDKs الاختيارية للـ backend (Edge TTS و Firecrawl و Exa ومهايئات المنصات واعتماديات الإضافات) عند الاستخدام الأول في أجيال اعتماديات PM تحت <code>/opt/data/installs</code>، فتستمر بعد إعادة إنشاء الحاوية وتحديثات الصورة. ولا تُعدَّل <code>/opt/hermes/.venv</code> الخاصة بالصورة أبدًا. عند كل إقلاع، تعيد الحاوية تحديد الاختيار المسجّل بحسب ملف قفل الصورة الجديدة قبل بدء الخدمات؛ إذا فشل ذلك (مثلًا دون اتصال)، تقلع ببيئة الصورة نفسها وتحتفظ بإضافات extras المسجّلة للإقلاع أو التثبيت التالي. اضبط <code>security.allow_lazy_installs: false</code> لرفض التثبيتات عند الطلب. ولا يُستخدم overlay القديم <code>lazy-packages</code>.</p>
 <p>توجد معلومات منشأ الصورة في <code>/etc/hermes/image-provenance.json</code> خارج mount المصدر و mount البيانات كليهما. وتوجد علامة البناء في <code>/opt/hermes/install-stamp.json</code>. يبلّغ البناء المحلي الذي لم تُزوَّد له علامة عن مراجعة مجهولة بدلًا من اختراع commit. يرفض <code>hermes update</code> تغيير الكود الذي تملكه الصورة؛ استبدل الصورة لتحديث التطبيق.</p>

@@ -58,7 +58,7 @@
 <ul>
 <li><strong>وجود مفتاح API</strong> — مثل <code>lambda: bool(os.environ.get(&quot;SERP_API_KEY&quot;))</code> للبحث في الويب</li>
 <li><strong>تشغيل خدمة ما</strong> — مثل التحقق من إعداد خادم Honcho</li>
-<li><strong>تثبيت ملف تنفيذي</strong> — مثل التأكد من توفّر <code>playwright</code> لأدوات المتصفح</li>
+<li><strong>تثبيت اعتمادية</strong> — مثل التأكد من إمكانية استيراد <code>browser-harness</code> لأجل <code>browser_exec</code></li>
 </ul>
 <p>عندما تبني <code>registry.get_definitions()</code> قائمة المخططات للنموذج، فإنها تشغّل <code>check_fn()</code> الخاصة بكل أداة:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-python codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#F8F8F2"><span class="token comment" style="color:rgb(98, 114, 164)"># Simplified from registry.py</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">if</span><span class="token plain"> entry</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token plain">check_fn</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">try</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">        available </span><span class="token operator">=</span><span class="token plain"> </span><span class="token builtin" style="color:rgb(189, 147, 249)">bool</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token plain">entry</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token plain">check_fn</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">except</span><span class="token plain"> Exception</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">        available </span><span class="token operator">=</span><span class="token plain"> </span><span class="token boolean">False</span><span class="token plain">   </span><span class="token comment" style="color:rgb(98, 114, 164)"># Exceptions = unavailable</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">    </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">if</span><span class="token plain"> </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">not</span><span class="token plain"> available</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">        </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">continue</span><span class="token plain">            </span><span class="token comment" style="color:rgb(98, 114, 164)"># Skip this tool entirely</span><br></div></code></pre></div></div>
@@ -92,7 +92,7 @@
 <p><strong>الترشيح في السجل</strong> — تُمرَّر مجموعة أسماء الأدوات المحدَّدة إلى <code>registry.get_definitions()</code>، التي تطبّق ترشيح <code>check_fn</code> وتعيد مخططات بصيغة OpenAI.</p>
 </li>
 <li>
-<p><strong>التعديل الديناميكي للمخططات</strong> — بعد الترشيح، يُعدَّل مخططا <code>execute_code</code> و <code>browser_navigate</code> ديناميكيًا بحيث لا يشيران إلا إلى الأدوات التي اجتازت الترشيح فعلًا (ما يمنع النموذج من توهّم أدوات غير متاحة).</p>
+<p><strong>التعديل الديناميكي للمخططات</strong> — بعد الترشيح، تُعدَّل مخططات مثل <code>execute_code</code> و <code>browser_cdp</code> و <code>delegate_task</code> ديناميكيًا بحيث لا تشير إلا إلى الأدوات التي اجتازت الترشيح فعلًا (ما يمنع النموذج من توهّم أدوات غير متاحة).</p>
 </li>
 </ol>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="legacy-toolset-names">أسماء الـ Toolsets القديمة<a href="#legacy-toolset-names" class="hash-link" aria-label="رابط مباشر إلى أسماء الـ Toolsets القديمة" title="رابط مباشر إلى أسماء الـ Toolsets القديمة" translate="no">​</a></h3>
@@ -168,10 +168,10 @@
 <li>local</li>
 <li>docker</li>
 <li>ssh</li>
-<li>singularity</li>
 <li>modal</li>
 <li>daytona</li>
 <li>vercel_sandbox</li>
+<li>backends الإضافات المسجَّلة عبر <code>ctx.register_terminal_environment_provider</code> (مثل <code>singularity</code><bdi>)</bdi></li>
 </ul>
 <p>كما يدعم:</p>
 <ul>

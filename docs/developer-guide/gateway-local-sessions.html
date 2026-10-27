@@ -36,11 +36,34 @@
 <p>لا يُصدر الخادم <code>session:operator</code> إلا عند هذه الحدود الموثوقة القائمة:</p>
 <ul>
 <li>استرداد تذكرة التمهيد التفاعلي الأصلي (وليس تذاكر تبنّي worker).</li>
-<li>بوابة ترقية WebSocket للوحة التحكم، بما فيها تذاكر تسجيل الدخول الموثَّقة إلى لوحة التحكم، وبيانات الاعتماد الداخلية طوال عمر العملية لعملاء PTY التي يطلقها الخادم، ورمز الجلسة القديم <bdi class="term">(legacy session token)</bdi> الموثَّق عندما يكون مسار المصادقة هذا مفعّلًا.</li>
+<li>بوابة ترقية WebSocket الخاصة بلوحة التحكم، وتشمل تذاكر تسجيل الدخول المصادَق عليها إلى لوحة التحكم،
+وبيانات الاعتماد الداخلية المرتبطة بعمر العملية لعملاء PTY التي يطلقها الخادم، ورمز الجلسة
+القديم <bdi class="term">(legacy session token)</bdi> المتحقق منه عندما يكون مسار المصادقة هذا مفعّلًا. مع <code>webapp.enabled</code>، يكون
+رمز الجلسة هذا هو بيانات اعتماد Desktop المستضاف في المتصفح: يحتفظ gateway به في مجلده الرئيسي <bdi class="term">(home)</bdi> كي
+تبقى علامات تبويب Webapp حيّة بعد إعادة التشغيل، ولا يسلّمه إلا عبر رابط للاستخدام مرة واحدة يُصدَر
+لنظير control-socket من المستخدم نفسه، ويستبدله عند تنفيذ <code>hermes webapp --sign-out</code> وكلما
+فشل مستمع Webapp في البدء، لأن منفذه عندئذٍ يخص طرفًا آخر. خلف بوابة تسجيل الدخول يرتبط تسجيل
+دخول Webapp بذلك الرمز عبر الكوكي <code>hermes_webapp_signin_&lt;gateway&gt;</code> (HMAC-SHA256 للقيمة
+<code>webapp-sign-in</code> بمفتاح هو الرمز)، لذا فإن استبداله ينهي تلك الجلسات المسجَّلة أيضًا؛ ويغلق تسجيل الخروج
+كل socket فتحه الرمز أو تسجيل دخول مرتبط به، بما فيها عارضات Bot Desktop. يسمّي مستمع Webapp
+كل كوكي لتسجيل الدخول يضبطه بهذه الطريقة (<code>hermes_session_at_&lt;gateway&gt;</code> وبقيتها؛ ويأتي <code>&lt;gateway&gt;</code>
+من digest للمجلد الرئيسي لـ gateway)، فيحتفظ Webapp لكل من gateway-ين على اسم مضيف واحد بجلسات دخوله الخاصة،
+مهما كان مزوّدو تسجيل الدخول لديهما، ولا يمسّ كوكيز لوحة التحكم المستقلة. أما رموز المزوّد
+التي يحتفظ بها تسجيل دخول كهذا في الكوكيز فلا تعمل هناك من تلقاء نفسها أبدًا: إذ يقبل مستمع Webapp
+رمز bearer أو <code>?token=</code> الخاص بـ socket، ويجدّد refresh token، فقط عندما يكون هو من أعطى ذلك الرمز
+لتسجيل دخول تطبيق أصلي <bdi class="term">(native)</bdi> وفق RFC 8252 (تُحفظ digests في <code>webapp/native-sign-in-tokens.json</code> داخل مجلد gateway الرئيسي إلى أن
+تنتهي صلاحيتها)، فتبقى التطبيقات الأصلية مسجَّلة الدخول عبر تسجيل الخروج وإعادة التشغيل.</li>
 <li>بوابة التعديل عبر HTTP، بعد قبول Session موثَّقة للوحة التحكم، أو منح مالك HTTP أصلي، أو رمز جلسة قديم مسموح به.</li>
 </ul>
 <p>لا يستطيع العميل طلب هذا النطاق في معاملات RPC أو في قائمة قدرات الهوية. ولا يحل نطاق المشغّل محل فحوصات profile أو instance أو القدرة الخاصة بكل عملية أو الاشتراك أو المراجعة أو الجيل. كما أنه لا يرفع صلاحية بيانات اعتماد المراسلة أو الغرف أو worker أو الخدمة، ولا يسمح بالتبنّي البعيد بأول مطالبة <bdi class="term">(first-claim)</bdi> للسجلات التاريخية غير المملوكة. وإذا أُدخلت هويات مقيَّدة للوحة التحكم، فيجب أن تعكس بوابات الإصدار هذه ذلك التقييد بدلًا من التعامل مع كل بيانات اعتماد مقبولة للوحة التحكم على أنها مشغّل.</p>
-<p>تحمل عمليات الإرسال المحلية العابرة للموضوعات <bdi class="term">(cross-subject)</bdi> ربطًا خاصًا يكتبه الخادم بين profile والجلسة والجهة <bdi class="term">(principal)</bdi> لأغراض التنفيذ المصطف والاسترداد. ولا يُكشف هذا الربط في طلبات النموذج ولا في لقطات الجلسة العامة. ولا يكشف هذا التغيير مستمع gateway عن بُعد، ولا ينفّذ ارتباط جلسات OpenAI API بالجلسات المحلية <bdi class="term">(session affinity)</bdi>؛ وتبقى هذه مسارات تكامل منفصلة.</p>
+<p>تحمل عمليات الإرسال المحلية عبر المواضيع المختلفة <bdi class="term">(cross-subject)</bdi> ربطًا خاصًا يكتبه الخادم بين profile/session/principal
+لأجل التنفيذ المُدرَج في الطابور والاسترداد. ولا يُكشف في طلبات النموذج ولا في لقطات
+الجلسات العامة. لا ينفّذ هذا التغيير ارتباط جلسة OpenAI API بالجلسة المحلية <bdi class="term">(session affinity)</bdi>. يبقى مستمع
+gateway على loopback ما لم يربط <code>webapp.host</code> عنوانًا شاملًا <bdi class="term">(wildcard)</bdi>. يفعّل مستمع Webapp
+بوابة تسجيل الدخول إلى لوحة التحكم عند الربط بعنوان wildcard أو عند ضبط <code>webapp.public_url</code> على أي ربط،
+وعندئذٍ تتعطل روابط التشغيل ذات الاستخدام الواحد. لا ينطبق <code>dashboard.public_url</code> على مستمع Webapp أبدًا؛
+أما المستمع الخاص بـ gateway للعملاء الأصليين فيقرؤه كما يفعل الفرع الرئيسي <bdi class="term">(main)</bdi>، لذا يستمر عمل تسجيل الدخول المستضاف على
+ذلك المستمع.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="deliberately-limited-compatibility">توافق محدود عن قصد<a href="#deliberately-limited-compatibility" class="hash-link" aria-label="رابط مباشر إلى توافق محدود عن قصد" title="رابط مباشر إلى توافق محدود عن قصد" translate="no">​</a></h2>
 <ul>
 <li>يقبل <code>source</code> القيم <code>cli</code> (الافتراضية) و <code>tui</code> و <code>gui</code> و <code>acp</code> و <code>tool</code> و <code>oneshot</code><bdi> (</bdi><code>gateway.session_policy.SURFACES</code>). وهي تختار منصات الوكيل <code>cli</code> و <code>tui</code> و <code>desktop</code> و <code>acp</code> و <code>cli</code> و <code>cli</code> على التوالي؛ أما <code>tool</code> (تكاملات الجهات الخارجية) و <code>oneshot</code> (تشغيلات <code>chat -q</code> / <code>-z</code> المنتهية) فتحتفظ بتسميتها المخزّنة الخاصة بها كي تخفيها أدوات الاختيار البشرية. وتبقى هوية التوجيه المحلي الأصلية <code>Platform.LOCAL</code> مملوكة للخادم؛ ولا يمنح source أبدًا ثقة المراسلة/الأصلية. ويضم اختيار TUI الافتراضي <code>project</code>؛ ويضم GUI toolsets سطح العميل (<code>project</code> و <code>desktop_ui</code> و <code>catalog</code>). وسياسة GUI مستقلة عن <code>HERMES_DESKTOP</code> وعن هوية العارض المتصل. ودون <code>toolsets</code> صريحة، يطبّق gateway وضعية البرمجة (<code>agent.coding_context: focus</code> في مساحة عمل برمجية، <code>agent/coding_context.py</code>) انطلاقًا من <code>cwd</code> الذي يسميه <code>session.create</code>، ويُحسم مرة واحدة عند الإنشاء؛ ولا يرسله العميل أبدًا كاختيار. ولا يطبّقه إلا <code>session.create</code>، ولا يُطبَّق أبدًا مع <code>source: tool</code>: فعمّال Kanban ومهام cron و A2A والغرف المستضافة والصفوف القديمة المرحَّلة تحتفظ بـ toolsets الخاصة بـ profile.</li>

@@ -208,10 +208,17 @@ Gateway والتشغيلات الأخرى دون إشراف بدل تعليق ا
 على PR المدخل؛ ويؤدي السلوك غير المعلن المكتشَف أثناء المراجعة إلى طلب تغييرات.</p>
 </li>
 <li>
-<p><strong>بيانات التوافق الوصفية صادقة.</strong> <code>requires_hermes</code> حد أدنى وفق SemVer
+<p><strong>بيانات التوافق الوصفية صادقة.</strong> <code>requires_hermes</code> حدّ أدنى وفق SemVer
 (<code>&quot;&gt;=0.21.5&quot;</code>)، وليس تاريخ CalVer أبدًا، ولا أحدث من الإصدار الحالي
-أبدًا (وإلا يتجاوز المحمّل الإضافة). يطابق <code>version</code> الكود المثبّت،
-وتُحَلّ اعتماديات Python ضمن قيود Hermes الأساسية
+أبدًا. قيمة <code>requires_hermes</code> في الإدخال مُطبَّقة فعليًا: يرفض التثبيت بحسب اسم الكتالوج
+على إصدار Hermes الذي يرفضها، ويُبقي <code>hermes plugins update</code> الإضافة المثبّتة
+عند تثبيتها <bdi class="term">(pin)</bdi> الحالي إلى أن يُحدَّث Hermes. صرّح بالحدّ الأدنى نفسه في
+<code>plugin.yaml</code> أيضًا، لأن إصدارات Hermes الأقدم تطبّق ذلك الملف وحده
+(إذ يتجاوز المحمّل الإضافة عند عدم التطابق). أما الحزمة المحمولة
+(<code>plugin.json</code>) فلا تحتوي حقل <code>requires_hermes</code>، ولذلك يكون
+<code>requires_hermes</code> في إدخال الكتالوج هو حدّها الأدنى الوحيد: اضبطه عندما تحتاج الحزمة إلى
+إصدار حديث من Hermes (مثل مفتاح تصريح خادم يتجاهله إصدار أقدم). يطابق <code>version</code>
+الكود المثبّت، وتُحَلّ اعتماديات Python ضمن قيود Hermes الأساسية
 (<code>hermes plugins validate --install-deps</code> هو ما ينفّذه CI).</p>
 </li>
 <li>
@@ -247,6 +254,19 @@ GitHub Actions العامة الخاصة بمستودع الإضافة نفسه 
 الـ commit المثبّت (<code>gh attestation verify --repo &lt;owner/repo&gt; --source-digest    &lt;pinned sha&gt;</code>). ولا يُسمح بملف ثنائي يجلبه جهاز المستخدم نفسه وقت الإعداد
 إلا من المصدر الرسمي للأداة الأصلية، مثبّتًا بـ checksum،
 ومُفصحًا عنه (القاعدة 13) — وليس مضمّنًا أبدًا، ولا من مرآة غير رسمية.</p>
+</li>
+<li>
+<p><strong>مديرو كلمات المرور يأتون من مورّدهم.</strong> الإضافة التي تسجّل
+backend لتسجيل الدخول في <code>browser_vault</code><bdi> (</bdi><code>ctx.register_login_backend</code>) لا تُدرج إلا عند
+<code>tier: verified</code>، على أن يقدّمها مورّد مدير كلمات المرور نفسه من مستودعه الخاص،
+أو عند <code>tier: official</code> حين تتولى Nous صيانتها. تُرفض إدراجات backend تسجيل الدخول
+من مستوى المجتمع <bdi class="term">(community)</bdi> أو من fork أو من طرف ثالث. ويطبّق Hermes
+القاعدة نفسها عند تحميل الإضافة: لا يُقبل backend تسجيل الدخول إلا من
+إضافة مضمّنة مع Hermes أو مثبّتة من هذا الكتالوج عند المستوى <code>verified</code> أو
+<code>official</code> وعند الـ pin الذي جرت مراجعته، كما هو مسجّل في سجل التثبيت الخاص بـ Hermes
+(وليس في أي ملف داخل الإضافة). تُرفض عمليات التثبيت من دليل محلي، أو Git URL، أو <code>--ref</code>،
+أو <code>--allow-removed</code>، أو المشروع، أو pip، ولا يوجد أي إعداد
+يخفف هذه القاعدة.</p>
 </li>
 </ol>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="updating-your-entry">تحديث مدخلك<a href="#updating-your-entry" class="hash-link" aria-label="رابط مباشر إلى تحديث مدخلك" title="رابط مباشر إلى تحديث مدخلك" translate="no">​</a></h2>

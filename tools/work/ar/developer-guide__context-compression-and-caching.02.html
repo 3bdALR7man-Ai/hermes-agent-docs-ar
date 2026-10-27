@@ -1,3 +1,108 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="compression-algorithm">خوارزمية الضغط</h2>
+<p>تتبع الدالة <code>ContextCompressor.compress()</code> خوارزمية من 4 مراحل:</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-1-prune-old-tool-results-cheap-no-llm-call">المرحلة 1: تقليم نتائج الأدوات القديمة (منخفضة التكلفة، دون استدعاء LLM)</h3>
+<p>تُستبدل نتائج الأدوات القديمة (&gt;200 حرف) الواقعة خارج الذيل المحمي بما يلي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>هذه مرحلة تمهيدية منخفضة التكلفة توفّر قدرًا كبيرًا من الـ tokens في مخرجات الأدوات
+المطوّلة (محتويات الملفات، ومخرجات الطرفية، ونتائج البحث).</p>
+<p>تحتفظ جولة أدوات لم يُجب عنها النموذج بعد (أُطلق الضغط فور تنفيذها، سواء سُلِّمت رسائل <code>/steer</code> بعدها أم لا) بنتائجها النصية حرفيًا وبنتائج صورها سليمة في الذيل، كي يستخدم النموذج المخرجات التي طلبها. يمكن تلخيص جولة تتجاوز وحدها 20% من ميزانية المدخلات (context window ناقص حجز المخرجات)، وتُستبعَد صورها الأقدم كي يظل الضغط قادرًا على إفساح مساحة.</p>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="loaded-skills-across-a-compaction">المهارات المحمّلة عبر عملية الضغط (compaction)</h4>
+<p>لا تُحفظ تعليمات المهارة حرفيًا إلى الأبد، لكن يُخبَر النموذج دائمًا عند زوالها.
+كل نتيجة <code>skill_view</code> تختزلها عملية ضغط إلى stub أو تلخّصها (أيًّا كان حجمها) تحمل
+<code>[SKILL_PRUNED: content lost in compression; reload with skill_view(name=&#x27;…&#x27;)]</code>، ويسرد الملخص
+كل مهارة من هذه المهارات تحت <code>## Pruned Skills</code>. وكلما بقيت علامة في أي موضع من
+السجل المضغوط، ينتهي ملخص التسليم بقاعدة <code>## Skill Safety Rule</code> تأمر النموذج بإعادة تحميل
+المهارة قبل الاعتماد عليها؛ ولا تحمل الجلسات الجديدة هذه القاعدة في system prompt أبدًا، إذ لا
+يمكن أن توجد علامة قبل أول ضغط. والمهارات المحمّلة داخل السطر عبر <code>/skill-name</code>، والحزم (bundles)،
+والاستدعاءات المتراكبة، والتحميل التلقائي لقنوات gateway، تحصل على العلامة نفسها عند
+تلخيص دورها، ويقتبس الملخص ذلك الدور كما كُتب (<code>/skill-name do X</code>) بدلًا من نص
+المهارة. وتعيد عملية إعادة التحميل بعد الحد المهارةَ كاملة من جديد. أما المهارات المحمّلة مسبقًا بالخيار <code>-s</code> أو
+<code>skills.auto_load</code> فتعيش في system prompt ولا يجري ضغطها أبدًا.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-2-determine-boundaries">المرحلة 2: تحديد الحدود</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>تعتمد حماية الذيل على <strong>ميزانية الـ tokens</strong>: تسير إلى الخلف من النهاية، مراكمةً tokens حتى تنفد الميزانية. تُقيَّد الميزانية — والسقف المرن 1.5× الذي يمكن للصفوف الكاملة تجاوزها به — عند 20% من context window في كل نموذج، لذا فإن <code>protect_last_n</code> هو <em>حد أدنى</em> فقط حتى حد عددي صغير (8 صفوف)، ولا يفرض أبدًا ذيلًا لا يترك مساحة للضغط؛ وحدها مراسي آخر مستخدم / آخر مساعد المطلوبة ومجموعات الأدوات الذرية يمكن أن تتجاوز السقف.</p>
+<p>تُحاذى الحدود لتجنّب تقسيم مجموعات tool_call/tool_result.
+إذ تتجاوز الدالة <code>_align_boundary_backward()</code> نتائج الأدوات المتتالية
+للعثور على رسالة المساعد الأم، مع الحفاظ على المجموعات سليمة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-3-generate-structured-summary">المرحلة 3: توليد ملخّص منظّم</h3>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="17"></x-keep></span>طول سياق نموذج التلخيص</div><div class="admonitionContent_BuS1"><p>يجب أن تكون context window الخاصة بنموذج التلخيص <strong>مساوية على الأقل</strong> لنافذة نموذج الوكيل الرئيسي. إذ يُرسَل القسم الأوسط بأكمله إلى نموذج التلخيص في استدعاء واحد <code>call_llm(task=&quot;compression&quot;)</code>. وإذا كان سياق نموذج التلخيص أصغر، يُرجع API خطأً في طول السياق — فيلتقطه <code>_generate_summary()</code>، ويسجّل تحذيرًا، ويُرجع <code>None</code>. عندئذٍ يُسقط الضاغط الأدوار الوسطى <strong>دون ملخّص</strong>، فيفقد سياق المحادثة بصمت. وهذا هو السبب الأكثر شيوعًا لتدهور جودة الضغط.</p></div></div>
+<p>تُلخَّص الأدوار الوسطى باستخدام الـ LLM المساعد وفق قالب
+منظّم:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>تتناسب ميزانية الملخّص مع حجم المحتوى المراد ضغطه:</p>
+<ul>
+<li>المعادلة: <code>content_tokens × 0.20</code> (الثابت <code>_SUMMARY_RATIO</code>)</li>
+<li>الحد الأدنى: 2,000 token</li>
+<li>الحد الأقصى: <code>min(context_length × 0.05, 12,000)</code> token</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="phase-4-assemble-compressed-messages">المرحلة 4: تجميع الرسائل المضغوطة</h3>
+<p>تتكوّن قائمة الرسائل المضغوطة مما يلي:</p>
+<ol>
+<li>رسائل البداية (مع ملاحظة تُلحق بالـ system prompt عند أول ضغط)</li>
+<li>رسالة الملخّص (يُختار الـ role الخاص بها لتجنّب مخالفة تتالي رسالتين بالـ role نفسه)</li>
+<li>رسائل الذيل (دون تعديل)</li>
+</ol>
+<p>تُنظَّف أزواج tool_call/tool_result اليتيمة بواسطة <code>_sanitize_tool_pairs()</code>:</p>
+<ul>
+<li>نتائج الأدوات التي تشير إلى استدعاءات محذوفة → تُحذف</li>
+<li>استدعاءات الأدوات التي حُذفت نتائجها → تُحقن نتيجة بديلة (stub)</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="iterative-re-compression">إعادة الضغط التكرارية</h3>
+<p>في عمليات الضغط اللاحقة، يُمرَّر الملخّص السابق إلى الـ LLM مع
+تعليمات <strong>بتحديثه</strong> بدلًا من التلخيص من الصفر. يحافظ ذلك
+على المعلومات عبر عمليات ضغط متعددة — إذ تنتقل العناصر من &quot;In Progress&quot; إلى &quot;Done&quot;،
+ويُضاف التقدّم الجديد، وتُزال المعلومات المتقادمة.</p>
+<p>يخزّن الحقل <code>_previous_summary</code> في نسخة الضاغط نص الملخّص الأخير لهذا الغرض. يُخزَّن هناك أيضًا ملخّص احتياطي حتمي، إذ هو التسليم الذي يحمله سجل المحادثة الآن.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prepared-compaction-opt-in">الضغط المُعَدّ مسبقًا (اختياري)</h3>
+<p>عند ضبط <code>compression.prepare_ahead: true</code> (يُقرأ عند بناء الوكيل، فيسري في
+الجلسة التالية أو عند إعادة بناء وكيل gateway)، يكتب <code>agent/prepared_compaction.py</code> الملخص التالي قبل
+أن تُطلَق نقطة التشغيل. فعندما يكون آخر عدد prompt أبلغ عنه المزوّد ضمن 12% من نقطة التشغيل
+(<code>threshold_tokens</code>) دونها، تبدأ حلقة الأدوار عملية خلفية واحدة، قبل تشغيل دفعة أدوات أو
+عند نهاية الدور. وتُتخطّى عمليات نهاية الدور في تشغيلات cron والأبناء المفوَّضين والجلسات ذات الاستخدام الواحد
+(<code>hermes chat -q</code> و <code>-z</code>)، التي ينتهي وكلاؤها بانتهاء الدور. تخطط العملية للنافذة نفسها التي يخطط لها <code>compress()</code> (<code>_plan_compaction_window</code>) وتستدعي
+<code>_generate_summary</code> نفسها على نسخة من الضاغط ومن رسائل النافذة، فيبقى السجل الحي
+وsystem prompt وcache الـ prompt دون مساس حتى الضغط. وتوجد عملية واحدة
+لكل ضغط: فما دام هناك ملخص محتفَظ به، لا تبدأ عملية أخرى مهما كبر الـ prompt.</p>
+<p>عند الضغط التلقائي التالي بحسب العتبة، يدمج <code>compress()</code> الملخص المكتمل إذا كان لا يزال
+يغطي الرسائل نفسها: الجلسة نفسها، وحد الرأس لم يتغير، وبنية الرسائل نفسها حتى ذلك الحد (الدور، ومعرّفات استدعاءات الأدوات
+وأسماؤها، ومعرّفات نتائج الأدوات)، وكل رسالة مضمونة بـ <code>message_uid</code> الدائم الخاص بها. أما نص
+الرسالة المحفوظة ووسائط الأدوات وأجسامها فلا تُقارَن: فالتقليم دون LLM والإضافات
+تعيد كتابتها في مكانها، ويظل الملخص يصف الرسائل نفسها. والرسالة التي لا uid لها في
+أحد الجانبين (<code>conversation_history</code> الذي يوفره المستدعي ولا يُحفظ أبدًا) تُقارَن بنصها، لأنه
+لا شيء آخر يميزها عن رسالة مختلفة. وتُعدّ رسالة محذوفة أو مُدرجة، أو إعادة لف أو
+تفرّع داخل النافذة (<code>message_uid</code> جديدة)، إخفاقًا في المطابقة. عندئذٍ يغطي الملخص
+<code>[head, candidate boundary)</code> وتُبقى كل رسالة لاحقة ذيلًا، مهما بلغ عدد ما وصل بعد بدء العملية؛ وما زالت قواعد الذيل مثل استبدال الأدوات بـ stubs في وضع lean تنطبق عليها. أما الموضع الذي كانت ستقطع عنده
+الخطة الجديدة فلا يهم: فالقطع الذي تحرك إلى موضع أبكر (جعل التقليم صفوف الذيل أرخص، ومحاذاة
+مجموعات الأدوات) أو إلى موضع أحدث لا يُسقط الملخص أبدًا، لأن ملخصًا واحدًا مُعدًّا لكل ضغط لا
+يُعاد أبدًا. وقد خططت العملية نافذتها بذيل كامل، فلا يكون الذيل فارغًا أبدًا. أما موضع الملخص ومعالجة
+التناوب فهما التجميع العادي للمرحلة 4 (Phase 4). ويترك الدمج الضاغط الحي كما كان سيتركه
+الاستدعاء المضمَّن: فالعملية التي تعافت على النموذج الرئيسي بعد فشل نموذج التلخيص تسلّم
+ذلك الاحتياطي (تستخدم الضغوط اللاحقة النموذج الرئيسي، ويرى المستخدم تحذير النموذج المعطوب)،
+وتحمل قياسات المحاولة (telemetry) استدعاء aux الخاص بالعملية مع <code>prepared_summary: true</code>.</p>
+<p>عندما لا يوجد مرشح مكتمل مناسب لكن العملية الجارية ستناسب، ينتظر الضغط تلك العملية
+بدلًا من كتابة الملخص نفسه مرة أخرى. فكل جزء متدفق من العملية يلمس hook التقدم الخاص بالضغط المنتظر، فيعامل
+مراقب الخمول (idle watchdog) لدى المضيف الانتظار كأنه تدفق ملخص مضمَّن، والوقت الذي
+يقضيه خادم llama.cpp في قراءة prompt العملية يدفع مهلة المضيف إلى الأمام
+كما يفعل في الحالة المضمَّنة. ينتهي الانتظار عند مهلة المضيف (مهلة aux الخاصة بالضغط عند غيابها)، أو عند الإلغاء، أو حين يتخلص حد جلسة من العملية، ثم يلخّص الضغط
+ضمن السطر.</p>
+<p>كل ما عدا ذلك يعمل ضمن السطر تمامًا كما بدون هذا الخيار: عدم وجود مرشح، أو مرشح أو عملية جارية
+لم تعد مناسبة، أو <code>/compress</code> اليدوي، أو الضغط المركّز (focus)، أو التعافي من تجاوز سعة المزوّد، أو
+عمليات الضغط التي يسهم فيها مزوّد ذاكرة بسياق الملخص (ويوقف أول ضغط من هذا النوع أيضًا
+العمليات اللاحقة لذلك الوكيل، إذ كان كل منها سيُهمَل). والعملية الجارية التي يسبقها ضغط أو حد جلسة
+(بما في ذلك إعادة الربط بمعرّف جلسة آخر عند <code>/resume</code> أو <code>/branch</code>) تُلغى: فلا
+تستطيع النشر، ويُغلق تدفق ملخصها بدلًا من احتساب تكلفته حتى النهاية. وتوقف العملية الفاشلة العمليات اللاحقة مؤقتًا لكنها لا تفعّل أبدًا فترة التهدئة (cooldown) الخاصة بإخفاق الضاغط الحي. والحالة لكل ضاغط وفي الذاكرة فقط، لذا فإن إخلاء وكيل gateway
+أو إعادة تشغيل العملية يعني ببساطة أن الضغط التالي يعمل ضمن السطر؛ كما أن تحرير الوكيل (إخلاء الـ cache، أو
+إعادة لف، أو <code>close()</code>) يلغي أيضًا العملية الجارية. ولذلك لا يفيد الملخص المحتفَظ به إلا
+وكيلًا يعيش عبر الأدوار (CLI التفاعلي، وجلسات TUI/Desktop والمراسلة)؛ أما سلسلة <code>-q --resume</code>
+فتبني وكيلًا جديدًا في كل تشغيل ولا تحصل على أي أسبقية. وتحمل أسطر سجل العملية <code>session=&lt;id&gt;</code>،
+وتحصي المقاييس المشتركة الاختيارية (opt-in) حالات التبنّي وكل نتيجة لعملية ودمج
+(<code>hermes.prepared_compaction.count</code>، انظر دليل المقاييس المشتركة). أما محركات السياق من الإضافات،
+وجلسات Codex app-server، والضغط الأصلي لـ Responses، والضغط الدقيق (micro-compaction) فلا تُعَدّ مسبقًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="beforeafter-example">مثال: قبل الضغط وبعده</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="before-compression-45-messages-95k-tokens">قبل الضغط (45 رسالة، ~95K token)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="after-compression-25-messages-45k-tokens">بعد الضغط (25 رسالة، ~45K token)</h3>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching-anthropic">التخزين المؤقت للـ Prompt (Anthropic)</h2>
 <p>المصدر: <code>agent/prompt_caching.py</code></p>
 <p>يخفّض تكاليف tokens المدخلات بنحو ~75% في المحادثات متعددة الأدوار عبر التخزين المؤقت

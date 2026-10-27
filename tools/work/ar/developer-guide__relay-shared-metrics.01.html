@@ -9,7 +9,20 @@
 <code>other</code>، وغيرها). يغذي حدث النهاية نفسه <code>hermes.task_run.duration</code> بواجهة التنفيذ والنتيجة وفئة المدة وفئة عدد إعادات محاولة المزوّد. حملت الحزمة v2 المدة وإعادات المحاولة وأعداد استدعاءات النماذج/الأدوات لكل مهمة في الصف النهائي نفسه، مما جعل كل مهمة تقريبًا صفًا مستقلًا؛ وتوجد أعداد الاستدعاءات لكل دور في <code>hermes.task_cost.count</code>. لا تغادر أسباب الخروج الخام الجهاز مطلقًا. إعادات المحاولة محاولات إضافية من المزوّد لمعرّف طلب Hermes API نفسه؛ ولا تزيد عدد استدعاءات النماذج المنطقية. تُزال ازدواجية استدعاءات الأدوات بمعرّف استدعاء الأداة في Hermes بعد رصد نتيجة نهائية للأداة. يغلق حد تنفيذ <code>AIAgent</code> الخارجي المهمة عند الرجوع العادي أو المبكر أو الاستثناء أو الإلغاء. تتبع ملكية المهمة النشطة معرّف المهمة إذا دوّر Hermes جلسة محادثته أثناء ضغط السياق.</p>
 <p>يوضح بُعد <code>entrypoint</code> (على <code>hermes.task_run.started</code>, <code>hermes.task_run.finished</code> و <code>hermes.session.count</code>) من أرسل التشغيل، من مجموعة مغلقة:</p>
 <table><thead><tr><th>القيمة</th><th>المعنى</th></tr></thead><tbody><tr><td><code>interactive</code></td><td>شخص في واجهة محادثة: <code>hermes</code> REPL، أو <code>hermes chat -q</code> التي تهيّئ REPL على TTY، أو <code>--tui</code>، أو Desktop، أو محررات ACP.</td></tr><tr><td><code>one_shot</code></td><td>تشغيل CLI محدود يجيب prompt واحدًا ثم يخرج: <code>hermes -z</code> / <code>--oneshot</code>, <code>hermes chat -q</code> خارج TTY أو مع <code>--oneshot</code>, <code>-Q</code> / <code>--quiet</code>. يبدو سطر shell لشخص وسكربت يكرره بالطريقة نفسها، فيُعرض كلاهما بوصفه <code>one_shot</code>. أدوار تسليم Bot Chat (<code>hermes -p &lt;profile&gt; chat -c &quot;Bot Chat&quot; -Q</code>) أيضًا تشغيل لمرة واحدة: قد يكون كاتبها شخصًا على اتصال آخر. وتظل الواجهة <code>cli</code>.</td></tr><tr><td><code>background</code></td><td>تشغيل دون تدخل أطلقه موزّع Hermes: عامل kanban (<code>HERMES_SESSION_SOURCE=kanban</code>) أو إعادة توجيه A2A (<code>--source a2a</code>).</td></tr><tr><td><code>delegated</code></td><td>تشغيل subagent ضمن مهمة أو جلسة أصل (يتغلب على القيم أعلاه).</td></tr><tr><td><code>gateway_message</code></td><td>رسالة من منصة مراسلة.</td></tr><tr><td><code>scheduled_task</code>, <code>batch</code>, <code>api</code>, <code>python</code></td><td>Cron، أو مشغّل دفعات، أو خادم API، أو تضمين Python.</td></tr><tr><td><code>other</code>, <code>unknown</code></td><td>تعذّر إسناده.</td></tr></tbody></table>
-<p>يكون التشغيل <code>one_shot</code> أو <code>background</code> عندما تحمل عمليته علامة <code>HERMES_SINGLE_QUERY_SESSION</code> التي تضبطها مسارات التشغيل لمرة واحدة (وهي العلامة نفسها التي يقرؤها مصدر الجلسة و <code>cache_ttl: auto</code>). تتعامل مقاييس التفاعل (<code>hermes.engagement.*</code>) والصفوف التي تتطلب حضورًا فقط (تكلفة المهمة، واستخدام الأدوات لكل جلسة، وصعوبات النموذج) مع <code>one_shot</code> مثل <code>interactive</code>، كما كانت تفعل قبل وجود تلك القيمة؛ أما عمليات <code>background</code> و <code>delegated</code> فهي دون تدخل وتُستبعد هناك. تحمل الحزم المكتوبة قبل وجود <code>one_shot</code> هذه العمليات بوصفها <code>interactive</code> وتظل صالحة. يخرج <code>hermes -z</code> عبر <code>os._exit</code>، فيغلق جلسة مقاييسه قبل الخروج بدلًا من الاعتماد على hook الخاصة بـ atexit.</p>
+<p>يكون التشغيل <code>one_shot</code> أو <code>background</code> عندما تحمل عمليته علامة
+<code>HERMES_SINGLE_QUERY_SESSION</code> التي تضبطها مسارات التشغيل لمرة واحدة (وهي العلامة نفسها التي يقرؤها مصدر
+الجلسة و <code>cache_ttl: auto</code>). تتعامل مقاييس التفاعل (<code>hermes.engagement.*</code>) والصفوف التي
+تتطلب حضورًا فقط (تكلفة المهمة، واستخدام الأدوات لكل جلسة، وصعوبات النموذج) مع <code>one_shot</code>
+مثل <code>interactive</code>، كما كانت تفعل قبل وجود تلك القيمة؛ أما عمليات <code>background</code> و <code>delegated</code>
+فهي دون تدخل وتُستبعد هناك. تحمل الحزم المكتوبة قبل وجود <code>one_shot</code> هذه العمليات
+بوصفها <code>interactive</code> وتظل صالحة. يخرج <code>hermes -z</code> عبر
+<code>os._exit</code>، فيغلق جلسة مقاييسه قبل الخروج بدلًا من الاعتماد على
+hook الخاصة بـ atexit. وتخرج كذلك عمليات الإيقاف السلس لـ gateway ومضيف الحوسبة (compute-host) وعامل kanban الذي يتلقى SIGTERM
+وعامل slash المهجور (orphaned) عبر <code>os._exit</code> وتشغّل عملية التفريغ (flush) نفسها، بحدّ أقصى 3 ثوانٍ.
+يربط تفريغ الخروج والتصدير والإرسال لكل runtime الـ profile الخاص بذلك الـ runtime نفسه، فتطبّق
+العملية التي تخدم عدة profiles موافقة الجمع والإرسال الخاصة بكل profile:
+فالـ profile الذي أوقف الجمع منذ دوره الأخير يُسقط صفوفه الموجودة في الذاكرة
+بدلًا من كتابتها.</p>
 <p>يُمثَّل كل استدعاء أداة بدورة حياة أداة Relay باسم
 <code>hermes.tool_call</code>. لا يحتوي العداد النهائي إلا فئة أداة محدودة
 والنتيجة ونتيجة الموافقة؛ ويغذي الحدث نفسه <code>hermes.tool_call.latency</code>
@@ -57,4 +70,9 @@ toolset مخصصة وقت التشغيل) ولأدوات جسر Tool Search (<co
 <li><code>ram_bucket</code> (<code>lt_8g</code> … <code>gte_128g</code>, <code>unknown</code>): الذاكرة المثبتة مقربةً إلى حجمها الاسمي (إجمالي نظام التشغيل مضروبًا في 1.1 لتعويض حجوزات firmware).</li>
 <li><code>gpu_class</code> (<code>nvidia</code>, <code>amd</code>, <code>intel</code>, <code>apple_silicon</code>, <code>none</code>, <code>unknown</code>): مورّد GPU الأعلى أولوية، من <code>/proc/driver/nvidia</code> أو معرّفات مورّد PCI في DRM على Linux، أو فئة سجل محوّل العرض على Windows، أو arm64 الأصلي على macOS. ولا يكون اسم نموذج أو إصدار برنامج تشغيل أو حجم VRAM مطلقًا.</li>
 <li><code>local_model_provider_used</code> (<code>yes</code>/<code>no</code>): ما إذا كان النموذج الرئيسي أو أي مهمة مساعدة يعمل على خادم محلي أو مستضاف ذاتيًا (معرّف مزوّد محلي مثل Ollama/LM Studio/llama.cpp، أو عنوان URL أساسي ضمن loopback/شبكة خاصة). ويظل URL نفسه محليًا.</li>
+<li><code>compression_prepare_ahead</code> (<code>on</code>/<code>off</code>): هل يفعّل ملف إعدادات الـ profile
+القيمة <code>compression.prepare_ahead</code> (الضغط المُعَدّ مسبقًا)، وتُقرأ بالمعنى المنطقي نفسه
+الذي يستخدمه الوكيل (الغياب أو false يُقرأ <code>off</code>)، من <code>config.yaml</code> الخاص بالـ profile نفسه كبقية
+حقول اللقطة (snapshot) (ولا تُقرأ طبقة overlay للنطاق المُدار). اللقطات المحتسبة قبل وجود هذا الحقل
+لا تحمل له قيمة وتظل تُحزَّم.</li>
 </ul>

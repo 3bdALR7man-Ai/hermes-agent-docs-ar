@@ -1,8 +1,40 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-review-command">الأمر <code>/review</code></h2>
+<p>يُنشئ <code>/review</code> وكيلًا فرعيًا (subagent) خلفيًا مستقلًا بصلاحيات كاملة، مهمته الوحيدة مراجعة العمل الذي أنتجته محادثتك للتو: PR، أو diff، أو كود، أو توثيق، أو تصميم. ويعمل على كل الواجهات: CLI و TUI وتطبيق Desktop وكل منصات المراسلة عبر الـ gateway.</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>ما يحدث:</p>
+<ol>
+<li>تُلتقط آخر 10 رسائل من المستخدم/المساعد لتكون الأدلة الأولية للمراجِع (يُستثنى خرج الأدوات ورسائل النظام). وفي gateway تأتي من النص المخزّن للجلسة عندما يكون وكيلها قد أُفرج عنه (بعد خمول مدته <code>agent.agent_cache.idle_ttl_secs</code>، وهي ساعة افتراضيًا)، فيعمل <code>/review</code> على جلسة تركتها دون أن ترسل رسالة أولًا.</li>
+<li>يُرسَل subagent مراجِع عبر مسار التفويض الخلفي نفسه الذي تستخدمه <code>delegate_task</code>، ويحصل على الـ toolset الكامل المعتاد للـ subagents (الطرفية، والويب، والملفات، والمتصفح...)، لذا فهو يفتح الـ PR فعليًا ويقرأ الـ diff ويشغّل الكود بدلًا من إصدار حكمه بناءً على المقتطف.</li>
+<li>يرث المراجِع سياق عمل الوكيل الأساسي: فأي مهارات حمّلها الوكيل الأساسي (سواء حُمِّلت مسبقًا عند الإطلاق أو عبر <code>skill_view</code> خلال الجلسة) تُذكر بأسمائها في إحاطته مع تعليمة بتحميلها وتقييم العمل وفق أعرافها. وكما هو الحال مع كل subagent، يُضمِّن الـ system prompt الخاص به أيضًا ملفات سياق المشروع في الـ workspace (AGENTS.md / CLAUDE.md / .cursorrules) بوصفها أعرافًا ملزمة.</li>
+<li>عند انتهائه، تعود مراجعته الكاملة إلى الجلسة نفسها بوصفها نتيجة إنجاز عادية لـ subagent خلفي، فيراها وكيلك الأساسي ويستطيع التصرف بناءً عليها (إصلاح الملاحظات، أو دفع تحديثات لاحقة، أو الرد عليك).</li>
+</ol>
+<p>التدفق النموذجي: يفتح وكيلك الرئيسي PR، فتكتب <code>/review</code>، ليفحصه طرف ثانٍ بينما تواصل عملك؛ ثم تعود المراجعة إلى المحادثة موجّهةً إلى الوكيل الذي أنشأ الـ PR.</p>
+<p>لا يطبع الإرسال سوى “Review started. Results will return here.” يعرّف عارض الـ subagents المباشر العامل بالاسم <strong>Review: your focus</strong> (أو <strong>Review recent work</strong> عند استخدام <code>/review</code> دون وسائط)، مع تسمية مختصرة من سطر واحد؛ ويظل المراجِع يتلقى تعليماتك كاملة. في CLI الكلاسيكي، يعرض الشريط أعلى مربع الكتابة الوقت المنقضي وآخر نشاط؛ ويفتح <strong>Ctrl+T</strong> (أو <strong>F6</strong>) قائمة الوكلاء مع النموذج والسجل وأدوات التوجيه والإيقاف. وتظهر تسمية المراجعة نفسها في عارضَي الـ subagents في TUI و Desktop.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="review-model">نموذج المراجعة</h3>
+<p>افتراضيًا، يعمل المراجِع على نموذجك الرئيسي. لتثبيت نموذج مخصص للمراجعة، اضبط <code>auxiliary.review</code> في <code>config.yaml</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<p>تُحدَّد بيانات الاعتماد تمامًا كما في تثبيت <code>delegation.provider</code> (حزمة المزوّد الكاملة وقت التشغيل: base_url و api key و api_mode). وتعني <code>provider: auto</code> مع <code>model</code> فارغ &quot;وراثة نموذج الوكيل الرئيسي&quot;، وهذا هو الافتراضي.</p>
+<p>الأمر <code>/review</code> منفصل عمدًا عن <code>/refine</code>: فالأمر <code>/refine</code> يراجع المحادثة لتحديث الذاكرة والمهارات، بينما يراجع <code>/review</code> <em>ناتج العمل</em> الذي أنشأته المحادثة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="inherited-tool-access">الوصول الموروث إلى الأدوات</h2>
+<p>لا تقبل <code>delegate_task</code> معامل <code>toolsets</code> موجّهًا إلى النموذج. إذ يرث كل subagent الـ toolsets المفعّلة لدى الوكيل الأب، حتى لا يستطيع النموذج منح وكيل فرعي قدرات لا يملكها الوكيل الأب. اضبط أدوات الوكيل الأب قبل بدء المحادثة إذا كان العمل المفوَّض يحتاج إلى قدرات إضافية.</p>
+<p>بعض الأدوات محظورة على الـ subagents حتى لو كانت متاحة للوكيل الأب:</p>
+<ul>
+<li><code>delegate_task</code>: محظورة على الـ subagents الطرفية (leaf) (الافتراضي). وتُتاح للوكلاء الفرعيين ذوي <code>role=&quot;orchestrator&quot;</code>، ضمن حدود <code>max_spawn_depth</code>؛ راجع <a href="#depth-limit-and-nested-orchestration">حدّ العمق والتنسيق المتداخل</a> أدناه.</li>
+<li><code>clarify</code>: لا تستطيع الـ subagents التفاعل مع المستخدم</li>
+<li><code>memory</code>: لا كتابة في الذاكرة الدائمة المشتركة</li>
+<li><code>send_message</code>: لا آثار جانبية عبر المنصات</li>
+<li><code>cronjob</code>: لا جدولة لمزيد من العمل باسم الوكيل الأب</li>
+</ul>
+<p>يحتفظ كلا الدورين بـ <code>execute_code</code> (استدعاء الأدوات برمجيًا) حتى يتمكن الوكلاء الفرعيون من تجميع الأعمال الآلية في دفعات.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="max-iterations">الحد الأقصى للتكرارات</h2>
+<p>لكل subagent حدّ للتكرارات (الافتراضي: 250) يتحكم في عدد أدوار استدعاء الأدوات التي يمكنه تنفيذها. يُضبط هذا الحد على المستوى العام في <code>config.yaml</code> ويُطبَّق على كل وكيل فرعي؛ وليس معاملًا يُمرَّر في كل استدعاء لـ <code>delegate_task</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>الوكيل الفرعي الذي يستنفد رصيده يعود مع <code>exit_reason: max_iterations</code> و<code>truncated: true</code>، ليتمكن الوكيل الأب من التمييز بين التوقف بسبب نفاد الرصيد والمهمة المكتملة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="child-timeout">مهلة الوكيل الفرعي</h2>
 <p>افتراضيًا، <strong>لا توجد مهلة زمنية فعلية</strong> على الـ subagents. لا يفشل الوكلاء الفرعيون إلا بسبب ما يفعلونه فعلًا، كأخطاء API أو أخطاء الأدوات أو بلوغ رصيد التكرارات، وليس أبدًا بسبب مؤقّت على مستوى التفويض. كانت الإصدارات السابقة تتضمن حدًا صارمًا (300 ثانية، ثم 600 ثانية لاحقًا)، وكان يقتل باستمرار وكلاء فرعيين مشغولين لأسباب مشروعة في منتصف مهامهم: فمراجعات الكود العميقة، وعمليات البحث الموزّعة الكبيرة، ونماذج الاستدلال البطيئة تحتاج روتينيًا إلى أكثر من 10 دقائق مع إحراز تقدم ثابت طوال الوقت.</p>
 <p>يظل اكتشاف الوكلاء الفرعيين العالقين فعلًا قائمًا في كل بيئات التشغيل، سواء ضُبط حدّ أقصى أم لا: يراقب نظام رصد تقادم نبضات القلب إشارات تقدّم كل وكيل فرعي (استدعاءات API، وبدء الأدوات، وتحديثات الطابع الزمني للنشاط). ويُقاطَع الوكيل الفرعي الذي يتجمّد تقدّمه تمامًا بعد تجاوز عتبة التقادم — 450s من الخمول بين الأدوار، و 1200s أثناء عمل أداة — ويُعدّ انتظاره <strong>متروكًا</strong>: يتلقّى الأصل عنصر <code>status: &quot;timeout&quot;</code> يحتوي خطأه على <code>Subagent stopped making progress after N API call(s) — no activity for 450s (heartbeat stale threshold); the pending worker was abandoned.</code> وينتهي الانتظار حتى في عمليات التشغيل لمرة واحدة (<code>hermes chat -Q</code> أو Bot Chat لمرة واحدة أو cron) التي لا تستند إلى مراقب خمول gateway، فلا يستطيع وكيل فرعي عالق احتجاز الدور أو عقد الجلسة إلى الأبد. ويظل انتظار النموذج الجاري علامة تقدّم — يحدّث subagents ساعة النشاط أثناء انتظار المزوّد، لذا لا يُعدّ إكمال محلي بطيء أو ذو prefill طويل متوقفًا.</p>
 <p>إذا أردت حدًا صارمًا رغم ذلك (مثلًا للتحكم في التكلفة في التفويض غير المراقَب الذي تقوده مهام cron)، فعّله على مستوى كل تثبيت:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
 <p>تحدّ القيمة الموجبة <strong>عدم النشاط، لا مدة التشغيل الكلية</strong>: فهي أطول مدة يمكن للوكيل الفرعي أن يمضيها <em>بلا</em> تقدّم (لا استدعاء API مكتمل، ولا تغيّر أداة، ولا تحديث لساعة النشاط) قبل تركه. وتعيد كل إشارة تقدّم بدء النافذة، لذا لا يُنهى وكيل فرعي ينتظر إكمالًا لعدة دقائق — وهي الحالة التي كانت تؤدي إلى فقد العمل المنجز — بسبب طول المدة، بينما يظل اكتشاف الوكيل الذي توقف فعلًا قائمًا (ويُقيَّد الطلب الجاري بصورة مستقلة بمراقب التقادم لكل استدعاء). <code>0</code> أو قيمة سالبة تعطّلان الحدّ؛ ويظل نظام رصد تقادم نبضات القلب أدناه نشطًا في الحالتين.</p>
 <p>عند بلوغ نحو 80% من نافذة الخمول، يتلقّى الوكيل الفرعي تحذيرًا من سطر واحد <code>[delegation budget warning]</code> عبر قناة توجيهه (يُسلَّم عند الحدّ التالي للتكرار)، يبلغه بمدة خموله وبضرورة إعادة ملخّصه الآن، كي يتمكّن الوكيل البطيء القابل للاستعادة من إنهاء عمله بدلًا من فقد سياقه. ويصدر التحذير مرة واحدة لكل نافذة خمول، ويُعاد تجهيزه عند استئناف التقدّم.</p>
 <p>عندما ينطلق حدّ مضبوط أو عتبة التقادم، تحمل نتيجة الوكيل الفرعي بيانات مهلة وصفية منظَّمة إلى جانب رسالة الخطأ، كي يتمكن الأصل و hooks من تمييز إنهاءٍ بسبب المؤقّت من الإخفاقات الأخرى دون تحليل النص: <code>timeout_seconds</code> (الحدّ الذي أنهى الانتظار فعلًا — عتبة التقادم عندما تسبق حدًا مضبوطًا أطول، وإلا فالحدّ المضبوط)، و <code>timed_out_after_seconds</code> (الزمن الفعلي)، و <code>last_event_age</code> (مدة صمت الوكيل الفرعي عند انتهاء الانتظار — الطريقة السريعة لتمييز مزوّد بطيء من تشغيل منفلت)، و <code>timeout_phase</code> (القيمة <code>before_first_llm_call</code> عندما لا يصل الوكيل الفرعي أبدًا إلى
@@ -16,7 +48,7 @@
 <li><strong>الوكيل الأب</strong>: يحمل إدخال نتيجة الأداة <code>status: &quot;failed&quot;</code> إضافة إلى نص <code>error</code> الكامل، ليتمكن النموذج من التصرف (إعادة المحاولة، أو إعادة التوجيه، أو الإبلاغ).</li>
 </ul>
 <p>يُختزل نص الخطأ إلى السطر الأكثر إفادة (رسالة الاستثناء، لا جدار من تتبّع الأخطاء) مع تقييد طوله.</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="26"></x-keep></span>تفريغ تشخيصي عند انتهاء المهلة دون أي استدعاء</div><div class="admonitionContent_BuS1"><p>عند ضبط حدّ صارم، إذا انتهت مهلة subagent دون أن يُجري <strong>أي</strong> استدعاء API (والسبب عادةً: تعذّر الوصول إلى المزوّد، أو إخفاق المصادقة، أو رفض مخطط الأدوات)، تكتب <code>delegate_task</code> ملفًا تشخيصيًا مهيكلًا في <code>~/.hermes/logs/subagent-timeout-&lt;session&gt;-&lt;timestamp&gt;.log</code> يحتوي على لقطة (snapshot) من إعدادات الـ subagent، وتتبّع عملية تحديد بيانات الاعتماد، وأي رسائل خطأ مبكرة، وتتبّعات المكدّس (stack traces) لـ <strong>جميع</strong> الخيوط النشطة (لا لخيوط الوكيل الفرعي وحده)، إذ لا يمكن التمييز بين وكيل فرعي متوقف بانتظار خيط مساعد متداخل ومزوّد بطيء دون الصورة الكاملة.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>تفريغ تشخيصي عند انتهاء المهلة دون أي استدعاء</div><div class="admonitionContent_BuS1"><p>عند ضبط حدّ صارم، إذا انتهت مهلة subagent دون أن يُجري <strong>أي</strong> استدعاء API (والسبب عادةً: تعذّر الوصول إلى المزوّد، أو إخفاق المصادقة، أو رفض مخطط الأدوات)، تكتب <code>delegate_task</code> ملفًا تشخيصيًا مهيكلًا في <code>~/.hermes/logs/subagent-timeout-&lt;session&gt;-&lt;timestamp&gt;.log</code> يحتوي على لقطة (snapshot) من إعدادات الـ subagent، وتتبّع عملية تحديد بيانات الاعتماد، وأي رسائل خطأ مبكرة، وتتبّعات المكدّس (stack traces) لـ <strong>جميع</strong> الخيوط النشطة (لا لخيوط الوكيل الفرعي وحده)، إذ لا يمكن التمييز بين وكيل فرعي متوقف بانتظار خيط مساعد متداخل ومزوّد بطيء دون الصورة الكاملة.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="stall-detection-for-background-subagents">اكتشاف توقّف الـ Subagents الخلفية</h2>
 <p>تخضع عمليات التفويض الخلفية (<code>delegate_task(background=true)</code>) لمراقبة
 <strong>مراقِب توقّف قائم على التقدم</strong>، مفعّل افتراضيًا ودون أي إعداد. وعلى خلاف
@@ -67,7 +99,7 @@
 <p>في CLI الكلاسيكي وفي كل منصات الـ gateway (Telegram و Discord و Slack و...)،
 يسرد <code>/agents</code> أيضًا <strong>عمليات التفويض الخلفية مع النشاط المباشر لكل وكيل فرعي</strong>،
 بعيّنات تُؤخذ مباشرةً من كل وكيل فرعي قيد التشغيل:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
 <p>يظهر التفويض الذي أشّر عليه مراقِب التوقّف بالشكل
  <code>stalling · no progress 450s — interrupting</code> ، بينما يُظهر الوكلاء الفرعيون الهادئون لفترة طويلة
 لكنهم سليمون مدة هدوئهم، لتتمكن من التمييز بين &quot;slow&quot; و&quot;stuck&quot; بنظرة
@@ -76,7 +108,7 @@
 <p>مقاطعة الوكيل الفرعي تُهدر العمل الجاري لديه؛ وغالبًا ما تريد فقط إعادة توجيهه.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-the-parent-agent-model-facing">من الوكيل الأب (موجّه إلى النموذج)</h3>
 <p>ينسّق الوكيل الأب وكلاءه الفرعيين قيد التشغيل باستخدام الأداة <code>delegate_task</code> نفسها التي أنشأهم بها، دون أداة تحكم منفصلة:</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="17"></x-keep></div></div>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
 <ul>
 <li>يعيد <strong><code>list</code></strong> الوكلاء الفرعيين النشطين في المحادثة: <code>subagent_id</code> ، والهدف، والحالة، و <code>running_seconds</code> ، و <code>accepting_steer</code> ، ومسار السجل المباشر. كما تعود المعرّفات أيضًا في استجابة إرسال الإنشاء بوصفها <code>subagent_ids</code>.</li>
 <li>يضع <strong><code>steer</code></strong> تصحيحًا للمسار في طابور وكيل فرعي قيد التشغيل دون إيقافه (دلالات التسليم موضّحة أدناه).</li>
@@ -85,71 +117,25 @@
 <p>تُنفَّذ إجراءات التحكم بشكل متزامن ضمن الدور نفسه (ولا تُرسَل إلى الخلفية أبدًا)، ويقتصر نطاقها على شجرة الإنشاء الخاصة بالمستدعي، إذ لا يمكن لمحادثة أبدًا رؤية الوكلاء الفرعيين لجلسة أخرى أو التحكم فيهم، ولا تستهلك أبدًا حدّ إنشاء الـ subagents لكل دور، لذا يظل <code>stop</code> يعمل حتى بعد بلوغ الحد.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="from-the-tui--gateway-session-facing">من TUI / الـ gateway (موجّه إلى الجلسة)</h3>
 <p>الدالة <code>steer_subagent(subagent_id, text)</code> في <code>tools/delegate_tool_registry.py</code> هي نظيرة <code>interrupt_subagent()</code> على جانب إعادة التوجيه: فهي تضع نصًا في طابور وكيل فرعي نشط عبر الآلية نفسها التي يستخدمها <a href="/docs/reference/slash-commands"><code>/steer</code></a> — يُلحَق النص بآخر نتيجة أداة للوكيل الفرعي عند حدّ التكرار التالي، ولا يُقطع استدعاء الأداة الجاري أبدًا، ويراه الوكيل الفرعي رسالة مستخدم خارج السياق المعتاد. وتصل إليه المضيفات البرمجية عبر RPC الخاص بـ gateway <code>subagent.steer</code> المحصور بنطاق الجلسة، والموجود إلى جانب <code>subagent.interrupt</code>:</p>
-<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="18"></x-keep></div></div>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
 <p>تأتي معرّفات الـ subagents من <code>delegation.status</code> (أو <code>list_active_subagents()</code>)، وهو المصدر نفسه الذي يحصل منه <code>subagent.interrupt</code> عليها. لا يقبل الـ gateway التوجيه إلا من جلسة الواجهة/الـ gateway النشطة نفسها بالضبط التي أنشأت الوكيل الفرعي. وتُرفض هوية الجلسة المفقودة أو الغريبة أو الملتبسة أو القديمة/المُعاد تدويرها؛ فمعرفة معرّف subagent عام لا تمنح أي صلاحية. ويحتفظ المستدعون المباشرون داخل العملية نفسها عمدًا بعقد الدالة المساعدة غير المقيّد بنطاق.</p>
 <p><strong>الوضع في الطابور لا يعني التسليم، لكنه لا يعني أبدًا نجاحًا وهميًا.</strong> تعني الاستجابة <code>&quot;queued&quot;</code> أن النص قُبل قبل حدّ إنجاز الوكيل الفرعي، لا بالضرورة أن الوكيل الفرعي قد رآه. والقبول والإنجاز متزامنان: فإما أن يظل الوكيل الفرعي قادرًا على استهلاك النص، أو يُفرَّغ نصه بالضبط في النتيجة بوصفه <code>pending_steer</code>. وتعيد الاستدعاءات بعد الإغلاق <code>&quot;rejected&quot;</code>. إذا قبل وكيل فرعي التوجيه لكنه كان قد أنتج إجابته النهائية بالفعل، يحتفظ إدخال الإنجاز الذي يتلقاه الوكيل الأب به بوصفه <code>missed_steer</code> ، مع ملاحظة تُلحق بالملخص:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="19"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
 <p>وبذلك يستطيع الوكيل الأب (أو المشغّل الذي يديره) التمييز بين وكيل فرعي تلقّى التوجيه وآخر أنهى عمله وفق التعليمات القديمة، وإعادة إصدار التوجيه بوصفه متابعة بدلًا من افتراض أنه وصل.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="live-transcripts">السجلات المباشرة</h2>
 <p>يُنشئ كل إرسال لـ <code>delegate_task</code> أيضًا <strong>سجلًا واحدًا لكل مهمة، قابلًا للإلحاق فقط ومقروءًا للبشر</strong>، لتتمكن أنت (أو الوكيل الأب) من متابعة عمل الـ subagent في الوقت الفعلي بدلًا من انتظار الملخص المجمّع:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="20"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
 <p>تتضمن استجابة الإرسال المسارات بوصفها <code>live_transcripts</code> ، وتُنشأ الملفات مسبقًا لحظة الإرسال، لذا يعمل هذا فورًا:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="21"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
 <p>يحمل كل سطر طابعًا زمنيًا ويعرض نص المساعد لدى الوكيل الفرعي، ومقتطفات من التفكير، واستدعاءات الأدوات (<code>-&gt; tool_name({args})</code>)، ونتائج الأدوات، وعلامة حالة نهائية. ويصف ملف <code>manifest.json</code> في المجلد نفسه الدفعة (الأهداف، وعدد المهام، وحالة كل مهمة). تبقى السجلات محفوظة بعد الإنجاز، إذ تعمل أيضًا بوصفها السجل التشغيلي الكامل الدقة إلى جانب الملخص، وتُحذف المجلدات التي يزيد عمرها على 7 أيام تلقائيًا عند عمليات الإرسال الجديدة. ولأنها موجودة ضمن <code>cache/delegation</code> ، فهي قابلة للقراءة أيضًا من terminal backends البعيدة (Docker/Modal/SSH).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="depth-limit-and-nested-orchestration">حدّ العمق والتنسيق المتداخل</h2>
 <p>افتراضيًا، يكون التفويض <strong>مسطّحًا</strong>: ينشئ الوكيل الأب (العمق 0) وكلاء فرعيين (العمق 1)، ولا يمكن لهؤلاء الوكلاء الفرعيين التفويض أكثر. وهذا يمنع التفويض التعاودي الخارج عن السيطرة.</p>
 <p>بالنسبة إلى سير العمل متعدد المراحل (بحث → تجميع، أو تنسيق متوازٍ عبر مشكلات فرعية)، يمكن للوكيل الأب إنشاء وكلاء فرعيين <strong>منسِّقين (orchestrator)</strong> يستطيعون <em>يستطيعون</em> تفويض عمّالهم الخاصين:</p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="22"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="23"></x-keep></div></div>
 <ul>
 <li><code>role=&quot;leaf&quot;</code> (الافتراضي): لا يستطيع الوكيل الفرعي التفويض أكثر، وهو سلوك مطابق للتفويض المسطّح.</li>
 <li><code>role=&quot;orchestrator&quot;</code>: يحتفظ الوكيل الفرعي بالـ toolset <code>delegation</code>. ويخضع ذلك لـ <code>delegation.max_spawn_depth</code> (الافتراضي <strong>1</strong> = مسطّح، لذا لا يكون لـ <code>role=&quot;orchestrator&quot;</code> أي أثر مع القيم الافتراضية). ارفع <code>max_spawn_depth</code> إلى 2 للسماح للوكلاء الفرعيين المنسِّقين بإنشاء أحفاد طرفيين (leaf)؛ و3 فأكثر لأشجار أعمق. لا يوجد حد أقصى، والتكلفة هي الحد العملي.</li>
 <li><code>delegation.orchestrator_enabled: false</code>: مفتاح إيقاف عام يفرض <code>leaf</code> على كل وكيل فرعي بغض النظر عن المعامل <code>role</code>.</li>
 </ul>
 <p><strong>تحذير بشأن التكلفة:</strong> مع <code>max_spawn_depth: 3</code> و <code>max_concurrent_children: 3</code> ، يمكن أن تصل الشجرة إلى 3×3×3 = 27 وكيلًا طرفيًا متزامنًا. كل مستوى إضافي يضاعف الإنفاق، لذا ارفع <code>max_spawn_depth</code> عن قصد.</p>
-<p><strong>تُقيَّد عمليات التشغيل لمرة واحدة بصورة منفصلة.</strong> <code>hermes chat -q</code> / <code>--oneshot</code> إطلاق ما لا يتجاوز <code>delegation.oneshot_max_children</code> من subagents إجمالًا (الافتراضي <code>2</code> ، و <code>0</code> = بلا حد). ولا يملك التشغيل لمرة واحدة دورًا لاحقًا لتلقّي النتائج، وكانت معظم عمليات إطلاقه في مسارات التقييم المقارن تطلب &quot;راجع عملي بصورة مستقلة&quot; بدلًا من العمل المتوازي — فيعيد كل وكيل فرعي دفع تكلفة system prompt بارد ويعيد قراءة المستودع. ولا تتأثر الجلسات التفاعلية وجلسات gateway.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="finite-chat-runs">تشغيلات المحادثة المنتهية (Finite chat runs)</h2>
-<p>عندما تجيب المحادثة ثم تنتهي (<code>-Q</code> أو <code>chat --oneshot</code> أو استعلام مع
-stdio غير TTY)، ينتظر <code>delegate_task</code> أبناءه ويعيد نتائجهم إلى
-الوكيل الأب في الدور نفسه. وتعمل الأبناء في الدفعات بالتوازي كالمعتاد، ضمن حدود
-<code>delegation.max_concurrent_children</code>. ويمكن للأب استخدام تلك النتائج في
-ردّه النهائي قبل خروج CLI.</p>
-<ul>
-<li><strong>الانضمام التلقائي:</strong> لا حاجة إلى تفعيل صريح ولا إلى تجاوز وضع الخلفية.
-تحتفظ محادثات TTY التفاعلية وجلسات المراسلة بالتفويض في الخلفية.</li>
-<li><strong>سياسة لكل إدخال:</strong> يسجّل CLI الاستهلاك المنتهي (finite) مع الـ prompt المقبول،
-بما في ذلك عند استئناف جلسة تفاعلية. ولا يغيّر ذلك سياسة إنشاء الجلسة
-ولا العارضين الآخرين ولا بيئة الـ daemon.</li>
-<li><strong>الضمانات القائمة:</strong> تظل حدود التفويض والمهلات والإلغاء و
-<code>approvals.single_query_mode</code> (أدوار <code>-q</code>؛ أما أدوار <code>hermes -z</code> فتعمل دون إشراف) سارية.
-ولا يوافق الانضمام تلقائيًا على الأوامر ولا يضمن نجاح نتائج الأبناء.
-افحص النتائج وتحقق من المخرجات. وما تزال العمليات المُدارة/الآمنة ترفض
-تفويض الأبناء إلى أن يتوفر عقد تسجيل الأبناء الخاص بها.</li>
-<li><strong>حدود منفصلة:</strong> يبقى <code>--run-budget</code> غير مدعوم في محادثة gateway؛ وهو غير
-مطلوب للانضمام. و <code>terminal.oneshot_completion_wait_seconds</code> ليس مهلة
-للتفويض. وتبقى إشعارات الطرفية المعتمدة (canonical) ملكًا للـ gateway.</li>
-</ul>
-<p>يؤدي إغلاق CLI إلى فصله لا إنهاء الدور الذي يملكه الـ gateway. ولا يزال تنفيذ الأبناء
-محليًا للعملية (process-local) لدى ذلك المالك: استخدم مجدولًا دائمًا (durable scheduler) للأعمال
-التي يجب أن تبقى بعد إعادة تشغيل المالك.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifetime-and-durability">مدة الحياة والديمومة</h2>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="27"></x-keep></span>ديمومة نتائج الإنجاز الخلفية لا تعني تنفيذًا دائمًا</div><div class="admonitionContent_BuS1"><p>تعمل استدعاءات <code>delegate_task</code> الموجّهة إلى النموذج على المستوى الأعلى في الخلفية تلقائيًا حيثما تدعم الجلسة التسليم اللاحق. يعيد Hermes معرّف تتبع فورًا، وتعود النتيجة إلى المحادثة بعد انتهاء الوكيل الفرعي أو الدفعة. أما الـ subagents المنسِّقة فتنتظر عمّالها في الدور الحالي لأن عليها تجميع تلك النتائج قبل العودة. وتعود الـ endpoints عديمة الحالة القائمة على الطلب/الاستجابة إلى التنفيذ المتزامن عندما لا تستطيع تسليم نتيجة منفصلة لاحقًا.</p><ul>
-<li>لا تلغي رسائل المتابعة العادية الوكلاء الفرعيين في الخلفية. ويقوم <code>/stop</code> في أي واجهة (gateway <code>/stop</code> — حتى عندما تكون الجلسة خاملة بعد انتهاء دور التوزيع — أو CLI <code>/stop</code> أو زر Stop في Desktop/TUI أو إلغاء ACP) ينهي عمليات التفويض الخلفية الجارية للجلسة، ويؤدي إغلاق الجلسة المالكة أو إعادة ضبطها إلى الشيء نفسه.</li>
-<li>يؤدي إغلاق الجلسة أو إعادة ضبطها صراحةً إلى مقاطعة الأبناء العاملين في الخلفية لتلك الجلسة. في CLI و TUI يملك الـ gateway الجلسة ولا يفعل العميل سوى عرضها: فعندما يخرج آخر عارض أو ينفّذ <code>/new</code> (ويُعدّ التبديل بالاستئناف في TUI كذلك)، يقاطع الـ gateway فورًا الأبناء العاملين في الخلفية لتلك الجلسة ويرفض أي أبناء جدد لها إلى أن يفتح عارض الجلسة مجددًا. أما الفصل العادي فلا يلغي شيئًا: إغلاق Desktop أو انقطاع الاتصال أو الخروج بينما يظل عارض آخر متصلًا يبقي العمل قيد التشغيل. وتستمر العمليات في الخلفية (<code>terminal(background=True)</code>) في كلتا الحالتين.</li>
-<li>إذا وصل إكمال (completion) لجلسة CLI أو TUI — مثل نتيجة ابن يعمل في الخلفية (بما في ذلك المقاطَع) أو خروج عملية <code>notify_on_complete</code> أو إشعار watch-pattern — إلى رأس طابور الجلسة بينما لا يوجد عارض متصل، فلا يبدأ دورًا. بل يُكتب في الجلسة كملاحظة، ويقرؤها الدور التالي (مثلًا بعد <code>hermes chat --resume</code>). وإذا كان عارض متصلًا بحلول ذلك الوقت، بما في ذلك عارض عاد بعد وصول الإكمال، فيعمل الإكمال كدور كما كان سابقًا. أما محادثات المراسلة فليس لها عارضون ولم تتغير: ما تزال إكمالاتها تبدأ دورًا.</li>
-<li>إعادة تشغيل عملية Hermes <strong>لا</strong> تستأنف وكيلًا فرعيًا قيد التشغيل. إذ تصبح محاولته <code>unknown</code> لأن Hermes لا يستطيع إثبات الآثار الجانبية التي حدثت.</li>
-<li>الوكيل الفرعي الذي أكمل عمله قبل إعادة التشغيل لكن نتيجته لم تُسلَّم يُستعاد ويُوجَّه مجددًا عبر الفحوصات المعتادة للجلسة المالكة.</li>
-<li>يعيد الوكلاء الفرعيون الملغون نتيجة مهيكلة (<code>status=&quot;interrupted&quot;</code> ، <code>exit_reason=&quot;interrupted&quot;</code>) تكون قيمة <code>summary</code> فيه آخر نص أنتجه الوكيل الفرعي قبل الإيقاف (وينتقل النص البديل للمقاطعة إلى <code>error</code>). ويتكرر الإيقاف عبر شجرة الإطلاق — يُقاطَع أولًا العمال المتزامنون للوكيل الفرعي المنسِّق، وتُجمَّع نتائجهم الجزئية ضمن نتيجة المقاطعة الخاصة به — وتعود نتيجة كل وحدة خلفية إلى المحادثة فورًا كإشعار الاكتمال المعتاد (<code>Subagent Task Interrupted: …</code>)، فلا يُنتظَر استنفاد الوكيل الفرعي ميزانيته.</li>
-</ul><p>للحصول على <strong>تنفيذ دائم</strong> يجب أن يصمد أمام إغلاق الجلسة أو إعادة تشغيل العملية، استخدم:</p><ul>
-<li><code>cronjob</code> (action=<code>create</code>): يجدول تشغيلًا منفصلًا للوكيل؛ ولا يتأثر بمقاطعات دور الوكيل الأب.</li>
-<li><code>terminal(background=True, notify_on_complete=True)</code>: أوامر shell طويلة التشغيل تستمر في العمل بينما يؤدي الوكيل مهام أخرى.</li>
-</ul></div></div>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-properties">الخصائص الرئيسية</h2>
-<ul>
-<li>يحصل كل subagent على <strong>جلسة طرفية خاصة به</strong> (منفصلة عن الوكيل الأب)</li>
-<li>ترث الـ subagents الـ toolsets المفعّلة لدى الوكيل الأب؛ ولا يستطيع النموذج اختيارها أو توسيعها في كل استدعاء</li>
-<li><strong>التفويض المتداخل اختياري</strong>: لا يستطيع التفويض أكثر إلا الوكلاء الفرعيون ذوو <code>role=&quot;orchestrator&quot;</code> ، وفقط عند رفع <code>max_spawn_depth</code> عن قيمته الافتراضية 1 (مسطّح). عطّله على المستوى العام باستخدام <code>orchestrator_enabled: false</code>.</li>
-<li>لا <strong>تستطيع</strong> الـ subagents الطرفية (leaf) استدعاء: <code>delegate_task</code> ، <code>clarify</code> ، <code>memory</code> ، <code>send_message</code> ، <code>cronjob</code>. ويحتفظ subagents المنسِّقون بـ <code>delegate_task</code> مع إبقاء الحظر على البقية. ويحتفظ كلا الدورين بـ <code>execute_code</code> (استدعاء الأدوات برمجيًا) حتى يتمكن الوكلاء الفرعيون من تجميع الأعمال الآلية في دفعات بدلًا من استهلاك تكرارات الاستدلال.</li>
-<li><strong>الإلغاء يتبع الملكية</strong>: يؤدي <code>/stop</code> أو إغلاق الجلسة المالكة أو إعادة ضبطها إلى إلغاء وكلائها الفرعيين الخلفيين؛ ويتبع الأحفاد المتزامنون التابعون للمنسِّقين حالة المقاطعة الخاصة بالوكيل الأب</li>
-<li>لا يدخل سياقَ الوكيل الأب سوى الملخص النهائي، مما يُبقي استهلاك الـ tokens فعّالًا</li>
-<li>ترث الـ subagents <strong>مفتاح API وإعدادات المزوّد ومجمّع بيانات الاعتماد</strong> الخاصة بالوكيل الأب (مما يتيح تدوير المفاتيح عند بلوغ حدود المعدل)</li>
-</ul>
+<p><strong>تشغيلات المرة الواحدة لها حدّ منفصل.</strong> يمكن لجلسات <code>hermes chat -q</code> / <code>--oneshot</code> إطلاق ما لا يزيد على <code>delegation.oneshot_max_children</code> من subagents إجمالًا (الافتراضي <code>2</code>، و<code>0</code> = بلا حد). ولا يملك التشغيل لمرة واحدة دورًا لاحقًا لتلقّي النتائج، وكانت معظم عمليات إطلاقه في مسارات التقييم المقارن (benchmark) &quot;راجع عملي بصورة مستقلة&quot; بدلًا من العمل المتوازي — فيعيد كل ابن من هذا النوع دفع تكلفة system prompt بارد ويعيد قراءة المستودع. ولا تتأثر الجلسات التفاعلية وجلسات gateway. ولأن التشغيل لمرة واحدة يضم أبناءه داخل استدعاء <code>delegate_task</code>، فإن مخططه يحذف معاملات التحكم الحي (<code>action</code> بقيم list/steer/stop، و<code>subagent_id</code>، و<code>message</code>).</p>
