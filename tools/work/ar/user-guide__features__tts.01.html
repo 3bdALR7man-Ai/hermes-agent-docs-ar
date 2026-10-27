@@ -1,3 +1,16 @@
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="behavior-notes">ملاحظات حول السلوك</h4>
+<ul>
+<li><strong>الأسماء المدمجة لها الأولوية دائمًا.</strong> لا يحجب الإدخال <code>tts.providers.openai</code> أبدًا مزوّد OpenAI الأصلي، لذا لا يمكن لأي إعدادات من المستخدم استبدال مزوّد مدمج بصمت.</li>
+<li><strong>التسليم الافتراضي يكون كمستند.</strong> يسلّم مزوّدو الأوامر الصوت كمرفقات صوتية عادية على كل المنصات. ويمكنك تفعيل التسليم كفقاعة صوتية لكل مزوّد على حدة عبر <code>voice_compatible: true</code>.</li>
+<li><strong>تظهر حالات فشل الأوامر للوكيل.</strong> فرمز الخروج غير الصفري، أو الإخراج الفارغ، أو انتهاء المهلة، كلها تعيد خطأً يتضمن stderr/stdout الخاص بالأمر، كي تتمكن من تصحيح أخطاء المزوّد من داخل المحادثة.</li>
+<li><strong><code>type: command</code> هو الافتراضي عند ضبط <code>command:</code> مضبوطًا.</strong> كتابة <code>type: command</code> صراحةً ممارسة جيدة لكنها غير مطلوبة؛ فأي إدخال يحتوي على سلسلة <code>command</code> غير فارغة يُعامل كمزوّد أوامر.</li>
+<li><strong><code>{input_path}</code> / <code>{text_path}</code> قابلان للتبادل.</strong> استخدم أيهما أوضح في أمرك.</li>
+</ul>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h4>
+<p>يشغّل المزوّدون من نوع command أي أمر shell تضبطه، بصلاحيات المستخدم الخاص بك. يضع Hermes قيم العناصر النائبة بين علامات اقتباس ويفرض المهلة المضبوطة، لكن قالب الأمر نفسه يُعدّ إدخالًا محليًا موثوقًا — لذا تعامل معه كما تتعامل مع سكربت shell موجود في PATH لديك.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-plugin-providers">مزوّدو إضافات Python</h3>
+<p>بالنسبة إلى محركات TTS التي لا يمكن التعبير عنها بأمر shell واحد — مثل حزم Python SDK التي لا تملك CLI، أو محركات البث المتدفق، أو واجهات API لسرد الأصوات، أو المصادقة التي تتطلب تجديد OAuth — سجّل إضافة Python عبر <code>ctx.register_tts_provider()</code>. تعمل الإضافة <strong>جنبًا إلى جنب مع</strong> (ولا تستبدله) سجل <a href="#custom-command-providers">مزوّدي الأوامر المخصصة</a>؛ اختر الواجهة التي تناسب محرّكك.</p>
+
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-pick-which">متى تختار كلًّا منهما</h4>
 <table><thead><tr><th>إذا كان الـ backend لديك يتضمن…</th><th>استخدم</th></tr></thead><tbody><tr><td>CLI واحدًا يقرأ النص من ملف/stdin ويكتب الصوت إلى ملف/stdout</td><td><strong>مزوّد أوامر</strong> (دون الحاجة إلى Python)</td></tr><tr><td>اثنين أو ثلاثة من أدوات CLI مربوطة بـ pipes في الـ shell</td><td><strong>مزوّد أوامر</strong></td></tr><tr><td>Python SDK فقط — دون CLI</td><td><strong>إضافة</strong></td></tr><tr><td>محرك يُصدر الصوت أثناء توليده، وتريد أن تبدأ الردود المنطوقة مع الجملة الأولى</td><td><strong>إضافة</strong> (اضبط <code>streams_pcm</code>، وتجاوز <code>stream()</code>)</td></tr><tr><td>واجهة API لسرد الأصوات يستخدمها <code>hermes setup</code></td><td><strong>إضافة</strong> (تجاوز <code>list_voices()</code>)</td></tr><tr><td>تدفق تجديد OAuth (وليس bearer token ثابتًا)</td><td><strong>إضافة</strong></td></tr></tbody></table>
 <p>المزوّدون المدمجون لهم الأولوية دائمًا، ومزوّدو الأوامر يتقدّمون على أي إضافة تحمل الاسم نفسه — لذا يمكنك تسجيل الإضافات بأمان بأي اسم غير مدمج دون القلق من حجب إعداداتك الحالية.</p>

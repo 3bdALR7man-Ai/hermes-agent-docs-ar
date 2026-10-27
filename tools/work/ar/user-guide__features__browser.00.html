@@ -1,25 +1,184 @@
 <header><h1>أتمتة المتصفح</h1></header>
-<p>يتضمن Hermes Agent مجموعة أدوات (toolset) كاملة لأتمتة المتصفح مع عدة خيارات للـ backend:</p>
+<p>تمنح مجموعة أدوات <code>browser</code> الوكيلَ متصفح ويب حقيقيًا. تتولى أداة واحدة القيادة — <strong><code>browser_exec</code></strong>، التي تشغّل شيفرة Python كتبها النموذج على المتصفح عبر Chrome DevTools Protocol (CDP) — مع ثلاث أدوات مرافقة (<code>browser_cdp</code> و <code>browser_dialog</code> لا تتوفران إلا عند ضبط CDP endpoint، راجع <a href="#companion-tools">الأدوات المرافقة</a>):</p>
+<table><thead><tr><th>الأداة</th><th>الغرض</th></tr></thead><tbody><tr><td><code>browser_exec</code></td><td>التنقل والقراءة والنقر والكتابة واستخراج البيانات والتقاط لقطات الشاشة، بتشغيل Python مع helpers للمتصفح مستوردة مسبقًا.</td></tr><tr><td><code>browser_cdp</code></td><td>إرسال أمر CDP خام واحد (ملفات تعريف الارتباط، والتحكم بالشبكة، والتقييم ضمن نطاق iframe، وكل ما لا تغطيه الـ helpers).</td></tr><tr><td><code>browser_dialog</code></td><td>قبول أو تجاهل نافذة JavaScript أصلية (<code>alert</code> / <code>confirm</code> / <code>prompt</code> / <code>beforeunload</code>) تحجب الصفحة.</td></tr><tr><td><code>browser_vault</code></td><td>تعبئة بيانات تسجيل الدخول المحفوظة والبطاقات والعناوين ورموز 2FA في الصفحة الحالية دون أن تدخل الأسرار إلى المحادثة.</td></tr></tbody></table>
+<p>مصدر المتصفح خيار منفصل:</p>
 <ul>
-<li><strong>وضع Browser Use السحابي</strong> عبر <a href="https://browser-use.com" data-ext>Browser Use</a> للحصول على Chromium مُدار مع وضع التخفّي (stealth)، و proxies سكنية، وحلّ CAPTCHA، و profiles متصفح قابلة لإعادة الاستخدام</li>
-<li><strong>وضع Browserbase السحابي</strong> عبر <a href="https://browserbase.com" data-ext>Browserbase</a> كمزوّد بديل للمتصفح السحابي مع أدوات لمكافحة اكتشاف الروبوتات (anti-bot)</li>
-<li><strong>وضع Browser Use</strong> عبر <a href="https://github.com/browser-use/browser-use" data-ext>Browser Use CLI 3.0</a>، وهو مشغّل المتصفح الافتراضي لـ Chrome المحلي ولمتصفحات Browser Use السحابية</li>
-<li><strong>وضع Firecrawl السحابي</strong> عبر <a href="https://firecrawl.dev" data-ext>Firecrawl</a> للحصول على متصفحات سحابية مع استخراج مدمج للبيانات (scraping)</li>
-<li><strong>وضع Camofox المحلي</strong> عبر <a href="https://github.com/jo-inc/camofox-browser" data-ext>Camofox</a> للتصفح المحلي المقاوم للاكتشاف (انتحال بصمة المتصفح المعتمد على Firefox)</li>
-<li><strong>محرك Lightpanda المحلي</strong> عبر <a href="https://lightpanda.io" data-ext>Lightpanda</a> — متصفح headless بُني من الصفر بلغة Zig ومصمَّم للآلات؛ يبدأ فورًا، ويستهلك ذاكرة أقل بـ 16 مرة، وأسرع بـ 9 مرات من Chrome. يعمل في وضع Browser Use (يشغّله Hermes، دون الحاجة إلى Chromium أو Node) ومع الأدوات المدمجة (مع رجوع تلقائي إلى Chrome للإجراءات التي لا يدعمها بعد)</li>
-<li><strong>CDP محلي لعائلة Chromium</strong> — اربط أدوات المتصفح بنسخة Chrome أو Brave أو Chromium أو Edge الخاصة بك باستخدام <code>/browser connect</code></li>
-<li><strong>وضع المتصفح المحلي</strong> عبر أداة <code>agent-browser</code> CLI وتثبيت محلي لـ Chromium</li>
+<li><strong>Chromium المحلي (الافتراضي)</strong> — يشغّل Hermes نسخة Chromium المُحزَّمة الخاصة به، بوضع headless، مع متصفح واحد لكل جلسة. دون مفتاح API ودون إعداد.</li>
+<li><strong>المتصفحات السحابية</strong> — <a href="/docs/user-guide/features/tool-gateway">اشتراك Nous</a>، أو <a href="https://browserbase.com" data-ext>Browserbase</a>، أو سحابة <a href="https://browser-use.com" data-ext>Browser Use</a>، أو <a href="https://firecrawl.dev" data-ext>Firecrawl</a>، أو إضافة (plugin) لمزوّد متصفح.</li>
+<li><strong><a href="https://lightpanda.io" data-ext>Lightpanda</a></strong> — محرك headless خفيف للتصفح النصي أولًا على الأجهزة الصغيرة.</li>
+<li><strong>متصفحك الخاص</strong> — اتصل بمتصفح Chrome أو Brave أو Chromium أو Edge قيد التشغيل باستخدام <code>/browser connect</code>.</li>
+<li><strong>ملفك الشخصي الحقيقي</strong> — نسخة مُدارة من ملف متصفحك اليومي، بما فيها تسجيلات الدخول (اختياري، بتفعيل منك).</li>
 </ul>
-<p>في جميع الأوضاع، يستطيع الوكيل التنقل في المواقع، والتفاعل مع عناصر الصفحة، وتعبئة النماذج، واستخراج المعلومات.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="overview">نظرة عامة</h2>
-<p>تُمثَّل الصفحات في صورة <strong>أشجار إمكانية الوصول (accessibility trees)</strong> (لقطات نصية)، مما يجعلها مثالية لوكلاء LLM. تحصل العناصر التفاعلية على معرّفات مرجعية (ref IDs) (مثل <code>@e1</code> و <code>@e2</code>) يستخدمها الوكيل للنقر والكتابة.</p>
-<p>القدرات الرئيسية:</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="18"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>لاسترجاع المعلومات البسيط، فضّل <code>web_search</code> أو <code>web_extract</code> — فهما أسرع وأرخص. استخدم المتصفح عندما يحتاج الوكيل إلى <strong>التفاعل</strong> مع صفحة (النقر على الأزرار، وتعبئة النماذج، والتعامل مع المحتوى الديناميكي).</p></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-browser_exec-works">كيف تعمل <code>browser_exec</code></h2>
+<p>يرسل كل استدعاء كتلة Python (<code>code</code>) تعمل وقد استُوردت لها helpers المتصفح مسبقًا؛ وما تطبعه الشيفرة يعود نتيجةً للاستدعاء. تستمر جلسة المتصفح عبر الاستدعاءات (التبويبات المفتوحة وملفات تعريف الارتباط والصفحة الحالية)، أما متغيرات Python فلا تستمر — إذ يبدأ كل استدعاء بمفسّر جديد. ويبقى مجلد workspace خاص بالجلسة (<code>$BH_AGENT_WORKSPACE</code>، ويُعاد أيضًا باسم <code>workspace</code>) بين الاستدعاءات، فيمكن لعمليات الاستخراج الطويلة إلحاق الدفعات بملف ثم تجميعها في النهاية.</p>
+<p>الـ helpers:</p>
+<table><thead><tr><th>Helper</th><th>وظيفتها</th></tr></thead><tbody><tr><td><code>new_tab(url)</code></td><td>فتح URL (استخدمها للتنقل الأول).</td></tr><tr><td><code>goto_url(url)</code></td><td>التنقل في التبويب الحالي (للتنقلات اللاحقة).</td></tr><tr><td><code>wait_for_load()</code></td><td>انتظار اكتمال تحميل الصفحة.</td></tr><tr><td><code>page_info()</code></td><td>تلخيص حالة الصفحة الحالية.</td></tr><tr><td><code>js(expr)</code></td><td>تقييم JavaScript وإرجاع القيمة (غلّف أجسام الدوال هكذا: <code>js(&#x27;(() =&gt; {...})()&#x27;)</code>).</td></tr><tr><td><code>fill_input(selector, text)</code></td><td>الكتابة في حقل إدخال.</td></tr><tr><td><code>click_at_xy(x, y)</code></td><td>النقر على إحداثيات منفذ العرض (viewport).</td></tr><tr><td><code>capture_screenshot()</code></td><td>حفظ لقطة شاشة وطباعة مسارها.</td></tr><tr><td><code>cdp(&#x27;Domain.method&#x27;, **kwargs)</code></td><td>CDP الخام — مثل <code>cdp(&#x27;Accessibility.getFullAXTree&#x27;)</code> للحصول على شجرة إمكانية الوصول، و <code>cdp(&#x27;DOM.getBoxModel&#x27;, backendNodeId=n)</code> للحصول على إحداثيات النقر.</td></tr><tr><td><code>ensure_real_tab()</code></td><td>التعافي من تبويب قديم أو داخلي.</td></tr></tbody></table>
+<p>يجمع النموذج إجراءً فرعيًا كاملًا (التنقل والانتظار والاستخراج والتنفيذ) في استدعاء واحد بدلًا من استدعاء لكل خطوة:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p><strong>لقطات الشاشة.</strong> مع نموذج يدعم الرؤية أصلًا، تُرفق الصورة المحفوظة عبر <code>capture_screenshot()</code> بنتيجة الأداة ويفحصها النموذج مباشرة. أما النماذج النصية فقط فيُطلب منها العمل نصيًا أولًا (<code>page_info()</code> و <code>js()</code> و <code>fill_input()</code>)؛ ويمكنها مع ذلك تمرير مسار محفوظ إلى <code>vision_analyze</code>. وعلى منصات المراسلة يمكنك أن تطلب من الوكيل إرسال لقطة شاشة إليك — فتصلك كمرفق صورة أصلي.</p>
+<p><strong>المعاملات.</strong> إلى جانب <code>code</code>، تقبل الأداة <code>timeout_s</code> (الافتراضي 300، والحد الأقصى 1800) و <code>session</code>. يحصل كل اسم <code>session</code> على عملية driver خاصة به ومتصفح خاص به (Chromium منفصل محليًا، ومتصفح سحابي منفصل مع المزوّدين السحابيين)، فلا تتعارض subagents المتوازية أو المحادثات المتزامنة على متصفح مشترك واحد. وعند إغفال <code>session</code> تُستخدم الجلسة الافتراضية المشتركة، وهي مناسبة للتصفح الواحد في كل مرة. وعندما يكون <a href="#real-profile-browsing-use-your-own-logins">التصفح بالملف الشخصي الحقيقي</a> مفعّلًا، تتيح الأداة أيضًا الخيار <code>local</code> (راجع ذلك القسم).</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="19"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>تنفّذ <code>browser_exec</code> شيفرة Python كتبها النموذج على جهازك، لذا لا تُقدَّم إلا للجلسات التي لديها أيضًا toolset الخاص بـ <code>terminal</code>. والمنصة المضبوطة دون وصول إلى الطرفية (مثل واجهة مراسلة مقيّدة) لا تحصل على متصفح.</p></div></div>
+<p>الـ driver هو <a href="https://github.com/browser-use/browser-use" data-ext>browser-harness</a>، المحرك الذي يعمل عليه Browser Use CLI. وهو اعتمادية Python عادية لـ Hermes، لذا يشحنه كل تثبيت — بما فيه تطبيق Desktop — دون تنزيل منفصل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-chromium-default">Chromium المحلي (الافتراضي)</h2>
+<p>عندما لا يكون هناك مزوّد سحابي ولا endpoint من <code>/browser connect</code> ولا مفتاح ملف شخصي حقيقي مضبوطًا، يشغّل Hermes نسخة Chromium للجلسة بنفسه ويوجّه <code>browser_exec</code> إليها. ولا يُمَسّ متصفح Chrome المثبّت لديك أبدًا — فلا يوجد مفتاح <code>chrome://inspect</code> تحتاج إلى تفعيله ولا نافذة منبثقة &quot;Allow remote debugging?&quot; — كما يعمل على الخوادم عديمة الواجهة (headless) التي لا تحتوي على متصفح مكتبي إطلاقًا.</p>
 <ul>
-<li><strong>تنفيذ سحابي متعدد المزوّدين</strong> — Browser Use أو Browserbase أو Firecrawl — دون الحاجة إلى متصفح محلي</li>
-<li><strong>تكامل محلي مع عائلة Chromium</strong> — اتصل بمتصفح Chrome أو Brave أو Chromium أو Edge قيد التشغيل لديك عبر CDP للتصفح العملي المباشر</li>
-<li><strong>دعم سحابي لمكافحة الروبوتات</strong> — يتضمن Browser Use Cloud وضع التخفّي، و proxies سكنية، وحلّ CAPTCHA</li>
-<li><strong>Profiles سحابية دائمة</strong> — يستطيع Browser Use Cloud إعادة استخدام ملفات تعريف الارتباط (cookies) و localStorage وكلمات المرور المحفوظة عبر الجلسات</li>
-<li><strong>عزل الجلسات</strong> — تحصل كل مهمة على جلسة متصفح خاصة بها</li>
-<li><strong>تنظيف تلقائي</strong> — تُغلق الجلسات غير النشطة بعد انقضاء مهلة زمنية</li>
-<li><strong>تحليل بصري (Vision)</strong> — لقطة شاشة + تحليل بالذكاء الاصطناعي للفهم البصري</li>
+<li><strong>متصفح واحد لكل جلسة</strong>، بملف شخصي جديد مؤقت افتراضيًا: يبدأ الوكيل دون تسجيل دخول في أي موقع، ولا يبقى شيء بعد انتهاء الجلسة.</li>
+<li><strong>headless افتراضيًا.</strong> اضبط <code>browser.headed: true</code> للحصول على نافذة مرئية (راجع <a href="#headed-mode-visible-browser-window">أدناه</a>).</li>
+<li><strong>تنظيف تلقائي.</strong> يُغلق المتصفح بعد <code>browser.inactivity_timeout</code> ثانية من الخمول (الافتراضي 120)، وعند خروج Hermes، وبواسطة عملية تنظيف العمليات اليتيمة إن تعطّلت عملية.</li>
 </ul>
+<p><strong>أي Chromium.</strong> يختار Hermes أول ما يجده من الآتي:</p>
+<ol>
+<li><code>browser.executable_path</code>، إن كان مضبوطًا.</li>
+<li>نسخة Chromium (Chrome for Testing) التي يثبّتها مدير حزم Hermes — إذ تثبّتها المُثبّتات و <code>hermes update</code> افتراضيًا.</li>
+<li><code>/etc/hermes/chromium-executable-path</code> في صورة Docker الرسمية.</li>
+<li>نسخة <code>chromium</code> / <code>chromium-browser</code> الخاصة بالنظام على <code>PATH</code> (Android/Termux، والمنصات التي لا يملك مدير الحزم بناء Chromium لها).</li>
+</ol>
+<p>إن لم يُعثر على أي منها، تعرض أداة المتصفح تلميحًا واضحًا بدلًا من الفشل بصمت. وإذا ثبّتّ باستخدام <code>--skip-browser</code> / <code>-SkipBrowser</code>، أو فشل التنزيل، فثبّته باستخدام:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يلغي هذا أيضًا اختيار <code>--skip-browser</code> السابق، فتُبقي التحديثات المتصفح محدّثًا. وعلى Linux قد يحتاج Chromium أيضًا إلى مكتبات النظام الخاصة بالتوزيعة (يثبّتها <code>npx playwright install-deps chromium</code> على Debian/Ubuntu). وعلى Android/Termux، نفّذ <code>pkg install chromium</code> حيث يوفّره المستودع لديك؛ وبدون Chromium على النظام يكون التصفح غير متاح على ذلك الجهاز.</p>
+<p><strong>الخيارات المحلية</strong> (<code>~/.hermes/config.yaml</code>):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<p>يحتفظ <code>browser.user_data_dir</code> بملفات تعريف الارتباط وتسجيلات الدخول عبر الجلسات: فتتشارك كل الجلسات حينها مجلد الملف الشخصي ذاك. اتركه فارغًا للحصول على تصفح معزول مؤقت.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="headed-mode-visible-browser-window">الوضع المرئي (headed) — نافذة المتصفح المرئية</h3>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<p>يفعل الوضع المرئي أمرين:</p>
+<ol>
+<li><strong>يشغّل Chromium بنافذة مرئية</strong>، فيمكنك مراقبة عمل الوكيل والتدخل يدويًا (تحديات تسجيل الدخول، و CAPTCHA).</li>
+<li><strong>يُبقي المتصفح مفتوحًا بين الأدوار.</strong> عادةً يُنظَّف المتصفح بعد كل رد من الوكيل؛ وفي الوضع المرئي يُتخطى التنظيف في كل دور لتبقى حالة تسجيل الدخول نشطة طوال المحادثة.</li>
+</ol>
+<p>لا تزال المتصفحات الخاملة تُنظَّف بعد <code>browser.inactivity_timeout</code>، وتُغلق كلها عند الإيقاف. وعلى مضيف بلا شاشة (الخوادم، CI) يعمل المتصفح دائمًا في وضع headless. ولا يؤثر الوضع المرئي إلا في المتصفحات المحلية — أما الجلسات السحابية فلا تتأثر.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cloud-browsers">المتصفحات السحابية</h2>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="20"></x-keep></span>لمشتركي Nous</div><div class="admonitionContent_BuS1"><p>إذا كان لديك اشتراك مدفوع في <a href="https://portal.nousresearch.com" data-ext>Nous Portal</a>، فيمكنك استخدام متصفح سحابي عبر <strong><a href="/docs/user-guide/features/tool-gateway">Tool Gateway</a></strong> دون أي مفاتيح API منفصلة. يمكن للتثبيتات الجديدة تنفيذ <code>hermes setup --portal</code> لتسجيل الدخول وتفعيل كل أدوات الـ gateway دفعة واحدة؛ أما التثبيتات الحالية فيمكنها اختيار <strong>Nous Subscription</strong> كمزوّد للمتصفح عبر <code>hermes model</code> أو <code>hermes tools</code>.</p></div></div>
+<p>اختر مزوّدًا في <code>hermes tools</code> → Browser Automation. ثم تقود <code>browser_exec</code> متصفح ذلك المزوّد تمامًا كما تقود Chromium المحلي.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-use-cloud">Browser Use السحابي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>احصل على مفتاح API من <a href="https://browser-use.com" data-ext>browser-use.com</a>. يشغّل Browser Use Cloud متصفح Chromium مُدارًا مع تفعيل <a href="https://docs.browser-use.com/cloud/browser/stealth" data-ext>وضع التخفّي (stealth)</a> و <a href="https://docs.browser-use.com/cloud/browser/proxies" data-ext>الـ proxies السكنية</a> افتراضيًا، ويتضمن حلّ CAPTCHA، ويدعم <a href="https://docs.browser-use.com/cloud/guides/authentication" data-ext>الـ profiles الدائمة</a> لملفات تعريف الارتباط (cookies) و localStorage وكلمات المرور المحفوظة.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="browserbase">Browserbase</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>احصل على بيانات الاعتماد من <a href="https://browserbase.com" data-ext>browserbase.com</a>. الإعدادات الاختيارية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<p>ميزات التخفّي (stealth) في Browserbase:</p>
+<table><thead><tr><th>الميزة</th><th>القيمة الافتراضية</th><th>ملاحظات</th></tr></thead><tbody><tr><td>Basic Stealth</td><td>مفعّل دائمًا</td><td>بصمات عشوائية، وعشوائية منفذ العرض (viewport)، وحلّ CAPTCHA</td></tr><tr><td>Residential Proxies</td><td>مفعّل</td><td>يوجّه الاتصال عبر عناوين IP سكنية لتحسين الوصول</td></tr><tr><td>Advanced Stealth</td><td>معطّل</td><td>بناء Chromium مخصص، ويتطلب Scale Plan</td></tr><tr><td>Keep Alive</td><td>مفعّل</td><td>إعادة اتصال الجلسة بعد انقطاعات الشبكة العابرة</td></tr></tbody></table>
+<p>إذا لم تكن الميزات المدفوعة متاحة في خطتك، يتراجع Hermes تلقائيًا — فيعطّل <code>keepAlive</code> أولًا ثم الـ proxies — فيظل التصفح يعمل على الخطط المجانية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="firecrawl">Firecrawl</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<p>احصل على مفتاح API من <a href="https://firecrawl.dev" data-ext>firecrawl.dev</a>، ثم اختر <strong>Firecrawl</strong> في <code>hermes tools</code> → Browser Automation.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="21"></x-keep></span>اختيار المزوّد</div><div class="admonitionContent_BuS1"><p>توفّر مفاتيح <code>.env</code> أعلاه <strong>بيانات الاعتماد فقط</strong>. أما المتصفح النشط فيُحدَّد بواسطة الاختيار <code>browser.cloud_provider</code> الذي يكتبه <code>hermes tools</code> → Browser Automation (<code>local</code> أو <code>browserbase</code> أو <code>browser-use</code> أو <code>firecrawl</code> أو <code>nous</code> لـ Nous Subscription؛ وتضيف إضافات المزوّدين أسماءها الخاصة). بمجرد وجود اختيار، لا تؤدي إضافة مفتاح أو إزالته إلى تبديل المزوّد — والمزوّد المختار الذي ينقصه مفتاح يُنتج خطأً مع توجيه لتنفيذ <code>hermes tools</code> بدلًا من إعادة التوجيه بصمت. أما الإعدادات التي لم تُضبط من قبل فتواصل الاكتشاف التلقائي من بيانات الاعتماد المتاحة.</p></div></div>
+<p>تستهلك الجلسات السحابية أرصدة المزوّد. ويحررها Hermes عند انتهاء المحادثة، وبعد <code>browser.inactivity_timeout</code>، وعند إنهاء العملية.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="hybrid-routing-cloud-for-public-urls-local-for-lanlocalhost">التوجيه الهجين: السحابة لعناوين URL العامة، والمتصفح المحلي لـ LAN/localhost</h3>
+<p>عند إعداد مزوّد سحابي، يُطلق Hermes تلقائيًا <strong>متصفح Chromium محليًا مساعدًا (sidecar)</strong>
+لعناوين URL التي تُحلّ إلى عنوان خاص/loopback/LAN (<code>localhost</code>, <code>127.0.0.1</code>,
+<code>192.168.x.x</code>, <code>10.x.x.x</code>, <code>172.16-31.x.x</code>, <code>*.local</code>, <code>*.lan</code>, <code>*.internal</code> ،
+و IPv6 loopback <code>::1</code> ، و link-local <code>169.254.x.x</code>). أما عناوين URL العامة فتستمر في استخدام
+المزوّد السحابي في المحادثة نفسها.</p>
+<p>يحلّ هذا سير العمل الشائع &quot;أطوّر محليًا لكنني أستخدم Browserbase&quot; —
+إذ يستطيع الوكيل التقاط لقطة شاشة للوحة التحكم لديك على <code>http://localhost:3000</code> وكذلك استخراج بيانات
+ <code>https://github.com</code> دون أن تبدّل المزوّدين أو تعطّل حماية SSRF.
+ولا يرى المزوّد السحابي عنوان URL الخاص أبدًا.</p>
+<p>هذه الميزة <strong>مفعّلة افتراضيًا</strong>. لتعطيلها (فتذهب جميع عناوين URL إلى المزوّد السحابي المُعدّ):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<p>عند تعطيل التوجيه التلقائي، تُرفض عناوين URL الخاصة مع الرسالة
+ <code>&quot;Blocked: URL targets a private or internal address&quot;</code> ما لم تضبط أيضًا
+ <code>browser.allow_private_urls: true</code> (الذي يسمح للمزوّد السحابي بمحاولة الوصول إليها —
+وهو ما لن ينجح عادةً لأن Browserbase وأمثاله لا يستطيعون الوصول إلى شبكة LAN لديك).</p>
+<p>الـ sidecar هو نفسه Chromium المحلي الموصوف <a href="#local-chromium-default">أعلاه</a>، لذا يحتاج إلى تثبيت ذلك Chromium. ولا تزال عمليات إعادة التوجيه بعد التنقل من URL عام إلى عنوان خاص محظورة (فلا يمكنك استخدام حيلة إعادة التوجيه إلى الداخل للوصول إلى شبكتك المحلية عبر المسار العام).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="real-profile-browsing-use-your-own-logins">التصفح بالـ profile الحقيقي (استخدم تسجيلات دخولك)</h2>
+<p>افتراضيًا، يعمل التصفح المحلي في profile نظيف مؤقت يُتخلّص منه لاحقًا — فالوكيل
+غير مسجّل الدخول في أي شيء. فعّل <strong>التصفح بالـ profile الحقيقي</strong> لتسمح للوكيل بالتصفح
+بصفتك <em>أنت</em>، مع تسجيلات الدخول وملفات تعريف الارتباط الموجودة لديك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<p>عند التفعيل، ينسخ Hermes الـ profile <strong>النشط</strong> لمتصفحك الافتراضي — أي الـ profile
+الذي تتصفح به فعلًا (<code>Local State → profile.last_used</code>)، مع ملفات تعريف الارتباط وتسجيلات الدخول
+المحفوظة والتفضيلات — إلى لقطة (snapshot) مُدارة تحت
+ <code>~/.hermes/browser-profile/&lt;browser&gt;/</code> ، ثم يُطلق <strong>الملف التنفيذي الحقيقي
+لمتصفحك</strong> على تلك اللقطة ويربط محرك التصفح به. إن إطلاق
+الملف التنفيذي الحقيقي (بدلًا من Chromium مضمّن مع خيارات mock-keychain) هو ما
+يُبقي ملفات تعريف الارتباط المشفّرة بواسطة نظام التشغيل قابلة لفك التشفير — ففي macOS تُشفَّر ملفات تعريف الارتباط في Chrome
+عبر Keychain، والإطلاق باستخدام mock-keychain سيُسقطها جميعًا
+بصمت، فيفتح المتصفح دون تسجيل دخول. لا يُفتح الـ profile الحي لمتصفحك <strong>مباشرةً
+أبدًا</strong>: فاللقطة
+مجلد منفصل، لذا لا تتنازع مع متصفحك قيد التشغيل على
+قفل الـ profile، كما تتجنّب حظر Chrome 136+ للتصحيح عن بُعد على
+مجلد الـ profile الافتراضي. تُعاد مزامنة ملفات المصادقة (cookies/logins/preferences)
+من الـ profile الحقيقي كلما أُطلقت جلسة جديدة، لذا فإن تسجيلات الدخول
+التي تُجريها في متصفحك تظهر في جلسة الوكيل. لا يُنسخ إلا الـ profile
+النشط — ولا تُلتقط أبدًا لقطات لأي profiles أخرى في Chrome.</p>
+<p>يعمل متصفح اللقطة (snapshot) في وضع <strong>headless</strong> — فهو يقود الملف الشخصي الخاص بك في الخلفية دون نافذة مرئية ولا يسرق التركيز أبدًا، لذا يمكنك مواصلة العمل بينما ينشر الوكيل التغريدات أو يعبّئ النماذج أو يستخرج البيانات نيابةً عنك. (يعني headless هنا وضع headless <em>الجديد</em> في Chrome، الذي يقرأ مخزن ملفات تعريف الارتباط العادي لديك، لذا تظل تسجيلات دخولك تُحمَّل.) وإذا كنت تفضّل مشاهدته أثناء العمل، فإن مفتاح <a href="#headed-mode-visible-browser-window">الوضع المرئي (headed)</a> نفسه ينطبق هنا — إذ يفتح <code>browser.headed: true</code> نافذة مرئية للتصفح بالملف الشخصي الحقيقي أيضًا. أما على مضيف بلا شاشة (الخوادم، CI) فيعمل دائمًا في وضع headless بغض النظر عن ذلك.</p>
+<p>إذا كان لمتصفحك عدة profiles (مثل profile للعمل وآخر شخصي)
+ولا تريد أن يحدد &quot;أيّ profile استخدمته آخر مرة&quot; هوية
+الوكيل، فثبّت مصدر اللقطة صراحةً:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
+<p>لا يعود الـ pin الذي يسمّي مجلد profile غير موجود إلى آخر profile مستخدم بصمت أبدًا:
+يحصل الوكيل على متصفح جديد دون تسجيلات دخولك مع رسالة تسمّي الـ pin الخاطئ.</p>
+<p>عند إيقاف المفتاح مجددًا، يحذف Hermes مخزن اللقطات
+(<code>~/.hermes/browser-profile/</code>) عند الاستخدام التالي للمتصفح، حتى لا تبقى بيانات الاعتماد
+المنسوخة بعد سحب موافقتك.</p>
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="22"></x-keep></span>عندما يتعذّر نسخ profile الخاص بك، يظل المتصفح يعمل</div><div class="admonitionContent_BuS1"><p>لا يحرمك التصفح بالـ profile الحقيقي من المتصفح أبدًا. وإذا تعذّر على Hermes نسخ
+profile الخاص بك، يحصل الوكيل على متصفح جديد <strong>دون تسجيلات دخولك</strong> في تلك الجلسة،
+وتذكر أول نتيجة متصفح السبب (<code>real_profile_unavailable</code>)، ليتمكن من إخبارك
+بدلًا من التصرف كأنه مسجّل الدخول. ويحدث ذلك في الحالات التالية:</p><ul>
+<li><strong>Windows، عند أول استخدام فقط:</strong> يحتفظ Chrome/Edge/Brave قيد التشغيل بقاعدة بيانات
+ملفات تعريف الارتباط بقفل حصري (يمنع الجميع)، ولذلك تتطلب النسخة الأولى أن يكون المتصفح
+<strong>مغلقًا بالكامل</strong>، بما في ذلك أي نسخة تعمل في الخلفية أو شريط النظام (فخيار &quot;continue
+running background apps when closed&quot; في Chrome يُبقي <code>chrome.exe</code> قيد التشغيل بعد إغلاق
+النافذة). وبعد نسخة ناجحة واحدة، يعيد أي إطلاق لاحق والمتصفح مفتوح استخدام تلك النسخة:
+تكون تسجيلات دخولك كما كانت وقت آخر نسخة، وتتحدث
+في المرة التالية التي يشغّل فيها Hermes متصفحه بينما متصفحك مغلق.</li>
+<li><strong>المتصفح الافتراضي لديك ليس Chromium مدعومًا</strong> (Firefox، أو قناة Beta/Dev/Canary)،
+أو أن الـ profile المثبَّت غير موجود.</li>
+<li><strong>قاعدة بيانات ملفات تعريف الارتباط غير قابلة للقراءة أو تالفة</strong>: تسمّيها الرسالة
+وتذكر خطأ SQLite.</li>
+</ul><p>في macOS و Linux يحتفظ Chrome قيد التشغيل بالملفات <code>Login Data</code> و<code>Login Data For Account</code>
+و<code>Web Data</code> (كلمات المرور المحفوظة والملء التلقائي) بقفل كتابة، لكن الملف <code>Cookies</code>
+يمكن نسخه مع ذلك، وملفات تعريف الارتباط هي ما يُبقيك مسجّل الدخول في المواقع. ينسخ Hermes
+ملفات تعريف الارتباط ويتخطى ملفات كلمات المرور/الملء التلقائي المقفلة، فيمكنك إبقاء متصفحك
+مفتوحًا. وتُنسخ كل قاعدة بيانات عبر النسخ الاحتياطي المتصل في SQLite (وليس نسخًا خامًا للملف،
+وقد يفقد تسجيلات الدخول الحديثة).</p><p>اضبط <code>browser.real_profile_autoclose: true</code> ليتمكن Hermes من أن <strong>يعرض عليك إغلاق
+المتصفح نيابةً عنك</strong> عندما يكون محتفظًا بقفل الـ profile (حالة Windows). وحتى مع
+تفعيل هذا الخيار، لا يغلقه Hermes تلقائيًا أبدًا: يسألك الوكيل أولًا، ولا ينفّذ
+إلا بعد موافقتك الأمر <code>hermes browser close-profile</code> (الذي يُنهي شجرة عمليات المتصفح المرتبطة
+بذلك الـ profile، مع فقدان علامات التبويب غير المحفوظة). وعندها تلتقط جلسة المتصفح الجديدة
+profile الخاص بك.</p></div></div>
+<ul>
+<li><strong>المتصفحات المدعومة:</strong> Chrome و Edge و Brave و Brave Origin و Chromium (أيّها كان الافتراضي في نظام
+التشغيل). وإذا كان المتصفح الافتراضي من خارج عائلة Chromium (مثل Firefox) فيحصل الوكيل على متصفح جديد
+ورسالة واضحة بدلًا من تخمين الـ profile المطلوب استخدامه.</li>
+<li><strong>يعمل مع أي مصدر للمتصفح.</strong> محليًا يعمل تلقائيًا بمجرد تفعيل المفتاح. وفي ظل مزوّد متصفح <strong>سحابي</strong>، لا يزال بإمكان الوكيل فتح جلسة محلية بالملف الشخصي الحقيقي عند الطلب عبر أداة <code>browser_exec</code> باستخدام وسيطها <code>local</code> (لا تتيح الأداة هذا الوسيط إلا عند تفعيل هذا المفتاح) — بينما يواصل المزوّد السحابي خدمة كل ما عدا ذلك.</li>
+<li><strong>الإطار الأمني:</strong> هذه ميزة للراحة مشروطة بالموافقة، وليست حدًّا
+للعزل. فالصفحة التي يزورها الوكيل تعمل مع تسجيلات دخولك الحقيقية، لذا لا تفعّلها
+إلا عندما تريد أن يتصرف الوكيل بصفتك. معطّلة افتراضيًا.</li>
+<li><strong>Desktop:</strong> بدّل المفتاح من <strong>Capabilities → Tools → Browser → Use My Real
+Browser Profile</strong> (يقع المفتاح أعلى خيارات الـ backend)، أو من
+Settings → Config ضمن قسم <code>browser</code> القسم.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="scheduled-and-unattended-runs">التشغيل المجدول وغير المراقَب</h3>
+<p>تسمح جلسة profile حقيقي لـ <code>cronjob</code> بالتحكم في موقع سجّلت دخولك إليه بالفعل.
+تعمل اللقطة دون واجهة افتراضيًا، وتُعاد مزامنة ملفات المصادقة (<code>Cookies</code>,
+<code>Login Data</code> ، …) من profile الحقيقي عند كل جلسة جديدة —
+تُعاد الاستفادة من الجلسة المفتوحة كما هي، لذا تحدث المزامنة عند إطلاق
+جلسة جديدة. دون بيانات اعتماد محفوظة في الخزنة، تظهر الجلسة المنتهية على الموقع
+كصفحة دخول تُبلغ عنها النبضة غير المراقَبة بدلًا من أن تتعطل عندها.</p>
+<p>جهّز ثلاثة أمور قبل جدولة جلسة:</p>
+<ul>
+<li><strong>فعّل المفتاح.</strong> <code>browser.use_real_profile</code> قيمته الافتراضية <code>false</code> ، ودونه
+تحصل المهمة على profile نظيف بلا مصادقة — راجع أعلاه.</li>
+<li><strong>امنح المهمة toolset المتصفح:</strong>
+<code>cronjob(action=&quot;create&quot;, enabled_toolsets=[&quot;browser&quot;, ...], ...)</code> — تتقدم قائمة خاصة بكل مهمة
+على إعدادات منصة cron
+(<a href="/docs/user-guide/features/cron#toolsets-available-to-cron-jobs">التفاصيل</a>).</li>
+<li><strong>افترض أنه لا يمكن طلب أي مدخلات.</strong> جلسة cron أو webhook أو API أو
+ <code>hermes chat -q</code> ليس فيها من يجيب عن prompt، لذا فإن الموقع الذي لا يمكن
+استخدامه بملفات تعريف الارتباط المتزامنة وحدها — نموذج دخول أو تحدي 2FA جديد —
+يحتاج إلى حفظ بيانات اعتماده مسبقًا، بما فيها مفتاح المصادِق. هذه مهمة
+<a href="/docs/user-guide/features/credential-vault#headless-sessions">خزنة بيانات الاعتماد</a>، وهي
+ما يتيح استمرار التشغيل بعد انتهاء جلستك الشخصية.</li>
+</ul>
+<p><strong>متطلب Windows:</strong> يجب إغلاق المتصفح تمامًا قبل أخذ اللقطة الأولى.
+وبعد ذلك، تعيد النبضة التي تعمل والمتصفح مفتوح استخدام آخر لقطة (تسجيلات الدخول كما كانت وقت
+تلك النسخة)؛ وإذا لم توجد لقطة بعد، تعمل النبضة على متصفح جديد غير مسجّل الدخول. ولا يغلقه Hermes أبدًا دون أن يسألك أولًا
+(راجع الملاحظة أعلاه).</p>
+<p>المهارة المضمّنة <code>product-price-monitor</code> مثال تطبيقي للشكل
+المتكرر — عقد مراقبة JSON يُكتب أثناء الإعداد، ثم نبضة مجدولة واحدة
+تعيد قراءته وتقارن وتُنبه عند التغيير — لكنها تغطي جانب الجدولة
+لا تسجيل الدخول.</p>

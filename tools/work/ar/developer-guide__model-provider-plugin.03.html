@@ -1,0 +1,62 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="recovery-and-error-classification">الاسترداد وتصنيف الأخطاء</h2>
+<p>تُحمَّل إضافة <code>kind: model-provider</code> بواسطة اكتشاف المزوّدين، <strong>لا</strong> بواسطة مدير الإضافات العام، لذا لا يمكن الوصول منها إلى hook الإضافة <code>transform_api_error_classification</code> دون تقديم مكون إضافة ثانٍ. ويحمل الـ profile نقطة التكامل المكافئة بدلًا من ذلك:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="11"></x-keep></div></div>
+<table><thead><tr><th>العقد</th><th></th></tr></thead><tbody><tr><td><code>classify_api_error(error, *, status_code, error_code, message, body, model)</code></td><td>يستشيره <code>agent.error_classifier.classify_api_error</code> لإخفاقات <strong>هذا المزوّد وحده</strong>، بعد أي hooks عامة <code>transform_api_error_classification</code> وقبل pipeline المدمج. و <code>message</code> هو نص الخطأ بأحرف صغيرة، و <code>body</code> هو جسم JSON المحلّل (قد يكون فارغًا). أعد <code>{&quot;reason&quot;: &lt;FailoverReason name&gt;}</code> بالإضافة إلى <code>retryable</code> / <code>should_compress</code> / <code>should_rotate_credential</code> / <code>should_fallback</code> / <code>error_context</code> الاختيارية للتجاوز (للأسباب النهائية — الفوترة، والمصادقة، و model_not_found … — يتضمن <code>should_fallback: True</code> القيمة <code>retryable: False</code> ما لم تضبطها، لأن سلسلة البدائل لا تعمل إلا للأحكام غير القابلة لإعادة المحاولة؛ وتحافظ أسباب حد المعدل على البنية المدمجة لإعادة المحاولة ثم البديل)؛ ويترك <code>None</code> (أو سبب غير معروف) الحكم المدمج كما هو. تُحتوى الاستثناءات وتُسجل عند DEBUG. ويوجه الحكم الاسترداد نفسه المستخدم للمزوّدين المدمجين — مثلًا يستبعد <code>billing</code> بيانات الاعتماد لمدة TTL الفوترة بدل تهدئة 403 المؤقتة.</td></tr><tr><td>401 على بيانات اعتماد إضافة</td><td>يعالجه مجمع بيانات الاعتماد دون تعديل النواة: يُحدّث الصف المُجمع الفاشل عبر <code>refresh_credential</code> مرة لكل محاولة (بحد أقصى تحديثين لكل صف في الجلسة)، ويُعاد بناء العميل بالـ token المدوّر وإعادة الطلب. وتستبعد عودة <code>None</code>/فارغة أو استثناء الصف — ثم يدوّر الطلب أو يعود إلى العبارة العامة &quot;sign in again: <code>hermes auth add &lt;name&gt;</code>&quot;، لا إلى إرشاد مزوّد مدمج مطلقًا.</td></tr><tr><td>الاستدعاءات المساعدة</td><td>تخدم إضافة <code>oauth_external</code> / <code>oauth_device_code</code> التي تقدم <code>create_client</code> المهام المساعدة على صفها المُجمع (يُدوّر الصف الذي يوشك على الانتهاء أولًا)؛ وتأخذ أخطاء 401 المساعدة تحديث المجمع نفسه (<code>try_refresh_current</code> → <code>refresh_credential</code>).</td></tr></tbody></table>
+<p>الاسترداد الذي يظل مرتبطًا بالاسم في النواة سلوك لا يملك بنية عامة آمنة (مخزن token خاص بمزوّد لإعادة المزامنة، أو حاجز استحقاق لشريحة خطة، أو حجر refresh-token أحادي الاستخدام). وتملك الإضافة التي تحتاج أحد هذه السلوكيات تنفيذه داخل <code>refresh_credential</code> / <code>classify_api_error</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="discovery-timing">توقيت الاكتشاف</h2>
+<p>اكتشاف المزوّدين <strong>كسول</strong> — يُطلقه أول استدعاء لـ <code>get_provider_profile()</code> أو <code>list_providers()</code> في العملية. وعمليًا يحدث ذلك مبكرًا عند بدء التشغيل (إذ يوسّع تحميل الوحدة <code>auth.py</code> السجل <code>PROVIDER_REGISTRY</code> فورًا). وإذا احتجت إلى التحقق من تحميل إضافتك، فنفّذ:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="12"></x-keep></div></div>
+<p>— يظهر الـ profile الناجح ذو <code>auth_type=&quot;api_key&quot;</code> يظهر profile ضمن قسم Provider Connectivity مع <code>/models</code> الاختبار.</p>
+<p>للفحص البرمجي:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing-your-plugin">اختبار إضافتك</h2>
+<p>وجّه <code>HERMES_HOME</code> إلى مجلد مؤقت كي لا تلوّث إعداداتك الحقيقية:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="general-pluginmanager-integration">التكامل مع PluginManager العام</h2>
+<p>المكوّن العام <code>PluginManager</code> (وهو ما يعمل عليه <code>hermes plugins</code> يعمل عليه) <strong>يرى</strong> إضافات مزوّدي النماذج لكنه لا يستوردها — إذ يتولى <code>providers/__init__.py</code> دورة حياتها. ويسجّل المدير البيان (manifest) لأغراض الاستبطان ويصنّفها حسب <code>kind: model-provider</code>. وعندما تضع إضافة مستخدم غير مصنّفة في <code>$HERMES_HOME/plugins/</code> وتصادف أنها تستدعي <code>register_provider</code> مع <code>ProviderProfile</code>، يحوّلها المدير تلقائيًا إلى <code>kind: model-provider</code> بأسلوب استدلالي يعتمد على نص الشيفرة المصدرية — فتُوجَّه الإضافة توجيهًا صحيحًا حتى دون <code>plugin.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="distribute-via-pip">التوزيع عبر pip</h2>
+<p>يمكن توزيع مزوّدي النماذج كحزمة pip. أتِح نقطة دخول (entry point) ضمن المجموعة
+<code>hermes_agent.plugins</code> في ملف <code>pyproject.toml</code>:</p>
+<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>يمكن أن يكون الهدف أحد الخيارين:</p>
+<ul>
+<li>هو <strong>كائنًا قابلًا للاستدعاء</strong> (<code>module:func</code>) — يُستدعى دون وسائط، وينبغي أن يستدعي
+<code>register_provider(profile)</code>، أو</li>
+<li>هو <strong>وحدة مجردة</strong> (<code>module</code>) — تُستورد من أجل الأثر الجانبي لاستدعاء
+<code>register_provider(...)</code> على مستوى الوحدة، على غرار عقد
+<code>__init__.py</code> في الإضافات القائمة على المجلدات.</li>
+</ul>
+<p><code>providers/__init__.py</code> نقاط الدخول هذه بنفسه — فالمكوّن العام
+<code>PluginManager</code> لا يستدعي أبدًا تسجيل المزوّدين لحزم pip (إذ يستهدف
+مسار نقاط الدخول لديه الإضافات العامة بنمط <code>register(ctx)</code>، ويخضع لـ
+<code>plugins.enabled</code>)، لذا يجري سجل المزوّدين فحصه الخاص. وتنطبق
+قاعدتان:</p>
+<ul>
+<li>
+<p><strong>التفعيل الصريح (opt-in) مطلوب.</strong> تحكم هذا الفحص قائمة السماح نفسها <code>plugins.enabled</code> (وقائمة المنع
+<code>plugins.disabled</code>) الموجودتان في <code>config.yaml</code>. فلا تُستورد حزمة pip
+أبدًا لمجرد أنها مثبّتة — بل يجب على المستخدمين إضافة
+اسم نقطة الدخول إلى <code>plugins.enabled</code>:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+</li>
+<li>
+<p><strong>أدنى أسبقية.</strong> تُكتشف الإضافات القائمة على نقاط الدخول <strong>قبل</strong>
+الإضافات الموجودة في نظام الملفات: ولأن <code>register_provider()</code> تعتمد قاعدة &quot;آخر من يكتب هو الفائز&quot;، فإن
+أي profile مضمّن أو موجود في <code>$HERMES_HOME</code> يحمل الاسم نفسه يتفوق دائمًا على
+الـ profile المثبّت عبر pip. ويمكن لحزمة pip أن تضيف مزوّدًا جديدًا فعلًا، لكنها
+لا تستطيع الاستيلاء بصمت على اسم مزوّد رسمي.</p>
+</li>
+</ul>
+<p>أما الأهداف التي تتطلب وسائط (مثل <code>register(ctx)</code> في الإضافات العامة) فيتخطاها
+فحص المزوّدين — لأنها تتبع <code>PluginManager</code>. ونقطة الدخول المعطوبة
+تُعزل — إذ تُسجَّل بمستوى تحذير وتُتخطى، ولا تعطّل أبدًا
+اكتشاف المزوّدين الآخرين.</p>
+<p>راجع <a href="/docs/developer-guide/plugins#distribute-via-pip">بناء إضافة لـ Hermes</a> للاطلاع على الإعداد الكامل لنقاط الدخول.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="related-pages">صفحات ذات صلة</h2>
+<ul>
+<li><a href="/docs/developer-guide/provider-runtime">تحديد المزوّد وقت التشغيل</a> — أسبقية الحسم والموضع الذي تقرأ فيه كل طبقة الـ profile</li>
+<li><a href="/docs/developer-guide/adding-providers">إضافة مزوّدين</a> — قائمة تحقق شاملة من البداية إلى النهاية لـ backends الـ inference الجديدة (تغطي مسار الإضافة السريع والتكامل الكامل مع CLI والمصادقة)</li>
+<li><a href="/docs/developer-guide/memory-provider-plugin">إضافات مزوّدي الذاكرة</a></li>
+<li><a href="/docs/developer-guide/context-engine-plugin">إضافات Context Engine</a></li>
+<li><a href="/docs/developer-guide/plugins">بناء إضافة لـ Hermes</a> — تأليف الإضافات العامة</li>
+</ul>

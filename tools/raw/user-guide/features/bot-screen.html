@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Bot Screen | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/user-guide/features/bot-screen"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Bot Screen | Hermes Agent"><meta data-rh="true" name="description" content="On a headless Linux gateway host (a server, a cloud VM, Hermes Cloud) each bot"><meta data-rh="true" property="og:description" content="On a headless Linux gateway host (a server, a cloud VM, Hermes Cloud) each bot"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/bot-screen"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/bot-screen" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/bot-screen" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/bot-screen" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Bot Screen","item":"https://hermes-agent.nousresearch.com/docs/user-guide/features/bot-screen"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.21aa5cae.js" defer="defer"></script>
-<script src="/docs/assets/js/main.6114da03.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
+<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -19,7 +19,7 @@ browser act on, streamed live into Hermes Desktop. Watch what the bot does,
 <strong>hand control back</strong> and let it continue with the session you just signed in
 to. The bot keeps working after you close the app or turn off your laptop; the
 screen lives on the gateway host, not on your machine. If the gateway runs its
-<code>terminal</code> in a sandbox (<code>terminal.backend: docker</code>, <code>ssh</code> or <code>singularity</code>),
+<code>terminal</code> in a sandbox (<code>terminal.backend: docker</code>, <code>ssh</code>, or a streaming plugin backend such as <code>singularity</code>),
 the screen lives <strong>inside that sandbox</strong> instead, alongside the shell, so the
 bot&#x27;s <code>computer_use</code> and browser never act outside the boundary you drew (see
 <a href="#where-the-screen-runs" class="">Where the screen runs</a>).</p>
@@ -33,7 +33,7 @@ running as that user — another bot on the same host, and the bot&#x27;s own
 <code>terminal</code> tool included — can reach them directly, bypassing the pane and the
 lease. The lease is a tool-level fence on <code>computer_use</code> and the browser tools,
 not an OS one. One boundary is wider than the OS user: Chromium&#x27;s DevTools
-port (the dock&#x27;s Browser and every agent-browser launch advertise one on
+port (the dock&#x27;s Browser and every Chromium Hermes launches advertise one on
 loopback so the agent can attach) is reachable by <strong>any</strong> local user on the
 host, and Chromium offers no per-user restriction for it. Running each bot as
 its own OS user is out of scope; if that isolation matters to you, or the host
@@ -172,9 +172,9 @@ waiting for you.</p>
 controller drops back to watching.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-sessions-that-survive-the-handoff">Browser sessions that survive the handoff<a href="#browser-sessions-that-survive-the-handoff" class="hash-link" aria-label="Direct link to Browser sessions that survive the handoff" title="Direct link to Browser sessions that survive the handoff" translate="no">​</a></h2>
 <p>While the screen runs, the bot&#x27;s browser tool and the dock&#x27;s <strong>Browser</strong> icon are
-the same browser: the Chromium agent-browser drives, with one persistent
+the same browser: the Chromium <code>browser_exec</code> drives, with one persistent
 user-data-dir per bot (<code>&lt;HERMES_HOME&gt;/bot-desktop/browser-profile</code>; set
-<code>AGENT_BROWSER_PROFILE</code> to pin your own — <code>~</code> expands, and a relative path such
+<code>browser.user_data_dir</code> to pin your own — <code>~</code> expands, and a relative path such
 as <code>pin</code> resolves against that bot&#x27;s <code>HERMES_HOME</code>, i.e. <code>&lt;HERMES_HOME&gt;/pin</code>).
 Click Browser during a takeover and you
 are in the bot&#x27;s own windows and cookie jar; what you sign in to is what the bot
@@ -184,34 +184,34 @@ Set <code>browser.headed: true</code> so the bot&#x27;s own browsing is visible 
 The guard is the panel layout file
 <code>&lt;HERMES_HOME&gt;/bot-desktop/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml</code>:
 while it exists the launcher leaves the panel alone, so changing
-<code>AGENT_BROWSER_EXECUTABLE_PATH</code> or <code>AGENT_BROWSER_PROFILE</code> and restarting the
+<code>browser.executable_path</code> or <code>browser.user_data_dir</code> and restarting the
 screen does not re-pin the Browser icon. Delete that file and the dock is
 rebuilt on the next <code>screen start</code> from whatever is installed then.</p>
 <p>Which Chromium the dock and the bot use: an explicit
-<code>AGENT_BROWSER_EXECUTABLE_PATH</code> wins; otherwise Hermes uses the PM-managed
+<code>browser.executable_path</code> wins; otherwise Hermes uses the PM-managed
 Chromium and falls back to a system <code>chromium</code> / <code>google-chrome</code>. A non-root
 user on a host with <code>kernel.apparmor_restrict_unprivileged_userns=1</code> (Ubuntu
 23.10 and later) gets the reverse order, because there the managed build cannot
 set up its sandbox and exits with <code>FATAL: No usable sandbox!</code>, while the
 distro&#x27;s Chromium ships with an AppArmor profile that allows it. If the pick is
-wrong for your host, set <code>AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium</code> (or
-your Chrome path) in the gateway&#x27;s environment. The official Docker image
-points <code>AGENT_BROWSER_EXECUTABLE_PATH</code> at PM&#x27;s pinned full Chromium, which can
-draw a window, so the dock&#x27;s Browser icon uses it; the <code>-desktop</code> tags also
-carry the distro <code>chromium</code> — set
-<code>AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium</code> on hosts that refuse the
-pinned build&#x27;s sandbox. A Playwright <em>headless shell</em> is never used for the
+wrong for your host, set <code>browser.executable_path: /usr/bin/chromium</code> (or
+your Chrome path) in the bot&#x27;s <code>config.yaml</code>. The official Docker image
+records PM&#x27;s pinned full Chromium in <code>/etc/hermes/chromium-executable-path</code>;
+that build can draw a window, so the dock&#x27;s Browser icon uses it. The
+<code>-desktop</code> tags also carry the distro <code>chromium</code> — set
+<code>browser.executable_path: /usr/bin/chromium</code> on hosts that refuse the pinned
+build&#x27;s sandbox. A Playwright <em>headless shell</em> is never used for the
 icon: when it is the only browser, the pane / <code>screen status</code> report <strong>no
 headed browser</strong> until you install a headed one (<code>apt-get install chromium</code>).
-The dock icon starts the browser with the same sandbox settings agent-browser
-uses in that container, so the human&#x27;s Browser and the bot&#x27;s browser are one
+The dock icon starts the browser with the same sandbox settings Hermes&#x27;s
+Chromium launcher uses in that container, so the human&#x27;s Browser and the bot&#x27;s browser are one
 and the same.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli">CLI<a href="#cli" class="hash-link" aria-label="Direct link to CLI" title="Direct link to CLI" translate="no">​</a></h2>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> status          </span><span class="token comment" style="color:rgb(98, 114, 164)"># installed? running? who holds control?</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> start           </span><span class="token comment" style="color:rgb(98, 114, 164)"># start this profile&#x27;s screen</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> stop            </span><span class="token comment" style="color:rgb(98, 114, 164)"># stop it; refuses while a human holds control</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> stop </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">--force</span><span class="token plain">    </span><span class="token comment" style="color:rgb(98, 114, 164)"># ...unless you say so (also frees a stuck lease)</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> </span><span class="token function" style="color:rgb(80, 250, 123)">install</span><span class="token plain"> </span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token plain">-y</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><span class="token plain">    </span><span class="token comment" style="color:rgb(98, 114, 164)"># apt/dnf/pacman the packages</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">hermes </span><span class="token parameter variable" style="color:rgb(189, 147, 249);font-style:italic">-p</span><span class="token plain"> research computer-use </span><span class="token function" style="color:rgb(80, 250, 123)">screen</span><span class="token plain"> start   </span><span class="token comment" style="color:rgb(98, 114, 164)"># another bot&#x27;s screen</span><br></div></code></pre></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-the-screen-runs">Where the screen runs<a href="#where-the-screen-runs" class="hash-link" aria-label="Direct link to Where the screen runs" title="Direct link to Where the screen runs" translate="no">​</a></h2>
 <p><code>computer_use</code>, the bot&#x27;s browser and the screen they act on always run in the
 same place. <code>bot_desktop.placement</code> decides where:</p>
-<table><thead><tr><th><code>terminal.backend</code></th><th><code>placement: auto</code> (default)</th><th>What that means</th></tr></thead><tbody><tr><td><code>local</code></td><td>gateway host</td><td>The terminal, the screen, the browser and <code>computer_use</code> all share the machine running the gateway.</td></tr><tr><td><code>docker</code>, <code>ssh</code>, <code>singularity</code></td><td><strong>inside the sandbox</strong></td><td>Xvnc + Xfce, Chromium and cua-driver run in the container / on the SSH host, spawned through the same <code>docker exec</code> / <code>ssh</code> channel the terminal uses. The pane streams the sandbox&#x27;s screen; nothing of the host desktop is reachable.</td></tr><tr><td>A plugin backend that declares <code>supports_streams</code></td><td><strong>inside the sandbox</strong></td><td>Same as above, through the plugin&#x27;s own exec channel.</td></tr><tr><td><code>modal</code>, <code>daytona</code>, <code>vercel_sandbox</code>, other plugin backends</td><td><strong>refused</strong></td><td>These backends cannot host a display yet. Rather than quietly running the screen on the host beside the sandbox you chose for the agent, <code>Start</code> explains and points at <code>placement: gateway</code>.</td></tr></tbody></table>
+<table><thead><tr><th><code>terminal.backend</code></th><th><code>placement: auto</code> (default)</th><th>What that means</th></tr></thead><tbody><tr><td><code>local</code></td><td>gateway host</td><td>The terminal, the screen, the browser and <code>computer_use</code> all share the machine running the gateway.</td></tr><tr><td><code>docker</code>, <code>ssh</code>, <code>singularity</code> (plugin)</td><td><strong>inside the sandbox</strong></td><td>Xvnc + Xfce, Chromium and cua-driver run in the container / on the SSH host, spawned through the same <code>docker exec</code> / <code>ssh</code> channel the terminal uses. The pane streams the sandbox&#x27;s screen; nothing of the host desktop is reachable.</td></tr><tr><td>A plugin backend that declares <code>supports_streams</code></td><td><strong>inside the sandbox</strong></td><td>Same as above, through the plugin&#x27;s own exec channel.</td></tr><tr><td><code>modal</code>, <code>daytona</code>, <code>vercel_sandbox</code>, other plugin backends</td><td><strong>refused</strong></td><td>These backends cannot host a display yet. Rather than quietly running the screen on the host beside the sandbox you chose for the agent, <code>Start</code> explains and points at <code>placement: gateway</code>.</td></tr></tbody></table>
 <p><code>placement: gateway</code> forces the pre-existing behaviour (screen on the gateway
 host even with a sandboxed terminal) as an explicit opt-in; <code>placement: terminal</code> forces the sandbox and errors when it cannot host one (with a
 <code>local</code> backend the terminal <em>is</em> the gateway host, so it resolves there).</p>
@@ -229,7 +229,7 @@ it, so the restarted gateway re-attaches to a still-running sandbox, and
 <p>The sandbox needs the desktop stack. <code>nousresearch/hermes-sandbox:desktop</code> is
 the default image for every container backend (Docker, Modal, Daytona,
 Singularity): the <code>nikolaik/python-nodejs</code> base (Python 3.13 / Node 26) plus
-TigerVNC, the Xfce components, a headed Chromium, <code>agent-browser</code>, <code>cua-driver</code>
+TigerVNC, the Xfce components, a headed Chromium, <code>cua-driver</code>
 and the everyday tools that base lacked (jq, ripgrep, fd, tmux, rsync, sudo for
 the image&#x27;s <code>pn</code> user). Its default user is root, like the old default, so
 shell workflows do not change. An image you pinned yourself is left alone, and
@@ -246,13 +246,13 @@ screen&#x27;s runtime state lives) is Apptainer&#x27;s session tmpfs, 64 MiB unl
 admin raised <code>sessiondir max size</code>. This path is verified against the Apptainer
 documentation, not exercised live.</p>
 <p>An SSH host is whatever you point the backend at, so it carries the stack
-itself: the same binaries (TigerVNC, Xfce, <code>cua-driver</code>, <code>agent-browser</code> with a
-Chromium it can find), reachable from a <strong>non-interactive login session</strong>. That
+itself: the same binaries (TigerVNC, Xfce, <code>cua-driver</code>, a headed Chromium),
+reachable from a <strong>non-interactive login session</strong>. That
 last part is where a host built from the desktop image differs from <code>docker exec</code>:
 a Dockerfile <code>ENV</code> never reaches an ssh session, so the image also writes
 <code>PLAYWRIGHT_BROWSERS_PATH</code> to <code>/etc/environment</code> for PAM to apply. A host of
-your own needs the equivalent, or <code>agent-browser</code> reports &quot;Chrome not found&quot;
-over ssh while working in a local shell.</p>
+your own needs the equivalent, or the browser finds no Chromium over ssh
+while working in a local shell.</p>
 <p><strong>Upgrading from the previous default.</strong> A Docker sandbox you already have is
 kept, not replaced: when <code>docker_image</code> is unset and a persisted container runs
 another image (the old default, <code>nikolaik/python-nodejs:python3.11-nodejs20</code>),

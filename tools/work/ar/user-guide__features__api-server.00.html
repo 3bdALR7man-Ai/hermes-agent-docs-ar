@@ -1,7 +1,7 @@
 <header><h1>خادم API</h1></header>
 <p>يوفّر خادم API وكيل hermes-agent على شكل HTTP endpoint متوافق مع OpenAI. ويمكن لأي واجهة أمامية (frontend) تتعامل بصيغة OpenAI — مثل Open WebUI و LobeChat و LibreChat و NextChat و ChatBox ومئات غيرها — الاتصال بـ hermes-agent واستخدامه كـ backend.</p>
 <p>يعالج وكيلك الطلبات بمجموعة أدواته الكاملة (الطرفية، وعمليات الملفات، والبحث في الويب، والذاكرة، والمهارات) ثم يُرجع الاستجابة النهائية. وعند البث (streaming)، تظهر مؤشرات تقدّم الأدوات ضمن الاستجابة مباشرةً لتتمكن الواجهات الأمامية من عرض ما يفعله الوكيل.</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>backend واحد يغطي النماذج والأدوات</div><div class="admonitionContent_BuS1"><p>يحتاج Hermes نفسه إلى مزوّد مُعدّ وإلى backends للأدوات حتى يكون خادم API مفيدًا. ويتكفّل اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> بالأمرين معًا — أكثر من 300 نموذج إضافةً إلى الويب/الصور/TTS/المتصفح عبر Tool Gateway. نفّذ <code>hermes setup --portal</code> مرة واحدة قبل تشغيل خادم API، وستحصل الواجهات الأمامية مثل Open WebUI أو LobeChat على backend مجهّز بالأدوات بالكامل.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="28"></x-keep></span>backend واحد يغطي النماذج والأدوات</div><div class="admonitionContent_BuS1"><p>يحتاج Hermes نفسه إلى مزوّد مُعدّ وإلى backends للأدوات حتى يكون خادم API مفيدًا. ويتكفّل اشتراك <a href="/docs/user-guide/features/tool-gateway">Nous Portal</a> بالأمرين معًا — أكثر من 300 نموذج إضافةً إلى الويب/الصور/TTS/المتصفح عبر Tool Gateway. نفّذ <code>hermes setup --portal</code> مرة واحدة قبل تشغيل خادم API، وستحصل الواجهات الأمامية مثل Open WebUI أو LobeChat على backend مجهّز بالأدوات بالكامل.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-start">البدء السريع</h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="1-enable-the-api-server">1. فعّل خادم API</h3>
 <p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
@@ -28,6 +28,11 @@
 والحدثين <code>response.cancelled</code> / <code>response.failed</code>، بما في ذلك عند وجود
 نص تشخيصي. ويُبلغ Chat Completions عن <code>finish_reason: &quot;cancelled&quot;</code>
 للأدوار المقاطَعة وعن <code>&quot;error&quot;</code> للإخفاقات، لا عن <code>&quot;stop&quot;</code> الناجح.</li>
+<li>الدور (turn) الذي ينفد ميزانية تكراراته (<code>agent.max_turns</code>) يظل يجيب بخلاصة الوكيل لما وجده.
+يُسلّم Chat Completions هذا النص مع
+<code>finish_reason: &quot;length&quot;</code> و <code>hermes.error_code: &quot;iteration_budget_exhausted&quot;</code>؛
+أما Responses فيُبلغ عن <code>status: &quot;incomplete&quot;</code>. تعامل مع المحتوى بوصفه إجابة صالحة للاستخدام عن مهمة
+توقفت قبل اكتمالها، لا بوصفه إلغاءً.</li>
 <li>تتضمن ردود محادثة الجلسة الحقل <code>status</code>؛ وتبلّغ تدفقاتها عن أحداث تشغيل نهائية مطابقة. وإطار
 إنهاء رد المساعد ليس بحد ذاته دليلًا على نجاح التنفيذ.</li>
 </ul>
@@ -89,7 +94,7 @@ HTTP 409 <code>unknown_execution</code>: يحتفظ المخزن بمطالبة 
 يُجاب بـ 409 <code>admission_conflict</code>، حتى على جلسة حية. وحين تزول هويته
 وتُقلَّم شواهده، يمكن للمفتاح أن يسمّي عملًا جديدًا.</li>
 </ul>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يحتفظ مخزن الاستجابات افتراضيًا بآخر 1,000 هوية استقرّت لكل
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>ملاحظة</div><div class="admonitionContent_BuS1"><p>يحتفظ مخزن الاستجابات افتراضيًا بآخر 1,000 هوية استقرّت لكل
 profile (10 لكل خانة استجابة مخزّنة). ولا تُحتسب الهويات المعلّقة أو الجارية
 ولا تُسقَط أبدًا، ويؤدي حذف استجابة إلى إزالة هويتها مبكرًا. وهذا
 افتراضي حالي وليس ضمانًا للإعادة.</p></div></div>
@@ -177,63 +182,60 @@ system prompt ورسالة المستخدم الأولى. ولا يُعاد اس
 <p>يُرجع وصفًا قابلًا للقراءة آليًا للواجهة المستقرة التي يوفّرها خادم API، وذلك للواجهات الخارجية ومنظِّمات التشغيل (orchestrators) وجسور الإضافات.</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
 <p>استخدم هذا الـ endpoint عند دمج لوحات التحكم أو واجهات المتصفح أو مستويات التحكم (control planes)، لكي تكتشف ما إذا كان إصدار Hermes العامل يدعم runs والبث والإلغاء واستمرارية الجلسة، دون الاعتماد على تفاصيل Python الداخلية الخاصة.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-extension-control">التحكم عبر امتداد المتصفح</h2>
-<p>يمكن لـ Hermes توجيه أدوات المتصفح عبر امتداد متصفح (browser extension) مصادَق عليه يتحكم
-في جلسة المتصفح المرتبطة بجلسة Hermes الحالية. هذه الميزة
-معطّلة افتراضيًا؛ اضبط <code>browser.extension_control.enabled</code> على <code>true</code> لتفعيلها:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
-<p>يتطلب مسار API المحلي أيضًا مفتاح bearer الخاص بخادم API. ولا يمكن لوحدة التحكم (controller)
-التسجيل إلا لجلسة خادم موجودة. ويشتق Hermes هوية الجهة الأساسية (principal) لوحدة التحكم
-من حالة الخادم المصادَق عليها؛ ويُتجاهل أي <code>principal_id</code> يقدّمه
-العميل.</p>
-<p>اكتشف العقد الحالي عبر <code>GET /v1/capabilities</code>. يوضّح الكائن
-<code>browser_extension_control</code> ما إذا كانت الميزة مفعّلة، وإصدار
-البروتوكول، وأسماء وسائل النقل (transports)، وقائمة القدرات المسموح بها بدقة:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
-<p>تُستبعد القدرات المطلوبة التي تقع خارج تلك القائمة. ولا تُعدّ CDP الخام، ولا تقييم
-السكربتات العشوائية، ولا الوصول إلى console، ولا الرفع، ولا استخراج الصور، ولا الرؤية (vision)
-جزءًا من بروتوكول وحدة التحكم.</p>
-<p>عندما لا تكون للطلب هوية وحدة تحكم مرتبطة به، أو عندما تكون الميزة معطّلة،
-يحتفظ Hermes بـ backend المتصفح الحالي. أما بمجرد أن يربط gateway
-هوية وحدة تحكم وعائلة وسيلة نقل بالطلب، يصبح مسار الامتداد هذا
-هو المرجع الحاسم: فوحدات التحكم المفقودة أو الملتبسة أو غير المتصلة أو غير القادرة
-تفشل بشكل مغلق (fail closed) بدلًا من الانتقال بصمت إلى متصفح محلي/سحابي مختلف.
-وبعد اختيار وحدة تحكم بعينها، تكون نتيجتها أو خطؤها هي المرجع الحاسم،
-ولا يعيد Hermes أبدًا محاولة الإجراء نفسه عبر backend آخر.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-api-registration">التسجيل عبر API المحلي</h3>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-extension-control-removed">التحكم عبر إضافة المتصفح (أُزيل)</h2>
+<p>أُزيل بروتوكول وحدة التحكم في إضافة المتصفح (<code>POST /v1/browser-control/register</code>،
+و<code>GET /v1/browser-control/ws</code>، ومسارات <code>/v1/artifacts/*</code>، واستدعاءات RPC في لوحة التحكم
+<code>browser.controller.*</code>، ومفتاح الإعدادات <code>browser.extension_control</code>).
+كان يوجّه الأدوات القديمة <code>browser_navigate</code>/<code>browser_click</code>/…،
+وهي لم تعد موجودة: أصبحت أتمتة المتصفح الآن عبر <code>browser_exec</code> فوق CDP. ولكي
+يتحكم Hermes في متصفح تشغّله بالفعل، وجّهه إلى endpoint الخاص بـ DevTools في ذلك المتصفح
+عبر <code>browser.cdp_url</code> في <code>config.yaml</code> أو <code>/browser connect</code> — راجع
+<a href="/docs/user-guide/features/browser#your-own-browser-via-cdp-browser-connect">Your own browser via CDP</a>.
+تؤدي الترقية إلى حذف كتلة <code>browser.extension_control</code> المتبقية من <code>config.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-request-model-selection">اختيار النموذج لكل طلب</h2>
+<p>يمكن للعملاء المصادَق عليهم تجاوز اختيار النموذج الافتراضي في Hermes لكل طلب على حدة
+بإرسال:</p>
+<ul>
+<li><code>model</code> — معرّف النموذج المستهدف لهذا الدور</li>
+<li><code>provider</code> — المعرّف المختصر (slug) لمزوّد Hermes لتحديد بيانات الاعتماد/بيئة التشغيل لهذا الدور</li>
+<li><code>model_options</code> — عناصر تحكم الاستدلال (reasoning) / فئة الخدمة (service tier) الخاصة بهذا الطلب فقط</li>
+</ul>
+<p>تُقبل حقول الطلب نفسها على:</p>
+<ul>
+<li><code>POST /v1/chat/completions</code></li>
+<li><code>POST /v1/responses</code></li>
+<li><code>POST /v1/runs</code></li>
+<li><code>POST /api/sessions/{session_id}/chat</code></li>
+<li><code>POST /api/sessions/{session_id}/chat/stream</code></li>
+</ul>
+<p>ترتيب الأولوية حتمي:</p>
 <ol>
-<li>أرسل طلب <code>POST /v1/browser-control/register</code> مصادَقًا عليه يتضمن
-<code>protocol_version</code> و <code>session_id</code> و <code>controller_id</code> و <code>browser_profile_id</code> و
-القدرات المطلوبة في <code>capabilities</code>.</li>
-<li>يُرجع Hermes تذكرة (ticket) للاستخدام مرة واحدة بمدة صلاحية (TTL) قدرها 30 ثانية، مع نطاق وحدة التحكم
-بعد تصفيته وربطه بالخادم.</li>
-<li>افتح <code>GET /v1/browser-control/ws</code> مع كلا بروتوكولَي WebSocket الفرعيين:
-<code>hermes-browser-control-v1</code> و
-<code>hermes-browser-control-ticket.&lt;ticket&gt;</code>.</li>
+<li>تجاوز <code>/model</code> على مستوى الجلسة، إن كان للجلسة تجاوز بالفعل</li>
+<li>ربط ثابت في <code>gateway.platforms.api_server.model_routes</code> يُختار عندما
+تكون قيمة <code>model</code> في الطلب اسمًا مستعارًا لمسار مُعدّ</li>
+<li>قيمتا <code>model</code> / <code>provider</code> المباشرتان في الطلب عندما لا يتطابق أي اسم مستعار لمسار</li>
+<li>الإعدادات العامة لـ gateway / القيم الافتراضية من البيئة</li>
 </ol>
-<p>لا تُقبل التذكرة أبدًا في سلسلة الاستعلام (query string). والتذاكر غير المعروفة أو المنتهية أو المُعاد استخدامها أو
-المشوّهة تفشل قبل ترقية الاتصال إلى WebSocket.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="controller-frames">إطارات وحدة التحكم</h3>
-<p>يرسل Hermes إطارات <code>browser.controller.command</code> تحتوي على <code>command_id</code>،
-و <code>action</code>، ووسائط <code>arguments</code> غير قابلة للتعديل، ومعرّفات المتصفح/وحدة التحكم، و
-<code>tool_call_id</code> الذي نشأ منه الطلب. وتردّ وحدة التحكم بـ <code>browser.controller.result</code> مع
-<code>command_id</code> نفسه، وقيمة منطقية دقيقة <code>ok</code>، وإما <code>result</code> أو <code>error</code>.
-ويؤدي الإلغاء وانتهاء المهلة إلى إصدار <code>browser.controller.cancel</code>؛ وتُتجاهل النتائج
-المتأخرة.</p>
-<p>يؤدي الانقطاع غير المتوقع للـ socket إلى وسم وحدة التحكم بأنها غير متصلة، مع الاحتفاظ بالعمل
-الجاري بالفعل حتى الموعد النهائي الأصلي لكل أمر. وإعادة الاتصال بنفس
-الجهة الأساسية والـ profile والجلسة ومعرّف وحدة التحكم وprofile المتصفح وهوية وسيلة
-النقل تُحدّث وسيلة النقل دون قبول عمل جديد قبل تنفيذ أي عمليات إلغاء
-مؤجلة. وقد تتغير القدرات المتفاوض عليها عند إعادة الاتصال تلك؛ فهي
-ليست من حقول الهوية. أما اختلاف معرّف وحدة التحكم أو profile المتصفح ضمن
-مسار الجلسة المصادَق عليه نفسه فيُعدّ استبدالًا نهائيًا: إذ يُلغى العمل المعلّق القديم
-قبل أن تصبح الوحدة البديلة قابلة للتوجيه. أرسل
-<code>browser.controller.detach</code> عبر وسيلة النقل المصادَق عليها لوحدة التحكم
-لإجراء فصل نهائي مقصود — وهذا يلغي العمل المعلّق فورًا. أما مجرد إغلاق
-الـ socket فيُعامل كانقطاع قابل للاسترداد.</p>
-<p>توفّر وسيلة النقل المصادَق عليها في لوحة التحكم دلالات التسجيل والنتائج
-ونبضات الحياة (heartbeat) والقدرات والملكية نفسها عبر قناة Gateway RPC/الأحداث
-الخاصة بها. وفي كلتا وسيلتي النقل، يتطلب الاختيار تطابقًا دقيقًا واحدًا لا لبس فيه في
-الجهة الأساسية والـ profile والجلسة ووحدة التحكم وprofile المتصفح وعائلة وسيلة النقل
-والقدرة. وبمجرد الاختيار، يكون فشل وحدة التحكم هو المرجع الحاسم ولا تُعاد
-محاولته أبدًا عبر backend متصفح مختلف.</p>
+<p><code>model_options</code> يظل خاصًا بالطلب بغض النظر عن النموذج/المزوّد الذي يُعتمد. إذا أرسل طلب <code>provider</code> يتعارض مع اسم مستعار مضبوط في <code>model_routes</code>، يرفض Hermes الطلب مع <code>400</code> بدلًا من خلط بيانات اعتماد المسار بمزوّد آخر بصمت.</p>
+<p><strong>قيم <code>model</code> المجرّدة على endpoints المتوافقة مع OpenAI تتطلب تفعيلًا صريحًا.</strong> فعملاء
+OpenAI العامّون كثيرًا ما يثبّتون أسماء النماذج في الكود (<code>gpt-4o</code>، ...)، وتعتمد
+عمليات النشر القائمة على عودة هذه القيم إلى النموذج الافتراضي في gateway. لذلك، على
+<code>POST /v1/chat/completions</code> و <code>POST /v1/responses</code>، تُتجاهل قيمة <code>model</code> المُرسلة
+دون أي <code>provider</code> ما لم تفعّل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
+<p>أما الطلبات التي تتضمن <code>provider</code> صريحًا — وكذلك endpoints الأصلية في Hermes مثل
+<code>/v1/runs</code> و endpoints محادثة الجلسات — فتلتزم دائمًا بالنموذج المطلوب
+بغض النظر عن هذا الخيار.</p>
+<p>مثال:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-health">GET /health</h3>
+<p>فحص السلامة (health check). يُرجع <code>{&quot;status&quot;: &quot;ok&quot;}</code>. ومتاح أيضًا على <strong>GET /v1/health</strong> لعملاء OpenAI المتوافقين الذين يتوقعون البادئة <code>/v1/</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="get-healthdetailed">GET /health/detailed</h3>
+<p>فحص جاهزية مصادَق عليه لأنظمة المراقبة ومستويات التحكم. يعرض
+حالة موجزة لإعدادات الـ profile النشط، وقاعدة بيانات الحالة، والنموذج
+المُعدّ، ومساحة القرص، وحالة gateway/المنصات، وعمليات API الجارية، وعمليات إكمال
+العمليات المعلّقة، والتفويضات النشطة. وتكشف الاستجابة عن الحالة والأعداد فقط،
+لا عن قيم الإعدادات أو بيانات الاعتماد أو المسارات أو الأوامر أو حمولات قوائم الانتظار أو الأخطاء الخام.</p>
+<p>يبقى المسار العام <code>/health</code> فحصًا خفيفًا لبقاء الخدمة حيّة (liveness) ولا يُجري
+فحوص الجاهزية. ونتيجة الجاهزية المتدهورة لا تزال تستخدم HTTP 200؛ لذا افحص
+الحقلين <code>status</code> و <code>readiness.checks</code> في المستوى الأعلى.</p>

@@ -1,3 +1,118 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="procedure-the-autonomous-loop">الإجراء (الحلقة المستقلة)</h2>
+<ol>
+<li>
+<p><strong>الإعداد (مرة واحدة، دون أسئلة).</strong> شغّل <code>$PDD setup --auto</code> - فهو يكتشف القدرات ويضبط
+التركيبة الأكثر استقلالية والصالحة بنفسه (بريد إلكتروني برمجي عند وجود بيانات اعتماد <code>EMAIL_*</code>،
+Browserbase عند وجود مفتاحه، تشفير <code>age</code> عند وجود الملف التنفيذي، <code>autonomy=full</code>). ثم شغّل
+<code>$PDD doctor</code> واعرض على المشغّل مخرَجات الجاهزية <strong>للعِلم لا كسؤال</strong> -
+تابع فورًا. اذكر ما قد يفتح مزيدًا من الأتمتة (مثل بيانات اعتماد البريد الإلكتروني) لكن لا تنتظر.</p>
+</li>
+<li>
+<p><strong>الاستقبال والموافقة (المحادثة البشرية الوحيدة).</strong> نفّذ <code>$PDD intake ...</code> مع <code>--consent</code> (و
+<code>--consent-method</code>). دون موافقة يرفض المحرّك التخطيط أو التصرّف. اجمع كل شيء في جولة
+واحدة - الأسماء/الأسماء المستعارة، المدن الحالية والسابقة، رسائل البريد الإلكتروني، الهواتف - بحيث لا تضطر أبدًا للعودة
+بأسئلة. للموضوعات في كاليفورنيا، اقرأ أيضًا <code>references/legal/drop.md</code>: سيُظهر <code>next</code>
+إجراء <code>drop_submit</code> الفوري الذي يحذف من كل سمسار مسجَّل (~545) دفعة واحدة، وهو
+الإجراء الأعلى تأثيرًا على الإطلاق. قدّمه، ثم <code>drop &lt;subject&gt; --filed</code>. للموضوعات خارج كاليفورنيا يُغطّى
+السجلّ برسائل CCPA/GDPR موجَّهة (<code>registry --search</code>، ثم <code>send-email</code>)؛ وتُعالَج مواقع البحث عن الأشخاص
+مباشرة في كلتا الحالتين.</p>
+</li>
+<li>
+<p><strong>استنزاف الطابور.</strong> كرّر:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p>يصدر <code>next</code>، بالترتيب: <code>refresh_brokers</code> (ذاكرة تخزين مؤقت منتهية الصلاحية)، و<code>fanout_scan</code>/<code>scan_inline</code> (زحف
+المرحلة 1 — انظر الخطوة 4)، و<code>poll_verification</code> (تأكيدات البريد الإلكتروني الجارية)، و<code>verify_removal</code> (إعادة
+الفحص المستحقّة)، و<code>optout_web_form</code>/<code>optout_email_send</code> (المرحلة 2، الجهات الأم أولًا مع خطوات playbook)،
+و<code>indirect_email_send</code>، و<code>stealth_rescan</code>. لا يظهر العمل البشري الصرف كإجراء أبدًا —
+بل يتراكم في <code>q.human_digest</code>. في وضع <code>autonomy=full</code>، نفّذ الإجراءات دون توقّف، باستثناء أي
+إجراء يحمل <code>confirm_first: true</code>، فهو ينتظر المشغّل في كل الأوضاع.</p>
+</li>
+<li>
+<p><strong>الفحص (عندما يشير <code>next</code> إلى ذلك).</strong> لـ <code>fanout_scan</code>: شغّل <code>$PDD fanout &lt;subject&gt;</code> <strong>وأطلق
+subagent واحدًا عبر <code>delegate_task</code> لكل <code>batch</code>، بالتوازي، مع تمرير <code>brief</code> الجاهز الخاص بتلك الدفعة</strong> — لا
+تفحص كل السماسرة بنفسك بالتسلسل. ولـ <code>scan_inline</code>: افحص أنت السماسرة القليلة بنفسك.
+وفي الحالتين، يحصل كل سمسار على <strong>كل</strong> إدخال في <code>search_vectors</code> عبر سلّم
+<code>references/methods.md</code> (<code>web_extract</code> → مسبار <code>site:</code> → <code>browser_exec</code> → <code>scrapling</code>)، ويُعدّ الخطأ 404 غير حاسم
+(وليس <code>not_found</code>)، ويُسجَّل <code>blocked</code> عند ضبط <code>antibot</code> وعدم توفّر متصفح خفي،
+ويجب التأكّد من أن النتيجة تخص الموضوع نفسه لا شخصًا يحمل الاسم نفسه أو أحد أقاربه قبل التسجيل:
+<code>$PDD record &lt;subject&gt; &lt;broker&gt; &lt;found|not_found|indirect_exposure|blocked&gt; --found &lt;bool&gt; --evidence &#x27;{&quot;listing_urls&quot;:[...]}&#x27;</code>.
+يعيد الأصل التحقّق من ادعاءات <code>found</code> الأساسية الواردة من الـ subagents قبل الوثوق بها.</p>
+</li>
+<li>
+<p><strong>إلغاء الاشتراك (عندما يشير <code>next</code> إلى ذلك).</strong> تصل الإجراءات مرتّبة مسبقًا بدءًا بالآباء مع <code>steps</code> من
+<code>optout.playbook</code> الخاصة بكل سجل سمسار (متحقَّق منها ميدانيًا؛ لدى الجهات الأم مثل PeopleConnect،
+Whitepages‏، BeenVerified‏، Spokeo وصفات دقيقة مُختبَرة فعليًا). <strong>الحذف يتفوّق عادةً على
+الكبت</strong>: عندما يحمل إجراء <code>prefer_deletion</code>، أكمِل مسار الحذف في السجل، لا
+مجرد تدفّق إخفاء الإدراج. وعندما يحمل <code>prefer_suppression</code> بدلًا من ذلك (<strong>PeopleConnect</strong> -
+فحذف بياناتك يزيل حالات الكبت لديك ولا يوقف إعادة الإدراج)، نفّذ تدفّق الكبت وأبقِه
+مفعّلًا؛ استخدم زر الحذف الخاص بهم فقط لعملية محو بيانات متعمَّدة. حسب الطريقة:</p>
+<ul>
+<li><strong>web_form</strong> → شغّل <code>optout_url</code> باستخدام <code>browser_exec</code> (<code>new_tab</code> + <code>wait_for_load</code>، و<code>fill_input</code>،
+ونقرة عبر <code>js()</code> للإرسال)، وقدّم فقط <code>disclosure_fields</code>، والتقط لقطة شاشة للتأكيد بـ <code>capture_screenshot()</code>، ثم نفّذ أمر التسجيل <code>after</code> الخاص بالإجراء.
+قد تنتهي الـ playbooks بمتابعة <code>send-email</code> لطلب الحق في الحذف — نفّذها (محو كامل، لا مجرد
+إخفاء الإدراج).</li>
+<li><strong>email</strong> → الأمر <code>$PDD send-email &lt;subject&gt; &lt;broker&gt; --kind &lt;ccpa|gdpr|generic&gt; --to &lt;addr&gt; --listing &lt;url&gt;</code> يسجّل ويفصح في خطوة واحدة (المستلم مقيَّد بالعناوين التي يعلنها سجل
+السمسار؛ يختار <code>next</code> النوع بناءً على مكان الإقامة — لا تدّعِ أبدًا CCPA/GDPR لشخص
+لا ينطبق عليه ذلك). وفي وضع <strong>browser</strong> يُرجع حِمولة <code>compose</code> مقيَّدة بالمستلم: أنشئ
+رسالة جديدة إلى <code>compose.to</code> بعنوان/نص <code>compose.subject</code>/<code>compose.body</code> كما هما بالضبط في بريد الويب الخاص بالمشغّل
+عبر <code>browser_exec</code> ثم أرسلها (بلا كلمة مرور)؛ وفي وضع <strong>programmatic</strong> يرسل عبر SMTP. ويوجّه <code>next</code> أيضًا
+النماذج التي تتطلّب تدخلًا بشريًا (اتصال هاتفي/هوية حكومية) عبر بريد حذف تابع لسمسار عندما يتوفّر —
+وهذا هو <strong>مسار الإنقاذ</strong> (rescue lane) (نمط Whitepages المُتحقَّق منه). ويرجع وضع المسوّدات فقط إلى
+<code>render-email</code> + إدخال في الملخّص (digest).</li>
+<li><strong>captcha</strong> → تُجتاز التحديات الخفيفة/المُدارة تلقائيًا على المتصفح السحابي الافتراضي (تابع
+كالمعتاد)؛ أما التحدي التفاعلي/السلوكي الصعب الذي لا يمكنه اجتيازه فيُسجَّل
+<code>human_task_queued</code> مع السبب (وحالة <code>blocked</code> تعيد الفحص وتجد الإدراج من جديد
+وتعيد جدولة طلب إلغاء الإدراج). لا تستخدم خدمة حل (solver) أبدًا.</li>
+<li><strong>phone_callback / account / gov_id / fax / mail / voice (T3)</strong> <em>بلا بريد حذف</em> ←
+ليست أبدًا إجراء وكيل؛ يكون <code>next</code> قد وجّهها بالفعل إلى الملخّص. سجّلها:
+<code>$PDD record &lt;subject&gt; &lt;broker&gt; human_task_queued --reason &quot;...&quot;</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>التحقق (عندما يشير <code>next</code> إلى ذلك).</strong> في الوضع <strong>programmatic</strong> يجد <code>$PDD poll-verification &lt;subject&gt;</code>
+روابط التأكيد الواردة عبر IMAP (مُقيَّمة لمكافحة التصيّد، تتقدّم تلقائيًا في الحالة). في
+وضع <strong>browser</strong>، افتح بريد تأكيد السمسار في بريد الويب الخاص بالمشغّل وشغّل
+<code>$PDD verify-link &lt;subject&gt; &lt;broker&gt; --text &#x27;&lt;body&gt;&#x27;</code> لتقييم الرابط. في كلتا الحالتين <strong>افتح
+الرابط في المتصفح نفسه</strong> (يربط عدد من السماسرة جلسة التحقق بالمتصفح الذي
+يفتحه)، أنهِ التدفّق، ثم سجّل <code>awaiting_processing</code>. لا تسجّل <code>confirmed_removed</code> إلا بعد
+إعادة فحص تحقّق تُظهر اختفاء الإدراج - لا استنادًا إلى صفحة التأكيد الخاصة بتدفّق الإرسال نفسه.</p>
+</li>
+<li>
+<p><strong>الختام (مرة واحدة لكل تشغيل).</strong> عندما لا يُرجع <code>next</code> أي إجراءات: اعرض <code>$PDD tasks &lt;subject&gt;</code> (ملخّص
+المهام البشرية الموحّد) إن لم يكن فارغًا، ثم <code>$PDD status &lt;subject&gt;</code>؛ إذا كان متتبّع
+Sheets مفعّلًا، أضِف صفوف <code>$PDD report &lt;subject&gt; --sheets</code> عبر مهارة <code>google-workspace</code>.</p>
+</li>
+<li>
+<p><strong>جدولة الاستيقاظ التالي.</strong> يُرجع <code>next</code> القيمة <code>next_wake_at</code> (أقرب موعد فحص مستحقّ). أنشئ مهمة
+<code>cronjob</code> واحدة تعيد تشغيل حلقة هذه المهارة للموضوع (نصّ توجيهي على غرار: <em>&quot;شغّل
+حلقة unbroker للموضوع &lt;subject_id&gt;: نفّذ <code>$PDD next</code> وطبّق كل الإجراءات&quot;</em>). تمرّ نوافذ
+المعالجة، واستطلاعات التحقق، ودورات إعادة الظهور كلها عبر الطابور نفسه، بحيث تستمر الحالة
+في التقدّم دون أي عناية بشرية.</p>
+</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="spam-call-scrubber-phone-led-run">أداة تنظيف المكالمات المزعجة (تشغيل يقوده الهاتف)</h2>
+<p>الرقم الذي يتلقى مكالمات مزعجة باستمرار يكون منشورًا في الغالب على مواقع البحث عن الأشخاص — ومن هناك
+يحصل عليه مشترو قوائم العملاء المحتملين. المحرّك نفسه، لكن البدء يكون من الرقم:</p>
+<ol>
+<li><strong>الاستقبال (Intake) من الرقم.</strong> <code>$PDD intake --phone &quot;+1-555-0100&quot; --focus-phone &quot;+1-555-0100&quot; --full-name &quot;...&quot; --email ... --consent</code>. يحدّد <code>--focus-phone</code> الرقم الجاري تنظيفه: فيُضاف
+إلى متجهات البحث (search vectors) ويصبح حقل <code>phone</code> الذي يفصح عنه أي نموذج إلغاء إدراج (بدلًا من
+<code>phones[0]</code>). والاسم غير مطلوب للفحص — تعمل متجهات الهاتف/البريد/العنوان، ويُجمَّع السماسرة
+الذين لا يملكون متجهًا قابلًا للتشغيل تحت <code>unsearchable</code> (يُستبعدون من الزحف دون أن يعطّلوا الحلقة) —
+لكن اجمع الاسم الكامل + البريد الإلكتروني للتواصل عند الاستقبال على أي حال: كل نموذج إلغاء إدراج وكل طلب قانوني
+يحتاج إليهما.</li>
+<li><strong>الحلقة لا تتغير.</strong> يقود <code>$PDD next &lt;subject&gt;</code> قائمة الزحف / إلغاء الإدراج / إعادة الفحص نفسها؛
+وتُفحص مواقع البحث العكسي بالهاتف (14 من السجلات المنتقاة الحية تعلن <code>by: phone</code>؛ وخمسة سماسرة
+منتقين متوقفون (defunct) — نطاقات ميتة، مستبعدة من التخطيط) بمتجه الهاتف، ويراقب جدول إعادة الفحص
+عودة الرقم إلى الإدراج (وفق <code>rescan_interval_days</code> الخاص بالموضوع).</li>
+<li><strong>تسجيل DNC لمرة واحدة.</strong> بالنسبة إلى رقم شخصي أمريكي، يُظهر <code>next</code> أيضًا الإجراء <code>dnc_register</code> مرة واحدة: سجل
+FTC National Do Not Call Registry (مجاني، لا ينتهي أبدًا، وتتوقف مكالمات البيع خلال 31 يومًا؛ حتى 3
+أرقام في المرة الواحدة، ورسالة تأكيد واحدة لكل رقم — افتح كل رابط خلال 72 ساعة). يطبع <code>$PDD dnc &lt;subject&gt;</code> الخطوات؛ ويسجّل <code>$PDD dnc &lt;subject&gt; --filed</code> أنه تم، ويستبعد
+<code>$PDD dnc &lt;subject&gt; --declined</code> الموضوع دون تسجيل عملية تقديم لم
+تحدث. لا يظهر إلا في التشغيلات التي يقودها الهاتف (<code>--focus-phone</code>) ولأرقام NANP فقط،
+دائمًا مع <code>confirm_first</code> — فموافقة الاستقبال تغطي إزالة السماسرة، لا إفصاحًا جديدًا
+لسجل. يوقف DNC المسوّقين الهاتفيين
+النظاميين لا المحتالين — وإزالة السماسرة هي التي تقطع قوائم العملاء المحتملين، لذا نفّذ الاثنين معًا.</li>
+</ol>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="pitfalls">المزالق</h2>
 <ul>
 <li><strong>لا تُفصح أبدًا عن أكثر مما يعرضه السمسار بالفعل.</strong> قدّم فقط <code>disclosure_fields</code>. لا يتطوّع المحرّك
@@ -25,8 +140,9 @@
 قد اختفى فعلًا؛ أشِر إلى الاحتفاظ بالبيانات في الفئات المدفوعة داخل التقرير.</li>
 <li><strong>تُجتاز CAPTCHA الخفيفة افتراضيًا؛ لا تصارع الصعبة منها.</strong> يجتاز المتصفح السحابي الافتراضي
 التحديات المُدارة/الخفيفة كعملية اعتيادية (تبقى تلك السماسرة عند T1). أما التحدي التفاعلي الصعب
-الذي لا يمكن اجتيازه فعلًا، فسجّل <code>blocked</code> ودَع جولة المتصفح الخفي/متصفح المشغّل تتولّاه - أبدًا
-خدمة حل من طرف ثالث أو انتحال بصمة جهاز.</li>
+الذي لا يمكنه اجتيازه فعلًا، فسجّل <code>human_task_queued --reason &quot;...&quot;</code> ليُركَن كمهمة ملخّص
+دائمة واحدة (وحالة <code>blocked</code> تعيد الفحص وتجد الإدراج من جديد وتعيد جدولة طلب إلغاء الإدراج) — ولا تستخدم أبدًا
+خدمة حل من طرف ثالث ولا انتحال بصمة الجهاز.</li>
 <li><strong>صفحات السماسرة تتغيّر.</strong> إذا تعطّل تدفّق، نفّذ <code>$PDD record ... blocked</code> وضَع علامة على ملف السمسار في
 <code>references/brokers/</code> لإعادة التحقق بدلًا من التخمين.</li>
 <li><strong>تحقّق من السجلات غير المتحقَّق منها ميدانيًا قبل الإرسال.</strong> السجلات ذات <code>confidence: auto</code> جاءت من

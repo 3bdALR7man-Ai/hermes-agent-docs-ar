@@ -1,5 +1,5 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="terminal-backend-configuration">إعدادات terminal backend</h2>
-<p>يدعم Hermes سبعة terminal backends. يحدّد كل واحد منها المكان الذي تُنفَّذ فيه فعليًا أوامر shell الخاصة بالوكيل — جهازك المحلي، أو حاوية Docker، أو خادم بعيد عبر SSH، أو sandbox سحابي من Modal (مباشرة أو عبر gateway المُدار من Nous)، أو workspace من Daytona، أو Vercel Sandbox، أو حاوية Singularity/Apptainer.</p>
+<p>يأتي Hermes مع ستة terminal backends. يحدد كل واحد منها المكان الذي تُنفَّذ فيه أوامر shell الخاصة بالوكيل فعليًا — جهازك المحلي، أو حاوية Docker، أو خادم بعيد عبر SSH، أو Modal cloud sandbox (مباشرةً أو عبر gateway تديره Nous)، أو مساحة عمل Daytona، أو Vercel Sandbox. وتضيف الإضافات (plugins) المزيد، مثل backend الرسمي <a href="#singularityapptainer-backend">Singularity/Apptainer</a>.</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
 <p><code>terminal.temp_dir</code> يتحكم في موضع العناصر المؤقتة لجلسة Hermes على الـ backend المحلي — سجلات العمليات الخلفية وملفات pid والخروج، و sandboxes تنفيذ الكود، ونتائج الأدوات الفائضة. عندما يكون فارغًا (الافتراضي)، يراعي Hermes قيمة <code>TMPDIR</code>/<code>TMP</code>/<code>TEMP</code> من البيئة، وإلا
 يستخدم دليلًا مُدارًا على تخزين حقيقي في <code>~/.hermes/cache/terminal</code>
@@ -7,11 +7,11 @@
 <p>بمعزل عن <code>terminal.temp_dir</code>، تُوجَّه المتغيرات <code>TMPDIR</code> و<code>TMP</code> و<code>TEMP</code> لكل عملية Hermes (CLI و TUI و gateway و Desktop
 backend و cron) ولكل عملية فرعية تطلقها إلى
 <strong><code>~/.hermes/cache/scratch</code></strong> (لكل profile) عند البدء، فتصل <code>tempfile.mkdtemp()</code>
-و<code>mktemp</code> و profiles المتصفح وسكربتات الفحص جميعًا إلى تخزين حقيقي بدلًا من دليل مؤقت للنظام مدعوم بـ RAM.
+و<code>mktemp</code> وملفات المتصفح الشخصية وسكربتات الفحص جميعًا إلى تخزين حقيقي بدلًا من دليل مؤقت للنظام مدعوم بـ RAM.
 يسمّي system prompt هذا الدليل بوصفه دليل scratch.
 لا يضبط Hermes هذه المتغيرات إلا إذا لم تكن مضبوطة بالفعل — وتُترك قيمة <code>TMPDIR</code> التي صدّرتها أنت أو نظام التشغيل
 (<code>/var/folders</code> على macOS و<code>%TEMP%</code> على Windows) دون تغيير. وتُنظَّف المدخلات
-عند البدء (مرة واحدة في الساعة على الأكثر) بمجرد أن تصبح <strong>خاملة لمدة 24 ساعة</strong>: يبقى المدخل
+بواسطة عملية في الخلفية تبدأ مباشرةً بعد بدء التشغيل (مرة واحدة في الساعة على الأكثر؛ ولا ينتظرها بدء التشغيل أبدًا، وتُكمل المرحلة عملها حتى لو انتهى الأمر فورًا) بمجرد أن تصبح <strong>خاملة لمدة 24 ساعة</strong>: يبقى المدخل
 ما دامت كُتبت بيانات في أي موضع داخله خلال اليوم الماضي، ويُحذف بعد يوم من
 آخر كتابة. ولا تُحتسب الملفات ذات الروابط الصلبة (hardlinks) كتابةً (فـ <code>git clone --local</code> يتشارك ملفات pack
 مع مستودعه المصدر، الذي كان نشاطه سيُبقي النسخة إلى الأبد). وقبل حذف مدخل خامل، يوقف Hermes أيضًا أي عملية ما زالت تعمل
@@ -19,12 +19,14 @@ backend و cron) ولكل عملية فرعية تطلقها إلى
 مثل متصفح بلا واجهة تركه تشغيل اختبار)، ويزيل أي تسجيل <code>git worktree</code>
 كان يشير إليه. أما العملية التي بدأها Hermes نفسه وما زال يتتبعها (عملية
 <code>terminal</code> في الخلفية، أو الـ gateway، أو جلسة CLI، أو أي شيء أطلقته ولا يزال
-تابعًا لها) فلا تُوقَف أبدًا: ويبقى بدلًا من ذلك أي مدخل خامل تعمل إحداها داخله.
+تابعًا لها) فلا تُوقَف أبدًا، وكذلك الـ shell الذي بدأ أمر Hermes
+(أو العمليات الأصل له) حتى بعد انتهاء ذلك الأمر: ويبقى بدلًا من ذلك أي مدخل خامل تعمل إحداها داخله.
+وأي مرحلة تنظيف لا تستطيع فحص العمليات لا توقف شيئًا ولا تحذف أي مدخل قد تعمل فيه عملية.
 ويُعاد فحص كل مدخل قبل حذفه مباشرةً، فيبقى
 أي مدخل كُتب فيه أثناء إيقاف التنظيف للعمليات. وتُسجَّل كل عملية حذف
 وكل عملية أُوقفت وكل مدخل أُبقي في <code>~/.hermes/logs/scratch-prune.log</code>. أما المدخل الذي يحتوي على
 ملفات قد لا يستطيع مستخدمك قراءتها أو حذفها (عادةً مخرجات مملوكة لـ root من حاوية Docker
-كتبت في bind mount) فلا يُحذف جزئيًا بعمى أبدًا: يُسجَّل مرة واحدة مع الأمر الذي
+كتبت في bind mount) فلا يُحذف جزئيًا وهو غير مكتمل الرؤية أبدًا: يُسجَّل مرة واحدة مع الأمر الذي
 يزيله (<code>sudo rm -rf &#x27;&lt;path&gt;&#x27;</code>، أو بديل <code>docker run … rm -rf</code> عندما يكون Docker
 مثبّتًا) ثم يُتخطى، ولا يُعاد فحصه كل ساعة، إلى أن يختفي، أو يتغير دليله الأعلى،
 أو تصبح الأدلة التي رفضت الوصول متاحة لك (مثلًا بعد
@@ -36,7 +38,7 @@ backend و cron) ولكل عملية فرعية تطلقها إلى
 <p><code>terminal.font_family</code> يتحكم بالطرفية المضمّنة في Hermes Desktop. يقبل اسم عائلة خط واحدة مثبّتة محليًا (مثل <code>MesloLGS NF</code>) أو مجموعة خطوط CSS. يُلحق Hermes مجموعة JetBrains Mono المضمَّنة كخيار احتياطي، وتُبقي القيمة الفارغة على الافتراضي. يمكنك تعديل نفس هذا الإعداد المحدد النطاق بمستوى profile في <strong>Settings → Appearance → Terminal Font</strong>؛ ولا حاجة لتنزيل من Google Fonts أو صلاحية خطوط نظام.</p>
 <p>بالنسبة إلى sandboxes السحابية مثل Modal وDaytona وVercel Sandbox، تعني <code>container_persistent: true</code> أن Hermes سيحاول الحفاظ على حالة نظام الملفات عبر إعادة إنشاء الـ sandbox. لا يَعِد ذلك بأن نفس الـ sandbox الحي، أو نفس فضاء PID، أو نفس العمليات الخلفية ستظل تعمل لاحقًا.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="backend-overview">نظرة عامة على الـ backends</h3>
-<table><thead><tr><th>الـ backend</th><th>أين تُنفَّذ الأوامر</th><th>العزل</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><strong>local</strong></td><td>جهازك مباشرة</td><td>بلا</td><td>التطوير، الاستخدام الشخصي</td></tr><tr><td><strong>docker</strong></td><td>حاوية Docker واحدة دائمة (مشتركة عبر الجلسة، و<code>/new</code>، والـ subagents)</td><td>كامل (namespaces، وإسقاط الصلاحيات cap-drop)</td><td>عزل آمن، CI/CD</td></tr><tr><td><strong>ssh</strong></td><td>خادم بعيد عبر SSH</td><td>حد شبكي</td><td>التطوير عن بُعد، الأجهزة القوية</td></tr><tr><td><strong>modal</strong></td><td>sandbox سحابي من Modal</td><td>كامل (VM سحابي)</td><td>حوسبة سحابية مؤقتة، evals</td></tr><tr><td><strong>daytona</strong></td><td>workspace من Daytona</td><td>كامل (حاوية سحابية)</td><td>بيئات تطوير سحابية مُدارة</td></tr><tr><td><strong>vercel_sandbox</strong></td><td>Vercel Sandbox</td><td>كامل (microVM سحابي)</td><td>تنفيذ سحابي مع استمرارية نظام ملفات مدعومة باللقطات (snapshot)</td></tr><tr><td><strong>singularity</strong></td><td>حاوية Singularity/Apptainer</td><td>namespaces (‎--containall)</td><td>مجموعات HPC، الأجهزة المشتركة</td></tr></tbody></table>
+<table><thead><tr><th>الـ backend</th><th>أين تُنفَّذ الأوامر</th><th>العزل</th><th>الأنسب لـ</th></tr></thead><tbody><tr><td><strong>local</strong></td><td>جهازك مباشرة</td><td>بلا</td><td>التطوير، الاستخدام الشخصي</td></tr><tr><td><strong>docker</strong></td><td>حاوية Docker واحدة دائمة (مشتركة عبر الجلسة، و<code>/new</code>، والـ subagents)</td><td>كامل (namespaces، وإسقاط الصلاحيات cap-drop)</td><td>عزل آمن، CI/CD</td></tr><tr><td><strong>ssh</strong></td><td>خادم بعيد عبر SSH</td><td>حد شبكي</td><td>التطوير عن بُعد، الأجهزة القوية</td></tr><tr><td><strong>modal</strong></td><td>sandbox سحابي من Modal</td><td>كامل (VM سحابي)</td><td>حوسبة سحابية مؤقتة، evals</td></tr><tr><td><strong>daytona</strong></td><td>workspace من Daytona</td><td>كامل (حاوية سحابية)</td><td>بيئات تطوير سحابية مُدارة</td></tr><tr><td><strong>vercel_sandbox</strong></td><td>Vercel Sandbox</td><td>كامل (microVM سحابي)</td><td>تنفيذ سحابي مع استمرارية نظام ملفات مدعومة باللقطات (snapshot)</td></tr><tr><td><strong>singularity</strong> (إضافة plugin)</td><td>حاوية Singularity/Apptainer</td><td>namespaces (‎--containall)</td><td>مجموعات HPC، الأجهزة المشتركة</td></tr></tbody></table>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="local-backend">الـ Backend المحلي</h3>
 <p>الافتراضي. تُنفَّذ الأوامر مباشرة على جهازك دون أي عزل. لا حاجة لأي إعداد خاص.</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
@@ -64,7 +66,7 @@ git منفصلة، أو مفاتيح SSH، أو تسجيل دخول GitHub CLI،
 <p>ينبغي للسكربتات التي تحتاج إلى التمييز بين حالة الـ profile وhome المستخدم الفعلي أن
 تفضّل <code>HERMES_HOME</code> لبيانات Hermes وَ<code>HERMES_REAL_HOME</code> لـ home الحساب:</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="147"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>يمتلك الوكيل نفس صلاحيات الوصول إلى نظام الملفات التي يمتلكها حسابك. استخدم <code>hermes tools</code> لتعطيل الأدوات التي لا تريدها، أو انتقل إلى Docker للعزل.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="149"></x-keep></span>تحذير</div><div class="admonitionContent_BuS1"><p>يمتلك الوكيل نفس صلاحيات الوصول إلى نظام الملفات التي يمتلكها حسابك. استخدم <code>hermes tools</code> لتعطيل الأدوات التي لا تريدها، أو انتقل إلى Docker للعزل.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="docker-backend">Backend الخاص بـ Docker</h3>
 <p>يشغّل الأوامر داخل حاوية Docker مع تقوية أمنية (إسقاط جميع الصلاحيات، ومنع تصعيد الامتيازات، وحدود عدد العمليات PID).</p>
 <p><strong>حاوية واحدة دائمة، مشتركة عبر عمليات Hermes.</strong> يبدأ Hermes حاوية واحدة طويلة الأمد عند أول استخدام ويوجّه كل استدعاء terminal وfile وَ<code>execute_code</code> عبر <code>docker exec</code> إلى تلك الحاوية نفسها — عبر الجلسات، و<code>/new</code>، و<code>/reset</code>، وsubagents الخاصة بـ<code>delegate_task</code>. تنتقل تغييرات دليل العمل، والحزم المثبَّتة، والملفات في <code>/workspace</code>، و<strong>العمليات الخلفية</strong> من استدعاء أداة إلى التالي، ومن عملية Hermes إلى التالية. عندما تُغلق جلسة TUI، أو تنفّذ <code>/quit</code>، أو تبدأ استدعاءً جديدًا لـ<code>hermes</code>، تبقى الحاوية تعمل وتُعيد استخدامها عملية Hermes التالية عبر بحث بالتصنيفات (labels). راجع <strong>دورة حياة الحاوية</strong> أدناه لمعرفة قواعد إيقاف التشغيل الدقيقة.</p>

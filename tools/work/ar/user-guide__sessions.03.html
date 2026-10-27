@@ -1,0 +1,52 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-expiry-and-cleanup">انتهاء صلاحية الجلسات وتنظيفها</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="automatic-cleanup">التنظيف التلقائي</h3>
+<ul>
+<li>تستمر محادثات gateway عبر الخمول؛ استخدم <code>/new</code> أو <code>/reset</code> لحد صريح</li>
+<li>قبل إعادة الضبط، يحفظ الوكيل الذاكرة والمهارات من الجلسة المنتهية</li>
+<li>التقليم التلقائي (<strong>معطَّل افتراضيًا</strong>؛ فعّله اختياريًا): عندما تكون <code>sessions.auto_prune</code> بالقيمة <code>true</code>، تُقلَّم الجلسات المنتهية الخاملة لمدة <code>sessions.retention_days</code> (الافتراضي 90) عند بدء CLI/gateway/cron</li>
+<li><strong>مطالبة انخفاض مساحة القرص.</strong> ما دام <code>config.yaml</code> لا يحتوي على المفتاح <code>sessions.auto_prune</code>، يفحص Hermes القرص الذي يحتضن <code>state.db</code> عند بدء الجلسة (استدعاءان لنظام الملفات، بلا تكلفة قابلة للقياس). وعندما تقلّ مساحة ذلك القرص (أقل من 2 GB حرة، أو أقل من 10% حرة مع بقاء أقل من 20 GB) يسأل مرة واحدة: يسأل CLI الكلاسيكي عند البدء (أول إطلاق عند انخفاض المساحة يقيس فقط في الخلفية، ويظهر السؤال من الإطلاق التالي فصاعدًا، فلا ينتظر البدء قاعدة البيانات أبدًا)، ويعرض TUI و Desktop إشعارًا، وينشر الـ gateway السؤال في قناته الرئيسية. وتقدّر المطالبة حجم السجل الذي سيحذفه التقليم (موزونًا بالبايتات المخزّنة، حتى لا تضخّمه رسائل قديمة صغيرة كثيرة) وتوضح بصراحة متى <em>لن</em> يحلّ التقليم مشكلة القرص (لا توجد جلسة أقدم من <code>retention_days</code>، أو أن السجل نسبة صغيرة من القرص الممتلئ). ويحرّر السجل المحذوف مساحة داخل <code>state.db</code>؛ ونادرًا ما يعمل <code>VACUUM</code> التلقائي الوارد أدناه بعد تقليم واحد، لذا نفّذ <code>hermes sessions optimize</code> لإعادة المساحة إلى القرص. أجب بـ <code>/autoprune on</code> أو <code>/autoprune off</code> (احتفظ بكل شيء؛ ولن يُسأل مجددًا) أو <code>/autoprune later</code> (تذكير بعد أسبوع)؛ ويعرض <code>/autoprune</code> وحده الحالة الحالية</li>
+<li><code>sessions.retention_days</code> يجب أن يكون عددًا صحيحًا من الأيام <code>&gt;= 0</code>. تُرفض القيمة السالبة (أو المفقودة): تسجّل صيانة بدء التشغيل تحذيرًا يسمّي النطاق المسموح وتتخطى المسح، بدلًا من اعتبار موعد قطع مستقبلي يعني &quot;كل شيء&quot; — و <code>sessions.auto_prune: false</code> هو المفتاح الذي يعطّل التقليم</li>
+<li>بعد تقليم أزال صفوفًا فعلًا، تخضع <code>state.db</code> لعملية <code>VACUUM</code> لاستعادة مساحة القرص فقط عندما يُجتاز <strong>كلا</strong> الشرطين: مرور <code>sessions.min_vacuum_interval_days</code> (الافتراضي 30) على الأقل منذ آخر <code>VACUUM</code> ناجح، <strong>و</strong>كون أكثر من 25% من صفحات الملف قابلة للاستعادة (<code>PRAGMA freelist_count / page_count</code>). قاعدة بيانات كثيفة لا تدفع أبدًا ثمن إعادة كتابة كاملة لاستعادة بضعة ميغابايتات (لا يُقلِّص SQLite الملف عند DELETE عادي)</li>
+<li>يعمل التقليم مرة واحدة على الأكثر كل <code>sessions.min_interval_hours</code> (الافتراضي 24)؛ يُتَتبَّع طابع زمن آخر تشغيل داخل <code>state.db</code> نفسه بحيث يُشارَك عبر كل عملية Hermes في نفس <code>HERMES_HOME</code></li>
+</ul>
+<p>دون تقليم، ينمو <code>state.db</code> بلا حدود — أُبلغ عن ملفات بحجم عدة غيغابايتات خلال أسابيع على تثبيتات gateway و cron. ولتقييده، فعّله في <code>~/.hermes/config.yaml</code> (أو أجب بـ <code>/autoprune on</code>):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
+<p>تحتفظ التثبيتات التي تضبط أيًّا من هذه المفاتيح صراحةً بقيمها؛ ولا تتبع القيم الافتراضية
+إلا المفاتيح غير المضبوطة.</p>
+<p>فقط الجلسات <strong>المنتهية</strong> فقط تُحذف. لا تُقلَّم الجلسات النشطة تلقائيًا أبدًا، بغض النظر عن عمرها. يُحسب عمر الجلسات المنتهية من آخر نشاط لها — أحدث النشاط الحي أو آخر رسالة أو بدء الجلسة — فلا تُحذف محادثة طويلة الأمد استُخدمت مؤخرًا لمجرد أنها بدأت قبل نافذة الاحتفاظ. ينطبق ذلك أيضًا على محادثة قسّمها الضغط إلى عدة جلسات: تُحفَظ مقاطعها الأقدم ما دام أي مقطع لاحق محفوظًا، وتُقلَّم معه عندما تصبح المحادثة كلها مؤهلة.</p>
+<p><strong>جلسات مفتوحة راكدة من الأتمتة.</strong> بعض المُنتِجين — مهام cron، عمّال kanban،
+subagents، تشغيلات CLI لمرة واحدة — يمكن أن يموتوا دون وسم جلستهم أبدًا
+كمنتهية، والتقليم لا يحذف إلا الصفوف <em>المنتهية</em>. لمنع تراكم تلك
+إلى الأبد، <em>تُغلق</em> كل مرحلة تقليم تلقائي أيضًا الجلسات المفتوحة من
+تلك المصادر المملوكة للحالة (<code>cli</code>، <code>cron</code>، <code>kanban</code>، <code>acp</code>، <code>api_server</code>،
+<code>subagent</code>، <code>tool</code>، إضافةً إلى العناصر النائبة <code>recovered</code> التي يُنشئها <code>hermes sessions recover</code> للرسائل اليتيمة) التي مضى على آخر نشاط لها أكثر من <code>retention_days</code>
+(<code>end_reason: startup_orphan_reap</code>). الإغلاق غير هدّام — تظل الجلسة قابلة للاستئناف — ويُحسب عمر الصف من إغلاقه، فلا يُحذف إلا في مرحلة <em>لاحقة</em> بعد نافذة احتفاظ كاملة أخرى. جلسات منصات
+المراسلة (Telegram، Discord، …)، وجلسات TUI/Desktop، والجلسات
+المثبَّتة، والجلسات ذات دور حي أو ضغط جارٍ لا
+يُغلقها هذا الاكتساح أبدًا.</p>
+<p><strong>الجلسات المحلية التي لم يغلقها أحد.</strong> الجلسة في CLI أو TUI أو Desktop التي اختفى آخر عارض لها دون إغلاقها (طرفية أُنهيت قسرًا، أو اتصال انقطع، أو إيقاف gateway أو إعادة تشغيله أثناء فتحها) ينهيها gateway بعد <code>sessions.orphan_end_grace_s</code> ثانية (الافتراضي <code>300</code>؛ والقيمة <code>0</code> تعني ألا تُنهى أبدًا)، مع <code>end_reason: ws_orphan_reap</code> (أو <code>startup_orphan_reap</code> بعد إعادة التشغيل، وليس قبل مرور 6 ساعات على آخر نشاط لها، لأن CLI الكلاسيكي الخامل لا يعيد الاتصال إلا عند استخدامك له مجددًا). وما دام <code>orphan_end_grace_s</code> غير مضبوط، فإن القيمة القديمة <code>dashboard.ws_orphan_reap_grace_s: 0</code> توقف هذا السلوك، و <code>dashboard.startup_orphan_sweep: false</code> توقف الإنهاء بعد إعادة التشغيل. أما الدور الذي لا يزال قيد التنفيذ فيواصل العمل، وتنتهي الجلسة عندما يستقر؛ وتبقى الجلسة المتوقفة عند دور مقاطَع مفتوحة حتى تختار Discard. والعارض الذي يعيد الاتصال خلال مهلة السماح يُبقي الجلسة مفتوحة. والإنهاء غير مدمّر: تبقى الجلسة قابلة للاستئناف، وتعيد رسالتها التالية فتحها بالمعرّف نفسه.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="oversized-transcript-guards">حراسة النسخ النصية الضخمة الحجم</h3>
+<p>حدّان يمنعان تحميل نسخة نصية جامحة إلى الذاكرة دفعة واحدة
+(كلاهما افتراضيًا <code>20000</code> رسالة؛ <code>0</code> يعطّل الحارس):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="40"></x-keep></div></div>
+<p><code>max_export_messages</code> ينطبق لكل جلسة على النسخة الاحتياطية JSON/JSONL (<code>hermes sessions export</code>، <code>sessions export</code> في <code>hermes console</code>، و <code>/save json</code> في CLI، والمراسلة، و TUI، و Desktop). يحتسب كل صف مخزّن، بما فيه المؤرشف، لأن النسخة الاحتياطية تضمها كلها. قد تتجاوز الحد حتى جلسة ضُغطت كثيرًا ولها ذيل حي صغير. أما إجراء Export في صفحة Sessions بلوحة التحكم فيبث الصفوف ولا يخضع للسقف.</p>
+<p><code>max_resume_messages</code> يحدّد <strong>ما يُحمِّله الاستئناف فعليًا</strong>، وليس كامل
+تاريخ المحادثة:</p>
+<ul>
+<li>يُجسِّد الاستئناف التفاعلي البسيط (CLI <code>--resume</code>، TUI) نسب الضغط
+الكامل — كل مقطع مضغوط بالإضافة إلى الطرف الحي — لذا فهو
+محدود عبر النسب.</li>
+<li>يُصفِّح استئناف Desktop البارد النسخة النصية عبر REST ولا يحتفظ في الذاكرة
+إلا بمقطع الطرف الحي، لذا فهو محدود بالطرف وحده. محادثة طويلة العمر
+ضُغطت مرات عديدة (عشرات المقاطع، عشرات آلاف
+الصفوف المؤرشفة خلف طرف صغير) هي بالضبط ما يُقصد به الضغط
+أن يُنتج، وتُفتح عاديًا؛ يعكس عدد رسائل تذييلها النسب المُخزَّن،
+لا الـ prompt الحي.</li>
+</ul>
+<p>عندما يُرفَض استئناف، يتلقى العميل رمز الخطأ <code>4130</code> مع العدد
+والنطاق الذي قِيس فيه (<code>across its lineage</code> أو
+<code>in its tip segment</code>). يُعيد أمر <code>/save</code> في TUI/Desktop المرفوض بسبب <code>max_export_messages</code> رمز الخطأ <code>4131</code>.
+<code>hermes sessions export</code> يظل يعمل لتلك الجلسات؛ وتتطلب نسخته الاحتياطية JSON/JSONL أن تبقى كل جلسة دون <code>max_export_messages</code>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-cleanup">التنظيف اليدوي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="41"></x-keep></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="48"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>التقليم التلقائي <strong>معطَّل افتراضيًا</strong>، ويسألك Hermes مرة واحدة عندما تنخفض مساحة القرص الذي يحتضن <code>state.db</code> (راجع <a href="#automatic-cleanup">التنظيف التلقائي</a> أعلاه). وعند تفعيله، تُزال الجلسات المنتهية الخاملة لمدة <code>sessions.retention_days</code> (الافتراضي 90) عند الإقلاع، ولا تُمس الجلسات النشطة أبدًا. يُغذّي سجل الجلسات استرجاع <code>session_search</code> عبر المحادثات السابقة، لذا فالخيار لك: <code>/autoprune on|off</code>، أو <code>sessions.auto_prune</code> في <code>config.yaml</code>. ومع تعطيل التقليم التلقائي، يبقى <code>hermes sessions prune</code> متاحًا للتنظيف لمرة واحدة (نمط فشل مُلاحَظ دون أي تقليم: <code>state.db</code> بحجم 384 MB مع نحو 1000 جلسة يُبطئ إدراجات FTS5 وقوائم <code>/resume</code>).</p></div></div>

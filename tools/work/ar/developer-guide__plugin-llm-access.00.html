@@ -110,6 +110,57 @@
  <code>auxiliary_client.call_llm()</code>.</li>
 <li><strong>التكلفة.</strong> يعمل كل استدعاء على حساب المزوّد المدفوع لدى المستخدم. لا تستدعِ <code>complete()</code> في حلقة لكل رسالة gateway دون التفكير في استهلاك tokens.</li>
 </ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="asking-the-sessions-own-agent-ctxside_question">سؤال وكيل الجلسة نفسه (<code>ctx.side_question</code>)</h2>
+<p>يشغّل <code>ctx.llm</code> استدعاءً جديدًا لا يعرف إلا ما ترسله الإضافة إليه.
+أما <code>ctx.side_question</code> فيسأل وكيل الجلسة <em>نفسه</em>: النموذج نفسه،
+و system prompt نفسه (بما فيه الذاكرة)، والمحادثة كاملة حتى تلك اللحظة، يضاف إليها سؤال واحد من الإضافة. ويعيد تشغيل
+الطلب الذي أرسله الدور للتو، فيظل cache الخاص بالـ prompt لدى المزوّد
+دافئًا، ويكون الاستدعاء في معظمه قراءات من الـ cache.</p>
+<p>استخدمه عندما تعتمد الإجابة على المحادثة نفسها:
+اقتراح الـ prompt التالي للمستخدم، أو وسم ما فعله الدور،
+أو تقرير ما إذا كانت الجلسة تحتاج إلى متابعة. أما ما لا يحتاج إلى الجلسة فاستخدم له <code>ctx.llm</code>: فهو أرخص وليست له
+قواعد lease.</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="13"></x-keep></div></div>
+<p>يجب أن تعلن الإضافة عن القدرة في <code>plugin.yaml</code>، وأن يمنحها المستخدم
+(تعرض شاشة الموافقة: &quot;Ask your agent a short
+question after each turn. It sees the whole session, including
+memory, and spends your main model&#x27;s tokens.&quot;):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="14"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="lease-rules">قواعد lease</h3>
+<ul>
+<li>يتلقى <code>post_llm_call</code> القيمة <code>side_question_token</code> (سلسلة نصية) عندما
+تحمل إضافة محمّلة واحدة على الأقل هذه القدرة، وإلا يتلقى <code>None</code>. أما تشغيلات cron
+وأدوار الـ subagent المفوَّضة فتحصل دائمًا على <code>None</code>: فلا أحد ينتظرها،
+ولن يؤدي سؤال جانبي إلا إلى إنفاق الـ tokens.</li>
+<li><strong>محاولة واحدة في كل دور، تتشاركها كل الإضافات.</strong> يحصل hook كل إضافة
+على الـ token نفسه؛ ويستهلكه أول استدعاء لـ <code>ctx.side_question</code>،
+سواء نجح أم لم ينجح. أما الإضافة التي لا تملك القدرة فتتلقى
+<code>None</code> ولا تستهلكه.</li>
+<li>تنتهي صلاحية الـ token بعد <strong>60 ثانية</strong>، وبمجرد أن تبدأ الجلسة
+دورها التالي.</li>
+<li>ينتمي الـ token إلى الـ profile الذي أصدر دوره؛ وسياق إضافة
+من profile آخر يتلقى <code>None</code> ولا يستهلكه.</li>
+<li><code>prompt</code> سلسلة نصية غير فارغة لا يزيد طولها على <strong>4096 حرفًا</strong>.</li>
+<li>القيمة الافتراضية لـ <code>timeout</code> هي <strong>15 ثانية</strong>، وحدّها الأقصى 60. وهي تشمل
+الاستدعاء كله، بما في ذلك تجهيز الطلب.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-you-get-back">ما تحصل عليه</h3>
+<p>نص رد الوكيل، أو <code>None</code>. تعني <code>None</code> أن الاستدعاء رُفض أو فشل: بيئة Mixture-of-Agents، أو بيئة وكيل بوصفه مزوّدًا (ACP، أو مزوّدو العمليات الخارجية، أو Codex app-server)، أو جلسة تغيّر نموذجها منذ الدور (دور محادثة صوتية موجَّه إلى
+<code>auxiliary.voice_chat</code> يعود إلى النموذج السابق بعده مباشرة)، أو طلب
+يحمل أدوات ينفذها المزوّد (من جهة الخادم)، أو انتهاء المهلة، أو خطأ من المزوّد، أو رد فارغ. لا توجد
+إعادة محاولات ولا نموذج احتياطي.</p>
+<p>لا يشغّل الاستدعاء أي أداة أبدًا (تُهمل استدعاءات الأدوات في الرد) ولا
+يكتب إلى سجل المحادثة (transcript). وتُحاسَب الـ tokens الخاصة به على الجلسة
+التي أصدر دورها الـ token (حتى لو تغيّر معرّف الجلسة منذ ذلك الحين)
+وتُسجَّل في استخدامها باسم <code>plugin_side_question:&lt;plugin id&gt;</code>، بمعزل
+عن استخدام <code>/btw</code> الذي يُسجَّل باسم <code>side_question</code>. لا يمكنك اختيار
+النموذج أو الأدوات أو system prompt أو طول المخرجات: فتغيير أي منها
+سيفوّت الـ cache الدافئ. اطلب الإيجاز في الـ prompt.</p>
+<p>ترى إضافات المراقبة (Observability) الاستدعاء بوصفه استدعاءً مساعدًا:
+يُطلَق <code>pre_auxiliary_call</code> / <code>post_auxiliary_call</code> مع
+<code>aux_task=&quot;plugin_side_question&quot;</code> وتُضبط <code>plugin_id</code> على الإضافة
+السائلة، أما <code>pre_api_request</code> /
+<code>post_api_request</code> المرتبطان بالدور فلا يُطلَقان له.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="where-this-fits-in-the-plugin-surface">موقع هذه الواجهة ضمن واجهات الإضافات</h2>
 <p>توسّع دوال <code>ctx.*</code> الحالية نظامًا فرعيًا قائمًا في Hermes:</p>
 <p>| <code>ctx.register_tool</code> | يضيف أداة يمكن للوكيل استدعاؤها |

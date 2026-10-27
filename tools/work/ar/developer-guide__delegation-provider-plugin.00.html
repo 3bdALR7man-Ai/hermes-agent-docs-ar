@@ -1,0 +1,104 @@
+<header><h1>إضافات مزوّدي التفويض</h1></header>
+<p>يحدد مزوّد التفويض (delegation provider) <strong>كيف تتحول كل مهمة في <code>delegate_task</code> إلى تشغيل فرعي (child run)</strong>: أي نموذج
+ومزوّد و endpoint ومستوى استدلال (reasoning effort) يستخدمها الـ subagent، أو أي profile من Hermes يعمل بصفته. ويمكنه
+أيضًا إضافة معاملات خاصة بكل مهمة إلى مخطط <code>delegate_task</code>، مثل enum من أسماء الـ profiles أو من
+خيارات النماذج ذات العناوين، ليختار النموذج مسارًا لكل مهمة.</p>
+<p>تتولى نواة Hermes دورة حياة الـ subagent بالكامل: الإنشاء، والعزل، وأدوار leaf/orchestrator، وحدود العمق،
+والتزامن، ووحدات الإكمال في الخلفية، وإيقاف التفرّع (stop fan-out)، وتجميع النتائج، والتحقق من <code>output_schema</code>
+وتتبّع التقدم. أما المزوّد فيجيب عن سؤال واحد فقط: &quot;أي مسار تسلكه هذه المهمة؟&quot;.</p>
+<p>المزوّد النشط هو <code>delegation.backend</code> في <code>config.yaml</code>؛ وتوجد إعدادات المزوّد نفسه تحت
+<code>delegation.backends.&lt;backend name&gt;</code>. الاستراتيجية <code>default</code> هي السلوك المعتمد حاليًا: يتبع كل child
+القسم <code>delegation</code> (<code>delegation.provider</code> و <code>delegation.model</code> و <code>delegation.base_url</code> و ...)، أو
+يرث مسار الأصل (parent) عندما تكون هذه القيم فارغة. وهي نفسها إضافة (plugin)، هي
+<code>plugins/delegation/default/</code> المضمّنة (<code>kind: backend</code>، تُحمَّل دائمًا)، وتُسجَّل عبر نقطة الربط نفسها
+<code>ctx.register_delegation_provider()</code> التي تستخدمها إضافتك؛ كما أنها أصغر مثال كامل.
+أما الـ backend المُعدّ الذي لم يُثبَّت أو الذي يُبلّغ عن عدم توفره فيؤدي إلى <strong>الفشل المغلق (fails closed)</strong>: تُرجع <code>delegate_task</code>
+خطأ أداة يسمّي الـ backend والحل، ولا يبدأ أي child، وتختفي معاملات المخطط الخاصة به. ويبدّل <code>/delegation</code> الـ backend (<code>agent.delegation_backends</code>، أدناه).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skeleton">الهيكل الأساسي</h2>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="the-interface">الواجهة</h2>
+<p>الصنف <code>DelegationProvider</code> (<code>agent/delegation_provider.py</code>) يرث من <code>ProviderBase</code> المشترك. تستقبل كل
+دالة المعامل <code>config</code>، وهو القسم <code>delegation</code> من ملف <code>config.yaml</code> الخاص بالـ profile النشط: القيمة <code>dict(config)</code>
+هي المسار الافتراضي، و <code>self.settings(config)</code> هي الكتلة الخاصة بالـ backend لديك،
+أي <code>delegation.backends.&lt;name&gt;</code> (فارغة عند عدم ضبطها). احتفظ بإعداداتك هناك، ولا تضعها أبدًا بجوار مفاتيح
+<code>delegation</code> الأساسية.</p>
+<table><thead><tr><th>العضو</th><th>مطلوب</th><th>العقد (Contract)</th></tr></thead><tbody><tr><td><code>name</code></td><td>نعم</td><td>قيمة <code>delegation.backend</code>. الاسم <code>default</code> محجوز للاستراتيجية الافتراضية المضمّنة.</td></tr><tr><td><code>route_task(task, config)</code></td><td>نعم</td><td>تُرجع قاموس المسار (route dict) لمهمة واحدة. يحمل <code>task</code> الحقول <code>goal</code> و <code>context</code> و <code>index</code> والقيم التي زوّدها النموذج لمعاملاتك. ارفع <code>DelegationRouteError</code> للرفض؛ ورسالتها هي خطأ الأداة الذي يقرؤه النموذج.</td></tr><tr><td><code>task_parameters(config)</code></td><td>لا</td><td>القاموس <code>{name: json_schema}</code> يُدمج في <code>tasks.items.properties</code>. تفرض النواة <code>enum</code> قبل تشغيل <code>route_task</code> وترفض الأسماء التي تملكها النواة (<code>goal</code> و <code>context</code> و <code>index</code> و <code>output_schema</code> و <code>images</code> و <code>group</code> و <code>role</code> و <code>toolsets</code> و <code>provider</code> و <code>model</code> و <code>base_url</code> و <code>api_key</code> و <code>api_mode</code> و <code>acp_command</code> و <code>acp_args</code>).</td></tr><tr><td><code>description(config)</code></td><td>لا</td><td>إرشادات تُلحق بوصف <code>delegate_task</code>.</td></tr><tr><td><code>is_available()</code></td><td>لا</td><td>بلا استدعاءات شبكة. القيمة <code>False</code> تُفشل التفويض بشكل مغلق ما دام الـ backend لديك محددًا: تُرجع <code>delegate_task</code> خطأ أداة يسمّيه ويذكر الحل (<code>/delegation default</code>، أو <code>hermes config set delegation.backend default</code>)؛ ولا تنتقل إلى <code>default</code> من تلقاء نفسها أبدًا.</td></tr><tr><td><code>settings(config)</code></td><td>موروثة</td><td>القيمة <code>delegation.backends.&lt;name&gt;</code> على هيئة mapping (فارغة عند عدم ضبطها). لا تتجاوزها (override).</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="routes">المسارات</h3>
+<p>المسار (route) هو قاموس يحوي أيًّا مما يلي:</p>
+<ul>
+<li><code>model</code> و <code>provider</code> و <code>base_url</code> و <code>api_key</code> و <code>api_mode</code> و <code>request_overrides</code> و <code>reasoning_effort</code> و
+<code>fallback_providers</code>: بالشكل نفسه تمامًا الموجود في القسم <code>delegation</code>، ويحلّها مُحلِّل بيانات الاعتماد (credential resolver) نفسه.
+المسار الفارغ يرث مسار الأصل؛ و <code>dict(config)</code> هو المسار الافتراضي.
+القيمة <code>reasoning_effort</code> التي ليست مستوى معروفًا (<code>none</code> و <code>minimal</code> و <code>low</code> و <code>medium</code> و <code>high</code> و
+<code>xhigh</code> و ...) ترفض المهمة بخطأ أداة بدل الرجوع إلى مستوى الأصل؛ أما
+قيمة <code>delegation.reasoning_effort</code> نفسها فتبقى على قاعدتها المعتادة: تحذير ثم وراثة.</li>
+<li><code>service_tier</code>: ‏<code>normal</code> أو <code>fast</code> أو <code>ultrafast</code>. تتحقق النواة منها مقابل المسار المحلَّل بالبوابات نفسها
+المستخدمة في <code>/fast</code> (وفي حالة <code>ultrafast</code> تتحقق أيضًا من كتالوج حساب Codex المسجَّل الدخول). المستوى الذي
+لا يوفره المسار يؤدي إلى رفض المهمة؛ وإلا فإنه ينطبق على ذلك الـ child فقط ويُعاد تطبيقه
+بعد بناء الـ child، فلا يستطيع <code>extra_body</code> الخاص بمزوّد مخصص أن يستعيد مستوى آخر.</li>
+<li><code>profile</code>: اسم profile في Hermes. يعمل الـ child <strong>بصفة ذلك الـ profile</strong>: بملف <code>config.yaml</code> الخاص به،
+ونموذجه الأساسي وبيانات اعتماده (يُحلّ الاسم المستعار <code>model.default</code> أو المزوّد المسمّى تمامًا كما عند
+بدء تشغيل CLI)، وتجمّع بيانات الاعتماد (credential pool)، وسلسلة الـ fallback، والاستدلال (<code>agent.reasoning_effort</code> و
+<code>agent.reasoning_overrides</code>)، والمهارات، و <code>SOUL.md</code>، وسياسة الطرفية. تربط النواة نطاق ذلك الـ profile
+(تجاوز HERMES_HOME، ونطاق الأسرار، ودلالات multiplex، وسياسة الطرفية) حول بناء
+الـ child، وحول استئجار بيانات اعتماده (credential lease) وكل دور محادثة، وهو الربط نفسه
+الذي يطبّقه gateway متعدد الإرسال (multiplexed) على دور موجَّه، فلا يُقرأ أي سرّ ناقص من الـ profile المستهدف
+من بيئة الـ profile المُطلِق. يبقى سجل محادثة الـ child
+في قاعدة بيانات جلسات الـ profile المُطلِق (فهو عمل الأصل) ويحتفظ بـ toolset الخاصة بالأصل. تُتجاهل مفاتيح المسار الأخرى
+في مسار الـ profile.</li>
+<li><code>label</code>: نص قصير يعرّف المسار (عنوان خيار، أو اسم profile).</li>
+</ul>
+<p>تُسقَط المفاتيح غير المعروفة. وفي مسار الـ profile يُتجاهل أيضًا كل من <code>service_tier</code> و <code>reasoning_effort</code>.</p>
+<p>المسار غير الخاص بـ profile والذي لا يحمل <code>fallback_providers</code> خاصة به يحصل على <code>delegation.fallback_providers</code>؛ أرجع
+<code>&quot;fallback_providers&quot;: []</code> لتعطيل الـ fallback لمسار ما. أما مسار الـ profile فيحتفظ بسلسلة الـ profile الخاصة به.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="refusals-are-per-task">الرفض يكون لكل مهمة</h3>
+<p>كل من: <code>DelegationRouteError</code> صادر من <code>route_task</code>، أو معامل لم يعلنه الـ backend لديك، أو قيمة خارج
+<code>enum</code> الخاص بمعاملك، أو <code>reasoning_effort</code> غير معروف، أو مستوى لا يوفره المسار، أو بيانات اعتماد لا يستطيع المسار حلّها،
+يرفض <strong>تلك المهمة وحدها</strong>: لا يُبنى لها child، وتكون نتيجتها
+<code>{&quot;status&quot;: &quot;error&quot;, &quot;error&quot;: &quot;&lt;your message&gt;&quot;, &quot;route&quot;: {&quot;backend&quot;: &quot;&lt;name&gt;&quot;, &quot;refused&quot;: true}}</code>،
+وتُشغَّل المهام الأخرى. يسرد الاستدعاء في الخلفية المهام المرفوضة تحت <code>refused</code> في حمولة الإرسال (dispatch payload).
+ولا يكون الاستدعاء خطأ أداة إلا عندما تُرفض كل المهام.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="result-route">حقل <code>route</code> في النتيجة</h3>
+<p>يحمل كل إدخال نتيجة لمهمة وُجّهت عبر backend غير افتراضي الحقل <code>route</code>: أي الـ backend، والتسمية (label)
+(عند ضبطها)، وما شغّله الـ child فعليًا، ويُقرأ من الـ child عند تجميع نتيجته:</p>
+<div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<p>تكون <code>reasoning_effort</code> بقيمة <code>null</code> عندما ينطبق الافتراضي الخاص بالمزوّد؛ ويُضاف <code>fallback_activated: true</code>
+عندما يتولى مزوّد احتياطي (fallback provider) المهمة. أما أبناء الـ backend <code>default</code> فيتركون إدخال النتيجة دون تغيير.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="picker-metadata-and-switching-backends">بيانات المنتقي الوصفية وتبديل الـ backends</h2>
+<p>يضع كل من <code>display_name</code> و <code>summary</code> (سطر واحد موجّه للمستخدم؛ لا يُعرض للنموذج أبدًا) تسمية لـ backend لديك في
+المنتقيات (pickers) مثل <code>/delegation</code>. تستخدم الإضافة <code>ctx.delegation_backends</code> (بالدوال نفسها؛ و <code>list_backends()</code> تُرجع
+قواميس عادية). وهي واجهة بعيدة على المضيف (host remote facade)، لذا فهي تعمل تحت <code>plugins.isolation: host</code> على عملية Hermes، لا على
+مضيف الإضافة. أما كود النواة فيستدعي <code>agent.delegation_backends</code> مباشرة:</p>
+<table><thead><tr><th>الاستدعاء</th><th>ما يفعله</th></tr></thead><tbody><tr><td><code>list_backends() -&gt; list[BackendInfo]</code></td><td>يبدأ بـ <code>default</code> ثم كل backend مسجَّل: <code>name</code> و <code>label</code> و <code>description</code> و <code>available</code> و <code>reason</code> (الحل، عند عدم التوفر).</td></tr><tr><td><code>set_global_backend(name, *, session_key=&quot;&quot;, apply_now=False)</code></td><td>يكتب <code>delegation.backend</code> في ملف <code>config.yaml</code> الخاص بالـ profile النشط. القيمة <code>apply_now=True</code> تعيد أيضًا بناء قائمة أدوات الجلسة التي يسمّيها <code>session_key</code> في دورها التالي. يرفع <code>PermissionError</code> عند التثبيت الذي يديره مدير الحزم (package manager)، و <code>ValueError</code> مع السبب عند backend لا يمكنه العمل (أو عند <code>apply_now</code> بلا <code>session_key</code>)؛ ولا يُكتب شيء حينها.</td></tr></tbody></table>
+<p>يمكن لأمر إضافة (plugin command) يعدّل مسارات النماذج إعادة استخدام منتقي النماذج التفاعلي تحت عنوانه الخاص:
+<code>hermes_cli.auth_model_picker.prompt_model_selection(model_ids, current_model=&quot;&quot;, title=&quot;Select the model for this route:&quot;)</code>
+يُرجع معرّف النموذج المختار، أو <code>None</code> عند الإلغاء.</p>
+<p>القيمة <code>session_key</code> هي <code>session_key</code> الذي يستقبله معالج أمر الإضافة. تُوجَّه الجلسة عبر الـ backend الذي بُني منه مخطط
+<code>delegate_task</code> الخاص بها (أي معاملاتك): تلتقطه النواة مع أدوات الجلسة وتثبّته
+معها في سجل الجلسة، فيستعيد الوكيل الجديد الذي يواصل الجلسة (gateway، <code>--resume</code>) الاثنين معًا.
+المخطط جزء من الـ prompt المخزَّن مؤقتًا، لذا فإن الحفظ، أو التعديل اليدوي لـ <code>delegation.backend</code>، لا يغيّر شيئًا في الجلسة
+الجارية ويسري من جلستها التالية (<code>/new</code>). أما <code>apply_now=True</code> (ما يمرّره <code>/delegation &lt;backend&gt; --now</code>)
+فيعيد بناء أدوات تلك الجلسة في دورها التالي بدلًا من ذلك، وينتقل التوجيه معها: انكسار واحد في الـ prompt cache بناءً على
+اختيار المستخدم، وهو الاشتراك الاختياري نفسه (opt-in) المستخدم في <code>/skills install --now</code>. ضغط السياق (context compression) يعيد بناء الأدوات على أي حال ويلتقط
+الـ backend المحفوظ. والمهمة التي تحمل معاملًا لا يعلنه الـ backend الخاص بجلستها (نموذج اخترع معاملًا من عنده)
+تُرفض وحدها، ولا يُسقَط المعامل وتُشغَّل المهمة على المسار الافتراضي:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<p>أما المعامل الذي لا يعلنه أي backend مثبَّت فيُرفض بالطريقة نفسها، مع بدء الرسالة بعبارة &quot;Resend it without ...&quot;.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-caching">التخزين المؤقت للـ prompt</h2>
+<p>يُبنى تعريف <code>delegate_task</code>، بما في ذلك معاملاتك ووصفك، مرة واحدة عند تجميع قائمة أدوات
+الجلسة. يجب أن تكون <code>task_parameters</code> و <code>description</code> حتمية (deterministic) لقيمة
+<code>config</code> معيّنة: الإعدادات نفسها تنتج البايتات نفسها. لا تشتقّهما أبدًا من الساعة أو الشبكة أو أي شيء
+يتغير أثناء المحادثة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="process-isolation">عزل العمليات</h2>
+<p>كل وسيط وقيمة مُرجعة هي JSON عادي، لذا يعمل المزوّد دون أي تعديل تحت
+<code>plugins.isolation: host</code>: يحتفظ Hermes بوكيل (proxy) يرث من <code>DelegationProvider</code> وتُنفَّذ كل استدعاءاته
+في عملية مضيف الإضافة.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="testing">الاختبار</h2>
+<p>حمّل الإضافة عبر مسار الاكتشاف الحقيقي مقابل <code>HERMES_HOME</code> مؤقت يضبط ملف <code>config.yaml</code> فيه
+<code>plugins.enabled</code> و <code>delegation.backend</code> و <code>delegation.backends.&lt;name&gt;</code>، ثم تحقق من السلوك: يحمل تعريف
+<code>delegate_task</code> المستخرج من <code>tools.registry.registry.get_definitions({&quot;delegate_task&quot;})</code>
+معاملك، وتمنح <code>tools.delegate_tool.delegate_task(...)</code> كل child المسار الذي اخترته.
+الملف <code>tests/tools/test_delegation_backends.py</code> في مستودع Hermes مثال كامل.</p>

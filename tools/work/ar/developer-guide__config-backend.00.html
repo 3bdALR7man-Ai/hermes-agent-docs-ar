@@ -1,0 +1,18 @@
+<header><h1>واجهة Config Backend</h1></header>
+<p>تمرّ كل عمليات القراءة والفحص (stat) والتحقق من الوجود والكتابة الخاصة بملف <code>config.yaml</code> الخاص بالمستخدم في أي profile عبر
+<code>hermes_cli/config_backend.py</code>. تعيد <code>get_config_backend()</code> الـ backend الخاص بكل home؛ وهو اليوم
+<code>FileBackend</code>، أي ملف <code>config.yaml</code> المحلي مع الأدوات الأولية نفسها التي كان Hermes يستخدمها قبل
+هذه الواجهة (توقيع stat، و <code>fast_safe_load</code>، وكاتبات ruamel ذات الذهاب والإياب). وأي backend لا
+يخزّن الطبقة كملف محلي ينفّذ بروتوكول <code>ConfigBackend</code> نفسه، ويصل إليه كل مستدعٍ
+بالفعل.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="helpers">الدوال المساعدة</h2>
+<table><thead><tr><th>الدالة المساعدة</th><th>الاستخدام</th></tr></thead><tbody><tr><td><code>read_config_doc(path)</code></td><td>تعيد طبقة المستخدم بعد تحليلها (وترفع الأخطاء كما تفعل <code>open</code> مع <code>fast_safe_load</code>)</td></tr><tr><td><code>read_config_doc_readonly(path)</code></td><td>قراءة مخزَّنة مؤقتًا بحسب التوقيع؛ لا تعدّل النتيجة أبدًا</td></tr><tr><td><code>config_version(path)</code></td><td>توقيع الـ cache (صف stat الخاص بالملف)</td></tr><tr><td><code>config_exists(path)</code></td><td>هل الطبقة موجودة</td></tr><tr><td><code>probe_config_readable(path)</code></td><td>ترفع <code>OSError</code> ما دامت الطبقة غير قابلة للقراءة (دون تحليل)</td></tr><tr><td><code>write_config_document(path, doc)</code> / <code>write_config_key(path, key, value)</code></td><td>عمليات الكتابة؛ وعادةً يستخدم المستدعون <code>atomic_config_write</code> / <code>atomic_config_replace</code></td></tr></tbody></table>
+<p>الملف <code>&lt;home&gt;/config.yaml</code> وحده هو طبقة المستخدم. أما أي ملف آخر يُمرَّر إلى هذه الدوال (مصدر استيراد، أو fixture) فيُقرأ ويُكتب في مكانه. تفقد الـ caches المبنية على <code>config_version</code> صلاحيتها (miss) كلما تغيّرت طبقة الـ backend. ويبقى النطاق المُدار (<code>/etc/hermes</code>) overlay فوق أي طبقة مستخدم يعيدها الـ backend.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lints">فحوص Lint</h2>
+<ul>
+<li>يرفض <code>scripts/check_config_yaml_writers.py</code> أي تفريغ YAML مباشر لمسار إعدادات.</li>
+<li>يرفض <code>scripts/check_config_yaml_readers.py</code> أي <code>open</code> / <code>read_text</code> / <code>stat</code> /
+<code>exists</code> / تحميل YAML مباشر لمسار إعدادات. وأي إنذار كاذب حقيقي (ملف إعدادات منتج آخر،
+أو أداة تنسخ الملف المحلي أو تعدّله بنفسها: <code>config edit</code> والنسخ الاحتياطية واستنساخ الـ profile)
+يحمل <code># config-reader: ok — &lt;why&gt;</code> على السطر نفسه.</li>
+</ul>

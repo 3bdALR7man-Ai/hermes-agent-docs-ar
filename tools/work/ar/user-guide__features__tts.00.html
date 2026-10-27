@@ -52,6 +52,21 @@
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
 <p>دون ffmpeg، يُرسل الصوت الناتج عن Edge TTS و MiniMax TTS و NeuTTS و KittenTTS و Piper كملفات صوتية عادية (قابلة للتشغيل، لكنها تظهر كمشغّل مستطيل بدلًا من فقاعة صوتية).</p>
 <div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="24"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>إذا أردت الفقاعات الصوتية دون تثبيت ffmpeg، فانتقل إلى المزوّد OpenAI أو ElevenLabs أو Mistral.</p></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="elevenlabs-agent-selected-voices">ElevenLabs: أصوات يختارها الوكيل</h3>
+<p>عند ضبط <code>tts.provider: elevenlabs</code> و <code>ELEVENLABS_API_KEY</code>، يستطيع الوكيل اختيار صوت مختلف في كل استدعاء لـ <code>text_to_speech</code>، مثل صوت لكل شخصية في نص مسرحي. تحتوي نسخة ElevenLabs من <code>text_to_speech</code> على حقلين إضافيين لا يراهما أي مزوّد آخر (تبقى لديهم الأصوات المضبوطة):</p>
+<ul>
+<li>يحدد <code>voice_id</code> الصوت المستخدم في هذا الاستدعاء. وعند حذفه يُستخدم <code>tts.elevenlabs.voice_id</code>؛ ولا يُعاد كتابة ملف الإعدادات أبدًا.</li>
+<li>يبحث <code>find_voices</code> عن الأصوات بدلًا من النطق. يعيد 20 صوتًا في كل صفحة افتراضيًا (حتى 100)، مع <code>next_page</code> للصفحة التالية:
+<ul>
+<li><code>source: library</code> (الافتراضي) يبحث في Voice Library العامة: آلاف الأصوات المجتمعية، الأكثر استخدامًا أولًا. تعمل أصوات المكتبة مباشرةً عبر <code>voice_id</code> دون حفظها أولًا؛ لكن ElevenLabs لا تسمح بها عبر API إلا في الخطط المدفوعة، وبعضها له معدل رصيد أعلى (يظهر في <code>credit_rate</code>).</li>
+<li><code>source: account</code> يسرد الأصوات الموجودة في حسابك: الأصوات الجاهزة (premade) إضافةً إلى ما حفظته أو استنسخته أو صمّمته.</li>
+<li>عوامل التصفية: <code>query</code> للنص الحر، و <code>gender</code> و <code>age</code> و <code>accent</code> و <code>language</code> (رمز ISO مثل <code>en</code>)، وللمكتبة أيضًا <code>use_case</code> (مثل <code>characters_animation</code>) و <code>sort</code> (<code>usage_character_count_1y</code> و <code>trending</code> و <code>cloned_by_count</code> و <code>created_date</code>).</li>
+</ul>
+</li>
+</ul>
+<p>يطابق بحث المكتبة الكلمات في أسماء الأصوات ووصفها حرفيًا. فالبحث عن &quot;orc&quot; يجد أصوات orc، لكن البحث عن &quot;dwarf&quot; لا يجد شيئًا، ولذلك يُطلب من الوكيل الرجوع إلى وصف الصوت (&quot;gravelly old&quot; مع <code>age: old</code> و <code>use_case: characters_animation</code>).</p>
+<p>يحتاج مفتاح ElevenLabs API إلى صلاحية <strong>Text to Speech</strong> للنطق وإلى <strong>Voices: Read</strong> للبحث.</p>
+<p>لا يستطيع الوكيل الاستماع إلى الأصوات. فهو يختار بناءً على تسميات كل صوت ووصفه، وتحمل كل نتيجة <code>preview_url</code> يمكنك فتحه لسماع الصوت قبل اعتماده.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="xai-custom-voices-voice-cloning">الأصوات المخصصة في xAI (استنساخ الصوت)</h3>
 <p>يدعم xAI استنساخ صوتك واستخدامه مع TTS. أنشئ صوتًا مخصصًا في <a href="https://console.x.ai/team/default/voice/voice-library" data-ext>xAI Console</a>، ثم اضبط قيمة <code>voice_id</code> الناتجة في إعداداتك:</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
@@ -94,16 +109,3 @@
 <p>استخدم <code>{{</code> و <code>}}</code> للأقواس المعقوفة الحرفية.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="optional-keys">المفاتيح الاختيارية</h4>
 <table><thead><tr><th>المفتاح</th><th>القيمة الافتراضية</th><th>المعنى</th></tr></thead><tbody><tr><td><code>timeout</code></td><td><code>120</code></td><td>ثوانٍ من الخمول؛ وأي إخراج على stdout أو stderr يعيد ضبط المهلة. وتُنهى شجرة العمليات بعد انقضاء فترة الخمول (<code>killpg</code> على Unix، و <code>taskkill /T</code> على Windows).</td></tr><tr><td><code>output_format</code></td><td><code>mp3</code></td><td>إحدى القيم <code>mp3</code> / <code>wav</code> / <code>ogg</code> / <code>flac</code>. تُستنتج تلقائيًا من امتداد ملف الإخراج إذا كان Hermes هو من يختار المسار.</td></tr><tr><td><code>voice_compatible</code></td><td><code>false</code></td><td>عند ضبطه على <code>true</code>، يحوّل Hermes إخراج MP3/WAV إلى Opus/OGG عبر ffmpeg كي يعرضه Telegram كفقاعة صوتية.</td></tr><tr><td><code>max_text_length</code></td><td><code>5000</code></td><td>الحد الأقصى لأحرف الإدخال في كل استدعاء للأمر؛ ويُقسَّم النص الأطول إلى أجزاء مرتبة.</td></tr><tr><td><code>voice</code> / <code>model</code></td><td>فارغ</td><td>يُمرَّران إلى الأمر كقيم للعناصر النائبة فقط.</td></tr><tr><td><code>warm_command</code> / <code>release_command</code></td><td>غير مضبوط</td><td>أوامر shell تُشغَّل عندما تفعّل واجهة ما إخراج الكلام / عند تحرير آخر عقد استخدام عبر الواجهات — مثل <code>curl -s localhost:5002/load?model={model}</code> لتحميل خادم TTS محلي مسبقًا، ونظيره <code>unload</code>. تعمل بأفضل جهد ودون حجب: إذ تُشغَّل في الخلفية بالقيم نفسها لـ <code>timeout</code> و <code>env_passthrough</code> والعناصر النائبة <code>{voice}</code> / <code>{model}</code> / <code>{speed}</code> المستخدمة مع <code>command</code>؛ ويُتجاهل إخراجها، ولا تُسجَّل حالات فشلها إلا بمستوى debug.</td></tr></tbody></table>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="behavior-notes">ملاحظات حول السلوك</h4>
-<ul>
-<li><strong>الأسماء المدمجة لها الأولوية دائمًا.</strong> لا يحجب الإدخال <code>tts.providers.openai</code> أبدًا مزوّد OpenAI الأصلي، لذا لا يمكن لأي إعدادات من المستخدم استبدال مزوّد مدمج بصمت.</li>
-<li><strong>التسليم الافتراضي يكون كمستند.</strong> يسلّم مزوّدو الأوامر الصوت كمرفقات صوتية عادية على كل المنصات. ويمكنك تفعيل التسليم كفقاعة صوتية لكل مزوّد على حدة عبر <code>voice_compatible: true</code>.</li>
-<li><strong>تظهر حالات فشل الأوامر للوكيل.</strong> فرمز الخروج غير الصفري، أو الإخراج الفارغ، أو انتهاء المهلة، كلها تعيد خطأً يتضمن stderr/stdout الخاص بالأمر، كي تتمكن من تصحيح أخطاء المزوّد من داخل المحادثة.</li>
-<li><strong><code>type: command</code> هو الافتراضي عند ضبط <code>command:</code> مضبوطًا.</strong> كتابة <code>type: command</code> صراحةً ممارسة جيدة لكنها غير مطلوبة؛ فأي إدخال يحتوي على سلسلة <code>command</code> غير فارغة يُعامل كمزوّد أوامر.</li>
-<li><strong><code>{input_path}</code> / <code>{text_path}</code> قابلان للتبادل.</strong> استخدم أيهما أوضح في أمرك.</li>
-</ul>
-<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">الأمان</h4>
-<p>يشغّل المزوّدون من نوع command أي أمر shell تضبطه، بصلاحيات المستخدم الخاص بك. يضع Hermes قيم العناصر النائبة بين علامات اقتباس ويفرض المهلة المضبوطة، لكن قالب الأمر نفسه يُعدّ إدخالًا محليًا موثوقًا — لذا تعامل معه كما تتعامل مع سكربت shell موجود في PATH لديك.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="python-plugin-providers">مزوّدو إضافات Python</h3>
-<p>بالنسبة إلى محركات TTS التي لا يمكن التعبير عنها بأمر shell واحد — مثل حزم Python SDK التي لا تملك CLI، أو محركات البث المتدفق، أو واجهات API لسرد الأصوات، أو المصادقة التي تتطلب تجديد OAuth — سجّل إضافة Python عبر <code>ctx.register_tts_provider()</code>. تعمل الإضافة <strong>جنبًا إلى جنب مع</strong> (ولا تستبدله) سجل <a href="#custom-command-providers">مزوّدي الأوامر المخصصة</a>؛ اختر الواجهة التي تناسب محرّكك.</p>
-

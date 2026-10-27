@@ -1,13 +1,3 @@
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="permission-profiles">ملفات تعريف الصلاحيات (Permission profiles)</h2>
-<p>لدى Codex ثلاثة profiles صلاحيات مدمجة:</p>
-<ul>
-<li><code>:read-only</code> — لا كتابة؛ وكل أمر shell يتطلب موافقة</li>
-<li><code>:workspace</code> — يُسمح بالكتابة داخل مساحة العمل الحالية دون طلب موافقة (الافتراضي في Hermes عند تفعيل بيئة التشغيل)</li>
-<li><code>:danger-no-sandbox</code> — بلا sandbox على الإطلاق (لا تستخدمه إلا إذا كنت تفهم عواقبه)</li>
-</ul>
-<p>يمكنك تجاوز القيمة الافتراضية في <code>~/.codex/config.toml</code> خارج الكتلة التي يديرها Hermes:</p>
-<div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="10"></x-keep></div></div>
-<p>(سيحافظ Hermes على تجاوزك عند إعادة الترحيل ما دام موجودًا خارج العلامتين <code># managed by hermes-agent</code> كعلامات).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="auxiliary-tasks-and-chatgpt-subscription-token-cost">المهام المساعدة وتكلفة الـ token في اشتراك ChatGPT</h2>
 <p>عند تفعيل بيئة التشغيل هذه مع المزوّد <code>openai-codex</code>، <strong>تمر المهام المساعدة (توليد العناوين، وضغط السياق، والاكتشاف التلقائي للرؤية، وفرع مراجعة التحسين الذاتي في الخلفية) أيضًا عبر اشتراك ChatGPT الخاص بك افتراضيًا</strong>، لأن العميل المساعد في Hermes يستخدم المزوّد/النموذج الرئيسي عند عدم ضبط تجاوز خاص بكل مهمة.</p>
 <p>هذا ليس خاصًا بـ <code>codex_app_server</code> — فهو ينطبق على المسار الحالي <code>codex_responses</code> أيضًا — لكنه أوضح هنا لأنك تختار صراحةً الفوترة عبر الاشتراك.</p>
@@ -61,11 +51,11 @@
 <li>OAuth الخاص بالإضافات — تمنح التفويض لكل إضافة مرة واحدة داخل Codex نفسه؛ ولا يمسّ Hermes بيانات الاعتماد.</li>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="hermes-tool-callback-the-new-mcp-server">استدعاء أدوات Hermes الراجع (خادم MCP الجديد)</h2>
-<p>تغطي toolset المدمجة في Codex عمليات الـ shell والملفات والتصحيحات (patches)، لكنها لا تتضمن البحث في الويب أو أتمتة المتصفح أو الرؤية أو توليد الصور وغيرها. ولإبقاء هذه الأدوات قابلة للاستخدام خلال دور codex، يسجّل Hermes نفسه بوصفه خادم MCP في <code>~/.codex/config.toml</code>:</p>
+<p>تغطي toolset المدمجة في Codex عمليات الـ shell والملفات والتصحيحات (patches)، لكنها لا تتضمن البحث في الويب أو الرؤية أو توليد الصور وغيرها. ولإبقاء هذه الأدوات قابلة للاستخدام خلال دور codex، يسجّل Hermes نفسه بوصفه خادم MCP في <code>~/.codex/config.toml</code>:</p>
 <div class="language-toml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="15"></x-keep></div></div>
 <p>عندما يستدعي النموذج <code>web_search</code> (أو أي أداة أخرى مكشوفة من Hermes)، يشغّل codex العملية الفرعية <code>hermes_tools_mcp_server</code> عبر stdio، ويُمرَّر الطلب من خلال <code>model_tools.handle_function_call()</code>، ثم تُعاد النتيجة إلى codex مثل أي استجابة MCP أخرى.</p>
-<p><strong>الأدوات المتاحة عبر الاستدعاء الراجع:</strong> <code>web_search</code>، <code>web_extract</code>، <code>browser_navigate</code>، <code>browser_click</code>، <code>browser_type</code>، <code>browser_press</code>، <code>browser_snapshot</code>، <code>browser_scroll</code>، <code>browser_back</code>، <code>browser_get_images</code>، <code>browser_console</code>، <code>browser_vision</code>، <code>vision_analyze</code>، <code>image_generate</code>، <code>skill_view</code>، <code>skills_list</code>، <code>text_to_speech</code>.</p>
-<p><strong>الأدوات غير المتاحة:</strong> <code>delegate_task</code> و <code>memory</code> و <code>session_search</code> و <code>todo</code>. تحتاج هذه الأدوات إلى سياق AIAgent قيد التشغيل لتنفيذها (حالة منتصف الحلقة)، ولا يستطيع استدعاء MCP راجع عديم الحالة (stateless) تشغيلها. استخدم بيئة تشغيل Hermes الافتراضية (<code>/codex-runtime auto</code>) عندما تحتاج إليها.</p>
+<p><strong>الأدوات المتاحة عبر الاستدعاء الراجع:</strong> <code>web_search</code>، <code>web_extract</code>، <code>vision_analyze</code>، <code>image_generate</code>، <code>skill_view</code>، <code>skills_list</code>، <code>text_to_speech</code>.</p>
+<p><strong>الأدوات غير المتاحة:</strong> <code>delegate_task</code> و <code>memory</code> و <code>session_search</code> و <code>todo</code> وأدوات المتصفح. تحتاج هذه الأدوات إلى سياق AIAgent قيد التشغيل لتنفيذها (حالة منتصف الحلقة)، ولا يستطيع MCP callback عديم الحالة (stateless) تشغيلها. استخدم بيئة تشغيل Hermes الافتراضية (<code>/codex-runtime auto</code>) عندما تحتاج إليها.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="disabling">التعطيل</h2>
 <p>يمكنك العودة في أي وقت:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="16"></x-keep></div></div>

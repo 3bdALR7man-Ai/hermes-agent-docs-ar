@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Windows (Native) Guide | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/user-guide/windows-native"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Windows (Native) Guide | Hermes Agent"><meta data-rh="true" name="description" content="Run Hermes Agent natively on Windows 10 / 11 — install, feature matrix, UTF-8 console, Git Bash, gateway as a Scheduled Task, editor handling, PATH, uninstall, and common pitfalls"><meta data-rh="true" property="og:description" content="Run Hermes Agent natively on Windows 10 / 11 — install, feature matrix, UTF-8 console, Git Bash, gateway as a Scheduled Task, editor handling, PATH, uninstall, and common pitfalls"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/user-guide/windows-native"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/windows-native" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/windows-native" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/windows-native" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Windows (Native)","item":"https://hermes-agent.nousresearch.com/docs/user-guide/windows-native"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.21aa5cae.js" defer="defer"></script>
-<script src="/docs/assets/js/main.6114da03.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
+<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -148,13 +148,14 @@ them. A full deletion of <code>%LOCALAPPDATA%\hermes</code> also deletes user da
 can affect other installations that share it. Use the uninstall command or
 Windows package removal instead of deleting that root to repair an app.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="browser-tool">Browser tool<a href="#browser-tool" class="hash-link" aria-label="Direct link to Browser tool" title="Direct link to Browser tool" translate="no">​</a></h2>
-<p>Browser setup depends on the selected backend. PM supplies the pinned
-<code>agent-browser</code> and Chromium packages for the built-in backend. Browser Use
-has its own managed CLI installation through <code>hermes tools</code>. A self-contained
-MSIX includes supported browser tools in its payload.</p>
-<p>On Windows ARM64, the pinned Chromium and <code>agent-browser</code> binaries can use
+<p>The browser tool (<code>browser_exec</code>) is part of Hermes&#x27;s Python environment.
+For local browsing, Hermes launches the pinned Chromium that PM installs
+(<code>hermes pm install chromium</code> if it is missing); set <code>browser.executable_path</code>
+to use another Chromium-family binary. Cloud browsers are selected in
+<code>hermes tools</code>. A self-contained MSIX includes the browser tools in its payload.</p>
+<p>On Windows ARM64, the pinned Chromium is the x64 build and runs under
 Windows&#x27; x64 emulation. This differs from the native ARM64 Python runtime.
-See <a class="" href="/docs/user-guide/features/browser">Browser automation</a> for backend selection.</p>
+See <a class="" href="/docs/user-guide/features/browser">Browser automation</a> for browser sources.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="running-hermes-on-windows--practical-notes">Running Hermes on Windows — practical notes<a href="#running-hermes-on-windows--practical-notes" class="hash-link" aria-label="Direct link to Running Hermes on Windows — practical notes" title="Direct link to Running Hermes on Windows — practical notes" translate="no">​</a></h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="path-after-install">PATH after install<a href="#path-after-install" class="hash-link" aria-label="Direct link to PATH after install" title="Direct link to PATH after install" translate="no">​</a></h3>
 <p>The installer adds <code>%LOCALAPPDATA%\hermes\bin</code> to your <strong>User PATH</strong> via <code>[Environment]::SetEnvironmentVariable</code>. Existing terminals don&#x27;t pick this up — open a new PowerShell window (or Windows Terminal tab) after installation. Close-and-reopen, don&#x27;t <code>$env:PATH += …</code> by hand unless you know what you&#x27;re doing.</p>
@@ -198,12 +199,9 @@ Check <code>hermes gateway status</code> — it merges the schtasks entry, the S
 You set it in the current process only; close and reopen the shell, or set it at User scope in System Properties → Environment Variables. Verify with <code>echo $env:EDITOR</code> in a new PowerShell window.</p>
 <p><strong>Browser tool launches but tools time out.</strong>
 Run <code>hermes doctor</code> and <code>hermes pm doctor</code>. Use <code>hermes tools</code> to inspect the
-selected browser backend. Do not install an unrelated Playwright revision into
-a signed app payload.</p>
-<p><strong><code>agent-browser</code> reports a Node version error.</strong>
-Run <code>hermes pm doctor</code> and inspect which Hermes launcher started the process.
-PM supplies the managed Node version. Do not delete an unrelated system Node
-installation to repair Hermes.</p>
+selected browser provider. A slow first Chromium start can be given more time
+with <code>browser.command_timeout</code> (the launch timeout floor, in seconds). Do not
+install an unrelated Playwright revision into a signed app payload.</p>
 <p><strong>Chinese / Japanese / Arabic characters show as <code>?</code> in the CLI.</strong>
 The UTF-8 stdio shim didn&#x27;t activate. Check that <code>HERMES_DISABLE_WINDOWS_UTF8</code> is NOT set (<code>Get-ChildItem env:HERMES_DISABLE_WINDOWS_UTF8</code>). If it&#x27;s empty and you still see <code>?</code>, the console host (very old <code>cmd.exe</code>) may not support UTF-8 at all — switch to Windows Terminal.</p>
 <p><strong>Gateway can&#x27;t send Telegram photos — &quot;<code>BadRequest: payload contains invalid characters</code>&quot;.</strong>
