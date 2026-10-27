@@ -1,0 +1,160 @@
+
+<header><h1>Obliteratus</h1></header>
+<p>OBLITERATUS: إزالة سلوك الرفض من نماذج LLM عبر abliteration (diff-in-means).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="skill-metadata">بيانات المهارة الوصفية</h2>
+<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>المصدر</td><td>اختيارية — ثبّتها باستخدام <code>hermes skills install official/mlops/obliteratus</code></td></tr><tr><td>المسار</td><td><code>optional-skills/mlops/obliteratus</code></td></tr><tr><td>الإصدار</td><td><code>2.0.0</code></td></tr><tr><td>المؤلف</td><td>Hermes Agent</td></tr><tr><td>الترخيص</td><td>MIT</td></tr><tr><td>الاعتماديات</td><td><code>obliteratus</code>, <code>torch</code>, <code>transformers</code>, <code>bitsandbytes</code>, <code>accelerate</code>, <code>safetensors</code></td></tr><tr><td>المنصات</td><td>linux, macos</td></tr><tr><td>الوسوم</td><td><code>Abliteration</code>, <code>Uncensoring</code>, <code>Refusal-Removal</code>, <code>LLM</code>, <code>Weight-Projection</code>, <code>SVD</code>, <code>Mechanistic-Interpretability</code>, <code>HuggingFace</code>, <code>Model-Surgery</code></td></tr><tr><td>مهارات ذات صلة</td><td><a href="/docs/user-guide/skills/optional/mlops/mlops-inference-serving-llms-vllm"><code>serving-llms-vllm</code></a>, <a href="/docs/user-guide/skills/optional/mlops/mlops-inference-llama-cpp"><code>llama-cpp</code></a>, <a href="/docs/user-guide/skills/optional/mlops/mlops-huggingface-tokenizers"><code>huggingface-tokenizers</code></a></td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="reference-full-skillmd">المرجع: ملف SKILL.md كاملًا</h2>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="10"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>ما يلي هو التعريف الكامل للمهارة الذي يحمّله Hermes عند تفعيل هذه المهارة، وهو ما يراه الوكيل كتعليمات أثناء عمل المهارة.</p></div></div>
+<h1>OBLITERATUS Skill</h1>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="whats-inside">محتويات المهارة</h2>
+<p>9 طرق عبر CLI، و28 وحدة تحليل، و116 إعدادًا مسبقًا للنماذج موزعة على 5 مستويات حوسبة، مع تقييم بنظام البطولات (tournament)، وتوصيات مبنية على بيانات telemetry.</p>
+<p>أزل سلوكيات الرفض (guardrails) من نماذج LLM مفتوحة الأوزان دون إعادة تدريب أو fine-tuning. تستخدم المهارة تقنيات قابلية التفسير الآلي (mechanistic interpretability) — ومنها diff-in-means وSVD وwhitened SVD ومحو المفاهيم بـ LEACE وتحليل SAE وإسقاط النواة البايزي (Bayesian kernel projection) وغيرها — لتحديد اتجاهات الرفض في أوزان النموذج وحذفها جراحيًا مع الحفاظ على قدرات الاستدلال.</p>
+<p><strong>تحذير الترخيص:</strong> ترخيص OBLITERATUS هو AGPL-3.0. لا تستورده أبدًا كمكتبة Python. استدعِه دائمًا عبر CLI (الأمر <code>obliteratus</code>) أو عبر subprocess. بهذا يبقى ترخيص MIT الخاص بـ Hermes Agent نظيفًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="video-guide">الدليل المرئي</h2>
+<p>شرح عملي لاستخدام وكيل Hermes لـ OBLITERATUS في إجراء abliteration على Gemma:
+<a href="https://www.youtube.com/watch?v=8fG9BrNTeHs" data-ext>https://www.youtube.com/watch?v=8fG9BrNTeHs</a> (&quot;OBLITERATUS: An AI Agent Removed Gemma 4&#x27;s Safety Guardrails&quot;)</p>
+<p>يفيد هذا الدليل عندما يريد المستخدم نظرة مرئية عامة على سير العمل (workflow) من البداية إلى النهاية قبل أن ينفّذه بنفسه.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="when-to-use-this-skill">متى تستخدم هذه المهارة</h2>
+<p>فعّل المهارة عندما يقوم المستخدم بأحد الأمور التالية:</p>
+<ul>
+<li>يريد «إلغاء الرقابة» (&quot;uncensor&quot;) عن نموذج LLM أو إجراء &quot;abliterate&quot; عليه</li>
+<li>يسأل عن إزالة الرفض/guardrails من نموذج</li>
+<li>يريد إنشاء نسخة غير خاضعة للرقابة من Llama أو Qwen أو Mistral وغيرها</li>
+<li>يذكر &quot;refusal removal&quot; أو &quot;abliteration&quot; أو &quot;weight projection&quot;</li>
+<li>يريد تحليل كيفية عمل آلية الرفض في نموذج ما</li>
+<li>يشير إلى OBLITERATUS أو abliterator أو اتجاهات الرفض (refusal directions)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-1-installation">الخطوة 1: التثبيت</h2>
+<p>تحقق مما إذا كانت الأداة مثبّتة بالفعل:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+<p>إذا لم تكن مثبّتة، فاسحبها من GitHub ثم ثبّتها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="1"></x-keep></div></div>
+<p><strong>مهم:</strong> أكّد مع المستخدم قبل التثبيت. فهو يجلب نحو 5-10 GB من الاعتماديات (PyTorch وTransformers وbitsandbytes وغيرها).</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-2-check-hardware">الخطوة 2: فحص العتاد</h2>
+<p>قبل أي شيء، تحقق من وحدة GPU المتاحة:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="2"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="vram-requirements-with-4-bit-quantization">متطلبات VRAM (مع تكميم 4-bit)</h3>
+<table><thead><tr><th style="text-align:left">VRAM</th><th style="text-align:left">أقصى حجم للنموذج</th><th style="text-align:left">نماذج مثال</th></tr></thead><tbody><tr><td style="text-align:left">CPU فقط</td><td style="text-align:left">~1B params</td><td style="text-align:left">GPT-2, TinyLlama, SmolLM</td></tr><tr><td style="text-align:left">4-8 GB</td><td style="text-align:left">~4B params</td><td style="text-align:left">Qwen2.5-1.5B, Phi-3.5 mini, Llama 3.2 3B</td></tr><tr><td style="text-align:left">8-16 GB</td><td style="text-align:left">~9B params</td><td style="text-align:left">Llama 3.1 8B, Mistral 7B, Gemma 2 9B</td></tr><tr><td style="text-align:left">24 GB</td><td style="text-align:left">~32B params</td><td style="text-align:left">Qwen3-32B, Llama 3.1 70B (بالكاد يكفي), Command-R</td></tr><tr><td style="text-align:left">48 GB+</td><td style="text-align:left">~72B+ params</td><td style="text-align:left">Qwen2.5-72B, DeepSeek-R1</td></tr><tr><td style="text-align:left">وحدات GPU متعددة</td><td style="text-align:left">200B+ params</td><td style="text-align:left">Llama 3.1 405B, DeepSeek-V3 (685B MoE)</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-3-browse-available-models--get-recommendations">الخطوة 3: استعراض النماذج المتاحة والحصول على التوصيات</h2>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="3"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-4-choose-a-method">الخطوة 4: اختيار الطريقة</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="method-selection-guide">دليل اختيار الطريقة</h3>
+<p><strong>الخيار الافتراضي والموصى به في معظم الحالات: <code>advanced</code>.</strong> تعتمد على SVD متعدد الاتجاهات مع إسقاط يحافظ على المعيار (norm-preserving) وهي مجرَّبة جيدًا.</p>
+<table><thead><tr><th style="text-align:left">الحالة</th><th style="text-align:left">الطريقة الموصى بها</th><th style="text-align:left">السبب</th></tr></thead><tbody><tr><td style="text-align:left">الافتراضي / معظم النماذج</td><td style="text-align:left"><code>advanced</code></td><td style="text-align:left">SVD متعدد الاتجاهات، يحافظ على المعيار، موثوقة</td></tr><tr><td style="text-align:left">اختبار سريع / بناء نموذج أولي</td><td style="text-align:left"><code>basic</code></td><td style="text-align:left">سريعة وبسيطة وكافية للتقييم</td></tr><tr><td style="text-align:left">نموذج كثيف (Llama, Mistral)</td><td style="text-align:left"><code>advanced</code></td><td style="text-align:left">متعددة الاتجاهات، تحافظ على المعيار</td></tr><tr><td style="text-align:left">نموذج MoE (DeepSeek, Mixtral)</td><td style="text-align:left"><code>nuclear</code></td><td style="text-align:left">دقيقة على مستوى الخبراء (expert-granular)، وتتعامل مع تعقيد MoE</td></tr><tr><td style="text-align:left">نموذج استدلال (R1 distills)</td><td style="text-align:left"><code>surgical</code></td><td style="text-align:left">تراعي CoT وتحافظ على سلسلة التفكير (chain-of-thought)</td></tr><tr><td style="text-align:left">استمرار الرفض العنيد</td><td style="text-align:left"><code>aggressive</code></td><td style="text-align:left">Whitened SVD مع head surgery وjailbreak</td></tr><tr><td style="text-align:left">الرغبة في تغييرات قابلة للعكس</td><td style="text-align:left">استخدم steering vectors (راجع قسم التحليل)</td><td style="text-align:left"></td></tr><tr><td style="text-align:left">أعلى جودة دون قيد على الوقت</td><td style="text-align:left"><code>optimized</code></td><td style="text-align:left">بحث بايزي عن أفضل المعاملات</td></tr><tr><td style="text-align:left">اكتشاف تلقائي تجريبي</td><td style="text-align:left"><code>informed</code></td><td style="text-align:left">تكتشف نوع المواءمة (alignment) تلقائيًا — تجريبية، وقد لا تتفوق دائمًا على advanced</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="9-cli-methods">9 طرق عبر CLI</h3>
+<ul>
+<li><strong>basic</strong> — اتجاه رفض واحد عبر diff-in-means. سريعة (نحو 5-10 دقائق لنموذج 8B).</li>
+<li><strong>advanced</strong> (الافتراضية، والموصى بها) — عدة اتجاهات SVD، وإسقاط يحافظ على المعيار، ومرورَان للتحسين. سرعة متوسطة (نحو 10-20 دقيقة).</li>
+<li><strong>aggressive</strong> — Whitened SVD مع jailbreak-contrastive وattention head surgery. خطر أعلى لإلحاق الضرر بالتماسك (coherence).</li>
+<li><strong>spectral_cascade</strong> — تحليل في نطاق التردد باستخدام DCT. نهج بحثي جديد.</li>
+<li><strong>informed</strong> — تشغّل التحليل أثناء abliteration لضبط الإعدادات تلقائيًا. تجريبية — أبطأ وأقل قابلية للتنبؤ من advanced.</li>
+<li><strong>surgical</strong> — ميزات SAE مع neuron masking وhead surgery وper-expert. بطيئة جدًا (نحو 1-2 ساعة). الأفضل لنماذج الاستدلال.</li>
+<li><strong>optimized</strong> — بحث بايزي عن المعاملات الفائقة (Optuna TPE). أطول زمن تشغيل لكنها تجد المعاملات المثلى.</li>
+<li><strong>inverted</strong> — تعكس اتجاه الرفض. يصبح النموذج راغبًا بنشاط في الاستجابة.</li>
+<li><strong>nuclear</strong> — تركيبة بأقصى قوة لنماذج MoE العنيدة. دقيقة على مستوى الخبراء.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="direction-extraction-methods---direction-method-flag">طرق استخراج الاتجاه (الخيار --direction-method)</h3>
+<ul>
+<li><strong>diff_means</strong> (الافتراضية) — فرق المتوسطات البسيط بين تنشيطات الرفض والاستجابة. متينة.</li>
+<li><strong>svd</strong> — استخراج متعدد الاتجاهات بـ SVD. أفضل للمواءمة المعقدة.</li>
+<li><strong>leace</strong> — LEACE (Linear Erasure via Closed-form Estimation). محو خطي أمثل.</li>
+</ul>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="4-python-api-only-methods">4 طرق عبر Python API فقط</h3>
+<p>(غير متاحة عبر CLI — تتطلب استيرادًا في Python، وهذا ينتهك حدود AGPL. اذكرها للمستخدم فقط إذا أراد صراحةً استخدام OBLITERATUS كمكتبة في مشروعه الخاص المرخّص بـ AGPL.)</p>
+<ul>
+<li>failspy, gabliteration, heretic, rdo</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-5-run-abliteration">الخطوة 5: تشغيل abliteration</h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="standard-usage">الاستخدام القياسي</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="4"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fine-tuning-parameters">معاملات الضبط الدقيق</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="5"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-flags">الخيارات الأساسية</h3>
+<table><thead><tr><th style="text-align:left">الخيار</th><th style="text-align:left">الوصف</th><th style="text-align:left">القيمة الافتراضية</th></tr></thead><tbody><tr><td style="text-align:left"><code>--method</code></td><td style="text-align:left">طريقة abliteration</td><td style="text-align:left">advanced</td></tr><tr><td style="text-align:left"><code>--direction-method</code></td><td style="text-align:left">استخراج الاتجاه</td><td style="text-align:left">diff_means</td></tr><tr><td style="text-align:left"><code>--n-directions</code></td><td style="text-align:left">عدد اتجاهات الرفض (1-32)</td><td style="text-align:left">يعتمد على الطريقة</td></tr><tr><td style="text-align:left"><code>--refinement-passes</code></td><td style="text-align:left">مرات التمرير التكرارية (1-5)</td><td style="text-align:left">2</td></tr><tr><td style="text-align:left"><code>--regularization</code></td><td style="text-align:left">قوة التنظيم (regularization) (0.0-1.0)</td><td style="text-align:left">0.1</td></tr><tr><td style="text-align:left"><code>--quantization</code></td><td style="text-align:left">التحميل بدقة 4bit أو 8bit</td><td style="text-align:left">لا شيء (دقة كاملة)</td></tr><tr><td style="text-align:left"><code>--large-model</code></td><td style="text-align:left">قيم افتراضية متحفظة للنماذج بحجم 120B+</td><td style="text-align:left">false</td></tr><tr><td style="text-align:left"><code>--output-dir</code></td><td style="text-align:left">مكان حفظ النموذج بعد abliteration</td><td style="text-align:left">./obliterated_model</td></tr><tr><td style="text-align:left"><code>--contribute</code></td><td style="text-align:left">مشاركة نتائج مجهولة الهوية لأغراض البحث</td><td style="text-align:left">false</td></tr><tr><td style="text-align:left"><code>--verify-sample-size</code></td><td style="text-align:left">عدد prompts الاختبار لفحص الرفض</td><td style="text-align:left">20</td></tr><tr><td style="text-align:left"><code>--dtype</code></td><td style="text-align:left">نوع بيانات النموذج (dtype) (float16, bfloat16)</td><td style="text-align:left">auto</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="other-execution-modes">أوضاع التنفيذ الأخرى</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="6"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-6-verify-results">الخطوة 6: التحقق من النتائج</h2>
+<p>بعد abliteration، افحص مقاييس المخرجات:</p>
+<table><thead><tr><th style="text-align:left">المقياس</th><th style="text-align:left">القيمة الجيدة</th><th style="text-align:left">التحذير</th></tr></thead><tbody><tr><td style="text-align:left">معدل الرفض</td><td style="text-align:left">&lt; 5% (والأفضل ~0%)</td><td style="text-align:left">&gt; 10% يعني استمرار الرفض</td></tr><tr><td style="text-align:left">تغيّر perplexity</td><td style="text-align:left">زيادة &lt; 10%</td><td style="text-align:left">&gt; 15% يعني تضرر التماسك</td></tr><tr><td style="text-align:left">تباعد KL</td><td style="text-align:left">&lt; 0.1</td><td style="text-align:left">&gt; 0.5 يعني تحولًا كبيرًا في التوزيع</td></tr><tr><td style="text-align:left">التماسك</td><td style="text-align:left">عالٍ / يجتاز الفحص النوعي</td><td style="text-align:left">ردود متدهورة، وتكرار</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-refusals-persist--10">إذا استمر الرفض (&gt; 10%)</h3>
+<ol>
+<li>جرّب الطريقة <code>aggressive</code></li>
+<li>زد قيمة <code>--n-directions</code> (مثلًا 8 أو 16)</li>
+<li>أضف <code>--refinement-passes 3</code></li>
+<li>جرّب <code>--direction-method svd</code> بدلًا من diff_means</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="if-coherence-is-damaged-perplexity--15-increase">إذا تضرر التماسك (زيادة perplexity بأكثر من 15%)</h3>
+<ol>
+<li>قلّل قيمة <code>--n-directions</code> (جرّب 2)</li>
+<li>زد قيمة <code>--regularization</code> (جرّب 0.3)</li>
+<li>خفّض <code>--refinement-passes</code> إلى 1</li>
+<li>جرّب الطريقة <code>basic</code> (الأخف)</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="step-7-use-the-abliterated-model">الخطوة 7: استخدام النموذج بعد abliteration</h2>
+<p>المخرجات عبارة عن مجلد نموذج HuggingFace قياسي.</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="7"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cli-command-reference">مرجع أوامر CLI</h2>
+<table><thead><tr><th style="text-align:left">الأمر</th><th style="text-align:left">الوصف</th></tr></thead><tbody><tr><td style="text-align:left"><code>obliteratus obliterate</code></td><td style="text-align:left">الأمر الرئيسي لإجراء abliteration</td></tr><tr><td style="text-align:left"><code>obliteratus info &lt;model&gt;</code></td><td style="text-align:left">يطبع تفاصيل بنية النموذج</td></tr><tr><td style="text-align:left"><code>obliteratus models --tier &lt;tier&gt;</code></td><td style="text-align:left">يستعرض النماذج المنتقاة حسب مستوى الحوسبة</td></tr><tr><td style="text-align:left"><code>obliteratus recommend &lt;model&gt;</code></td><td style="text-align:left">اقتراح للطريقة والمعاملات مبني على telemetry</td></tr><tr><td style="text-align:left"><code>obliteratus interactive</code></td><td style="text-align:left">معالج إعداد موجَّه</td></tr><tr><td style="text-align:left"><code>obliteratus tourney &lt;model&gt;</code></td><td style="text-align:left">بطولة: مقارنة مباشرة بين جميع الطرق</td></tr><tr><td style="text-align:left"><code>obliteratus run &lt;config.yaml&gt;</code></td><td style="text-align:left">ينفّذ دراسة ablation من ملف YAML</td></tr><tr><td style="text-align:left"><code>obliteratus strategies</code></td><td style="text-align:left">يعرض جميع استراتيجيات ablation المسجّلة</td></tr><tr><td style="text-align:left"><code>obliteratus report &lt;results.json&gt;</code></td><td style="text-align:left">يعيد توليد التقارير المرئية</td></tr><tr><td style="text-align:left"><code>obliteratus ui</code></td><td style="text-align:left">يشغّل واجهة الويب Gradio</td></tr><tr><td style="text-align:left"><code>obliteratus aggregate</code></td><td style="text-align:left">يلخّص بيانات telemetry المجتمعية</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="analysis-modules">وحدات التحليل</h2>
+<p>يتضمن OBLITERATUS ‏28 وحدة تحليل لقابلية التفسير الآلي.
+راجع <code>skill_view(name=&quot;obliteratus&quot;, file_path=&quot;references/analysis-modules.md&quot;)</code> للاطلاع على المرجع الكامل.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="quick-analysis-commands">أوامر التحليل السريعة</h3>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="8"></x-keep></div></div>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="steering-vectors-reversible-alternative">Steering Vectors (بديل قابل للعكس)</h3>
+<p>بدلًا من تعديل الأوزان بشكل دائم، استخدم التوجيه (steering) أثناء inference:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="9"></x-keep></div></div>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ablation-strategies">استراتيجيات Ablation</h2>
+<p>إلى جانب abliteration المعتمد على الاتجاهات، يتضمن OBLITERATUS استراتيجيات ablation بنيوية:</p>
+<ul>
+<li><strong>Embedding Ablation</strong> — يستهدف مكونات طبقة embedding</li>
+<li><strong>FFN Ablation</strong> — إزالة كتلة الشبكة التغذوية الأمامية (feed-forward network)</li>
+<li><strong>Head Pruning</strong> — تقليم رؤوس الانتباه (attention heads)</li>
+<li><strong>Layer Removal</strong> — إزالة طبقة كاملة</li>
+</ul>
+<p>لعرض كل الاستراتيجيات المتاحة: <code>obliteratus strategies</code></p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="evaluation">التقييم</h2>
+<p>يتضمن OBLITERATUS أدوات تقييم مدمجة:</p>
+<ul>
+<li>قياس معدل الرفض (benchmarking)</li>
+<li>مقارنة perplexity (قبل/بعد)</li>
+<li>تكامل مع LM Eval Harness للمعايير الأكاديمية</li>
+<li>مقارنة مباشرة مع المنافسين</li>
+<li>تتبع الأداء المرجعي (baseline)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="platform-support">المنصات المدعومة</h2>
+<ul>
+<li><strong>CUDA</strong> — دعم كامل (وحدات NVIDIA GPU)</li>
+<li><strong>Apple Silicon (MLX)</strong> — مدعوم عبر MLX backend</li>
+<li><strong>CPU</strong> — مدعوم للنماذج الصغيرة جدًا (&lt; 1B params)</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="yaml-config-templates">قوالب إعدادات YAML</h2>
+<p>حمّل القوالب لتشغيلات قابلة للتكرار عبر <code>skill_view</code>:</p>
+<ul>
+<li><code>templates/abliteration-config.yaml</code> — إعدادات قياسية لنموذج واحد</li>
+<li><code>templates/analysis-study.yaml</code> — دراسة تحليلية قبل abliteration</li>
+<li><code>templates/batch-abliteration.yaml</code> — معالجة دفعية لعدة نماذج</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="telemetry">Telemetry</h2>
+<p>يمكن لـ OBLITERATUS اختياريًا المساهمة ببيانات تشغيل مجهولة الهوية في مجموعة بيانات بحثية عالمية.
+فعّل ذلك بالخيار <code>--contribute</code>. لا تُجمع أي بيانات شخصية — فقط اسم النموذج والطريقة والمقاييس.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-pitfalls">أخطاء شائعة</h2>
+<ol>
+<li><strong>لا تستخدم <code>informed</code> كخيار افتراضي</strong> — فهي تجريبية وأبطأ. استخدم <code>advanced</code> للحصول على نتائج موثوقة.</li>
+<li><strong>النماذج التي تقل عن ~1B تستجيب بشكل ضعيف لـ abliteration</strong> — فسلوكيات الرفض فيها سطحية ومجزأة، مما يصعّب استخراج الاتجاه بشكل نظيف. توقّع نتائج جزئية (بقاء 20-40% من الرفض). أما النماذج بحجم 3B فأكثر فاتجاهات الرفض فيها أوضح وتستجيب بشكل أفضل بكثير (غالبًا 0% رفض مع <code>advanced</code>).</li>
+<li><strong><code>aggressive</code> قد تزيد الأمور سوءًا</strong> — ففي النماذج الصغيرة قد تُضر بالتماسك وترفع معدل الرفض فعليًا. لا تستخدمها إلا إذا تركت <code>advanced</code> أكثر من 10% من الرفض في نموذج بحجم 3B فأكثر.</li>
+<li><strong>افحص perplexity دائمًا</strong> — إذا ارتفعت بأكثر من 15% فالنموذج تضرر. خفّف حدّة الإعدادات.</li>
+<li><strong>نماذج MoE تحتاج معالجة خاصة</strong> — استخدم الطريقة <code>nuclear</code> مع Mixtral وDeepSeek-MoE وما شابههما.</li>
+<li><strong>لا يمكن إعادة تكميم النماذج المكمَّمة</strong> — نفّذ abliteration على النموذج بدقة كاملة، ثم كمِّم المخرجات.</li>
+<li><strong>تقدير VRAM تقريبي</strong> — التكميم بـ 4-bit يساعد لكن الاستهلاك الأقصى قد يقفز أثناء الاستخراج.</li>
+<li><strong>نماذج الاستدلال حساسة</strong> — استخدم <code>surgical</code> مع R1 distills للحفاظ على سلسلة التفكير (chain-of-thought).</li>
+<li><strong>راجع <code>obliteratus recommend</code></strong> — فقد تحمل بيانات telemetry معاملات أفضل من القيم الافتراضية.</li>
+<li><strong>ترخيص AGPL</strong> — لا تستخدم <code>import obliteratus</code> أبدًا في مشاريع MIT/Apache. الاستدعاء عبر CLI فقط.</li>
+<li><strong>النماذج الكبيرة (70B+)</strong> — استخدم الخيار <code>--large-model</code> دائمًا للحصول على قيم افتراضية متحفظة.</li>
+<li><strong>ظهور شهادة الطيف (spectral certification) باللون RED أمر شائع</strong> — كثيرًا ما يشير فحص الطيف إلى &quot;incomplete&quot; حتى عندما يكون معدل الرفض العملي 0%. افحص معدل الرفض الفعلي ولا تعتمد على شهادة الطيف وحدها.</li>
+</ol>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="complementary-skills">مهارات مكمّلة</h2>
+<ul>
+<li><strong>vllm</strong> — تقديم النماذج بعد abliteration بإنتاجية عالية</li>
+<li><strong>gguf</strong> — تحويل النماذج بعد abliteration إلى GGUF لاستخدامها مع llama.cpp</li>
+<li><strong>huggingface-tokenizers</strong> — التعامل مع tokenizers الخاصة بالنماذج</li>
+</ul>
