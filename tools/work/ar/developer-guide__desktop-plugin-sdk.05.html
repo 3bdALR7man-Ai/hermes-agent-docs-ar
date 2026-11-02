@@ -53,16 +53,28 @@
 <code>.hermes-package.json</code>، ويحمّله عارض الواجهة (renderer) عبر خط أنابيب مطابق تمامًا
 لباب القرص المستقل (hot reload متضمَّن):</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="56"></x-keep></div></div>
-<p>نصف <code>desktop/plugin.js</code> هو إضافة قرص عادية — نفس العقد، ونفس
-الاستيرادات، ونفس <code>ctx.rest(&#x27;/…&#x27;)</code> الذي يصل إلى <code>plugin_api.py</code> الموجود بجانبه.
-تثبيت أو مشاركة أو إزالة الميزة هو مجلد واحد: تُحدَّث نسخة جذر التطبيق
-عندما يتغير ملف <code>plugin.js</code> المصدر (<code>hermes plugins update</code>، أو
-<strong>Rescan</strong>) وتُزال عندما يختفي مجلد الحزمة. النسخ هو ما
-يجعل النصف الخاص بـ desktop على <strong>مستوى التطبيق</strong>: فهو موجود مرة واحدة، مهما كان عدد
-الـ profiles التي تحمل الحزمة، ولا يظهر أو يختفي أبدًا عندما يبدّل المستخدم
-محدد profile الخاص بالإمكانيات (Capabilities). لا يفحص عارض الواجهة <code>plugins/</code> بنفسه أبدًا.
-تسجّل العلامة اسم الحزمة ومصدرها (ملحق كتالوج أو
-remote git)، وهذا ما يستخدمه زر <strong>Install here</strong> في صفحة Plugins لتثبيت نصف الوكيل في profile آخر. تُجهّز النسخة بجوار الهدف ثم تُنقل إلى موضعها بإعادة التسمية، فلا تترك عملية نسخ مقاطعة (قفل ملف عابر أو تعطّل وسط النسخ) مجلدًا نصف مكتوب؛ وتُعامل بقايا <code>desktop-plugins/&lt;id&gt;/</code> التي لا تحمل علامة ولا <code>plugin.js</code> كتلف من هذا النوع وتُستبدل عند <strong>Rescan</strong> التالي، بينما يكون المجلد دون علامة الذي <em>يحتوي بالفعل</em> على <code>plugin.js</code> إضافة مستقلة ثبّتها يدويًا ولا يُكتب فوقها مطلقًا.</p>
+<p>نصف <code>desktop/plugin.js</code> إضافة قرص عادية — العقد نفسه، والاستيرادات نفسها،
+و<code>ctx.rest(&#x27;/…&#x27;)</code> نفسه الذي يصل إلى <code>plugin_api.py</code> الموجود بجانبه.
+ويعمل أيضًا ملف <code>plugin.js</code> في جذر الحزمة، كما في التثبيت
+المستقل: إذ يتقدم <code>plugin.js</code> الجذري على <code>desktop/plugin.js</code>، ويُنسخ مجلد
+الحزمة كاملًا بوصفه نصف desktop (من دون <code>.git</code> و
+<code>__pycache__</code>). يجب ألا يحتوي على روابط رمزية (symlinks) وأن يبقى أقل من 64 MB، وإلا
+فلن يُنسخ شيء.
+تثبيت الميزة أو مشاركتها أو إزالتها يتم عبر مجلد واحد: تُحدَّث نسخة جذر التطبيق
+عندما يتغير <code>plugin.js</code> المصدر (<code>hermes plugins update</code>، أو
+<strong>Rescan</strong>) وتُزال عندما يختفي مجلد الحزمة. وهذه النسخة هي ما
+يجعل نصف desktop <strong>على مستوى التطبيق</strong>: فهو موجود مرة واحدة، مهما بلغ عدد
+الـ profiles التي تحمل الحزمة، ولا يظهر ولا يختفي أبدًا عندما يبدّل المستخدم
+محدد profile في Capabilities. ولا يفحص الـ renderer المجلد <code>plugins/</code> بنفسه أبدًا.
+تسجّل العلامة (marker) اسم الحزمة ومصدرها (ملف الكتالوج الجانبي أو remote
+git)، وهو ما يستخدمه زر <strong>Install here</strong> في صفحة Plugins
+لتثبيت نصف الوكيل في profile آخر. تُجهَّز النسخة بجوار
+الهدف ثم تُنقل إلى مكانها بإعادة التسمية، فلا تترك النسخة المقاطَعة (قفل ملف عابر أو
+تعطّل أثناء النسخ) مجلدًا نصف مكتوب؛ ويُعامَل المجلد المتبقي
+<code>desktop-plugins/&lt;id&gt;/</code> الذي لا يحمل علامة ولا <code>plugin.js</code> على أنه
+تلف من هذا النوع ويُستبدل عند <strong>Rescan</strong> التالي، أما المجلد الخالي من العلامة الذي
+<em>يحتوي فعلًا</em> على <code>plugin.js</code> فهو إضافة مستقلة ثبّتتها يدويًا
+ولا يُكتب فوقها أبدًا.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="developing-a-unified-package">تطوير حزمة موحّدة</h4>
 <p>يحمّل التطبيق <strong>النسخة</strong> في <code>desktop-plugins/&lt;id&gt;/</code>، لا حزمتك. لا تُحدَّث الحزمة المثبّتة (الكتالوج أو Git URL أو مسار <code>file://</code>) إلا عندما يكون <code>plugin.js</code> المصدري أحدث من النسخة ويطلب شيء التحديث — <strong>Rescan</strong> في <strong>Capabilities → Plugins</strong> أو تثبيت/تحديث عبر التطبيق أو إعادة تشغيل — لذلك لا يؤدي تحرير <code>~/.hermes/plugins/&lt;id&gt;/desktop/plugin.js</code> في موضعه إلى شيء على الشاشة حتى ذلك الحين. طوّر بدلًا من ذلك من نسخة مسحوبة مرتبطة بـ <code>plugins/</code>:</p>
 <div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="57"></x-keep></div></div>
@@ -177,24 +189,3 @@ HTTP 501 بدلًا من ذلك، لأن المضيف لا يدعم websockets �
 والعروض التوضيحية موجودة في مستودع
 <a href="https://github.com/NousResearch/hermes-example-plugins" data-ext><code>hermes-example-plugins</code></a>
 المصاحب.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="security-model">النموذج الأمني</h2>
-<p>تُقيَّم الإضافة المحمَّلة كـ ESM في عالم عارض الواجهة (renderer realm) بـ<strong>سلطة كاملة على
-التطبيق</strong> — النسخة الوحيدة (singleton) من React، وكامل الـ SDK (RPC الخاص بـ gateway عبر
-<code>host.request</code>، و<code>ctx.rest</code>، والتخزين، و<code>navigate</code>) والجسر الأصلي <code>window.hermesDesktop</code> (الملفات و git والطرفية والتثبيتات). العزل الذي يوفّره المحمّل هو <strong>عزل الأخطاء فقط</strong>: لا تستطيع الإضافة تعطيل التطبيق (مساهماتها محاطة بحدود أخطاء ومستمعوها معزولون، ويُتراجع عن <code>register()</code> الذي يطلق استثناءً ويُبلغ عنه في صف الإضافة)، لكنها تستطيع فعل أي شيء يفعله التطبيق. مساحات أسماء تخزين الإضافات اصطلاح، لا حاجز.</p>
-<p>هذا مقبول بالنسبة لمصادر <strong>محلية</strong> — فملف على القرص يستطيع بالفعل تشغيل كود على
-جهازك — ولهذا لا يحمّل باب القرص إلا ملفات محلية كتبتها أنت (أو وكيلك). أما تثبيتات
-<a href="/docs/user-guide/features/plugin-catalog#trust-model">الكتالوج</a>
-فتأتي الثقة فيها من القبول (admission) — إذ راجع شخص الـ commit المثبّت نفسه — ويدعمها حاجزان:
-فحص lint الخاص بـ <code>desktop surface</code> عند القبول
-وقائمة السماح بالاستيراد لدى المحمّل (<code>@hermes/plugin-sdk</code> و<code>react*</code> فقط؛ إذ يُفشل تحميلَ الإضافة أي <code>import</code>
-ثابت أو ديناميكي لأي شيء آخر، بما في ذلك عناوين <code>https:</code>).
-لا يُعدّ أيٌّ منهما sandbox. وأما الأبواب التي تلمس بيانات المستخدم خارج التطبيق فهي مقيّدة
-فوق ذلك: تحتاج <code>ctx.preview.executeJavaScript</code> إلى قدرة معلنة
-وموافقة المستخدم لكل أصل (<a href="#preview-page-scripts">سكربتات صفحة المعاينة</a>).
-وينطبق على الوصول إلى الملفات القاعدة نفسها: ينبغي لإضافة الكتالوج
-أن تقرأ وتكتب عبر <a href="#plugin-files"><code>ctx.files</code></a>، لا عبر جسر الملفات الخام
-<code>window.hermesDesktop</code>. تُفرَض <code>ctx.files</code> في العملية الرئيسية، لذا فإن الإضافة التي تستخدمها (أو نص غير موثوق تتعامل معه، مثل
-اسم ملاحظة قادم من النموذج) لا تستطيع مغادرة المجلدات التي منحها المستخدم؛ أما الجسر
-الخام فلا حد له، ولهذا تطلب مراجعة الكتالوج استخدام <code>ctx.files</code>. وسيحتاج باب المصادر البعيدة المستقبلي إلى حد حقيقي
-(iframe/worker + CSP + اشتراط القدرات) قبل أن يُتاح؛ فلا تعامل هذا
-الـ pipeline كحد ثقة.</p>

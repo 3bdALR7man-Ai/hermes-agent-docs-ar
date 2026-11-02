@@ -75,7 +75,7 @@
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
 <p>متغير البيئة المكافئ: <code>DISCORD_MAX_ATTACHMENT_BYTES=33554432</code> (أو <code>0</code> لإلغاء الحد).</p>
 <p>أصبح الخيار القديم <code>discord.allow_any_attachment</code> الآن بلا أثر — إذ يُقبل أي نوع ملف دائمًا — ولم يُبقَ عليه إلا كي لا تُصدر ملفات الإعدادات الحالية أخطاء.</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="45"></x-keep></span>تكلفة الذاكرة عند إلغاء الحد</div><div class="admonitionContent_BuS1"><p>تعطيل الحد الأقصى للحجم (<code>max_attachment_bytes: 0</code>) يعني أن المستخدم يستطيع إرسال ملف بحجم عدة غيغابايتات إلى البوت، وسيقوم الـ gateway بتخزينه في الذاكرة أثناء كتابته إلى القرص. لا تضبط هذا إلا في عمليات التثبيت الموثوقة ذات المستخدم الواحد. أما البوتات المشتركة، فأبقِ فيها القيمة الافتراضية 32 MiB أو ارفعها بحذر.</p></div></div>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="46"></x-keep></span>تكلفة الذاكرة عند إلغاء الحد</div><div class="admonitionContent_BuS1"><p>تعطيل الحد الأقصى للحجم (<code>max_attachment_bytes: 0</code>) يعني أن المستخدم يستطيع إرسال ملف بحجم عدة غيغابايتات إلى البوت، وسيقوم الـ gateway بتخزينه في الذاكرة أثناء كتابته إلى القرص. لا تضبط هذا إلا في عمليات التثبيت الموثوقة ذات المستخدم الواحد. أما البوتات المشتركة، فأبقِ فيها القيمة الافتراضية 32 MiB أو ارفعها بحذر.</p></div></div>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="interactive-prompts-clarify">الأسئلة التفاعلية (clarify)</h2>
 <p>عندما يستدعي الوكيل أداة <code>clarify</code> — ليسألك عن النهج الذي تفضّله، أو ليحصل على ملاحظاتك بعد إنجاز مهمة، أو ليتحقق منك قبل اتخاذ قرار غير بسيط — يعرض Discord السؤال مع <strong>زر لكل خيار</strong>:</p>
 <blockquote>
@@ -86,13 +86,24 @@
 <p>تُعطِّل الأزرار نفسها بمجرد اختيار أحد الخيارات، كي لا تؤدي النقرات المكررة إلى حسم السؤال مرتين. اضبط مهلة الرد عبر <code>agent.clarify_timeout</code> في <code>~/.hermes/config.yaml</code> (الافتراضي <code>3600</code> ثانية؛ <code>0</code> أو أقل = دون حد). إذا لم تُجب خلال المهلة، يستأنف الوكيل مع <code>&quot;outcome&quot;: &quot;timed_out&quot;</code> ويتكيف بدلًا من الانتظار إلى الأبد. أجب بـ <code>skip</code> لتجاوز سؤال.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="prompt-layout">تخطيط الـ prompt</h3>
 <p>تشترك prompts التفاعلية (موافقات الأوامر وأسئلة <code>clarify</code> وتأكيدات slash commands) في تخطيط واحد: تحمل <strong>الرسالة النصية العادية</strong> المحتوى كاملًا — الأمر وسبب تمييزه مع مهلة الموافقة، أو السؤال وتلميح الإجابة — بينما تكون <strong>بطاقة التضمين</strong> أسفلها ترويسة فقط، وتقع الأزرار تحت البطاقة. كل ما تحتاج إليه لاتخاذ القرار موجود في النص العادي، فيُقرأ الـ prompt بصورة صحيحة على العملاء الذين يخفون التضمينات أو يفصلونها، ولا يظهر أي شيء مرتين على العملاء الذين يعرضونها.</p>
+<p>يتحكم <code>approvals.discord_prompt_timeout</code> في واجهات الأزرار التفاعلية في Discord الخاصة
+بالموافقة على الأوامر، وأسئلة التوضيح، وطلبات التحديث، وتأكيدات slash commands.
+قيمته الافتراضية 300 ثانية، وحدّه الأدنى 30 ثانية، وحدّه الأعلى هو نفسه الحدّ الآمن للمنصة
+المطبّق على <code>approvals.timeout</code>.</p>
+<p>يتحكم <code>approvals.timeout</code> بشكل منفصل في المدة التي ينتظرها الأمر للحصول على الموافقة. لإتاحة
+ساعة كاملة للأمر ولأزرار Discord معًا، اضبط القيمتين في ملف <code>config.yaml</code> الخاص
+بالـ profile المالك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<p>تجيب كل بطاقة موافقة على أمر عن طلبها الخاص فقط. وتُسحب عناصر التحكم فيها عندما
+يُجاب عن ذلك الطلب أو يُلغى أو تنتهي مهلته، حتى لو كانت مهلة عرض Discord
+أطول. أما مهلة Discord الأقصر فتُسحب الأزرار دون أن تمدّد انتظار الموافقة الأساسي أو تنهيه.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="home-channel">القناة الرئيسية</h2>
 <p>يمكنك تعيين &quot;قناة رئيسية&quot; (home channel) يرسل إليها البوت الرسائل الاستباقية (مثل مخرجات مهام cron والتذكيرات والإشعارات). وهناك طريقتان لضبطها:</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="using-the-slash-command">استخدام الـ Slash Command</h3>
 <p>اكتب <code>/sethome</code> في أي قناة Discord يوجد فيها البوت، فتصبح تلك القناة هي القناة الرئيسية.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="manual-configuration">الإعداد اليدوي</h3>
 <p>أضف ما يلي إلى <code>~/.hermes/.env</code>:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
 <p>استبدل المعرّف بمعرّف القناة الفعلي (انقر بزر الفأرة الأيمن → Copy Channel ID مع تفعيل Developer Mode).</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="voice-messages">الرسائل الصوتية</h2>
 <p>يدعم Hermes Agent الرسائل الصوتية في Discord:</p>
@@ -110,7 +121,7 @@
 <p>عندما يكون البوت في قناة صوتية، يمكنك منحه طابعًا أقرب إلى المحادثة: إقرار لفظي قصير (&quot;let me look into that&quot;) قبل أن يبدأ العمل، وخلفية صوتية محيطية خفيفة توحي &quot;بالتفكير&quot; تُشغَّل في الخلفية أثناء عمل الأدوات — إذ يُخفض الكلامُ الصوتَ المحيطي ثم يعيده تدريجيًا عند انتهائه، على غرار وضع الصوت في Grok.</p>
 <p>لا تشغّل مكتبة discord.py إلا تدفقًا صوتيًا واحدًا لكل اتصال، لذا يثبّت Hermes مازجًا برمجيًا (software mixer) على التدفق الصادر يجمع الحلقة المحيطية والإقرارات وردود TTS في ذلك التدفق الواحد — فتتداخل بدلًا من أن يقطع بعضها بعضًا.</p>
 <p>هذه الميزة <strong>معطّلة افتراضيًا</strong>. فعّلها في <code>config.yaml</code>:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
 <p>ملاحظات:</p>
 <ul>
 <li>اضبط <code>voice_channel_inactivity_timeout_seconds: 0</code> إذا أردت أن يبقى البوت في القناة الصوتية حتى تنفيذ <code>/voice leave</code> صراحةً أو قطع الاتصال يدويًا. وتحافظ القيمة الافتراضية على السلوك التاريخي بالمغادرة التلقائية بعد 300 ثانية من الخمول.</li>
@@ -139,15 +150,15 @@
 </li>
 <li>
 <p>تحقّق من ضبط سياسة وصول واحدة على الأقل في Discord:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
 </li>
 <li>
 <p>أعد تشغيل الـ gateway:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
 </li>
 </ol>
 <p>إذا ذكر سجل الـ gateway أن Discord متصل وأن فحوص REST API تعمل، لكن جميع الرسائل الواردة لا تلقى أي رد، فابحث عن هذا التحذير في <code>~/.hermes/logs/gateway.log</code>:</p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
 <p>يتعمّد Hermes 0.18 الفشل بالإغلاق (fail closed) في المحوّلات التي يمكن الوصول إليها من الخارج. فبوت Discord الذي لا يملك <code>DISCORD_ALLOWED_USERS</code>، ولا <code>DISCORD_ALLOWED_ROLES</code>، ولا <code>DISCORD_ALLOWED_CHANNELS</code>، ولا خيار السماح للجميع صراحةً، سيتصل بنجاح لكنه سيرفض المستخدمين الواردين قبل المعالجة المعتادة للرسائل.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="privileged-intents--privilegedintentsrequired-error-on-startup">خطأ &quot;Privileged intents&quot; / <code>PrivilegedIntentsRequired</code> عند بدء التشغيل</h3>
 <p><strong>السبب</strong>: يطلب Hermes صلاحيات Gateway Intents مميّزة (privileged) غير مفعّلة للبوت في Developer Portal، فيرفض Discord اتصال WebSocket. يطلب Hermes دائمًا <strong>Message Content Intent</strong>. ويطلب أيضًا <strong>Server Members Intent</strong> عندما تستخدم قائمة السماح أسماء مستخدمين (لا معرّفات رقمية) أو عند ضبط <code>DISCORD_ALLOWED_ROLES</code>. أما Presence Intent فغير مطلوب.</p>
@@ -174,5 +185,5 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="people-in-the-same-channel-are-sharing-context-unexpectedly">الأشخاص في القناة نفسها يتشاركون السياق على نحو غير متوقع</h3>
 <p><strong>السبب</strong>: الإعداد <code>group_sessions_per_user</code> معطّل، أو أن المنصة لا تستطيع توفير معرّف مستخدم للرسائل في ذلك السياق.</p>
 <p><strong>الحل</strong>: اضبط ما يلي في <code>~/.hermes/config.yaml</code> وأعد تشغيل الـ gateway:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
 <p>إذا كنت تريد عمدًا محادثة مشتركة للغرفة، فأبقِه معطّلًا — لكن توقّع سجل محادثة مشتركًا وسلوك مقاطعة مشتركًا.</p>

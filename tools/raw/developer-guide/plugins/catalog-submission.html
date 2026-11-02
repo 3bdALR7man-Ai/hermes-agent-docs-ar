@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Submitting to the Plugin Catalog | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Submitting to the Plugin Catalog | Hermes Agent"><meta data-rh="true" name="description" content="The full admission guidelines for the Hermes plugin catalog: what to check before you submit, the rules every entry follows, and what reviewers look at"><meta data-rh="true" property="og:description" content="The full admission guidelines for the Hermes plugin catalog: what to check before you submit, the rules every entry follows, and what reviewers look at"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/plugins/catalog-submission" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Plugins","item":"https://hermes-agent.nousresearch.com/docs/developer-guide/plugins"},{"@type":"ListItem","position":2,"name":"Catalog submission","item":"https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
-<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.32e5b8f8.js" defer="defer"></script>
+<script src="/docs/assets/js/main.e2118a44.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -137,8 +137,11 @@ injection, no reaching into the app&#x27;s internal stores or its own markup
 (querying <code>data-slot</code> / <code>data-tour</code> / <code>data-sidebar</code> / <code>data-testid</code>
 elements from <code>document</code>, or a <code>document.body</code> MutationObserver, to restyle,
 hide, click or rewrite core UI). <code>hermes plugins validate</code> refuses these at
-admission (<code>desktop surface</code> check); a plugin that needs a capability the
-SDK lacks asks for an SDK hook instead of patching around it.</p>
+admission (<code>desktop surface</code> check) and warns, for the reviewer, on raw
+<code>window.hermesDesktop</code> bridge calls and on the app&#x27;s markup selected any
+other way (<code>[data-slot]</code>, <code>[data-tree-*]</code> in CSS text or <code>closest()</code>); a
+plugin that needs a capability the SDK lacks asks for an SDK hook instead
+of patching around it.</p>
 </li>
 <li class="">
 <p><strong>No runtime overrides of Hermes core.</strong> A listed plugin extends Hermes only
@@ -149,7 +152,8 @@ private dicts in place (<code>AIAgent.&lt;method&gt; = ...</code>, <code>setattr
 <code>sys.modules[...]</code>, writes into a core module&#x27;s tables). Two plugins
 patching the same seam silently break each other, and every core release
 can break both. <code>hermes plugins validate</code> refuses these at admission (<code>no core override</code> check), and warns (without failing) on each import of an
-undocumented core module, by file and line. If the hook you need does not
+undocumented core module and each call to a private method of a core
+object it is handed (<code>db._execute_write(...)</code>), by file and line. If the hook you need does not
 exist, open an issue describing it: we would rather add the seam than list
 a patch.</p>
 </li>
