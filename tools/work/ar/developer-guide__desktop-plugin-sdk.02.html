@@ -88,7 +88,24 @@ Appearance</strong>، بعد الأقسام المدمجة. هذه نقطة ال
 <div class="language-ts codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
 <p>الخصائص قائمة سماح صريحة، لا <code>ComponentProps&lt;&#x27;iframe&#x27;&gt;</code>: <code>allow</code> (تفويض Permissions-Policy — سيمنح موقعًا خارجيًا صلاحية الميكروفون/الكاميرا التي يملكها التطبيق)، و <code>srcdoc</code>، <code>name</code>، <code>allowFullScreen</code>، <code>csp</code>، <code>credentialless</code> وكل سمات iframe الأخرى ليست خصائص، ولا يُمرَّر شيء منها إلى العنصر، فلا تصل إلى DOM حتى عبر تحويل نوع.</p>
 <p><em>حسم التعارض (قائمة سماح، لا قائمة حظر):</em> القيم الوحيدة التي يستطيع المستدعي إضافتها هي <code>allow-scripts</code>، <code>allow-forms</code>، <code>allow-downloads</code>، <code>allow-pointer-lock</code>، <code>allow-orientation-lock</code>، <code>allow-presentation</code>. كل ما عدا ذلك — <code>allow-same-origin</code>، <code>allow-top-navigation*</code>، <code>allow-popups*</code>، <code>allow-modals</code>، <code>allow-storage-access-by-user-activation</code>، وأي token لا يعرفه المكوّن الأساسي — يُسقط دون اعتبار لحالة الأحرف حتى إن مُرِّر؛ وتعود المجموعة الفارغة إلى الوضعية الافتراضية (<code>allow-scripts</code>)، لأن إطارًا <strong>لا يحمل</strong> سمة <code>sandbox</code> يكون كامل الامتيازات. <code>loading=&quot;lazy&quot;</code> و <code>referrerPolicy=&quot;no-referrer&quot;</code> ليستا خصائص. الأصل المعتم هو العزل نفسه: لا يستطيع محتوى الضيف الوصول إلى التطبيق أو تخزينه أو جسر preload.</p>
-<p><em>الإنهاء:</em> إنه عنصر React عادي — إلغاء تحميل جزئك/صفحتك يزيل الإطار ونطاقه؛ ولا يُسجَّل شيء من جانب التطبيق.</p>
+<p><em>Webapp (علامة تبويب المتصفح):</em> ستسري سياسة Content-Security-Policy الخاصة بالصفحة على مستند
+<code>data:</code> أيضًا، لذلك يُعرض src من النوع <code>data:text/html</code> عبر
+guest shell الخاص بالـ gateway (<code>/assets/webapp-guest.html</code>، وله سياسته الخاصة، ونفس المصدر المعتّم (opaque origin)
+ونفس رموز sandbox) بدلًا من التنقل إليه مباشرة. تعمل السكربتات كما في
+Desktop الأصلي؛ والرسائل التي يرسلها الضيف (guest) إلى <code>parent</code> تصل مع
+<code>event.source === ref.current.contentWindow</code>، والرسائل المرسَلة إلى تلك النافذة
+تصل إلى الضيف، ويُطلَق <code>onLoad</code> عند اكتمال تحميل مستند الضيف (إذ
+يعلن الـ shell ذلك برسالة <code>{type: &#x27;hermes-guest-loaded&#x27;}</code> واحدة من
+النافذة نفسها، لذا صفِّ رسائل الضيف بحسب النوع). أرسل
+إلى <code>parent</code> لا إلى <code>top</code>: فالـ shell يقع بينهما. تغيير <code>sandbox</code> بعد
+التركيب (mount) يمنح Webapp إطارًا جديدًا (قيمة <code>ref.current</code> جديدة، ويُعاد تشغيل الضيف
+برموز جديدة، ويُطلَق <code>onLoad</code> مرة أخرى)، لذا اقرأ <code>ref.current</code> عندما تحتاج
+إلى الإطار بدلًا من الاحتفاظ بالأول. أما الإطار المباشر في Desktop الأصلي
+فيحتفظ بالعنصر ومستنده الحالي، وتسري الرموز الجديدة عند
+تنقله التالي.</p>
+<p><em>الإنهاء:</em> إنه عنصر React عادي — إلغاء تركيب جزئك/صفحتك (unmount) يزيل
+الإطار ونطاقه (realm)؛ ولا يُسجَّل له شيء من جانب التطبيق (إذ يوجّه Webapp
+guest shells عبر مستمع مشترك واحد يحتفظ بالإطارات احتفاظًا ضعيفًا فقط).</p>
 <p>ترحيل <strong>rss-reader</strong> (#115972): استبدل سلسلة <code>/preview</code> → 501 →
 <code>host.openWorkspace(&#x27;rss-browser&#x27;)</code> → <code>RssBrowserFrame</code> → <code>ctx.os.openExternal</code> الفارغة بـ <code>&lt;SandboxedFrame src={article.url} title={article.title} /&gt;</code> داخل صفحة مساحة العمل؛ وتخلّ عن CSS المتبقي الخاص بـ <code>.rss-browser-frame-host webview</code>.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="transcript-directives--inline-components-the-model-addresses">توجيهات النسخة النصية (transcript) — مكوّنات مضمّنة يخاطبها النموذج</h3>
@@ -179,12 +196,3 @@ Appearance</strong>، بعد الأقسام المدمجة. هذه نقطة ال
 للحصول على بطاقة مخصصة، وهذا يتطلب تعليمة في skill ويترك
 مستخدمي غير Desktop مع سطر directive خام. أما مع العارض، فتُرجع الأداة
 وسم <code>MEDIA:</code> العادي الذي تفهمه كل الأسطح، ويرتقي به Desktop وحده.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="mount-scoped-chrome-contribute">عناصر واجهة مخصّصة بالتحميل (<code>Contribute</code>)</h3>
-<p><code>ctx.register</code> مخصّص للمساهمات <strong>الدائمة</strong>. عندما ينبغي لعنصر واجهة أن يظهر ويختفي
-مع مكوّن موجود بالفعل على الشاشة (عنصر تحكم في شريط عنوان خاص بصفحة يختفي
-عند إلغاء تحميل الصفحة)، اعرض <code>&lt;Contribute&gt;</code> داخله بدلًا من ذلك:</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
-<p>يسجَّل تلقائيًا عند التحميل ويُلغى تلقائيًا عند إلغاء التحميل.</p>
-<p>لعنصر تحكم في ترويسة صفحة، استخدم <code>WorkspacePageHeaderControl</code> بدلًا من ذلك. يختار الموضع من مكان عرض الصفحة: في جزء مساحة العمل يساهم في <code>WORKSPACE_PAGE_HEADER_AREA</code>، وفي أي موضع آخر (مربع مسار منقسم) يعرض أبناءه في المكان نفسه. ضعه حيث ينبغي أن يقع عنصر التحكم عند تضمينه:</p>
-<div class="language-javascript codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
-<p><code>WorkspacePageHeaderControl</code> جديد في هذا الإصدار. لا تصدّره إصدارات Desktop الأقدم، واستيراد مسمّى لعنصر SDK مفقود يوقف تحميل وحدة الإضافة. الإضافة التي يجب أن تعمل أيضًا على إصدارات أقدم إما تكتشف الميزة عبر استيراد namespace (<code>import * as sdk from &#x27;@hermes/plugin-sdk&#x27;</code>، ثم <code>sdk.WorkspacePageHeaderControl ?? …</code>)، أو تُبقي صيغة <code>Contribute</code> الخام أعلاه.</p>

@@ -6,7 +6,8 @@ stdio غير TTY)، ينتظر <code>delegate_task</code> أبناءه ويعي�
 ردّه النهائي قبل خروج CLI.</p>
 <ul>
 <li><strong>الانضمام التلقائي:</strong> لا حاجة إلى تفعيل صريح ولا إلى تجاوز وضع الخلفية.
-تحتفظ محادثات TTY التفاعلية وجلسات المراسلة بالتفويض في الخلفية.</li>
+تحتفظ محادثات TTY التفاعلية بالتفويض في الخلفية؛ أما جلسات المراسلة فتتبع
+<code>delegation.gateway_mode</code> (انظر أدناه).</li>
 <li><strong>سياسة لكل إدخال:</strong> يسجّل CLI الاستهلاك المنتهي (finite) مع الـ prompt المقبول،
 بما في ذلك عند استئناف جلسة تفاعلية. ولا يغيّر ذلك سياسة إنشاء الجلسة
 ولا العارضين الآخرين ولا بيئة الـ daemon.</li>
@@ -22,8 +23,47 @@ stdio غير TTY)، ينتظر <code>delegate_task</code> أبناءه ويعي�
 <p>يؤدي إغلاق CLI إلى فصله لا إنهاء الدور الذي يملكه الـ gateway. ولا يزال تنفيذ الأبناء
 محليًا للعملية (process-local) لدى ذلك المالك: استخدم مجدولًا دائمًا (durable scheduler) للأعمال
 التي يجب أن تبقى بعد إعادة تشغيل المالك.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="messaging-chats-without-interim-messages">محادثات المراسلة بدون رسائل مرحلية</h2>
+<p>على منصة مراسلة، يوجّه التفويض في الخلفية الوكيلَ الأصلي إلى إرسال رسالة حالة من سطر واحد
+ثم إنهاء دوره. وعندما يكون <code>display.interim_assistant_messages</code> معطّلًا لتلك
+المنصة، تصبح رسالة الحالة هذه الإجابة النهائية للدور، فتتلقى المحادثة رسالة «working
+on it» ثم الإجابة الفعلية في رسالة ثانية. ويتحكم <code>delegation.gateway_mode</code>
+في هذا السلوك:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<ul>
+<li><strong><code>auto</code>:</strong> المحادثة المراسِلة التي تكون قيمة <code>display.interim_assistant_messages</code> المحسومة لها معطّلة
+(القيمة العامة، أو تجاوز <code>display.platforms.&lt;platform&gt;</code>، أو القيمة الافتراضية للمنصة) تضم
+الوكلاء الفرعيين إلى الدور نفسه. ينتظر الوكيل الأصلي داخل استدعاء <code>delegate_task</code>، ويتلقى
+النتائج هناك، ويرسل إجابة مكتملة واحدة. أما المحادثات التي تكون فيها الرسائل المرحلية مفعّلة، وخادم API،
+والجلسات المحلية، و webhooks فتحتفظ بالتفويض في الخلفية.</li>
+<li><strong><code>inline</code>:</strong> كل جلسة gateway تضم الوكلاء الفرعيين إلى الدور نفسه.</li>
+<li><strong><code>background</code></strong> (الاسم البديل <code>async</code>): كل جلسة gateway تحتفظ بالتفويض في الخلفية.</li>
+</ul>
+<p>في الجلسة المضمّنة (inline)، يذكر <code>delegate_task</code> أن النتائج تعود ضمن الاستدعاء نفسه ويحذف
+معاملات التحكم المباشر (<code>action</code> بقيم list/steer/stop، و<code>subagent_id</code>، و<code>message</code>)، وهو المخطط
+نفسه المستخدم في التشغيل لمرة واحدة. وأثناء الانتظار يبقى مؤشر الكتابة ظاهرًا ويتصرف الدور
+كأي استدعاء أداة طويل. يوقف <code>/stop</code> الوكلاء الفرعيين، وكذلك تفعل رسالة متابعة
+في ظل الإعداد الافتراضي <code>busy_input_mode: interrupt</code> (يعيد كل وكيل فرعي نتيجة
+مقاطَعة مع ما أنجزه من مخرجات جزئية)؛ أما مع <code>queue</code> فتنتظر رسالة المتابعة انتهاء الدور.
+ولا يتغير التفويض المتداخل.</p>
+<p>تظل الأدوار المضمّنة التي تتجاوز <code>agent.gateway_notify_interval</code> (180 ثانية افتراضيًا)
+تتلقى إشعار «still working» الدوري، الذي يتحكم فيه <code>display.long_running_notifications</code>
+بصورة منفصلة، وهو مفعّل افتراضيًا لـ Telegram و Slack و Discord و WhatsApp.
+للحصول على رسالة واحدة فقط لكل دور، اضبطه أيضًا على <code>off</code> لتلك المنصة (إذ يغيّر <code>generic</code>
+صياغة الإشعار فقط):</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<p>الوضع جزء من مخطط أدوات الجلسة (tool schema)، وهو مثبّت مع المحادثة. ويسري أي
+تغيير في <code>gateway_mode</code> أو <code>interim_assistant_messages</code> ابتداءً من الجلسة التالية
+(<code>/new</code>). وتحتفظ المحادثة الجارية بالوضع الذي بدأت به عبر إعادة تشغيل gateway، وإخراج الوكيل
+من الـ cache، وضغط السياق، و<code>/reload-mcp</code>. ويكتم دور heartbeat المجدول
+الرسائل المرحلية لنفسه فقط ولا يغيّر وضع المحادثة. وهناك استثناء واحد: أول
+دور بعد تحديث Hermes يعيد بناء تعريفات أدوات الجلسة من الكود
+الجديد، فتعتمد المحادثة الإعداد الحالي عند ذلك الدور.</p>
+<p>إدراج <code>delegate_task</code> في <code>tools.tool_search.defer</code> يوقف الوضع المضمّن (inline) لتلك الجلسة:
+يحمّل النموذج مخطط <code>delegate_task</code> العادي (الخلفية) عبر <code>tool_describe</code>،
+ويتبع التفويض المخطط الذي يراه النموذج.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="lifetime-and-durability">مدة الحياة والديمومة</h2>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="29"></x-keep></span>ديمومة نتائج الإنجاز الخلفية لا تعني تنفيذًا دائمًا</div><div class="admonitionContent_BuS1"><p>تعمل استدعاءات <code>delegate_task</code> الموجّهة إلى النموذج على المستوى الأعلى في الخلفية تلقائيًا حيثما تدعم الجلسة التسليم اللاحق. يعيد Hermes معرّف تتبع فورًا، وتعود النتيجة إلى المحادثة بعد انتهاء الوكيل الفرعي أو الدفعة. أما الـ subagents المنسِّقة فتنتظر عمّالها في الدور الحالي لأن عليها تجميع تلك النتائج قبل العودة. وتعود الـ endpoints عديمة الحالة القائمة على الطلب/الاستجابة إلى التنفيذ المتزامن عندما لا تستطيع تسليم نتيجة منفصلة لاحقًا.</p><ul>
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="31"></x-keep></span>ديمومة نتائج الإنجاز الخلفية لا تعني تنفيذًا دائمًا</div><div class="admonitionContent_BuS1"><p>تعمل استدعاءات <code>delegate_task</code> الموجّهة إلى النموذج على المستوى الأعلى في الخلفية تلقائيًا حيثما تدعم الجلسة التسليم اللاحق. يعيد Hermes معرّف تتبع فورًا، وتعود النتيجة إلى المحادثة بعد انتهاء الوكيل الفرعي أو الدفعة. أما الـ subagents المنسِّقة فتنتظر عمّالها في الدور الحالي لأن عليها تجميع تلك النتائج قبل العودة. وتعود الـ endpoints عديمة الحالة القائمة على الطلب/الاستجابة إلى التنفيذ المتزامن عندما لا تستطيع تسليم نتيجة منفصلة لاحقًا.</p><ul>
 <li>رسائل المتابعة العادية لا تلغي الأبناء في الخلفية، وكذلك إيقاف الدور الحالي: فـ Ctrl+C و Esc وزر Stop في Desktop/TUI وإلغاء ACP تنهي الدور وحده. أما الأمر <code>/stop</code> (أمر gateway <code>/stop</code> — وكذلك عندما تكون الجلسة خاملة بعد انتهاء الدور الذي أطلق التفويض — أو أمر CLI <code>/stop</code>) فينهي عمليات التفويض الخلفية الجارية للجلسة، ويؤدي إغلاق الجلسة المالكة أو إعادة ضبطها إلى الشيء نفسه.</li>
 <li>يؤدي إغلاق الجلسة أو إعادة ضبطها صراحةً إلى مقاطعة الأبناء العاملين في الخلفية لتلك الجلسة. في CLI و TUI يملك الـ gateway الجلسة ولا يفعل العميل سوى عرضها: فعندما يخرج آخر عارض أو ينفّذ <code>/new</code> (ويُعدّ التبديل بالاستئناف في TUI كذلك)، يقاطع الـ gateway فورًا الأبناء العاملين في الخلفية لتلك الجلسة ويرفض أي أبناء جدد لها إلى أن يفتح عارض الجلسة مجددًا. أما الفصل العادي فلا يلغي شيئًا: إغلاق Desktop أو انقطاع الاتصال أو الخروج بينما يظل عارض آخر متصلًا يبقي العمل قيد التشغيل. وتستمر العمليات في الخلفية (<code>terminal(background=True)</code>) في كلتا الحالتين.</li>
 <li>إذا وصل إكمال (completion) لجلسة CLI أو TUI — مثل نتيجة ابن يعمل في الخلفية (بما في ذلك المقاطَع) أو خروج عملية <code>notify_on_complete</code> أو إشعار watch-pattern — إلى رأس طابور الجلسة بينما لا يوجد عارض متصل، فلا يبدأ دورًا. بل يُكتب في الجلسة كملاحظة، ويقرؤها الدور التالي (مثلًا بعد <code>hermes chat --resume</code>). وإذا كان عارض متصلًا بحلول ذلك الوقت، بما في ذلك عارض عاد بعد وصول الإكمال، فيعمل الإكمال كدور كما كان سابقًا. أما محادثات المراسلة فليس لها عارضون ولم تتغير: ما تزال إكمالاتها تبدأ دورًا.</li>
@@ -50,7 +90,7 @@ stdio غير TTY)، ينتظر <code>delegate_task</code> أبناءه ويعي�
 اضبط <code>delegation.worktree_isolation: true</code> لمنح كل وكيل فرعي git
 worktree خاصًا به، متفرعًا من <code>HEAD</code> الحالي للمستودع (مستوحى من الخيار
  <code>--subagent-worktree-isolation</code> في Muse Code):</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="24"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="26"></x-keep></div></div>
 <p>عند تفعيل العزل:</p>
 <ul>
 <li>يبدأ كل وكيل فرعي طرفيته في <code>&lt;repo&gt;/.worktrees/subagent-&lt;id&gt;</code> على
@@ -77,8 +117,8 @@ git، أو على backends من نوع docker/ssh/modal، أو إذا فشل إ�
 <table><thead><tr><th>العامل</th><th>delegate_task</th><th>execute_code</th></tr></thead><tbody><tr><td><strong>الاستدلال</strong></td><td>حلقة استدلال LLM كاملة</td><td>تنفيذ كود Python فقط</td></tr><tr><td><strong>السياق</strong></td><td>محادثة جديدة معزولة</td><td>لا محادثة، مجرد سكربت</td></tr><tr><td><strong>الوصول إلى الأدوات</strong></td><td>كل الأدوات غير المحظورة مع الاستدلال</td><td>7 أدوات عبر RPC، دون استدلال</td></tr><tr><td><strong>التوازي</strong></td><td>10 subagents متزامنة افتراضيًا (قابل للضبط)</td><td>سكربت واحد</td></tr><tr><td><strong>الأنسب لـ</strong></td><td>المهام المعقدة التي تتطلب حُسن تقدير</td><td>الـ pipelines الآلية متعددة الخطوات</td></tr><tr><td><strong>تكلفة الـ tokens</strong></td><td>أعلى (حلقة LLM كاملة)</td><td>أقل (لا يُعاد سوى stdout)</td></tr><tr><td><strong>تفاعل المستخدم</strong></td><td>لا يوجد (لا تستطيع الـ subagents طلب التوضيح)</td><td>لا يوجد</td></tr></tbody></table>
 <p><strong>قاعدة عامة:</strong> استخدم <code>delegate_task</code> عندما تتطلب المهمة الفرعية استدلالًا أو حُسن تقدير أو حلًّا للمشكلات على عدة خطوات. واستخدم <code>execute_code</code> عندما تحتاج إلى معالجة بيانات آلية أو سير عمل قائم على السكربتات.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="configuration">الإعدادات</h2>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="25"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="27"></x-keep></div></div>
 <p>عندما يشير <code>base_url</code> إلى endpoint متوافق مع Anthropic، مثل مسار ينتهي بـ <code>/anthropic</code>، أو مسار Claude في Azure Foundry، أو proxy من MiniMax بالمسار <code>/anthropic</code>، يُكتشف <code>api_mode</code> تلقائيًا على أنه <code>anthropic_messages</code>، ليستخدم الـ subagent صيغة النقل الصحيحة دون أن تضبط أي شيء. اضبط <code>api_mode</code> صراحةً عندما يكون تخمين الاكتشاف التلقائي خاطئًا (وهذا نادر).</p>
 <p>تُجري subagents الضغط عند العتبة نفسها التي يطبّقها الوكيل الأب: <code>compression.threshold</code> × النافذة (0.50 افتراضيًا)، أو الحد العام <code>compression.threshold_tokens</code> عندما يكون مضبوطًا وأقل. يضيف <code>delegation.compression_threshold_tokens</code> (الافتراضي <code>0</code>، وهو معطّل) حدًا مطلقًا اختياريًا على ضغط الوكيل الفرعي عند <em>عتبة البدء</em>، ويُطبَّق الأقل منه ومن عتبة النسبة؛ ولا يمسّ حمولة الطلب أو الوكيل الأب أبدًا. يُفعّله عدد tokens لا يقل عن 16000؛ أما <code>true</code> أو <code>&quot;200k&quot;</code> فهي أخطاء إعدادات يُحذَّر منها وتُتجاهل. ويبقى معطّلًا افتراضيًا لأن إعادة تشغيل تجربة ضمّت 1,393 وكيلًا أظهرت أن الحدود بين 200K و400K تتقارب في التكلفة ضمن نطاق 5% بمجرد بقاء بادئات التخزين المؤقت سليمة، كما أن كل عملية ضغط تمثل فرصة لفقدان التفاصيل.</p>
 <p>يعمل <code>delegation.request_overrides</code> في <strong>الحالات الثلاث كلها</strong> لتحديد المزوّد: <code>base_url</code> المباشر، و<code>provider</code> المسمّى، والوراثة الخالصة، لذا يسري مفعوله دائمًا. المفاتيح على المستوى الأعلى هي وسائط API (مثل <code>service_tier</code>)؛ أما القاموس الفرعي <code>extra_body</code> فيُدمج في <code>extra_body</code> الخاص بالطلب. تُدمج القيم الصريحة <strong>فوق</strong> التجاوزات المشتقة من بيئة التشغيل أو من الوكيل الأب: فالمفاتيح الصريحة على المستوى الأعلى تكون لها الأولوية، ويُدمج <code>extra_body</code> دمجًا عميقًا بمستوى واحد، بحيث تبقى خصائص الطلب الخاصة بالمزوّد (مثل <code>thinking: {type: disabled}</code>) ما لم يُعِد مفتاحك تعريفها. راجع <a href="/docs/user-guide/configuration#delegation">الإعدادات → التفويض</a> لمزيد من التفاصيل.</p>
-<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="30"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يتعامل الوكيل مع التفويض تلقائيًا بناءً على مدى تعقيد المهمة. لا تحتاج إلى أن تطلب منه التفويض صراحةً، فهو سيفعل ذلك عندما يكون مناسبًا.</p></div></div>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="32"></x-keep></span>نصيحة</div><div class="admonitionContent_BuS1"><p>يتعامل الوكيل مع التفويض تلقائيًا بناءً على مدى تعقيد المهمة. لا تحتاج إلى أن تطلب منه التفويض صراحةً، فهو سيفعل ذلك عندما يكون مناسبًا.</p></div></div>

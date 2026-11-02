@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Desktop Plugin SDK (@hermes/plugin-sdk) | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Desktop Plugin SDK (@hermes/plugin-sdk) | Hermes Agent"><meta data-rh="true" name="description" content="Extend the native Hermes Desktop app — panes, pages, sidebar nav, status bar, palette commands, keybinds, themes, and a scoped backend namespace, with one import and no build step."><meta data-rh="true" property="og:description" content="Extend the native Hermes Desktop app — panes, pages, sidebar nav, status bar, palette commands, keybinds, themes, and a scoped backend namespace, with one import and no build step."><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/desktop-plugin-sdk" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Plugins","item":"https://hermes-agent.nousresearch.com/docs/developer-guide/plugins"},{"@type":"ListItem","position":2,"name":"Desktop Plugin SDK","item":"https://hermes-agent.nousresearch.com/docs/developer-guide/desktop-plugin-sdk"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
-<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.32e5b8f8.js" defer="defer"></script>
+<script src="/docs/assets/js/main.e2118a44.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -516,8 +516,24 @@ attribute is fully privileged. <code>loading=&quot;lazy&quot;</code> and
 <code>referrerPolicy=&quot;no-referrer&quot;</code> are not props. The opaque origin IS the
 containment: guest content cannot reach the app, its storage, or the preload
 bridge.</p>
+<p><em>Webapp (browser tab):</em> the page&#x27;s Content-Security-Policy would also bind a
+<code>data:</code> document, so a <code>data:text/html</code> src is rendered through the gateway&#x27;s
+guest shell (<code>/assets/webapp-guest.html</code>, its own policy, same opaque origin
+and sandbox tokens) instead of being navigated to directly. Scripts run as on
+native Desktop; messages the guest posts to <code>parent</code> arrive with
+<code>event.source === ref.current.contentWindow</code>, messages posted to that window
+reach the guest, and <code>onLoad</code> fires when the guest document has loaded (the
+shell announces that with one <code>{type: &#x27;hermes-guest-loaded&#x27;}</code> message from the
+same window, so filter guest messages by type). Post
+to <code>parent</code>, not <code>top</code>: the shell sits between them. Changing <code>sandbox</code> after
+mount gives the Webapp a fresh frame (a new <code>ref.current</code>, the guest restarts
+with the new tokens, <code>onLoad</code> fires again), so read <code>ref.current</code> when you need
+the frame rather than keeping the first one. A direct frame on native Desktop
+keeps the element and its current document, and the new tokens apply from its
+next navigation.</p>
 <p><em>Teardown:</em> it is a plain React element — unmounting your pane/page removes the
-frame and its realm; nothing is registered app-side.</p>
+frame and its realm; nothing is registered app-side for it (the Webapp routes
+guest shells through one shared listener that holds frames only weakly).</p>
 <p>Migration for <strong>rss-reader</strong> (#115972): replace the stubbed <code>/preview</code> → 501 →
 <code>host.openWorkspace(&#x27;rss-browser&#x27;)</code> → empty <code>RssBrowserFrame</code> → <code>ctx.os.openExternal</code>
 chain with <code>&lt;SandboxedFrame src={article.url} title={article.title} /&gt;</code> inside
@@ -1053,6 +1069,11 @@ pipeline as the standalone disk door (hot reload included):</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#F8F8F2"><span class="token plain">~/.hermes/plugins/&lt;id&gt;/           # ONE installable folder</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">├── plugin.yaml                   # the agent half: tools, hooks, commands</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">├── skills/…</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">├── dashboard/</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">│   ├── manifest.json             # { &quot;name&quot;: &quot;&lt;id&gt;&quot;, &quot;api&quot;: &quot;plugin_api.py&quot; }</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">│   └── plugin_api.py             # backend routes → /api/plugins/&lt;id&gt;/</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">└── desktop/</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">    └── plugin.js                 # the desktop half: panes, commands, ctx.rest</span><br></div></code></pre></div></div>
 <p>The <code>desktop/plugin.js</code> half is an ordinary disk plugin — same contract, same
 imports, same <code>ctx.rest(&#x27;/…&#x27;)</code> reaching the <code>plugin_api.py</code> sitting beside it.
+A <code>plugin.js</code> at the package root works too, as it does for a standalone
+install: the root <code>plugin.js</code> wins over <code>desktop/plugin.js</code>, and the whole
+package folder is copied as the desktop half (without <code>.git</code> and
+<code>__pycache__</code>). It must hold no symlinks and stay under 64 MB, or nothing is
+copied.
 Installing, sharing, or removing the feature is one folder: the app-root copy
 is refreshed when the source <code>plugin.js</code> changes (<code>hermes plugins update</code>, or
 <strong>Rescan</strong>) and removed when the package folder disappears. The copy is what

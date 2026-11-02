@@ -1,6 +1,31 @@
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="context-files-soulmd-agentsmd">ملفات السياق (SOUL.md، AGENTS.md)</h2>
+<p>يستخدم Hermes نطاقي سياق مختلفين:</p>
+<table><thead><tr><th>الملف</th><th>الغرض</th><th>النطاق</th></tr></thead><tbody><tr><td><code>SOUL.md</code></td><td><strong>هوية الوكيل الأساسية</strong> — تحدّد هوية الوكيل (الخانة رقم 1 في system prompt)</td><td><code>~/.hermes/SOUL.md</code> أو <code>$HERMES_HOME/SOUL.md</code></td></tr><tr><td><code>.hermes.md</code> / <code>HERMES.md</code></td><td>تعليمات خاصة بالمشروع (أعلى أولوية)</td><td>يتصاعد إلى جذر git</td></tr><tr><td><code>AGENTS.md</code></td><td>تعليمات خاصة بالمشروع وأعراف الكتابة البرمجية</td><td>تصفّح تكراري للدلائل</td></tr><tr><td><code>CLAUDE.md</code></td><td>ملفات سياق Claude Code (تُكتشف أيضًا)</td><td>دليل العمل فقط</td></tr><tr><td><code>.cursorrules</code></td><td>قواعد Cursor IDE (تُكتشف أيضًا)</td><td>دليل العمل فقط</td></tr><tr><td><code>.cursor/rules/*.mdc</code></td><td>ملفات قواعد Cursor (تُكتشف أيضًا)</td><td>دليل العمل فقط</td></tr></tbody></table>
+<ul>
+<li><strong>SOUL.md</strong> هو هوية الوكيل الأساسية. يحتل الخانة رقم 1 في system prompt، ويستبدل تمامًا الهوية الافتراضية المدمجة. حرّره لتخصيص هوية الوكيل بالكامل.</li>
+<li>إذا كان SOUL.md مفقودًا أو فارغًا أو تعذّر تحميله، يعود Hermes إلى هوية افتراضية مدمجة.</li>
+<li><strong>تستخدم ملفات سياق المشروع نظام أولوية</strong> — يُحمَّل نوع واحد فقط (أول تطابق يفوز): <code>.hermes.md</code> → <code>AGENTS.md</code> → <code>CLAUDE.md</code> → <code>.cursorrules</code>. يُحمَّل SOUL.md دائمًا بشكل مستقل.</li>
+<li><strong>AGENTS.md</strong> هرمي: إذا كانت الدلائل الفرعية تحتوي أيضًا على AGENTS.md، تُدمج جميعها.</li>
+<li>يزرع Hermes تلقائيًا ملف <code>SOUL.md</code> افتراضيًا إذا لم يكن موجودًا بالفعل.</li>
+<li>كل ملفات السياق المُحمَّلة محدودة بـ <code>context_file_max_chars</code> حرفًا (الافتراضي 20000) مع اقتطاع ذكي.</li>
+</ul>
+<p>انظر أيضًا:</p>
+<ul>
+<li><a href="/docs/user-guide/features/personality">الشخصية و SOUL.md</a></li>
+<li><a href="/docs/user-guide/features/context-files">ملفات السياق (Context Files)</a></li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="working-directory">دليل العمل</h2>
+<table><thead><tr><th>السياق</th><th>الافتراضي</th></tr></thead><tbody><tr><td><strong>CLI (<code>hermes</code>)</strong></td><td>الدليل الحالي الذي تشغّل منه الأمر</td></tr><tr><td><strong>gateway المراسلة</strong></td><td><code>terminal.cwd</code> من <code>~/.hermes/config.yaml</code>؛ إذا لم يُضبط، الدليل الرئيسي <code>~</code></td></tr><tr><td><strong>Docker / Singularity / Modal / SSH</strong></td><td>الدليل الرئيسي للمستخدم داخل الحاوية أو الجهاز البعيد</td></tr></tbody></table>
+<p>تجاوز دليل العمل:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="141"></x-keep></div></div>
+<p><code>MESSAGING_CWD</code> ومدخلات <code>TERMINAL_CWD</code> المباشرة في <code>~/.hermes/.env</code> هما خياران احتياطيان قديمان للتوافق. ينبغي أن تستخدم الإعدادات الجديدة <code>terminal.cwd</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="network">الشبكة</h2>
+<p>حلول التفافية لمشاكل الاتصال الصادر عبر HTTP:</p>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="142"></x-keep></div></div>
+<p><code>force_ipv4</code> — على الخوادم ذات IPv6 معطّل أو غير قابل للوصول، يحلّ Python سجلات AAAA أولًا وقد يظل منتظرًا طوال مهلة TCP الكاملة قبل الرجوع إلى IPv4. يطلق Hermes بالفعل محاولتَي IPv6 و IPv4 في سباق لكل اتصال صادر ينشئه (Happy Eyeballs، وفق RFC 8305: تبدأ محاولة IPv4 بعد IPv6 بمقدار 250 ms، وتفوز أول محاولة تتصل)، لذا لا يكلّف مسار IPv6 مُعلن لكنه يُسقط حركة البيانات إلا نحو ربع ثانية لكل اتصال بدلًا من المهلة الكاملة. يشمل ذلك اتصالات WebSocket الصادرة من gateway (موصل relay ومحوّلات المنصات) وكذلك HTTP. اضبط هذا على <code>true</code> فقط عندما تريد تجاوز IPv6 تمامًا والاتصال مباشرةً عبر IPv4. ينفّذ <code>hermes doctor</code> فحص <code>IPv6 route</code> الذي يكشف مسار IPv6 المعطّل ويشير إلى هذا الإعداد.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="onboarding">التهيئة الأولى (Onboarding)</h2>
 <p>تلميحات التهيئة عند أول لمسة وعرض بناء profile البنيوي:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="142"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="143"></x-keep></div></div>
 <ul>
 <li><code>profile_build</code> — يتحكّم في العرض عند أول رسالة على الإطلاق، في TUI وتطبيق سطح المكتب والرسائل المباشرة على منصات المراسلة (لا في محادثة جماعية مطلقًا). <code>&quot;ask&quot;</code> (الافتراضي) يعرض بناء profile للمستخدم؛ والعرض <strong>اختياري ويتطلب موافقة</strong> — يسأل الوكيل قبل أي بحث، ولا يقرأ الحسابات المتصلة بصمت أبدًا، ويحفظ الحقائق المؤكَّدة في ذاكرة المستخدم. ويوقف <code>&quot;off&quot;</code> العرض فقط؛ ويستمر الوكيل في تقديم تعريف بسيط. يظهر العرض مرة واحدة على الأكثر لكل profile.</li>
 <li><code>seen</code> — حالة داخلية. يُثبّت Hermes كل تلميح مُعروض هنا بحيث لا يظهر مرة أخرى أبدًا؛ يُسجَّل عرض بناء profile هنا أيضًا بمجرد عرضه. لا تُحرِّره يدويًا — امسح قسم <code>onboarding</code> بالكامل إذا أردت رؤية كل التلميحات مجددًا.</li>
@@ -8,7 +33,7 @@
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="webapp">Webapp</h2>
 <p>يستطيع gateway تقديم <a href="/docs/user-guide/desktop#use-the-desktop-workspace-from-a-browser">مساحة عمل Desktop في المتصفح</a> على مستمع (listener) خاص به. وهو معطّل إلى أن تفعّله.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="143"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="144"></x-keep></div></div>
 <ul>
 <li><code>enabled</code> — يقرؤه gateway عند البدء؛ أعد تشغيل gateway بعد تغييره (<code>hermes gateway restart</code>).</li>
 <li><code>host</code> — القيمة <code>127.0.0.1</code> أو <code>::1</code> أو <code>localhost</code> تُبقي Webapp على هذا الجهاز. أما <code>0.0.0.0</code> أو <code>::</code> فتجعله متاحًا من أجهزة أخرى وتتطلب <a href="/docs/user-guide/features/web-dashboard#authentication-gated-mode">مزوّد تسجيل دخول للوحة التحكم</a>؛ وبدونه يخدم gateway العملاء الأصليين فقط ويوضح <code>hermes webapp --status</code> السبب. أعد تشغيل gateway بعد إضافة المزوّد. وأي قيمة أخرى، بما فيها عنوان loopback آخر مثل <code>127.0.0.2</code>، تُبقي Webapp معطّلًا.</li>
@@ -19,7 +44,7 @@
 <p>تُقرأ إعدادات Webapp من إعدادات gateway الذي يخدم الـ profile: إعدادات الـ profile الافتراضي بالنسبة للـ profiles المسماة التي يخدمها، وإعدادات الـ profile المستقل نفسه فيما عدا ذلك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dashboard">لوحة التحكم</h2>
 <p>إعدادات <a href="/docs/user-guide/features/web-dashboard">لوحة التحكم على الويب</a> — المظهر البصري، والرابط العام، ومزوّدو المصادقة. مزوّدو المصادقة (OAuth ، كلمة المرور الأساسية، drain) موثّقون بالتفصيل في صفحة لوحة التحكم على الويب؛ هذا هو شكل <code>config.yaml</code> البنية.</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="144"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="145"></x-keep></div></div>
 <ul>
 <li><code>theme</code> — المظهر البصري للوحة التحكم.</li>
 <li><code>show_token_analytics</code> — مُعطَّل افتراضيًا. صفحة Analytics وأرقام tokens/التكلفة هي <strong>تقدير محلي بحد أدنى</strong> (تستثني الاستدعاءات المساعدة، وإعادات المحاولة، والاحتياطات، وكتابات التخزين المؤقت)، لذا قد تظهر أقل بكثير من فاتورة المزوّد. اضبطها على <code>true</code> فقط إذا كنت تدرك أنها ليست فوترة.</li>

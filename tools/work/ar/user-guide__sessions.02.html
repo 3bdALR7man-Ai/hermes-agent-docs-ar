@@ -1,10 +1,15 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="convert-the-store-between-wal-and-delete-journal-mode">تحويل المخزن بين وضعَي سجل WAL و DELETE</h3>
+<p><code>database.journal_mode: delete</code> لا ينطبق إلا على قواعد البيانات التي ينشئها Hermes. ولا يُخفَّض إصدار <code>state.db</code> موجود يعمل بالفعل بوضع WAL <strong>مطلقًا</strong> أثناء فتحه — فقد تحتفظ عمليات gateway أو لوحة تحكم أو cron أخرى بـ commits في WAL لم تُثبَّت بنقطة حفظ، وخفض الوضع تحتها يدمر تلك commits — لذا يحتفظ Hermes بـ WAL ويسجّل <code>ERROR</code> واحدًا لكل عملية يخبرك بأن الوضع المضبوط <code>delete</code>
+لم يُطبَّق. والتحويل الذي تنفّذه بنفسك هو:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<p>يرفض الأمر — مع ذكر كل PID وأمر — ما دامت أي عملية تحتفظ بالملف أو بملفاته الجانبية <code>-wal</code>/<code>-shm</code> ، ويبدّل الوضع دون انتظار العمليات الفاتحة (إذا ظهر حامل للملف في الأثناء ترفض SQLite بدل السباق معه)، ويتحقق من أن ترويسة الملف تبلغ عن الوضع الجديد. ويذكّرك بضبط <code>database.journal_mode</code> على القيمة نفسها حين تختلف الإعدادات، لأن الفتح التالي يعيد تطبيق الوضع المضبوط. وفحص العمليات الحاملة محلي (جداول الملفات المفتوحة في Linux/macOS، و Restart Manager في Windows)، لذا لا يستطيع رؤية عملية في حاوية أو VM أخرى تشارك وحدة التخزين. وإذا فشل الفحص نفسه، يرفض الأمر لأنه لا يستطيع إثبات خمول المخزن؛ ويعفي <code>--force</code> هذه الحالة وحدها بعد أن توقف كل عمليات Hermes بنفسك — أما العملية التي يكتشفها الفحص فيُرفض التنفيذ دائمًا بوجودها. ويُرفض أيضًا تفعيل WAL حين يكون المخزن على نظام ملفات مشترك بين VMs (virtiofs/9p)، حيث تؤدي الذاكرة المشتركة لـ WAL إلى تلف صامت.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="importing-sessions-from-claude-code-and-codex-cli">استيراد الجلسات من Claude Code و Codex CLI</h2>
 <p>بدأت محادثة في CLI وكيل آخر؟ يمكنك سحبها إلى Hermes
 ومتابعتها هنا. يقرأ Hermes سجلات جلسات Claude Code
 (<code>~/.claude/projects/</code>، أو <code>$CLAUDE_CONFIG_DIR/projects/</code> عندما يكون دليل إعدادات
 Claude Code منقولًا) و rollouts الخاصة بـ Codex CLI (<code>~/.codex/sessions/</code>، أو
 <code>$CODEX_HOME/sessions/</code>) — تُقرأ الملفات الأجنبية فقط، ولا تُعدَّل أبدًا.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="33"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
 <p>ينشئ <code>hermes sessions import</code> جلسة Hermes جديدة معنونة
 <code>Imported from Claude Code: &lt;first user message&gt;</code> (أو Codex CLI) ويطبع
 المعرّف بالإضافة إلى أمر <code>hermes --resume &lt;id&gt;</code> جاهز للصق.
@@ -26,7 +31,7 @@ profile المحدَّد. التصفح لا يكتب أبدًا إلى مخزن 
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="four-calling-shapes">أربعة أشكال استدعاء</h3>
 <p>تستدل الأداة على ما تريده من الوسائط التي تضبطها. لا يوجد وسيط <code>mode</code>.</p>
 <p><strong>1. الاكتشاف — مرّر <code>query</code>:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="34"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
 <p>يُشغِّل FTS5، ويزيل التكرار حسب نسب الجلسة، ويُعيد أفضل N جلسة. يستخدم الاكتشاف تفصيلًا تكيّفيًا افتراضيًا: تتضمن أعلى النتائج تصنيفًا نافذة سياقها الكاملة وأطرافها، بينما تبقى النتائج الأدنى تصنيفًا مُضغَّطة. مرّر <code>detail=&quot;full&quot;</code> لتفصيل كل نتيجة بالكامل.</p>
 <p>تحمل كل نتيجة:</p>
 <ul>
@@ -39,7 +44,7 @@ profile المحدَّد. التصفح لا يكتب أبدًا إلى مخزن 
 </ul>
 <p>تعيد النتيجة الأولى بناء الهدف → المطابقة → الحل فورًا. إذا بدت نتيجة مختصرة أخرى أرجح فائدةً، فاستخدم معرّفي جلستها ورسالتها مع شكل التمرير. الزمن الفعلي المعتاد عشرات المللي ثانية على قاعدة بيانات جلسات حقيقية.</p>
 <p><strong>2. التمرير — مرّر <code>session_id</code> + <code>around_message_id</code>:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="35"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
 <p>يُعيد نافذة من ±<code>window</code> رسالة تتمحور حول الأنكر. لا FTS5، لا أطراف — فقط الشريحة. استخدمه بعد استدعاء اكتشاف عندما تحتاج سياقًا أكثر من النافذة الافتراضية ±5.</p>
 <ul>
 <li>للتمرير <strong>للأمام</strong>: مرّر <code>messages[-1].id</code> مرة أخرى كـ <code>around_message_id</code></li>
@@ -49,10 +54,10 @@ profile المحدَّد. التصفح لا يكتب أبدًا إلى مخزن 
 </ul>
 <p>الزمن الفعلي المعتاد: 1-2 مللي ثانية لكل استدعاء تمرير.</p>
 <p><strong>3. القراءة — مرّر <code>session_id</code> دون أنكر:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="36"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
 <p>يُعيد الجلسة كاملة، أو عرض بداية/نهاية محدود للجلسات الضخمة. يُستخدم هذا الشكل أيضًا لحل رابط <code>@session:&lt;profile&gt;/&lt;id&gt;</code>.</p>
 <p><strong>4. التصفح — بلا وسائط:</strong></p>
-<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="37"></x-keep></div></div>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
 <p>يُعيد الجلسات الأخيرة زمنيًا (العناوين، المعاينات، الطوابع الزمنية). مفيد عندما يسأل المستخدم &quot;على ماذا كنت أعمل&quot; دون تسمية موضوع.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="fts5-query-syntax">صياغة استعلام FTS5</h3>
 <p>يدعم وضع الكلمات المفتاحية صياغة استعلام FTS5 القياسية:</p>
@@ -88,7 +93,7 @@ profile المحدَّد. التصفح لا يكتب أبدًا إلى مخزن 
 </ul>
 <p><code>/stop</code> يعني &quot;أوقف ما يعمل في هذه المحادثة&quot;: يجرّب أولًا مفتاح جلسة المستدعي نفسه، ثم أي دور حي في هذه المحادثة — بما فيه تشغيلات المشاركين الآخرين داخل thread المستدعي — مع مراعاة التفويض، ولا يصل أبدًا إلى غرفة أو مساحة عمل أو profile آخر. لذا يمكن لأمر <code>/stop</code> من أليس غير النشطة إنهاء دور بدأه بوب (أو بوت) في الغرفة التي توجد فيها. نطاق أمر <code>/stop</code> المرسَل من <em>داخل</em> thread أضيق: يصل إلى التشغيلات التابعة لتلك الـ thread وإلى تشغيل على مستوى الغرفة لا يشغل خانة thread (شكل الرسائل المباشرة المتتابعة)، لكنه لا يصل أبدًا إلى thread أخرى في القناة نفسها أو إلى تشغيل نظير على المستوى الأعلى ومخصص لكل مُرسل.</p>
 <p>إذا أردت &quot;عقل غرفة&quot; واحدًا مشتركًا بدلًا من ذلك، اضبط:</p>
-<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="38"></x-keep></div></div>
+<div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="39"></x-keep></div></div>
 <p>يُعيد ذلك المجموعات/القنوات إلى جلسة مشتركة واحدة لكل غرفة، مما يحافظ على السياق المحادثي المشترك لكن يشارك أيضًا تكاليف الـ tokens، وحالة المقاطعة، ونمو السياق.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="session-continuity">استمرارية الجلسة</h3>
 <p>لا تُعاد ضبط محادثات gateway بعد الخمول أو عند حد يومي. استخدم <code>/new</code>
@@ -145,7 +150,7 @@ ACP، وموضوع Telegram — وكلها مرتبطة بالمحادثة ال�
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="storage-locations">مواقع التخزين</h2>
 <table><thead><tr><th>ماذا</th><th>المسار</th><th>الوصف</th></tr></thead><tbody><tr><td>قاعدة بيانات SQLite</td><td><code>~/.hermes/state.db</code></td><td>كل البيانات الوصفية للجلسات + الرسائل مع FTS5</td></tr><tr><td>رسائل Gateway</td><td><code>~/.hermes/state.db</code></td><td>SQLite — المخزن الأساسي لكل رسائل الجلسات</td></tr><tr><td>فهرس توجيه Gateway</td><td>جدول <code>gateway_routing</code> في <code>~/.hermes/state.db</code></td><td>يربط مفاتيح الجلسات بمعرّفات الجلسات النشطة (بيانات الأصل الوصفية، أعلام انتهاء الصلاحية)</td></tr><tr><td>مرآة التوجيه القديمة</td><td><code>~/.hermes/sessions/sessions.json</code></td><td>مرآة توافقية إلى الخلف لفهرس التوجيه، تُكتب عندما تكون <code>gateway.write_sessions_json: true</code> (الافتراضي)</td></tr></tbody></table>
 <p>تستخدم قاعدة بيانات SQLite وضع WAL للقرّاء المتزامنين وكاتب واحد، وهو ما يناسب بنية gateway متعددة المنصات جيدًا.</p>
-<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="46"></x-keep></span><code>sessions.json</code> ليس قائمة الجلسات</div><div class="admonitionContent_BuS1"><p>يعيش فهرس توجيه gateway في جدول <code>gateway_routing</code> داخل
+<div class="theme-admonition theme-admonition-warning admonition_xJq3 alert alert--warning"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="47"></x-keep></span><code>sessions.json</code> ليس قائمة الجلسات</div><div class="admonitionContent_BuS1"><p>يعيش فهرس توجيه gateway في جدول <code>gateway_routing</code> داخل
 <code>state.db</code>؛ <code>~/.hermes/sessions/sessions.json</code> <strong>مرآة قديمة</strong> له،
 مُبقاة للتوافق إلى الخلف (عطِّلها بضبط
 <code>gateway.write_sessions_json: false</code>). تربط مفاتيح جلسات المراسلة
@@ -158,7 +163,7 @@ ACP، وموضوع Telegram — وكلها مرتبطة بالمحادثة ال�
 عدم استلام <code>state.db</code> لها — شغّل <code>hermes sessions repair</code> وراقب ظهور تحذير
 <code>⚠ Session store unavailable</code> عند إقلاع CLI، مما يعني أن استمرارية
 SQLite فشلت لذلك التشغيل.</p></div></div>
-<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="47"></x-keep></span>نُسخ JSONL نصية قديمة</div><div class="admonitionContent_BuS1"><p>قد يكون للجلسات المُنشأة قبل أن يصبح state.db أساسيًا ملفات
+<div class="theme-admonition theme-admonition-note admonition_xJq3 alert alert--secondary"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="48"></x-keep></span>نُسخ JSONL نصية قديمة</div><div class="admonitionContent_BuS1"><p>قد يكون للجلسات المُنشأة قبل أن يصبح state.db أساسيًا ملفات
 <code>*.jsonl</code> متبقية في <code>~/.hermes/sessions/</code>. لم تعد تُكتب أو
 تُقرأ بواسطة Hermes. آمن حذفها بعد التحقق من وجود الجلسة
 المقابلة في state.db.</p></div></div>

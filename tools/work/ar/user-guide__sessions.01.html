@@ -75,7 +75,7 @@
 قبل طلب التأكيد.</p>
 <p>تُتخطَّى الجلسات المؤرشفة افتراضيًا؛ مرّر <code>--include-archived</code> لحذفها
 أيضًا.</p>
-<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="45"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لا يحذف التقليم إلا الجلسات <strong>المنتهية</strong> (التي انتهت صراحةً أو أُعيد ضبطها تلقائيًا). ولا تُقلَّم الجلسات النشطة مطلقًا. وتُقلَّم المحادثة التي قسمها الضغط إلى عدة جلسات كوحدة واحدة: تبقى مقاطعها القديمة ما دام أي مقطع لاحق باقيًا.</p></div></div>
+<div class="theme-admonition theme-admonition-info admonition_xJq3 alert alert--info"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><x-keep id="46"></x-keep></span>معلومة</div><div class="admonitionContent_BuS1"><p>لا يحذف التقليم إلا الجلسات <strong>المنتهية</strong> (التي انتهت صراحةً أو أُعيد ضبطها تلقائيًا). ولا تُقلَّم الجلسات النشطة مطلقًا. وتُقلَّم المحادثة التي قسمها الضغط إلى عدة جلسات كوحدة واحدة: تبقى مقاطعها القديمة ما دام أي مقطع لاحق باقيًا.</p></div></div>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="bulk-archive-sessions">أرشفة الجلسات بالجملة</h3>
 <p>إذا أردت إبعاد الجلسات عن قوائمك دون حذف أي شيء،
 يأخذ <code>hermes sessions archive</code> نفس فلاتر <code>prune</code> لكنه يُخفي
@@ -97,6 +97,17 @@
 <p>المُخرَج:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="28"></x-keep></div></div>
 <p>لتحليلات أعمق — استخدام الـ tokens، تقديرات التكلفة، تفصيل الأدوات، وأنماط النشاط — استخدم <a href="/docs/reference/cli-commands#hermes-insights"><code>hermes insights</code></a>.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="refresh-prompts-after-a-profile-update">تحديث الـ prompts بعد تعديل الـ profile</h3>
+<p>ترسل الجلسة المستمرة نفس system prompt في كل دور، وهو البايتات نفسها التي بنتها في دورها الأول. وثبات هذه البايتات هو ما يتيح للمزوّد إعادة استخدام cache الـ prompt عبر محادثة طويلة. والأثر الجانبي: أن التغييرات في <code>SOUL.md</code> أو المهارات المثبّتة أو المعدّلة أو ملفات سياق المشروع (<code>AGENTS.md</code> وأخواتها) لا تصل إلى جلسة تعمل بالفعل. وإعادة تشغيل gateway لا تغيّر ذلك، لأن gateway يستعيد الـ prompt المخزَّن لكل جلسة. وحتى الآن كانت الطريقة الوحيدة هي <code>/new</code>، وهي تُسقط المحادثة أيضًا.</p>
+<p>بعد تحديث مصادر الـ prompt في profile، اطلب من جلساته تبنّيها:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<p>يسجّل الأمر طلب تحديث في <code>state.db</code> الخاصة بالـ profile ويطبع عدد الجلسات التي تحمل prompt مخزَّنًا. وفي الدور التالي لكل جلسة، يعيد Hermes بناء system prompt من المصادر الحالية ثم يرسل الرسالة. ويبقى سجل المحادثة ومعرّف الجلسة وقائمة أدواتها كما هي. ويُحفظ الـ prompt المعاد بناؤه، فيعيد كل دور لاحق استخدامه بايتًا ببايت.</p>
+<ul>
+<li><strong>التكلفة:</strong> تتحمل كل جلسة محدَّثة إخفاقًا واحدًا في cache الـ prompt، في الدور الذي يعيد البناء. وتعود الأدوار اللاحقة إلى التخزين المؤقت.</li>
+<li><strong>لا حاجة إلى إعادة تشغيل:</strong> يُقرأ الطلب في بداية كل دور، سواء لدى الوكلاء الذين يبقيهم gateway في الذاكرة أو الذين يستعيدهم من قاعدة البيانات. كما أنه يصمد عبر عمليات إعادة التشغيل. شغّله بعد وضع الملفات الجديدة في مكانها: يمكن لسكربت التحديث استدعاؤه قبل استبدال gateway أو بعده.</li>
+<li><strong>ما الذي يُعاد بناؤه:</strong> يمر system prompt كاملًا عبر المُنشئ (builder) المعتاد، فتلتقط كتل الذاكرة و<code>USER.md</code> أحدث حالة محفوظة لها في ذلك الدور. ولا تتغير تعريفات الأدوات. أما الجلسة التي بدأت بعد الطلب فلديها الـ prompt الجديد أصلًا ولا تعيد البناء مرة أخرى.</li>
+<li><strong>بدون الأمر</strong> لا يتغير شيء: تواصل الجلسات إعادة تشغيل الـ prompt المخزَّن كما كان.</li>
+</ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="repair-stranded-gateway-sessions">إصلاح جلسات gateway العالقة</h3>
 <p>إذا &quot;قفزت محادثة gateway إلى الوراء في الزمن&quot; بعد إعادة تشغيل — فاستأنفت
 موضوعًا عمره أيام كما لو أن الرسائل الأخيرة لم تحدث أبدًا — فقد تكون
@@ -106,7 +117,7 @@
 <p>يجد <code>hermes sessions repair-routing</code> صفوف الجلسات الحاملة للرسائل دون هوية
 توجيهية ويُعيد ربط كل واحدة بالمحادثة التي تكمّلها —
 لكن فقط عندما تكون الأدلة قاطعة:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="29"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
 <p>قواعد الأدلة:</p>
 <ul>
 <li><strong>النسب (lineage)</strong> — يشير <code>parent_session_id</code> الخاص باليتيمة إلى صف مُفهرَس من
@@ -128,7 +139,7 @@
 بحفظ system prompt ذي toolset مختزلة لوكيل صيانة منفصل فوق الجلسة الحية. وبعد تثبيت الإصلاح الجذري في PR #122825، استخدم
 <code>hermes sessions repair-prompts</code> للعثور على الصفوف التي تدهورت بالفعل.</p>
 <p>الفحص متحفظ: لا يقترح إصلاحًا إلا عندما يفتقد الـ prompt المخزّن سطر إرشادات <code>skill_manage</code> <strong>و</strong> يحتوي تثبيت <code>tools[]</code> المحفوظ على <code>skill_manage</code> (الذي يُصدر تلك الإرشادات دائمًا). أما الصفوف التي لا تملك تثبيتًا مقروءًا، أو ذات تثبيت خاص بـ <code>memory</code> وحدها (وهو أيضًا إعداد مشروع من نوع <code>toolsets: [memory]</code>)، فتُبلَّغ بوصفها <strong>غير قابلة للتحقق</strong> ولا يغيّرها هذا الفحص؛ امسحها صراحةً بواسطة <code>SESSION_ID</code> عند الحاجة. ويصبح الصف الخاص بالذاكرة وحدها قابلًا للإصلاح من تلقاء نفسه أيضًا: فبعد استئناف الجلسة، يعيد تثبيتُ <code>tools[]</code> تثبيتَ مجموعة الأدوات الكاملة، ثم يرى الفحص <code>skill_manage</code> دون سطر الإرشادات ذاك فيمسحه.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="30"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
 <p>يخزّن مسح الـ prompt القيمة NULL عمدًا؛ ويعيد الدور التالي بناء محتوى سليم ويحفظه، مما يسبب تحذيرًا واحدًا متوقعًا
 <code>Stored system prompt ... is null; rebuilding from scratch</code> لكل جلسة مُصلحة. وذلك التحذير نتيجة هذا الإصلاح الصريح، لا دليلًا على تلف جديد.</p>
 <p>لا تشغّل الإصلاح إلا بعد وجود الإصلاح الجذري لـ #122822؛ وإلا قد يؤدي ضغط صيانة لاحق إلى تدهور الصف مجددًا.</p>
@@ -136,14 +147,9 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="repair-state-crossed-between-profiles">إصلاح الحالة المتداخلة بين Profiles</h3>
 <p>يملك كل profile ملف <code>state.db</code>واحدًا، ويسمّي كل مفتاح جلسة gateway الـ profile الذي يملك المحادثة (<code>agent:main:…</code> للـ profile الافتراضي، و
 <code>agent:&lt;name&gt;:…</code> للـ profile المُسمّى). وقد تترك الإصدارات القديمة الاثنين غير متوافقَين — صفوف profile مُسمّى مكتوبة في المخزن الافتراضي، أو جلسة ابنة ترث من صف profile آخر، أو صف توجيه منسوخ إلى مخزن خاطئ، أو موضوع Telegram أو إعداد <code>/voice</code> محفوظ دون profile البوت. وتضع الإصدارات الحالية الحالة الجديدة في الموضع الصحيح؛ ويسوّي <code>hermes sessions repair-profiles</code> ما تداخل بالفعل.</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="31"></x-keep></div></div>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
 <p>ما يجده وما يفعله:</p>
 <table><thead><tr><th>الاكتشاف</th><th>الإصلاح</th></tr></thead><tbody><tr><td><code>profile_name</code> لا يوافق مفتاح جلسة الصف نفسه</td><td>إعادة التسمية استنادًا إلى المفتاح</td></tr><tr><td>صفوف في مخزن profile آخر</td><td>نقلها (مع كل الرسائل) إلى مخزن الـ profile المالك</td></tr><tr><td><code>parent_session_id</code> يشير إلى صف profile آخر</td><td>قطع الرابط؛ وتُحتفَظ هوية الصف نفسه</td></tr><tr><td>صفوف توجيه خارج المخزن الافتراضي (عند تعدد الإرسال)</td><td>نقلها إلى المخزن الافتراضي؛ والأولوية لصف موجود هناك</td></tr><tr><td>صفوف توجيه / عناصر <code>sessions.json</code> لـ profile لم يعد موجودًا</td><td>حذف</td></tr><tr><td>ارتباطات موضوعات Telegram وعناصر الوضع الصوتي التي تفتقد profile البوت</td><td>إعادة تسميتها استنادًا إلى الجلسات التي تحتوي المحادثة</td></tr></tbody></table>
 <p>يُبلَّغ عن حالتين لكن لا تُصلَحان مطلقًا دون تحديد ماهيتهما: صفوف مفتاحها profile غير موجود (أنشئ الـ profile، أو
 <code>hermes profile migrate-identity &lt;old&gt; &lt;new&gt;</code>)، وصفوف <code>agent:main:…</code> داخل مخزن profile مُسمّى. وهذه الأخيرة إما سجل gateway كان يعمل منفردًا لذلك الـ profile (يمنحها<code>--legacy-main rekey</code> مساحة أسماء الـ profile) أو محادثات الـ profile الافتراضي المتسربة عبر كتابة محددة النطاق (يرسلها<code>--legacy-main move</code> إلى المخزن الافتراضي) — ولا تستطيع الصفوف نفسها التمييز بين الحالتين.</p>
 <p><code>--apply</code> يرفض التنفيذ حين يملك gateway أيًا من المخازن (إذ يحتفظ بفهرس التوجيه في الذاكرة وسيكتبه مجددًا)، وإعادة تشغيله آمنة: لا يجد التشغيل الثاني شيئًا.</p>
-<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="convert-the-store-between-wal-and-delete-journal-mode">تحويل المخزن بين وضعَي سجل WAL و DELETE</h3>
-<p><code>database.journal_mode: delete</code> لا ينطبق إلا على قواعد البيانات التي ينشئها Hermes. ولا يُخفَّض إصدار <code>state.db</code> موجود يعمل بالفعل بوضع WAL <strong>مطلقًا</strong> أثناء فتحه — فقد تحتفظ عمليات gateway أو لوحة تحكم أو cron أخرى بـ commits في WAL لم تُثبَّت بنقطة حفظ، وخفض الوضع تحتها يدمر تلك commits — لذا يحتفظ Hermes بـ WAL ويسجّل <code>ERROR</code> واحدًا لكل عملية يخبرك بأن الوضع المضبوط <code>delete</code>
-لم يُطبَّق. والتحويل الذي تنفّذه بنفسك هو:</p>
-<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="32"></x-keep></div></div>
-<p>يرفض الأمر — مع ذكر كل PID وأمر — ما دامت أي عملية تحتفظ بالملف أو بملفاته الجانبية <code>-wal</code>/<code>-shm</code> ، ويبدّل الوضع دون انتظار العمليات الفاتحة (إذا ظهر حامل للملف في الأثناء ترفض SQLite بدل السباق معه)، ويتحقق من أن ترويسة الملف تبلغ عن الوضع الجديد. ويذكّرك بضبط <code>database.journal_mode</code> على القيمة نفسها حين تختلف الإعدادات، لأن الفتح التالي يعيد تطبيق الوضع المضبوط. وفحص العمليات الحاملة محلي (جداول الملفات المفتوحة في Linux/macOS، و Restart Manager في Windows)، لذا لا يستطيع رؤية عملية في حاوية أو VM أخرى تشارك وحدة التخزين. وإذا فشل الفحص نفسه، يرفض الأمر لأنه لا يستطيع إثبات خمول المخزن؛ ويعفي <code>--force</code> هذه الحالة وحدها بعد أن توقف كل عمليات Hermes بنفسك — أما العملية التي يكتشفها الفحص فيُرفض التنفيذ دائمًا بوجودها. ويُرفض أيضًا تفعيل WAL حين يكون المخزن على نظام ملفات مشترك بين VMs (virtiofs/9p)، حيث تؤدي الذاكرة المشتركة لـ WAL إلى تلف صامت.</p>
