@@ -132,8 +132,8 @@ commit من 40 حرفًا. يرفض المحمّل الـ branches والوسو�
 (<code>dangerous</code> يظل مانعًا). راجع التحذيرات؛ ولا تدمج متجاهلًا إياها.</p>
 </li>
 <li>
-<p><strong>تبقى إضافات Desktop داخل حدود SDK.</strong> يعمل ملف <code>desktop/plugin.js</code>
-في renderer الخاص بـ Desktop بكامل صلاحيات التطبيق (يعزل المحمّل
+<p><strong>تبقى إضافات Desktop داخل حدود SDK.</strong> يعمل الملف <code>desktop/plugin.js</code> في
+renderer الخاص بـ Desktop بكامل صلاحيات التطبيق (يعزل المحمّل
 الأخطاء لا القدرات)، لذا لا يجوز للإضافة المُدرَجة إلا استخدام SDK الإضافات:
 لا تعديل لـ prototype كائنات renderer أو المتصفح (<code>Storage.prototype.y =</code>،
 <code>Object.defineProperty(...prototype</code>)، ويتحقق المراجعون من ذلك يدويًا (إذ لا يفحصه
@@ -145,20 +145,24 @@ lint)؛ أما مكتبة مضمّنة تضبط حقولًا على فئات ت�
 (الاستعلام عن عناصر <code>data-slot</code> / <code>data-tour</code> / <code>data-sidebar</code> / <code>data-testid</code>
 من <code>document</code>، أو استخدام MutationObserver على <code>document.body</code>، لإعادة تنسيق
 الواجهة الأساسية أو إخفائها أو النقر عليها أو إعادة كتابتها). يرفض <code>hermes plugins validate</code> هذه الممارسات عند
-القبول (فحص <code>desktop surface</code>)؛ وتطلب الإضافة التي تحتاج قدرة
-لا تتيحها SDK إضافة SDK hook بدلًا من التحايل بالتعديل.</p>
+القبول (فحص <code>desktop surface</code>) ويحذّر المراجع عند استدعاءات الجسر الخام
+<code>window.hermesDesktop</code> وعند تحديد وسوم التطبيق بأي طريقة
+أخرى (<code>[data-slot]</code>، <code>[data-tree-*]</code> في نص CSS أو <code>closest()</code>)؛ أما الإضافة
+التي تحتاج قدرة لا تتيحها SDK فتطلب SDK hook بدلًا من
+التحايل عليها بالتعديل.</p>
 </li>
 <li>
 <p><strong>لا تجاوزات وقت التشغيل لنواة Hermes.</strong> توسّع الإضافة المُدرَجة Hermes فقط
 عبر الواجهات العامة: الـ hooks والـ middleware وprofiles المزوّدين
-وواجهات <code>register_*</code> الأخرى، وخانات Desktop SDK ومساراته. يجب ألا
+وواجهات <code>register_*</code> الأخرى، وخانات Desktop SDK ومساراته. ويجب ألا
 تستبدل الدوال أو الأساليب أو خصائص الوحدات أو القواميس الخاصة في النواة
 أو تغلّفها أو تعيد ربطها في مكانها (<code>AIAgent.&lt;method&gt; = ...</code>، <code>setattr(server, ...)</code>،
-<code>sys.modules[...]</code>، أو الكتابة في جداول وحدة أساسية). تؤدي إضافتان
-تعدّلان نقطة التكامل نفسها إلى تعطيل إحداهما الأخرى بصمت، وقد يعطّلهما
+<code>sys.modules[...]</code>، أو الكتابة في جداول وحدة أساسية). فإضافتان
+تعدّلان نقطة التكامل نفسها تعطّل إحداهما الأخرى بصمت، وقد يعطّلهما
 كل إصدار جديد للنواة. يرفض <code>hermes plugins validate</code> ذلك عند القبول (فحص <code>no core override</code>)، ويحذّر (دون إفشال) عند كل استيراد
-لوحدة أساسية غير موثّقة، مع ذكر الملف والسطر. إذا كان الـ hook الذي تحتاجه غير
-موجود، فافتح issue
+لوحدة أساسية غير موثّقة وعند كل استدعاء لأسلوب خاص في كائن
+أساسي يُمرَّر إليها (<code>db._execute_write(...)</code>)، مع ذكر الملف والسطر. وإذا لم يكن الـ hook الذي تحتاجه
+موجودًا، فافتح issue
 تصفه: نفضّل إضافة نقطة التكامل على إدراج
 تعديل مُرقَّع.</p>
 </li>

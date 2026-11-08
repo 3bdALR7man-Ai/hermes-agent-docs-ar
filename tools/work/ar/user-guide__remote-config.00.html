@@ -1,0 +1,117 @@
+<header><h1>الإعدادات البعيدة</h1></header>
+<p>يستبدل <strong>وضع الإعدادات البعيدة (Remote config mode)</strong> الملف <code>config.yaml</code> بـ config plane: إعدادات كل
+profile هي المستند الذي يحلّه الـ plane لنسخة الوكيل هذه
+ولذلك الـ profile. يبني الـ plane هذا المستند طبقةً فوق طبقة من الإعدادات العامة وإعدادات tenant
+والمجموعة والمالك والوكيل، ويأتي أخيرًا ما يخص الـ profile نفسه. يستطيع المسؤولون
+قفل المفاتيح عند مستوى أعلى، ولا يستطيع الوكيل تغيير أي مفتاح مقفل.</p>
+<p>الإعدادات البعيدة مخصصة لعمليات نشر الأساطيل (fleet deployments)، مثل Hermes Cloud. أما الجهاز الواحد
+الذي يستخدمه مستخدم واحد فينبغي أن يبقى على <code>config.yaml</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="turning-it-on">تفعيلها</h2>
+<p>اضبط ما يلي في بيئة التشغيل، أو في <code>~/.hermes/.env</code>، أو في الملف المُدار
+<code>/etc/hermes/.env</code> (وله الأولوية على الاثنين الآخرين). لا يمكن لقيمة في <code>config.yaml</code>
+أن تحدد الـ backend، لأن الـ backend هو ما يقدّم الإعدادات.</p>
+<table><thead><tr><th>المتغير</th><th>المعنى</th></tr></thead><tbody><tr><td><code>HERMES_CONFIG_BACKEND=remote</code></td><td>استخدام الـ config plane بدلًا من <code>config.yaml</code> (القيمة الافتراضية <code>file</code>).</td></tr><tr><td><code>HERMES_CONFIG_INSTANCE_ID</code></td><td>معرّف هذا الوكيل في الـ plane. يضبطه Hermes Cloud؛ وفي النشر المحلي (on-prem) يضبطه المشغّل عند تسجيل الوكيل. مطلوب.</td></tr><tr><td><code>HERMES_CONFIG_REMOTE_URL</code></td><td>عنوان URL الأساسي للـ plane (القيمة الافتراضية <code>https://config-config.nousresearch.com</code>).</td></tr></tbody></table>
+<p>يصادق الوكيل بصفته الذاتية:</p>
+<ul>
+<li><strong>Hermes Cloud</strong>: رمز الوصول (access token) الخاص بـ Nous الموجود في <code>auth.json</code> الخاص بالـ profile.</li>
+<li><strong>On-prem</strong>: رمز OAuth2 بنمط client-credentials من مزوّد الهوية (identity provider) لديك،
+يُضبط في <code>.env</code> عبر <code>GATEWAY_RELAY_IDP_TOKEN_URL</code>
+و<code>GATEWAY_RELAY_IDP_CLIENT_ID</code> و<code>GATEWAY_RELAY_IDP_CLIENT_SECRET</code>، ويمكن
+إضافة <code>GATEWAY_RELAY_IDP_SCOPE</code> اختياريًا.</li>
+</ul>
+<p>يجب أن تأتي هذه القيم، ومعها متغيرات <code>HERMES_CONFIG_*</code> المذكورة أعلاه، من
+<code>auth.json</code> أو من ملف <code>.env</code> (ملف الـ profile، أو ملف <code>.env</code> الخاص بالمشروع الذي يحمّله أمر Hermes،
+أو الملف المُدار) أو من بيئة العملية (process environment). إذا وفّر مصدر <code>secrets:</code>
+(مثل 1Password أو Bitwarden أو أمر) أيًّا منها، يرفض Hermes
+البدء. وينطبق الحكم نفسه على <code>HERMES_PORTAL_BASE_URL</code> و<code>NOUS_PORTAL_BASE_URL</code> و
+<code>HERMES_SHARED_AUTH_DIR</code> (فهي تحدد المكان الذي يُقرأ منه رمز Cloud ويُرسل إليه).
+وأي عملية متعددة الـ profiles (gateway أو dashboard) تخدم profile يوفّر مصدر
+<code>secrets:</code> فيه أحد هذه الأسماء، ترفض خدمة ذلك الـ profile.</p>
+<p>عملية Hermes التي تبدأ لـ profile آخر (عامل <code>hermes -p &lt;name&gt;</code>، أو عملية فرعية خاصة بمهام cron أو بوت
+لأحد الـ profiles) تحتفظ بإعدادات النشر <code>HERMES_CONFIG_*</code> الخاصة
+بالعملية التي بدأتها، ولذلك تقرأ إعدادات ذلك الـ profile من الـ plane أيضًا.
+لكنها لا ترث بيانات اعتماد الـ plane: ففي النشر المحلي، ضع قيم
+<code>GATEWAY_RELAY_IDP_*</code> في مكان يقرأه كل profile (الملف المُدار
+<code>/etc/hermes/.env</code>) أو في <code>.env</code> الخاص بكل profile. وبدون ذلك تنتهي العملية
+بخطأ بدلًا من قراءة ملف محلي.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="what-changes">ما الذي يتغير</h2>
+<ul>
+<li>
+<p><strong>يجلب بدء التشغيل الإعدادات ويفشل بإغلاق آمن (fail closed).</strong> تجلب كل عملية Hermes (gateway
+وdashboard وCLI والعمليات الفرعية للطرفية) إعدادات الـ profile الخاص بها عند
+تحميل <code>.env</code>. إذا تعذّر الوصول إلى الـ plane بعد نحو 30 ثانية من
+إعادة المحاولة، أو رفض الوكيل، تنتهي العملية بخطأ. ولا ترجع أبدًا
+إلى ملف محلي أو إلى القيم الافتراضية.</p>
+</li>
+<li>
+<p><strong>لا يوجد ملف إعدادات محلي.</strong> لا يُقرأ <code>config.yaml</code> ولا يُكتب، ولا
+يوجد cache محلي. تحتفظ العملية الجارية بآخر إعدادات جلبتها
+في الذاكرة. وإذا أصبح الـ plane غير متاح أثناء عمل Hermes، تحتفظ العملية
+بإعداداتها في الذاكرة وتعيد المحاولة عند الاستعلام الدوري (poll) التالي.</p>
+</li>
+<li>
+<p><strong>تصل التغييرات عبر الاستعلام الدوري.</strong> تتحقق كل عملية من وجود تغييرات كل 5
+دقائق. والتغيير الذي يُجرى في الـ plane يصل إلى الوكيل العامل خلال فترة
+واحدة.</p>
+</li>
+<li>
+<p><strong>تُكتب التغييرات في مستوى الـ profile نفسه.</strong> الأمر <code>hermes config set</code> والأمر <code>/model</code>
+ولوحة التحكم (dashboard) وكل كاتب إعدادات آخر، كلها ترسل المفاتيح التي تغيّرت فقط،
+مع حماية من التعديلات المتزامنة. وإذا غيّرت عملية أخرى الـ profile
+في الأثناء، يعيد Hermes قراءته ويطبّق تغييره وحده فوق ذلك، دون
+التراجع عن تغيير العملية الأخرى. وحذف مفتاح يحذفه من مستوى الـ profile فقط:
+فإن كان مستوى أعلى يضبطه أيضًا، تبقى تلك القيمة سارية، وينبّهك
+Hermes إلى ذلك.</p>
+</li>
+<li>
+<p><strong>تُرفض المفاتيح المقفلة.</strong> الأمر <code>hermes config set</code> (وأي إعداد يُغيَّر
+في TUI أو في تطبيق سطح المكتب، بما في ذلك إعدادات الـ prompt وعرض الاستدلال (reasoning)
+ووضع التفاصيل) على مفتاح مقفل يبلّغ بالمستوى الذي يقفله
+ولا يغيّر شيئًا. وعند حفظ مستند كامل، تُستبعد المفاتيح المقفلة،
+ويطبع Hermes ملاحظة تسردها.</p>
+</li>
+<li>
+<p><strong>تبقى الأسرار خارج الـ plane.</strong> المفتاح ذو الطابع السري مثل <code>api_key</code>
+لا يقبل إلا مرجعًا بصيغة <code>${VAR}</code>، ولا يقبل السر نفسه أبدًا. ضع القيمة في
+<code>.env</code> أو في مصدر أسرار واضبط المرجع:</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>
+</li>
+<li>
+<p><strong><code>secrets:</code> يأتي من الـ plane</strong> كأي مفتاح آخر، ولذلك يستطيع المسؤولون
+إدارة إعدادات مصادر الأسرار وقفلها مركزيًا.</p>
+</li>
+<li>
+<p><strong>تُنفَّذ ترحيلات المخطط (schema migrations) في الذاكرة.</strong> المستند الذي كتبه إصدار أقدم من Hermes
+يُرحَّل عند قراءته، ولا تُكتب النتيجة مرة أخرى. وأي كتابة لاحقة
+من إصدار أحدث من Hermes تُبقي إصدار المخطط المخزَّن للـ profile ما لم تكن
+البيانات حديثة أصلًا، بحيث يرحّلها كل قارئ لاحق. هذه
+الترحيلات في الذاكرة تغيّر مستند الإعدادات فقط: أما الخطوات التي
+ترتّب الملفات المحلية أيضًا (مثل إزالة قسم متقاعد من <code>SOUL.md</code>، أو مسح القيم
+القديمة من <code>.env</code>) فلا تُنفَّذ في الوضع البعيد. ولهذا السبب نفسه،
+يُرفض ضبط قيمة تعيد إحدى تلك الترحيلات كتابتها (مثلًا
+<code>compression.threshold_tokens: 256000</code>، وهي قيمة افتراضية قديمة، على profile
+مخزَّن بمخطط أقدم) برسالة تسمّي المفتاح: إذ ستُحفظ ثم لا تُقرأ
+مرة أخرى أبدًا.</p>
+</li>
+<li>
+<p><strong>المفاتيح غير المعروفة</strong> في المستند المجلوب تُتجاهل مع تحذير، مثل
+مفتاح أضافه إصدار أحدث من Hermes.</p>
+</li>
+</ul>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="managed-scope">النطاق المُدار</h2>
+<p>الملف <code>/etc/hermes/config.yaml</code> (راجع <a href="/docs/user-guide/managed-scope">النطاق المُدار</a>)
+<strong>يُتجاهل</strong> في الوضع البعيد: فالإعدادات والأقفال تأتي من الـ plane فقط. يحذّر Hermes
+عند بدء التشغيل، ويشير الأمر <code>hermes doctor</code> إلى وجود الملف. أما الملف المُدار
+<code>/etc/hermes/.env</code> فيظل ساريًا.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="commands-that-work-on-the-config-file">الأوامر التي تعمل على ملف الإعدادات</h2>
+<p>تنسخ هذه الأوامر الملف <code>config.yaml</code> أو تعدّله، وهي مرفوضة في الوضع البعيد:</p>
+<ul>
+<li><code>hermes config edit</code> (استخدم <code>hermes config set</code> بدلًا منه)</li>
+<li>استنساخ الـ profile، وإعادة تسميته (يحتفظ الـ plane بإعدادات الـ profile تحت
+اسمه)، وتثبيت توزيعة profile</li>
+<li><code>hermes backup</code> و<code>hermes import</code> واستعادة اللقطات (snapshot)</li>
+<li><code>hermes gateway --config &lt;file&gt;</code></li>
+</ul>
+<p>يعرض الأمر <code>hermes doctor</code> الـ backend بدلًا من الملف: عنوان URL للـ plane، و
+الـ profile، وإصدار مستوى الـ profile، وعدد الأقفال، ووقت آخر
+جلب للإعدادات.</p>

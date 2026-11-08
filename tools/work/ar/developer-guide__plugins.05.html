@@ -1,3 +1,16 @@
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="handle-slack-block-kit-button-clicks">معالجة نقرات أزرار Slack Block Kit</h3>
+<p>يمكن للإضافات التي تنشر رسائل Block Kit تحتوي على عناصر تفاعلية (أزرار، وقوائم overflow، ومنتقيات التاريخ، وغيرها) تسجيل معالجات النقر مباشرةً لدى Slack adapter — دون الحاجة إلى تعديل <code>slack_bolt.AsyncApp</code> وقت التشغيل (monkey-patching).</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="66"></x-keep></div></div>
+<p><strong>التوقيع (Signature):</strong> <code>ctx.register_slack_action_handler(action_id, callback) -&gt; None</code></p>
+<table><thead><tr><th>المعامل</th><th>النوع</th><th>الوصف</th></tr></thead><tbody><tr><td><code>action_id</code></td><td><code>str | re.Pattern | dict</code></td><td>أي قيمة يقبلها <code>slack_bolt.App.action()</code>: قيمة <code>action_id</code> حرفية، أو تعبير regex مُصرَّف يطابق عدة معرّفات، أو قاموس قيود مثل <code>{&quot;action_id&quot;: &quot;...&quot;, &quot;block_id&quot;: &quot;...&quot;}</code></td></tr><tr><td><code>callback</code></td><td>كائن قابل للاستدعاء غير متزامن (async callable)</td><td>يستقبل <code>(ack, body, action)</code> وفق اصطلاح slack_bolt</td></tr></tbody></table>
+<p><strong>السلوك وقت التشغيل:</strong></p>
+<ul>
+<li>يُوضع المعالج في قائمة الانتظار وقت تحميل الإضافة، ويُربط بـ <code>slack_bolt.AsyncApp</code> الخاص بالـ adapter عند اتصال منصة Slack.</li>
+<li>تُغلَّف كل دالة رد نداء بشكل وقائي: إذا أطلق معالجك استثناءً، يسجّل gateway الخطأ ويُقرّ باستلام النقرة (ack) بأفضل جهد كي يتوقف Slack عن إعادة المحاولة.</li>
+<li>تنطبق قواعد slack_bolt المعتادة — نفّذ <code>await ack()</code> خلال 3 ثوانٍ، ثم أنجز العمل الأطول.</li>
+<li>في عمليات النشر متعددة مساحات العمل (workspaces)، يُطلَق المعالج عند النقر من أي مساحة عمل متصلة؛ استخدم <code>body[&quot;team&quot;][&quot;id&quot;]</code> إذا احتجت إلى تقييد السلوك بنطاق معيّن.</li>
+</ul>
+<p>هذه هي الطريقة العامة لمشاركة الإضافات في تفاعلية Slack. قد تعدّل الإضافات الأقدم <code>SlackAdapter.connect</code> مباشرةً؛ فضّل هذه الواجهة بدلًا من ذلك. وللوصول إلى كامل إمكانات slack_bolt (الأحداث والاختصارات والأوامر — وليس إجراءات Block Kit فحسب)، استخدم الدالة العامة <code>register_platform_handler(&quot;slack&quot;, ...)</code> الموضّحة أدناه.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="register-native-platform-handlers-any-platform">تسجيل معالجات المنصة الأصلية (أي منصة)</h3>
 <p>يمكن للإضافات التي تحتاج إلى استقبال أحداث منصة لا يوجّهها الـ adapter الأساسي — أنواع تحديثات إضافية، ودوال رد نداء الأزرار الأصلية، وأحداث التفاعلات/الأعضاء، ومسارات webhook — أن تسجّل مصنع معالجات (handler factory) يستدعيه adapter المنصة وقت الاتصال. يعمل ذلك على <strong>كل</strong> منصات gateway.</p>
 <div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="67"></x-keep></div></div>

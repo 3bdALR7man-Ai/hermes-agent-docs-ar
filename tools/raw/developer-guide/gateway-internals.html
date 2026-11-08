@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Gateway Internals | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Gateway Internals | Hermes Agent"><meta data-rh="true" name="description" content="How the messaging gateway boots, authorizes users, routes sessions, and delivers messages"><meta data-rh="true" property="og:description" content="How the messaging gateway boots, authorizes users, routes sessions, and delivers messages"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/developer-guide/gateway-internals" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Gateway Internals","item":"https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
-<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.32e5b8f8.js" defer="defer"></script>
+<script src="/docs/assets/js/main.e2118a44.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -514,6 +514,12 @@ async completions remain durable delivery rows, never autonomous new model turns
 acceptance. Refused admission refunds every claimed batch sibling without spending an attempt;
 actual delivery errors keep their bounded retry policy. Recognized raw API routes resolve after
 persisted messaging origins and defer quietly when unavailable; malformed routes still warn.</p>
+<p>Completions that land while the session is busy fold into ONE queued turn
+(<code>session_automation.py::_admit_folded_completion</code>): a completion whose route already has a
+completion waiting at the very end of the FIFO replaces it with a combined admission (both texts,
+every producer identity, a &quot;N background process results&quot; header), cancelling the waiting row in
+the same transaction. Only the tail folds, so a prompt queued after a completion keeps its place
+between them; a waiting row claimed first leaves the new completion to queue alone.</p>
 <p>Cron execution has its own session. Eligible continuable deliveries may mirror or seed the
 reply-facing conversation: origin, origin-less home fallback, user-written bare-platform home,
 or opted-in explicit targets. <code>all</code> expansions do not gain home mirror eligibility. Mirrored

@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Kanban (Multi-Agent Board) | Hermes Agent</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" name="twitter:image" content="https://hermes-agent.nousresearch.com/docs/img/hermes-agent-banner.png"><meta data-rh="true" property="og:url" content="https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" property="og:locale:alternate" content="zh_Hans"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Kanban (Multi-Agent Board) | Hermes Agent"><meta data-rh="true" name="description" content="Durable SQLite-backed task board for coordinating multiple Hermes profiles"><meta data-rh="true" property="og:description" content="Durable SQLite-backed task board for coordinating multiple Hermes profiles"><link data-rh="true" rel="icon" href="/docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban" hreflang="en"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/zh-Hans/user-guide/features/kanban" hreflang="zh-Hans"><link data-rh="true" rel="alternate" href="https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban" hreflang="x-default"><link data-rh="true" rel="preconnect" href="https://2JLBVEYZN5-dsn.algolia.net" crossorigin="anonymous"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Kanban (Multi-Agent Board)","item":"https://hermes-agent.nousresearch.com/docs/user-guide/features/kanban"}]}</script><link rel="search" type="application/opensearchdescription+xml" title="Hermes Agent" href="/docs/opensearch.xml"><link rel="stylesheet" href="/docs/assets/css/styles.f4723b1a.css">
-<script src="/docs/assets/js/runtime~main.2220f568.js" defer="defer"></script>
-<script src="/docs/assets/js/main.0b0023dc.js" defer="defer"></script>
+<script src="/docs/assets/js/runtime~main.32e5b8f8.js" defer="defer"></script>
+<script src="/docs/assets/js/main.e2118a44.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -705,11 +705,16 @@ ledger also pauses reclaim. Once that bound interpreter is itself dead, nothing 
 still be running the attempt, so the crash sweep reclaims it like any dead worker:
 the run closes as crashed and the card returns to <code>ready</code> (or <code>review</code>) under the
 normal crash budget, which can re-execute effects the lost attempt already had.
-Resolve an unknown admission explicitly using <code>prompt.resolve_unknown</code> with its
-admission ID and execution generation. This acknowledges uncertainty; it does
-<strong>not</strong> authorize another Kanban attempt. Inspect the effects, then explicitly
-complete or block the card; unblock a blocked card only when a new attempt is
-intended. Confirmed timeouts and provider rate-limit results retain their ordinary
+A run that never bound an interpreter is released the same way once its owner has
+settled the admission (a lost card attempt&#x27;s admission settles <code>interrupted</code>):
+when every worker pid recorded for the run is dead, or, with none recorded, once
+its claim has expired, the run closes as crashed (reclaimed if its claim had already
+lapsed) and the card returns to <code>ready</code>
+under the same crash budget. Resolving an unknown admission explicitly
+(<code>prompt.resolve_unknown</code> with its admission ID and execution generation) settles
+it the same way, so it can lead to another attempt. To avoid that, inspect the
+effects and complete or block the card first; unblock a blocked card only when a
+new attempt is intended. Confirmed timeouts and provider rate-limit results retain their ordinary
 retry/failure-accounting behavior.</p>
 <p>A task is a logical unit of work; a <strong>run</strong> is one attempt to execute it. When the dispatcher claims a ready task it creates a row in <code>task_runs</code> and points <code>tasks.current_run_id</code> at it. When that attempt ends — completed, blocked, crashed, timed out, spawn-failed, reclaimed — the run row closes with an <code>outcome</code> and the task&#x27;s pointer clears. A task that&#x27;s been attempted three times has three <code>task_runs</code> rows.</p>
 <p>Why two tables instead of just mutating the task: you need <strong>full attempt history</strong> for real-world postmortems (&quot;the second reviewer attempt got to approve, the third merged&quot;), and you need a clean place to hang per-attempt metadata — which files changed, which tests ran, which findings a reviewer noted. Those are run facts, not task facts.</p>

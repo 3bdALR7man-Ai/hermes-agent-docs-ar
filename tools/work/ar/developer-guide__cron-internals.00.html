@@ -1,11 +1,29 @@
 <header><h1>آلية عمل Cron من الداخل</h1></header>
 <p>يوفّر النظام الفرعي cron تنفيذ المهام المجدولة — بدءًا من التأخيرات البسيطة لمرة واحدة وصولًا إلى المهام المتكررة بتعبيرات cron مع حقن المهارات والتسليم عبر المنصات المختلفة.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="key-files">الملفات الرئيسية</h2>
-<table><thead><tr><th>الملف</th><th>الغرض</th></tr></thead><tbody><tr><td><code>cron/jobs.py</code></td><td>نموذج المهمة، والتخزين، والقراءة والكتابة الذرية (atomic) في <code>jobs.json</code></td></tr><tr><td><code>cron/scheduler.py</code></td><td>حلقة المجدول — كشف المهام المستحقة، والتنفيذ، وتتبّع التكرار</td></tr><tr><td><code>tools/cronjob_tools.py</code></td><td>تسجيل أداة <code>cronjob_manage</code> الموجّهة للنموذج ومعالجها</td></tr><tr><td><code>gateway/run.py</code></td><td>التكامل مع الـ gateway — نبضات cron داخل الحلقة طويلة الأمد</td></tr><tr><td><code>hermes_cli/cron.py</code></td><td>الأوامر الفرعية <code>hermes cron</code> في CLI</td></tr></tbody></table>
+<table><thead><tr><th>الملف</th><th>الغرض</th></tr></thead><tbody><tr><td><code>cron/jobs.py</code></td><td>نموذج المهمة، والتخزين، والقراءة والكتابة الذرية (atomic) في <code>jobs.json</code></td></tr><tr><td><code>cron/jobs_time.py</code></td><td>خيارا <code>timezone</code> / <code>grace_minutes</code> لكل مهمة: التحقق، والقراءة المتسامحة، ومنطقة فحص المهام المستحقة</td></tr><tr><td><code>cron/scheduler.py</code></td><td>حلقة المجدول — كشف المهام المستحقة، والتنفيذ، وتتبّع التكرار</td></tr><tr><td><code>tools/cronjob_tools.py</code></td><td>تسجيل أداة <code>cronjob_manage</code> الموجّهة للنموذج ومعالجها</td></tr><tr><td><code>gateway/run.py</code></td><td>التكامل مع الـ gateway — نبضات cron داخل الحلقة طويلة الأمد</td></tr><tr><td><code>hermes_cli/cron.py</code></td><td>الأوامر الفرعية <code>hermes cron</code> في CLI</td></tr></tbody></table>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="scheduling-model">نموذج الجدولة</h2>
 <p>تُدعم أربع صيغ للجدولة:</p>
 <table><thead><tr><th>الصيغة</th><th>مثال</th><th>السلوك</th></tr></thead><tbody><tr><td><strong>تأخير نسبي</strong></td><td><code>30m</code> ، <code>2h</code> ، <code>1d</code></td><td>لمرة واحدة، تُطلق بعد انقضاء المدة المحددة</td></tr><tr><td><strong>فاصل زمني</strong></td><td><code>every 2h</code> ، <code>every 30m</code></td><td>متكررة، تُطلق على فترات منتظمة</td></tr><tr><td><strong>تعبير Cron</strong></td><td><code>0 9 * * *</code></td><td>صيغة cron القياسية ذات الحقول الخمسة (الدقيقة، الساعة، اليوم، الشهر، يوم الأسبوع)</td></tr><tr><td><strong>طابع زمني ISO</strong></td><td><code>2025-01-15T09:00:00</code></td><td>لمرة واحدة، تُطلق في الوقت المحدد تمامًا</td></tr></tbody></table>
-<p>الواجهة الموجّهة للنموذج أداة واحدة هي <code>cronjob_manage</code> ، وتوفّر عمليات على نمط الإجراءات: <code>create</code> ، <code>list</code> ، <code>update</code> ، <code>pause</code> ، <code>resume</code> ، <code>run</code> ، <code>remove</code>.</p>
+<p>الواجهة الموجّهة للنموذج هي أداة واحدة <code>cronjob_manage</code> بعمليات على نمط الإجراءات: <code>create</code> و<code>list</code> و<code>update</code> و<code>pause</code> و<code>resume</code> و<code>run</code> و<code>remove</code>.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="per-job-timezone">المنطقة الزمنية لكل مهمة</h2>
+<p>تحدّد <code>compute_next_run(schedule, last_run_at, *, timezone=...)</code> المنطقة الزمنية بالترتيب <em>تثبيت المهمة → <code>timezone</code>
+الخاص بالـ profile → الإزاحة الأساسية</em>، و<strong>كل</strong> مستدعٍ يقدّم <code>next_run_at</code> يمرّر تثبيت المهمة
+(مواضع التقديم، ومسار الاستحواذ (claim)، واستئناف المهمة/إعادة تسليحها، ومسارات الاسترداد، ومخطِّطات
+الحصة/تعذّر الوصول). أي موضع يُغفَل يظهر على شكل إعادة تشغيل دفعة واحدة أو تخطّي موعد، لأن اللحظة
+المخزّنة والتعبير ستُفسَّر في منطقتين زمنيتين مختلفتين.</p>
+<p>يحتاج مسار الإرسال (dispatch) إلى التثبيت بقدر ما يحتاجه الحساب. تبني <code>_evaluate_due_job</code>
+الكائن <code>_DueJob</code> الخاص بها عبر <code>_ensure_aware(raw, zone_for_job(job))</code>، ما يمنح كل شرط لاحق
+ساعة المهمة؛ والمهمة ذات المنطقة المثبّتة <strong>تتخطى <code>_repair_timezone_shifted_cron</code> بالكامل</strong>. هذا
+الإصلاح موجود للمهام التي تتبع منطقة الـ profile عند تغيّر المنطقة: أما بالنسبة إلى المهمة المثبّتة فإن
+الإزاحة المخزّنة تختلف بشكل مشروع عن إزاحة الـ profile، ومقارنة الوقت الفعلي في الإصلاح
+(<code>_stored_wall_clock_is_future</code>) تقرأ حينها موعدًا مستحقًا على أنه ما زال في المستقبل وتعيد تثبيته
+على الموعد التالي، فلا تُنفَّذ المهمة أبدًا ودون أي إشعار. ولهذا فإن إصلاح <code>compute_next_run</code> وحده
+لا يكفي.</p>
+<p><code>timezone</code> و<code>grace_minutes</code> حقلان في المستوى الأعلى من السجل (وليسا داخل <code>schedule</code>)، ويتحقق منهما
+<code>jobs_time.normalize_*</code> عند بابي الإنشاء والتحديث كليهما. القيمة المحفوظة التالفة تتراجع إلى
+منطقة الـ profile مع تحذير واحد لكل قيمة — فلا يجوز أن يتعطل فحص الـ 60 ثانية بسبب سجل تالف واحد. لا حاجة
+إلى ترحيل (migration): فالمفتاحان غير موجودين ببساطة في المخازن الأقدم، وكل قارئ يستخدم <code>.get()</code>.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="job-storage">تخزين المهام</h2>
 <p>تُخزَّن المهام في <code>~/.hermes/cron/jobs.json</code> بدلالات كتابة ذرية (الكتابة في ملف مؤقت، ثم إعادة تسميته). يحتوي سجل كل مهمة على:</p>
 <div class="language-json codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><x-keep id="0"></x-keep></div></div>

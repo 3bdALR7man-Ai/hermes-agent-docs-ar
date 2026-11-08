@@ -53,6 +53,12 @@
 <li><strong>متصفح واحد لكل جلسة</strong>، بملف شخصي جديد مؤقت افتراضيًا: يبدأ الوكيل دون تسجيل دخول في أي موقع، ولا يبقى شيء بعد انتهاء الجلسة.</li>
 <li><strong>headless افتراضيًا.</strong> اضبط <code>browser.headed: true</code> للحصول على نافذة مرئية (راجع <a href="#headed-mode-visible-browser-window">أدناه</a><bdi>).</bdi></li>
 <li><strong>تنظيف تلقائي.</strong> يُغلق المتصفح بعد <code>browser.inactivity_timeout</code> ثانية من الخمول (الافتراضي 120)، وعند خروج Hermes، وبواسطة عملية تنظيف العمليات اليتيمة إن تعطّلت عملية.</li>
+<li><strong>المضيفات الخاصة قابلة للوصول.</strong> مع terminal backend محلي، يستطيع Chromium المحلي فتح <code>localhost</code> وعناوين LAN
+أيًّا كانت قيمة <code>security.allow_private_urls</code>: فهو لا يصل إلى شيء لا تصل إليه الطرفية.
+ويُطبَّق حارس العناوين الخاصة عندما يستطيع المتصفح الوصول إلى شبكات لا تصل إليها الطرفية
+(مزوّد سحابي، أو endpoint من <code>/browser connect</code>، أو terminal backend من نوع
+Docker/SSH/Modal). أما عناوين URL الخاصة ببيانات التعريف السحابية <bdi class="term">(cloud-metadata)</bdi> التي يكتبها الوكيل فتُرفض
+دائمًا.</li>
 </ul>
 <p><strong>أي Chromium.</strong> يختار Hermes أول ما يجده من الآتي:</p>
 <ol>
@@ -103,13 +109,25 @@
 إذ يستطيع الوكيل التقاط لقطة شاشة للوحة التحكم لديك على <code>http://localhost:3000</code> وكذلك استخراج بيانات
  <code>https://github.com</code> دون أن تبدّل المزوّدين أو تعطّل حماية SSRF.
 ولا يرى المزوّد السحابي عنوان URL الخاص أبدًا.</p>
-<p>هذه الميزة <strong>مفعّلة افتراضيًا</strong>. لتعطيلها (فتذهب جميع عناوين URL إلى المزوّد السحابي المُعدّ):</p>
+<p>هذه الميزة <strong>مفعّلة افتراضيًا</strong>، ولا يحكمها الإعداد
+<code>security.allow_private_urls</code>: فهذا الإعداد يحمي المتصفح السحابي وأدوات الويب، لكن الـ sidecar يعمل على مضيف Hermes
+ويفتح المضيفات الخاصة حتى مع تعطيله، تمامًا كما يفعل أمر <code>curl http://localhost</code> من
+الطرفية. لذلك يتيح Hermes المستضاف (Docker، أو VPS) للوكيل تصفّح خدمات loopback الخاصة بذلك المضيف
+وشبكته المحلية <bdi class="term">(LAN)</bdi> عبر الـ sidecar. ولرفض عناوين URL الخاصة
+بدلًا من ذلك (فتذهب جميع عناوين URL إلى المزوّد السحابي المُعدّ):</p>
 <div class="language-yaml codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-yaml codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#F8F8F2"><span class="token comment" style="color:rgb(98, 114, 164)"># ~/.hermes/config.yaml</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token key atrule">browser</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"></span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">cloud_provider</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> browserbase</span><br></div><div class="token-line" style="color:#F8F8F2"><span class="token plain">  </span><span class="token key atrule">auto_local_for_private_urls</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token boolean important">false</span><br></div></code></pre></div></div>
 <p>عند تعطيل التوجيه التلقائي، تُرفض عناوين URL الخاصة مع الرسالة
- <code>&quot;Blocked: URL targets a private or internal address&quot;</code> ما لم تضبط أيضًا
- <code>browser.allow_private_urls: true</code> (الذي يسمح للمزوّد السحابي بمحاولة الوصول إليها —
-وهو ما لن ينجح عادةً لأن Browserbase وأمثاله لا يستطيعون الوصول إلى شبكة LAN لديك).</p>
-<p>الـ sidecar هو نفسه Chromium المحلي الموصوف <a href="#local-chromium-default">أعلاه</a>، لذا يحتاج إلى تثبيت ذلك Chromium. ولا تزال عمليات إعادة التوجيه بعد التنقل من URL عام إلى عنوان خاص محظورة (فلا يمكنك استخدام حيلة إعادة التوجيه إلى الداخل للوصول إلى شبكتك المحلية عبر المسار العام).</p>
+<code>&quot;Blocked: URL targets a private or internal address&quot;</code> ما لم تضبط أيضًا
+<code>security.allow_private_urls: true</code> (أو الإعداد القديم <code>browser.allow_private_urls: true</code>)،
+وهو ما يسلّمها إلى المزوّد السحابي — وهذا عادةً عديم الفائدة، لأن Browserbase وأمثاله
+لا يستطيعون الوصول إلى شبكة LAN لديك. أما عناوين URL الخاصة ببيانات التعريف السحابية (<code>169.254.169.254</code>،
+<code>metadata.google.internal</code>) المكتوبة في كود <code>browser_exec</code> أو في URL يجلبه استدعاء CDP خام فتُرفض على
+كل مسار، بما فيه الـ sidecar؛ أما الصفحة التي تعيد التوجيه إلى هناك من تلقاء نفسها فلا تُرفض (راجع
+<a href="../../user-guide/security.html#what-allow_private_urls-covers-and-what-it-doesnt">Security</a><bdi>).</bdi></p>
+<p>الـ sidecar هو نفسه Chromium المحلي الموصوف <a href="#local-chromium-default">أعلاه</a>،
+لذا يحتاج إلى تثبيت ذلك Chromium. ويُحدَّد التوجيه من عناوين URL المكتوبة في
+كود <code>browser_exec</code>: فالصفحة العامة التي تعيد التوجيه لاحقًا إلى عنوان خاص
+تبقى على المتصفح السحابي، الذي لا يستطيع الوصول إلى شبكتك.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="real-profile-browsing-use-your-own-logins">التصفح بالـ profile الحقيقي (استخدم تسجيلات دخولك)<a href="#real-profile-browsing-use-your-own-logins" class="hash-link" aria-label="رابط مباشر إلى التصفح بالـ profile الحقيقي (استخدم تسجيلات دخولك)" title="رابط مباشر إلى التصفح بالـ profile الحقيقي (استخدم تسجيلات دخولك)" translate="no">​</a></h2>
 <p>افتراضيًا، يعمل التصفح المحلي في profile نظيف مؤقت يُتخلّص منه لاحقًا — فالوكيل
 غير مسجّل الدخول في أي شيء. فعّل <strong>التصفح بالـ profile الحقيقي</strong> لتسمح للوكيل بالتصفح
